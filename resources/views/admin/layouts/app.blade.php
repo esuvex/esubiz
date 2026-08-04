@@ -30,14 +30,16 @@
     <!-- Sidebar -->
     <aside
 
-        class="fixed inset-y-0 left-0 z-50
-               w-64
-               bg-slate-900
-               text-white
-               shadow-2xl
-               transition-transform
-               duration-300
-               lg:translate-x-0"
+       class="fixed inset-y-0 left-0 z-50
+       w-64
+       bg-slate-900
+       text-white
+       shadow-2xl
+       overflow-y-auto
+       overflow-x-hidden
+       transition-transform
+       duration-300
+       lg:translate-x-0"
 
         :class="sidebar ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'">
 
