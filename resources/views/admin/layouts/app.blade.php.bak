@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>
+        @yield('title', 'Esubiz Admin')
+    </title>
+
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+</head>
+
+
+<body class="bg-gray-100">
+
+
+<div class="flex min-h-screen">
+
+
+    <aside class="w-72 bg-slate-950 text-white p-6">
+
+
+        <div class="mb-10">
+
+            <h1 class="text-3xl font-bold">
+                Esubiz
+            </h1>
+
+            <p class="text-sm text-slate-400 mt-1">
+                Admin Console
+            </p>
+
+        </div>
+
+
+        <nav class="space-y-2">
+
+
+            <a href="{{ route('admin.dashboard') }}"
+               class="flex items-center px-4 py-3 rounded-lg bg-slate-800 hover:bg-slate-700">
+
+                Dashboard
+
+            </a>
+
+
+            <a href="#"
+               class="flex items-center px-4 py-3 rounded-lg hover:bg-slate-800">
+
+                Users
+
+            </a>
+
+
+            <a href="#"
+               class="flex items-center px-4 py-3 rounded-lg hover:bg-slate-800">
+
+                SaaS Applications
+
+            </a>
+
+
+            <a href="#"
+               class="flex items-center px-4 py-3 rounded-lg hover:bg-slate-800">
+
+                Developers
+
+            </a>
+
+
+            <a href="#"
+               class="flex items-center px-4 py-3 rounded-lg hover:bg-slate-800">
+
+                Payments
+
+            </a>
+
+
+            <a href="#"
+               class="flex items-center px-4 py-3 rounded-lg hover:bg-slate-800">
+
+                Commissions
+
+            </a>
+
+
+            <a href="#"
+               class="flex items-center px-4 py-3 rounded-lg hover:bg-slate-800">
+
+                Settings
+
+            </a>
+
+
+        </nav>
+
+
+    </aside>
+
+
+
+    <main class="flex-1 p-8">
+
+
+        @yield('content')
+
+
+    </main>
+
+
+</div>
+
+
+</body>
+
+</html>
