@@ -15,84 +15,25 @@ return new class extends Migration
 
             $table->id();
 
-            /*
-            |--------------------------------------------------------------------------
-            | Provider
-            |--------------------------------------------------------------------------
-            */
-
             $table->foreignId('payment_provider_id')
                 ->constrained()
                 ->cascadeOnDelete();
-
-            /*
-            |--------------------------------------------------------------------------
-            | Currency
-            |--------------------------------------------------------------------------
-            */
 
             $table->foreignId('currency_id')
                 ->constrained()
                 ->cascadeOnDelete();
 
-            /*
-            |--------------------------------------------------------------------------
-            | Configuration
-            |--------------------------------------------------------------------------
-            */
+            $table->boolean('is_default')->default(false);
 
-            $table->boolean('is_enabled')
-                ->default(true);
-
-            /*
-            |--------------------------------------------------------------------------
-            | Limits
-            |--------------------------------------------------------------------------
-            */
-
-            $table->decimal('minimum_amount', 18, 8)
-                ->nullable();
-
-            $table->decimal('maximum_amount', 18, 8)
-                ->nullable();
-
-            /*
-            |--------------------------------------------------------------------------
-            | Fees
-            |--------------------------------------------------------------------------
-            */
-
-            $table->decimal('fixed_fee', 18, 8)
-                ->default(0);
-
-            $table->decimal('percentage_fee', 8, 4)
-                ->default(0);
-
-            /*
-            |--------------------------------------------------------------------------
-            | Settlement
-            |--------------------------------------------------------------------------
-            */
-
-            $table->foreignId('settlement_currency_id')
-                ->nullable()
-                ->constrained('currencies')
-                ->nullOnDelete();
-
-            /*
-            |--------------------------------------------------------------------------
-            | Audit
-            |--------------------------------------------------------------------------
-            */
+            $table->boolean('is_enabled')->default(true);
 
             $table->timestamps();
 
-            $table->softDeletes();
-
-            $table->unique([
-                'payment_provider_id',
-                'currency_id'
-            ]);
+            // Short index name (MySQL max identifier = 64 chars)
+            $table->unique(
+                ['payment_provider_id', 'currency_id'],
+                'payprov_curr_unique'
+            );
 
         });
     }

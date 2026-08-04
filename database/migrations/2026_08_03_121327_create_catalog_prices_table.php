@@ -15,110 +15,28 @@ return new class extends Migration
 
             $table->id();
 
-            /*
-            |--------------------------------------------------------------------------
-            | Relationships
-            |--------------------------------------------------------------------------
-            */
-
             $table->foreignId('catalog_product_id')
                 ->constrained()
                 ->cascadeOnDelete();
 
             $table->foreignId('billing_period_id')
-                ->nullable()
                 ->constrained()
-                ->nullOnDelete();
+                ->cascadeOnDelete();
 
-            /*
-            |--------------------------------------------------------------------------
-            | Pricing
-            |--------------------------------------------------------------------------
-            */
+            $table->string('billing_model', 50);
 
-            $table->decimal('price', 15, 2)->default(0);
+            $table->decimal('price', 15, 2);
 
-            $table->string('currency', 3)->default('NGN');
-
-            /*
-            |--------------------------------------------------------------------------
-            | Billing Model
-            |--------------------------------------------------------------------------
-            */
-
-            $table->enum('billing_model', [
-
-                'subscription',
-
-                'commission',
-
-                'hybrid',
-
-                'one_time',
-
-                'free'
-
-            ])->default('subscription');
-
-            /*
-            |--------------------------------------------------------------------------
-            | Commission
-            |--------------------------------------------------------------------------
-            */
-
-            $table->decimal('commission_rate', 5, 2)->default(0);
-
-            /*
-            |--------------------------------------------------------------------------
-            | Trial
-            |--------------------------------------------------------------------------
-            */
-
-            $table->boolean('has_trial')->default(false);
-
-            $table->unsignedInteger('trial_days')->default(0);
-
-            /*
-            |--------------------------------------------------------------------------
-            | Availability
-            |--------------------------------------------------------------------------
-            */
-
-            $table->dateTime('starts_at')->nullable();
-
-            $table->dateTime('ends_at')->nullable();
-
-            /*
-            |--------------------------------------------------------------------------
-            | Status
-            |--------------------------------------------------------------------------
-            */
-
-            $table->boolean('is_default')->default(false);
+            $table->decimal('setup_fee', 15, 2)->default(0);
 
             $table->boolean('is_active')->default(true);
 
-            /*
-            |--------------------------------------------------------------------------
-            | Audit
-            |--------------------------------------------------------------------------
-            */
-
             $table->timestamps();
 
-            $table->softDeletes();
-
-            /*
-            |--------------------------------------------------------------------------
-            | Constraints
-            |--------------------------------------------------------------------------
-            */
-
-            $table->unique([
-                'catalog_product_id',
-                'billing_period_id',
-                'billing_model'
-            ]);
+            $table->unique(
+                ['catalog_product_id', 'billing_period_id', 'billing_model'],
+                'cat_price_unique'
+            );
 
         });
     }

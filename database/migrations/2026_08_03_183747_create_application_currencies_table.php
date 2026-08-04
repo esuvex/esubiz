@@ -15,80 +15,22 @@ return new class extends Migration
 
             $table->id();
 
-            /*
-            |--------------------------------------------------------------------------
-            | Application Scope
-            |--------------------------------------------------------------------------
-            */
+            $table->string('application_type');
 
-            $table->enum('application_type', [
-
-                'core',
-
-                'saas',
-
-                'developer'
-
-            ])->default('core');
-
-            $table->foreignId('application_id')
-                ->nullable();
-
-            /*
-            |--------------------------------------------------------------------------
-            | Currency
-            |--------------------------------------------------------------------------
-            */
+            $table->unsignedBigInteger('application_id');
 
             $table->foreignId('currency_id')
                 ->constrained()
                 ->cascadeOnDelete();
 
-            /*
-            |--------------------------------------------------------------------------
-            | Settings
-            |--------------------------------------------------------------------------
-            */
-
-            $table->boolean('is_default')
-                ->default(false);
-
-            $table->boolean('is_enabled')
-                ->default(true);
-
-            /*
-            |--------------------------------------------------------------------------
-            | Pricing
-            |--------------------------------------------------------------------------
-            */
-
-            $table->decimal('conversion_markup', 8, 4)
-                ->default(0);
-
-            /*
-            |--------------------------------------------------------------------------
-            | Display
-            |--------------------------------------------------------------------------
-            */
-
-            $table->string('display_format')
-                ->nullable();
-
-            /*
-            |--------------------------------------------------------------------------
-            | Audit
-            |--------------------------------------------------------------------------
-            */
+            $table->boolean('is_default')->default(false);
 
             $table->timestamps();
 
-            $table->softDeletes();
-
-            $table->unique([
-                'application_type',
-                'application_id',
-                'currency_id'
-            ]);
+            $table->unique(
+                ['application_type', 'application_id', 'currency_id'],
+                'app_curr_unique'
+            );
 
         });
     }

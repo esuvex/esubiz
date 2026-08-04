@@ -15,12 +15,6 @@ return new class extends Migration
 
             $table->id();
 
-            /*
-            |--------------------------------------------------------------------------
-            | Relationships
-            |--------------------------------------------------------------------------
-            */
-
             $table->foreignId('capacity_product_id')
                 ->constrained()
                 ->cascadeOnDelete();
@@ -29,68 +23,15 @@ return new class extends Migration
                 ->constrained()
                 ->cascadeOnDelete();
 
-            /*
-            |--------------------------------------------------------------------------
-            | Capacity
-            |--------------------------------------------------------------------------
-            */
-
-            $table->unsignedBigInteger('value')->default(0);
-
-            $table->boolean('is_unlimited')->default(false);
-
-            /*
-            |--------------------------------------------------------------------------
-            | Duration
-            |--------------------------------------------------------------------------
-            |
-            | Null = Permanent
-            | Number = Expires after the specified duration
-            |
-            */
-
-            $table->unsignedInteger('duration')->nullable();
-
-            $table->enum('duration_unit', [
-
-                'day',
-
-                'week',
-
-                'month',
-
-                'year',
-
-                'lifetime'
-
-            ])->nullable();
-
-            /*
-            |--------------------------------------------------------------------------
-            | Status
-            |--------------------------------------------------------------------------
-            */
-
-            $table->boolean('is_active')->default(true);
-
-            /*
-            |--------------------------------------------------------------------------
-            | Audit
-            |--------------------------------------------------------------------------
-            */
+            $table->integer('quantity')->default(0);
 
             $table->timestamps();
 
-            /*
-            |--------------------------------------------------------------------------
-            | Constraints
-            |--------------------------------------------------------------------------
-            */
-
-            $table->unique([
-                'capacity_product_id',
-                'capacity_type_id'
-            ]);
+            // Short custom index name (avoids MySQL 64-character limit)
+            $table->unique(
+                ['capacity_product_id', 'capacity_type_id'],
+                'cap_prod_type_unique'
+            );
 
         });
     }
