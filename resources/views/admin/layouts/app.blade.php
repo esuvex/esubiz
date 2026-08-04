@@ -133,7 +133,8 @@
     
     <!-- Main -->
     <div
-    class="min-h-screen flex flex-col transition-all duration-300
+         class="relative min-h-screen w-full flex flex-col
+           transition-all duration-300
            lg:pl-64">
 
 
