@@ -2,9 +2,38 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class WorkspaceMember extends Model
 {
-    //
+    use HasFactory;
+
+    protected $fillable = [
+        'workspace_id',
+        'user_id',
+        'role',
+        'status',
+        'joined_at',
+    ];
+
+    protected $casts = [
+        'joined_at' => 'datetime',
+    ];
+
+    /**
+     * Workspace.
+     */
+    public function workspace()
+    {
+        return $this->belongsTo(Workspace::class);
+    }
+
+    /**
+     * User.
+     */
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }
