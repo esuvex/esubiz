@@ -2,54 +2,30 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Website;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
+use App\Http\Requests\StoreWebsiteRequest;
+use App\Services\WebsiteService;
+use Illuminate\Http\JsonResponse;
 
 class WebsiteController extends Controller
 {
-    /**
-     * Display all websites owned by the authenticated user.
-     */
-    public function index()
-    {
-        $websites = Website::where('owner_id', Auth::id())
-            ->latest()
-            ->get();
-
-        return view('websites.index', compact('websites'));
+    public function __construct(
+        protected WebsiteService $websiteService
+    ) {
     }
 
     /**
-     * Store a new website.
+     * Store a newly created website.
      */
-    public function store(Request $request)
+    public function store(StoreWebsiteRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:150'],
-        ]);
+        $website = $this->websiteService->create(
+            $request->validated()
+        );
 
-        Website::create([
-            'owner_id'     => Auth::id(),
-            'workspace_id' => null,
-            'name'         => $validated['name'],
-            'slug'         => Str::slug($validated['name']) . '-' . Str::lower(Str::random(6)),
-            'status'       => 'draft',
-        ]);
-
-        return redirect()
-            ->back()
-            ->with('success', 'Website created successfully.');
-    }
-
-    /**
-     * Display a website dashboard.
-     */
-    public function show(Website $website)
-    {
-        abort_unless($website->owner_id === Auth::id(), 403);
-
-        return view('websites.show', compact('website'));
+        return response()->json([
+            'success' => true,
+            'message' => 'Website created successfully.',
+            'website' => $website,
+        ], 201);
     }
 }

@@ -24,11 +24,12 @@
 
         <div class="flex gap-4">
 
-            <button class="px-8 py-4 rounded-2xl bg-blue-600 text-white font-semibold shadow hover:bg-blue-700">
+            <a href="{{ route('websites.create') }}"
+               class="inline-flex items-center px-8 py-4 rounded-2xl bg-blue-600 text-white font-semibold shadow hover:bg-blue-700 transition">
 
                 + Create Website
 
-            </button>
+            </a>
 
             <button class="px-8 py-4 rounded-2xl bg-white border shadow font-semibold hover:bg-slate-50">
 
@@ -60,7 +61,6 @@
 
         </div>
 
-
         <div class="rounded-3xl bg-gradient-to-r from-emerald-600 to-green-400 text-white p-8 shadow-xl">
 
             <p class="text-2xl opacity-90">
@@ -77,7 +77,6 @@
 
         </div>
 
-
         <div class="rounded-3xl bg-gradient-to-r from-orange-500 to-amber-400 text-white p-8 shadow-xl">
 
             <p class="text-2xl opacity-90">
@@ -93,7 +92,6 @@
             </p>
 
         </div>
-
 
         <div class="rounded-3xl bg-gradient-to-r from-violet-600 to-fuchsia-500 text-white p-8 shadow-xl">
 
@@ -141,8 +139,6 @@
 
         </div>
 
-
-
         <div class="bg-white rounded-3xl shadow p-8">
 
             <h2 class="text-3xl font-bold">
@@ -151,11 +147,12 @@
 
             <div class="mt-8 space-y-4">
 
-                <button class="w-full rounded-2xl bg-slate-100 py-5 hover:bg-slate-200">
+                <a href="{{ route('websites.create') }}"
+                   class="block w-full rounded-2xl bg-slate-100 py-5 text-center font-medium hover:bg-slate-200 transition">
 
                     Create Website
 
-                </button>
+                </a>
 
                 <button class="w-full rounded-2xl bg-slate-100 py-5 hover:bg-slate-200">
 

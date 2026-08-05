@@ -11,6 +11,7 @@ class Website extends Model
 
     protected $fillable = [
         'owner_id',
+        'plan_id',
         'workspace_id',
         'name',
         'type',
@@ -26,6 +27,14 @@ class Website extends Model
     public function owner()
     {
         return $this->belongsTo(User::class, 'owner_id');
+    }
+
+    /**
+     * Website plan.
+     */
+    public function plan()
+    {
+        return $this->belongsTo(Plan::class);
     }
 
     /**

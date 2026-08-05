@@ -17,13 +17,23 @@ return new class extends Migration
 
             /*
             |--------------------------------------------------------------------------
-            | Relationships
+            | Ownership
             |--------------------------------------------------------------------------
             */
 
-            $table->foreignId('workspace_id')
-                ->constrained()
+            $table->foreignId('owner_id')
+                ->constrained('users')
                 ->cascadeOnDelete();
+
+            $table->foreignId('plan_id')
+                ->nullable()
+                ->constrained('plans')
+                ->nullOnDelete();
+
+            $table->foreignId('workspace_id')
+                ->nullable()
+                ->constrained()
+                ->nullOnDelete();
 
             /*
             |--------------------------------------------------------------------------
@@ -35,43 +45,44 @@ return new class extends Migration
 
             $table->string('name');
 
+            $table->string('type')->default('business');
+
             $table->string('slug')->unique();
+
+            $table->string('subdomain')->unique();
+
+            $table->string('domain')->nullable()->unique();
 
             /*
             |--------------------------------------------------------------------------
-            | Website Classification
+            | Website Details
             |--------------------------------------------------------------------------
             */
 
-            $table->string('website_type');
-
             $table->string('industry')->nullable();
+
+            $table->string('theme')->nullable();
+
+            $table->string('template')->nullable();
 
             /*
             |--------------------------------------------------------------------------
-            | Website Status
+            | Status
             |--------------------------------------------------------------------------
             */
 
             $table->enum('status', [
-
                 'draft',
-
-                'building',
-
-                'published',
-
+                'provisioning',
+                'active',
                 'maintenance',
-
                 'suspended',
-
-                'archived'
-
+                'archived',
             ])->default('draft');
 
             /*
             |--------------------------------------------------------------------------
-            | Publishing
+            | Features
             |--------------------------------------------------------------------------
             */
 
@@ -82,16 +93,6 @@ return new class extends Migration
             $table->boolean('is_pwa')->default(true);
 
             $table->boolean('is_native_app')->default(false);
-
-            /*
-            |--------------------------------------------------------------------------
-            | Theme
-            |--------------------------------------------------------------------------
-            */
-
-            $table->string('theme')->nullable();
-
-            $table->string('template')->nullable();
 
             /*
             |--------------------------------------------------------------------------
@@ -110,7 +111,6 @@ return new class extends Migration
             $table->timestamps();
 
             $table->softDeletes();
-
         });
     }
 
