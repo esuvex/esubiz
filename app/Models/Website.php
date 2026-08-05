@@ -13,6 +13,7 @@ class Website extends Model
         'owner_id',
         'workspace_id',
         'name',
+        'type',
         'slug',
         'domain',
         'subdomain',

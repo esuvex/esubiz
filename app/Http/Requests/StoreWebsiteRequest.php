@@ -7,7 +7,7 @@ use Illuminate\Foundation\Http\FormRequest;
 class StoreWebsiteRequest extends FormRequest
 {
     /**
-     * Determine if the user is authorized to make this request.
+     * Determine if the user is authorized.
      */
     public function authorize(): bool
     {
@@ -27,6 +27,12 @@ class StoreWebsiteRequest extends FormRequest
                 'max:150',
             ],
 
+            'type' => [
+                'required',
+                'string',
+                'in:business,ecommerce,school',
+            ],
+
             'workspace_id' => [
                 'nullable',
                 'integer',
@@ -42,8 +48,8 @@ class StoreWebsiteRequest extends FormRequest
     {
         return [
             'name.required' => 'Website name is required.',
-            'name.min'      => 'Website name must be at least 3 characters.',
-            'name.max'      => 'Website name cannot exceed 150 characters.',
+            'type.required' => 'Please select a website type.',
+            'type.in' => 'Invalid website type selected.',
         ];
     }
 }
