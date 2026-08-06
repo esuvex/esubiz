@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
 class WebsiteWizardController extends Controller
@@ -138,7 +137,17 @@ class WebsiteWizardController extends Controller
     }
 
     /**
-     * Step 6 - Review
+     * Step 6 - Website Administrator
+     */
+    public function administrator(Request $request): View
+    {
+        return view('websites.administrator', [
+            'website' => $request->all(),
+        ]);
+    }
+
+    /**
+     * Step 7 - Review
      */
     public function review(Request $request): View
     {
@@ -148,7 +157,7 @@ class WebsiteWizardController extends Controller
     }
 
     /**
-     * Step 7 - Deploy
+     * Step 8 - Deploy
      */
     public function deploy(Request $request)
     {

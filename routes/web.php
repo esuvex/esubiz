@@ -4,8 +4,6 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\WebsiteController;
 use App\Http\Controllers\WebsiteWizardController;
-use App\Http\Controllers\WebsiteThemeController;
-use App\Http\Controllers\WebsitePlanController;
 
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\SaaS\DashboardController as SaaSDashboardController;
@@ -59,11 +57,26 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/websites/create', [WebsiteWizardController::class, 'create'])
         ->name('websites.create');
 
-    Route::get('/websites/theme', [WebsiteThemeController::class, 'index'])
+    Route::get('/websites/theme', [WebsiteWizardController::class, 'theme'])
         ->name('websites.theme');
 
-    Route::get('/websites/plan', [WebsitePlanController::class, 'index'])
+    Route::get('/websites/information', [WebsiteWizardController::class, 'information'])
+        ->name('websites.information');
+
+    Route::get('/websites/plan', [WebsiteWizardController::class, 'plan'])
         ->name('websites.plan');
+
+    Route::get('/websites/address', [WebsiteWizardController::class, 'address'])
+        ->name('websites.address');
+
+    Route::get('/websites/administrator', [WebsiteWizardController::class, 'administrator'])
+        ->name('websites.administrator');
+
+    Route::get('/websites/review', [WebsiteWizardController::class, 'review'])
+        ->name('websites.review');
+
+    Route::post('/websites/deploy', [WebsiteWizardController::class, 'deploy'])
+        ->name('websites.deploy');
 
     Route::post('/websites', [WebsiteController::class, 'store'])
         ->name('websites.store');
