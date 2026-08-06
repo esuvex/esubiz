@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
 class WebsiteWizardController extends Controller
@@ -16,32 +17,30 @@ class WebsiteWizardController extends Controller
     }
 
     /**
-     * Step 2 - Template Selection
+     * Step 2 - Theme
      */
     public function theme(Request $request): View
     {
-        $website = [
-            'type' => $request->input('type'),
-        ];
+        $website = $request->all();
 
         $themes = [
 
             [
                 'id' => 'classic',
                 'name' => 'Classic',
-                'description' => 'Clean and timeless layout.',
+                'description' => 'Clean and timeless business design.',
             ],
 
             [
                 'id' => 'modern',
                 'name' => 'Modern',
-                'description' => 'Contemporary business layout.',
+                'description' => 'Modern corporate experience.',
             ],
 
             [
                 'id' => 'premium',
                 'name' => 'Premium',
-                'description' => 'Elegant premium layout.',
+                'description' => 'Premium high-converting layout.',
             ],
 
         ];
@@ -63,36 +62,69 @@ class WebsiteWizardController extends Controller
     }
 
     /**
-     * Step 4 - Plan Selection
+     * Step 4 - Plan
      */
     public function plan(Request $request): View
     {
+        $website = $request->all();
+
         $plans = [
 
             [
                 'id' => 1,
                 'name' => 'Starter',
-                'price' => '₦2,500/month',
+                'price' => '₦2,500 / month',
+                'description' => 'Perfect for personal brands and small businesses.',
+                'features' => [
+                    '1 Website',
+                    'Free SSL',
+                    'Free Subdomain',
+                    'CRM Included',
+                    'AI Assistant',
+                    '5 GB Storage',
+                    '1 Team Member',
+                ],
             ],
 
             [
                 'id' => 2,
                 'name' => 'Professional',
-                'price' => '₦6,000/month',
+                'price' => '₦6,000 / month',
+                'description' => 'Ideal for growing businesses.',
+                'popular' => true,
+                'features' => [
+                    'Everything in Starter',
+                    'Custom Domain',
+                    '20 GB Storage',
+                    '5 Team Members',
+                    'Marketing Suite',
+                    'Payment Gateway',
+                    'Advanced CRM',
+                ],
             ],
 
             [
                 'id' => 3,
                 'name' => 'Business',
-                'price' => '₦15,000/month',
+                'price' => '₦15,000 / month',
+                'description' => 'Built for companies with advanced needs.',
+                'features' => [
+                    'Unlimited Pages',
+                    'Unlimited Products',
+                    'Unlimited Team',
+                    'AI Credits',
+                    'POS',
+                    'Marketplace',
+                    'Priority Support',
+                ],
             ],
 
         ];
 
-        return view('websites.plan', [
-            'website' => $request->all(),
-            'plans' => $plans,
-        ]);
+        return view('websites.plan', compact(
+            'website',
+            'plans'
+        ));
     }
 
     /**
@@ -116,7 +148,7 @@ class WebsiteWizardController extends Controller
     }
 
     /**
-     * Step 7 - Provision
+     * Step 7 - Deploy
      */
     public function deploy(Request $request)
     {
