@@ -22,13 +22,41 @@ class WebsiteService
     public function create(array $data): Website
     {
         $website = Website::create([
-            'owner_id'     => Auth::id(),
-            'workspace_id' => $data['workspace_id'] ?? null,
-            'name'         => $data['name'],
-            'type'         => $data['type'],
-            'slug'         => $this->generateSlug($data['name']),
-            'subdomain'    => $this->generateSubdomain($data['name']),
-            'status'       => 'provisioning',
+
+            'owner_id'        => Auth::id(),
+            'workspace_id'    => $data['workspace_id'] ?? null,
+            'plan_id'         => $data['plan_id'] ?? null,
+
+            'uuid'            => (string) Str::uuid(),
+            'website_code'    => strtoupper(Str::random(10)),
+
+            'name'            => $data['name'],
+            'type'            => $data['type'],
+            'edition'         => $data['edition'] ?? 'saas',
+            'owner_type'      => $data['owner_type'] ?? 'owner',
+
+            'slug'            => $this->generateSlug($data['name']),
+            'subdomain'       => $this->generateSubdomain($data['name']),
+            'domain'          => $data['domain'] ?? null,
+
+            'industry'        => $data['industry'] ?? null,
+            'theme'           => $data['theme'] ?? null,
+            'template'        => $data['template'] ?? null,
+
+            'multi_branch'    => false,
+            'branch_limit'    => 1,
+
+            'ai_credits'      => 0,
+            'sms_credits'     => 0,
+
+            'storage_mb'      => 0,
+            'bandwidth_mb'    => 0,
+
+            'enabled_modules' => [],
+            'enabled_features'=> [],
+            'settings'        => [],
+
+            'status'          => 'provisioning',
         ]);
 
         $this->provisioningService->provision($website);
@@ -37,7 +65,7 @@ class WebsiteService
     }
 
     /**
-     * Generate a unique slug.
+     * Generate unique slug.
      */
     protected function generateSlug(string $name): string
     {
@@ -55,7 +83,7 @@ class WebsiteService
     }
 
     /**
-     * Generate a unique subdomain.
+     * Generate unique subdomain.
      */
     protected function generateSubdomain(string $name): string
     {
