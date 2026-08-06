@@ -7,27 +7,32 @@
 
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title>{{ $title ?? 'Create Website' }} | Esubiz</title>
+    <title>{{ $title ?? 'Website Builder' }} | Esubiz</title>
 
-    @vite(['resources/css/app.css','resources/js/app.js'])
+    @vite([
+        'resources/css/app.css',
+        'resources/js/app.js'
+    ])
 
 </head>
 
-<body class="min-h-screen bg-slate-100">
+<body class="bg-slate-100">
 
-<div class="px-6 py-10 lg:px-10">
+<div class="min-h-screen px-4 py-8 lg:px-8">
 
-    <div class="mx-auto w-full max-w-7xl">
+    <div class="mx-auto max-w-7xl">
 
-        <div class="overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-slate-200">
+        <div class="overflow-hidden rounded-3xl bg-white shadow-2xl">
 
-            <div class="grid lg:grid-cols-12">
+            <div class="grid min-h-[860px] lg:grid-cols-12">
 
-                <!-- LEFT PANEL -->
+                <!-- ========================================= -->
+                <!-- LEFT -->
+                <!-- ========================================= -->
 
-                <aside class="lg:col-span-4 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-900 text-white">
+                <aside class="lg:col-span-3 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-900 text-white">
 
-                    <div class="flex h-full flex-col p-10 xl:p-12">
+                    <div class="flex h-full flex-col p-10">
 
                         <div class="flex items-center gap-4">
 
@@ -55,93 +60,35 @@
 
                         </div>
 
-                        <div class="mt-14">
+                        <div class="mt-16">
 
-                            <span class="text-sm font-semibold uppercase tracking-[0.3em] text-blue-300">
+                            <span class="inline-flex rounded-full bg-blue-500/20 px-4 py-2 text-xs font-semibold uppercase tracking-[0.35em] text-blue-200">
 
-                                Step {{ $step ?? 1 }} of {{ $steps ?? 8 }}
+                                Step {{ $step }} of {{ $steps }}
 
                             </span>
 
-                            <h1 class="mt-5 text-4xl font-bold leading-tight xl:text-5xl">
+                            <h1 class="mt-8 text-4xl font-bold leading-tight">
 
-                                {{ $heading ?? 'Create your website' }}
+                                {{ $heading }}
 
                             </h1>
 
-                            <p class="mt-6 text-lg leading-8 text-slate-300">
+                            @if(($step ?? 1) == 1)
 
-                                {{ $description ?? 'Create a complete business website with CRM, Finance, HR, AI and Marketplace built in.' }}
+                                <p class="mt-6 text-lg leading-8 text-slate-300">
 
-                            </p>
-
-                        </div>
-
-                        <div class="mt-10">
-
-                            <div class="h-3 overflow-hidden rounded-full bg-slate-700">
-
-                                <div
-                                    class="h-full rounded-full bg-blue-500 transition-all duration-500"
-                                    style="width: {{ (($step ?? 1) / ($steps ?? 8)) * 100 }}%">
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                        <div class="mt-12 space-y-5 text-base">
-
-                            <div class="flex items-center gap-3">
-                                <span>✓</span>
-                                <span>Website Builder</span>
-                            </div>
-
-                            <div class="flex items-center gap-3">
-                                <span>✓</span>
-                                <span>CRM Included</span>
-                            </div>
-
-                            <div class="flex items-center gap-3">
-                                <span>✓</span>
-                                <span>Finance Included</span>
-                            </div>
-
-                            <div class="flex items-center gap-3">
-                                <span>✓</span>
-                                <span>HR Included</span>
-                            </div>
-
-                            <div class="flex items-center gap-3">
-                                <span>✓</span>
-                                <span>AI Assistant</span>
-                            </div>
-
-                            <div class="flex items-center gap-3">
-                                <span>✓</span>
-                                <span>Marketplace Ready</span>
-                            </div>
-
-                            <div class="flex items-center gap-3">
-                                <span>✓</span>
-                                <span>Provisioning in under 2 minutes</span>
-                            </div>
-
-                        </div>
-
-                        <div class="mt-auto pt-12">
-
-                            <div class="rounded-2xl border border-white/10 bg-white/5 p-5">
-
-                                <p class="text-sm text-slate-300">
-
-                                    Your website will be automatically deployed with SSL, CRM, Finance, HR, AI and Marketplace enabled.
+                                    {{ $description ?? 'Create your website in minutes.' }}
 
                                 </p>
 
-                            </div>
+                            @endif
 
-                            <p class="mt-6 text-sm text-slate-400">
+                        </div>
+
+                        <div class="mt-auto">
+
+                            <p class="text-sm text-slate-400">
 
                                 Powered by <strong>Esubiz Website OS</strong>
 
@@ -153,18 +100,69 @@
 
                 </aside>
 
-                <!-- RIGHT PANEL -->
+                <!-- ========================================= -->
+                <!-- RIGHT -->
+                <!-- ========================================= -->
 
-                <main class="lg:col-span-8 bg-white">
+                <main class="lg:col-span-9 bg-slate-50">
 
-                    <div class="mx-auto w-full max-w-5xl p-8 lg:p-12 xl:p-14">
+                    <div class="p-10 lg:p-12">
 
-                        {{ $slot }}
+                        <!-- Progress -->
+<div class="mb-10">
 
+    <div class="flex items-center justify-between">
+
+        @for($i = 1; $i <= $steps; $i++)
+
+            <div class="flex flex-1 items-center">
+
+                <div
+                    class="flex h-11 w-11 items-center justify-center rounded-full border-2 text-sm font-bold transition-all
+                    {{ $i < $step
+                        ? 'border-blue-600 bg-blue-600 text-white'
+                        : ($i == $step
+                            ? 'border-blue-600 bg-white text-blue-600'
+                            : 'border-slate-300 bg-white text-slate-400') }}">
+
+                    @if($i < $step)
+
+                        ✓
+
+                    @else
+
+                        {{ $i }}
+
+                    @endif
+
+                </div>
+
+                @if($i < $steps)
+
+                    <div
+                        class="mx-3 h-1 flex-1 rounded-full
+                        {{ $i < $step ? 'bg-blue-600' : 'bg-slate-200' }}">
                     </div>
 
-                </main>
+                @endif
 
+            </div>
+
+        @endfor
+
+    </div>
+
+</div>
+
+<div class="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
+
+    {{ $slot }}
+
+</div>
+
+</div>
+
+</main>
             </div>
 
         </div>

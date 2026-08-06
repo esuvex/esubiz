@@ -1,113 +1,101 @@
 <x-wizard.layout
     title="Create Website"
     :step="1"
-    :steps="7"
+    :steps="8"
     heading="What would you like to build today?"
-    description="Choose the type of website you want to create. Every website includes Esubiz Core, CRM, Finance, HR, AI integration, Marketplace support and high-performance hosting.">
+    description="Set up your website in under 2 minutes. Choose a website category to get started.">
 
-    <form method="GET" action="{{ route('websites.theme') }}" id="wizardForm">
+    @php
 
-        <div class="max-w-6xl mx-auto">
+        $types = [
 
-            <div class="mb-10">
+            [
+                'id' => 'business',
+                'icon' => '🏢',
+                'title' => 'Business',
+                'desc' => 'Professional websites for companies and brands.',
+                'count' => '24 Templates'
+            ],
 
-                <h2 class="text-4xl font-bold text-slate-900">
+            [
+                'id' => 'ecommerce',
+                'icon' => '🛒',
+                'title' => 'Online Store',
+                'desc' => 'Sell products and receive payments online.',
+                'count' => '18 Templates'
+            ],
 
-                    Choose Website Type
+            [
+                'id' => 'school',
+                'icon' => '🎓',
+                'title' => 'School',
+                'desc' => 'Schools and educational institutions.',
+                'count' => '12 Templates'
+            ],
 
-                </h2>
+            [
+                'id' => 'church',
+                'icon' => '⛪',
+                'title' => 'Church',
+                'desc' => 'Churches and faith organizations.',
+                'count' => '10 Templates'
+            ],
 
-                <p class="mt-3 text-lg text-slate-500">
+            [
+                'id' => 'hotel',
+                'icon' => '🏨',
+                'title' => 'Hotel',
+                'desc' => 'Hotels and hospitality businesses.',
+                'count' => '9 Templates'
+            ],
 
-                    Select the kind of website you want to build.
+            [
+                'id' => 'restaurant',
+                'icon' => '🍽️',
+                'title' => 'Restaurant',
+                'desc' => 'Restaurants, cafés and food businesses.',
+                'count' => '11 Templates'
+            ],
 
-                </p>
+        ];
 
-            </div>
+    @endphp
 
-            <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+    <form method="GET"
+          action="{{ route('websites.theme') }}">
 
-                @php
+        <div class="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
 
-                    $types = [
+            @foreach($types as $type)
 
-                        [
-                            'id' => 'business',
-                            'icon' => '🏢',
-                            'title' => 'Business',
-                            'desc' => 'Professional websites for companies and brands.',
-                            'count' => '24 Templates'
-                        ],
+                <label class="website-card group cursor-pointer">
 
-                        [
-                            'id' => 'ecommerce',
-                            'icon' => '🛒',
-                            'title' => 'Online Store',
-                            'desc' => 'Sell products and receive payments online.',
-                            'count' => '18 Templates'
-                        ],
+                    <input
+                        type="radio"
+                        name="type"
+                        value="{{ $type['id'] }}"
+                        class="peer hidden"
+                        required>
 
-                        [
-                            'id' => 'school',
-                            'icon' => '🎓',
-                            'title' => 'School',
-                            'desc' => 'Schools, colleges and educational institutions.',
-                            'count' => '12 Templates'
-                        ],
+                    <div class="rounded-3xl border-2 border-slate-200 bg-white p-8 transition-all duration-300 hover:-translate-y-1 hover:border-blue-500 hover:shadow-xl peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:shadow-2xl">
 
-                        [
-                            'id' => 'church',
-                            'icon' => '⛪',
-                            'title' => 'Church',
-                            'desc' => 'Churches, ministries and faith organizations.',
-                            'count' => '10 Templates'
-                        ],
+                        <div class="flex items-start justify-between">
 
-                        [
-                            'id' => 'hotel',
-                            'icon' => '🏨',
-                            'title' => 'Hotel',
-                            'desc' => 'Hotels, resorts and hospitality businesses.',
-                            'count' => '9 Templates'
-                        ],
+                            <div class="text-6xl">
 
-                        [
-                            'id' => 'restaurant',
-                            'icon' => '🍽️',
-                            'title' => 'Restaurant',
-                            'desc' => 'Restaurants, cafés and food businesses.',
-                            'count' => '11 Templates'
-                        ],
+                                {{ $type['icon'] }}
 
-                    ];
+                            </div>
 
-                @endphp
+                            <div class="hidden h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-lg font-bold text-white peer-checked:flex">
 
-                @foreach($types as $type)
+                                ✓
 
-                    <label
-                        class="group relative cursor-pointer rounded-3xl border-2 border-slate-200 bg-white p-8 transition-all duration-300 hover:-translate-y-1 hover:border-blue-600 hover:shadow-2xl">
-
-                        <input
-                            type="radio"
-                            name="type"
-                            value="{{ $type['id'] }}"
-                            class="peer sr-only"
-                            required>
-
-                        <div class="absolute right-6 top-6 hidden h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-white peer-checked:flex">
-
-                            ✓
+                            </div>
 
                         </div>
 
-                        <div class="text-6xl">
-
-                            {{ $type['icon'] }}
-
-                        </div>
-
-                        <h3 class="mt-6 text-3xl font-bold text-slate-900">
+                        <h3 class="mt-8 text-3xl font-bold text-slate-900">
 
                             {{ $type['title'] }}
 
@@ -121,13 +109,13 @@
 
                         <div class="mt-8 flex items-center justify-between">
 
-                            <span class="rounded-full bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700">
+                            <span class="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 peer-checked:bg-blue-600 peer-checked:text-white">
 
                                 {{ $type['count'] }}
 
                             </span>
 
-                            <span class="text-sm text-slate-400">
+                            <span class="text-sm font-medium text-slate-400">
 
                                 Click to Select
 
@@ -135,33 +123,32 @@
 
                         </div>
 
-                    </label>
+                    </div>
 
-                @endforeach
+                </label>
 
-            </div>
+            @endforeach
 
-            <div class="mt-12 flex items-center justify-between">
+        </div>
 
-                <a
-                    href="{{ route('admin.dashboard') }}"
-                    class="rounded-2xl border border-slate-300 bg-white px-8 py-4 font-semibold transition hover:bg-slate-100">
+        <div class="mt-12 flex items-center justify-between">
 
-                    ← Back
+            <a href="{{ route('admin.dashboard') }}"
+               class="rounded-2xl border border-slate-300 bg-white px-8 py-4 font-semibold hover:bg-slate-100">
 
-                </a>
+                ← Back
 
-                <button
-                    id="continueButton"
-                    type="submit"
-                    disabled
-                    class="rounded-2xl bg-blue-600 px-10 py-4 font-semibold text-white opacity-50 transition hover:bg-blue-700 disabled:cursor-not-allowed">
+            </a>
 
-                    Continue →
+            <button
+                id="continueButton"
+                type="submit"
+                disabled
+                class="rounded-2xl bg-blue-600 px-10 py-4 font-semibold text-white opacity-50 transition disabled:cursor-not-allowed">
 
-                </button>
+                Continue →
 
-            </div>
+            </button>
 
         </div>
 
@@ -169,13 +156,15 @@
 
     <script>
 
-        document.querySelectorAll('input[name="type"]').forEach(function(input){
+        const cards = document.querySelectorAll('input[name="type"]');
+        const button = document.getElementById('continueButton');
 
-            input.addEventListener('change', function(){
+        cards.forEach(card => {
 
-                document.getElementById('continueButton').disabled = false;
+            card.addEventListener('change', function () {
 
-                document.getElementById('continueButton').classList.remove('opacity-50');
+                button.disabled = false;
+                button.classList.remove('opacity-50');
 
             });
 

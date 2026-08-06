@@ -10,9 +10,23 @@ class Website extends Model
     use HasFactory;
 
     protected $fillable = [
+
+        /*
+        |--------------------------------------------------------------------------
+        | Ownership
+        |--------------------------------------------------------------------------
+        */
+
         'owner_id',
+        'developer_id',
         'plan_id',
         'workspace_id',
+
+        /*
+        |--------------------------------------------------------------------------
+        | Identity
+        |--------------------------------------------------------------------------
+        */
 
         'uuid',
         'website_code',
@@ -26,11 +40,49 @@ class Website extends Model
         'domain',
         'subdomain',
 
+        /*
+        |--------------------------------------------------------------------------
+        | Website
+        |--------------------------------------------------------------------------
+        */
+
         'industry',
         'theme',
         'template',
 
         'status',
+        'current_step',
+
+        'wizard_data',
+
+        /*
+        |--------------------------------------------------------------------------
+        | Website Administrator
+        |--------------------------------------------------------------------------
+        */
+
+        'admin_name',
+        'admin_email',
+        'admin_password',
+
+        /*
+        |--------------------------------------------------------------------------
+        | Deployment
+        |--------------------------------------------------------------------------
+        */
+
+        'deployment_progress',
+        'estimated_finish_at',
+        'deployment_started_at',
+        'deployment_completed_at',
+
+        'last_saved_at',
+
+        /*
+        |--------------------------------------------------------------------------
+        | Limits
+        |--------------------------------------------------------------------------
+        */
 
         'multi_branch',
         'branch_limit',
@@ -40,6 +92,12 @@ class Website extends Model
 
         'storage_mb',
         'bandwidth_mb',
+
+        /*
+        |--------------------------------------------------------------------------
+        | Features
+        |--------------------------------------------------------------------------
+        */
 
         'enabled_modules',
         'enabled_features',
@@ -55,6 +113,9 @@ class Website extends Model
     ];
 
     protected $casts = [
+
+        'wizard_data' => 'array',
+
         'enabled_modules' => 'array',
         'enabled_features' => 'array',
         'settings' => 'array',
@@ -66,29 +127,73 @@ class Website extends Model
         'is_native_app' => 'boolean',
 
         'published_at' => 'datetime',
+
+        'last_saved_at' => 'datetime',
+
+        'estimated_finish_at' => 'datetime',
+        'deployment_started_at' => 'datetime',
+        'deployment_completed_at' => 'datetime',
+
     ];
 
-    /**
-     * Website owner.
-     */
+    /*
+    |--------------------------------------------------------------------------
+    | Relationships
+    |--------------------------------------------------------------------------
+    */
+
     public function owner()
     {
         return $this->belongsTo(User::class, 'owner_id');
     }
 
-    /**
-     * Website plan.
-     */
+    public function developer()
+    {
+        return $this->belongsTo(User::class, 'developer_id');
+    }
+
     public function plan()
     {
         return $this->belongsTo(Plan::class);
     }
 
-    /**
-     * Workspace.
-     */
     public function workspace()
     {
         return $this->belongsTo(Workspace::class);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Helpers
+    |--------------------------------------------------------------------------
+    */
+
+    public function saveWizard(array $data, int $step): void
+    {
+        $this->update([
+
+            'wizard_data' => array_merge(
+                $this->wizard_data ?? [],
+                $data
+            ),
+
+            'current_step' => $step,
+
+            'last_saved_at' => now(),
+
+        ]);
+    }
+
+    public function markProvisioning(): void
+    {
+        $this->update([
+
+            'status' => 'provisioning',
+
+            'deployment_progress' => 0,
+
+            'deployment_started_at' => now(),
+
+        ]);
     }
 }

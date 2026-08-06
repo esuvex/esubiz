@@ -1,101 +1,100 @@
-@extends('layouts.app')
+<x-wizard.layout
+    title="Choose Your Plan"
+    :step="4"
+    :steps="8"
+    heading="Choose your plan">
 
-@section('title', 'Choose a Plan')
+    <form method="GET"
+          action="{{ route('websites.address') }}">
 
-@section('content')
+        @foreach($website as $key => $value)
+            <input type="hidden"
+                   name="{{ $key }}"
+                   value="{{ $value }}">
+        @endforeach
 
-<div class="max-w-7xl mx-auto px-6 py-10">
-
-    <div class="mb-10">
-
-        <span class="text-sm font-semibold text-blue-600 uppercase">
-            Step 3 of 7
-        </span>
-
-        <h1 class="mt-2 text-4xl font-bold text-slate-900">
-            Choose Your Plan
-        </h1>
-
-        <p class="mt-3 text-lg text-slate-500">
-            Select the plan that best fits your website. You can upgrade or downgrade later at any time.
-        </p>
-
-    </div>
-
-    <div class="mb-8 rounded-2xl border bg-slate-50 p-6">
-
-        <h2 class="text-xl font-semibold">
-            Website Summary
-        </h2>
-
-        <div class="mt-5 grid md:grid-cols-3 gap-6">
-
-            <div>
-
-                <p class="text-sm text-slate-500">
-                    Website Name
-                </p>
-
-                <p class="mt-1 text-lg font-semibold">
-                    {{ $website['name'] }}
-                </p>
-
-            </div>
-
-            <div>
-
-                <p class="text-sm text-slate-500">
-                    Website Type
-                </p>
-
-                <p class="mt-1 text-lg font-semibold capitalize">
-                    {{ $website['type'] }}
-                </p>
-
-            </div>
-
-            <div>
-
-                <p class="text-sm text-slate-500">
-                    Selected Theme
-                </p>
-
-                <p class="mt-1 text-lg font-semibold capitalize">
-                    {{ $website['theme'] }}
-                </p>
-
-            </div>
-
-        </div>
-
-    </div>
-
-    <form method="GET" action="#">
-
-        <div class="grid lg:grid-cols-3 gap-8">
+        <div class="grid gap-8 lg:grid-cols-3">
 
             @foreach($plans as $plan)
 
-                <label class="cursor-pointer rounded-3xl border-2 border-slate-200 hover:border-blue-600 transition bg-white p-8">
+                <label class="cursor-pointer">
 
                     <input
                         type="radio"
                         name="plan_id"
                         value="{{ $plan['id'] }}"
-                        class="mb-6"
+                        class="peer hidden"
                         required>
 
-                    <h2 class="text-3xl font-bold">
-                        {{ $plan['name'] }}
-                    </h2>
+                    <div class="relative h-full rounded-3xl border-2 border-slate-200 bg-white p-8 transition-all duration-300 hover:-translate-y-1 hover:border-blue-500 hover:shadow-xl peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:shadow-2xl">
 
-                    <p class="mt-4 text-5xl font-bold text-blue-600">
-                        {{ $plan['price'] }}
-                    </p>
+                        @if(!empty($plan['popular']))
 
-                    <p class="mt-5 text-slate-500 leading-7">
-                        {{ $plan['description'] }}
-                    </p>
+                            <div class="absolute right-6 top-6 rounded-full bg-blue-600 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white">
+
+                                Most Popular
+
+                            </div>
+
+                        @endif
+
+                        <div class="flex items-start justify-between">
+
+                            <div>
+
+                                <h2 class="text-3xl font-bold text-slate-900">
+
+                                    {{ $plan['name'] }}
+
+                                </h2>
+
+                                <p class="mt-4 text-5xl font-bold text-blue-600">
+
+                                    {{ $plan['price'] }}
+
+                                </p>
+
+                            </div>
+
+                            <div class="hidden h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-lg font-bold text-white peer-checked:flex">
+
+                                ✓
+
+                            </div>
+
+                        </div>
+
+                        <p class="mt-6 leading-7 text-slate-500">
+
+                            {{ $plan['description'] }}
+
+                        </p>
+
+                        <div class="mt-8 space-y-4">
+
+                            @foreach($plan['features'] as $feature)
+
+                                <div class="flex items-center gap-3">
+
+                                    <span class="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-sm text-blue-600">
+
+                                        ✓
+
+                                    </span>
+
+                                    <span class="text-slate-700">
+
+                                        {{ $feature }}
+
+                                    </span>
+
+                                </div>
+
+                            @endforeach
+
+                        </div>
+
+                    </div>
 
                 </label>
 
@@ -103,20 +102,23 @@
 
         </div>
 
-        <div class="mt-10 flex justify-between">
+        <div class="mt-12 flex items-center justify-between">
 
-            <a href="{{ route('websites.theme', request()->query()) }}"
-               class="px-8 py-4 rounded-2xl border bg-white hover:bg-slate-50">
+            <a
+                href="{{ route('websites.information', request()->query()) }}"
+                class="rounded-2xl border border-slate-300 bg-white px-8 py-4 font-semibold hover:bg-slate-100">
 
-                Back
+                ← Back
 
             </a>
 
             <button
+                id="continueButton"
                 type="submit"
-                class="px-10 py-4 rounded-2xl bg-blue-600 text-white font-semibold hover:bg-blue-700">
+                disabled
+                class="rounded-2xl bg-blue-600 px-10 py-4 font-semibold text-white opacity-50 transition disabled:cursor-not-allowed">
 
-                Continue
+                Continue →
 
             </button>
 
@@ -124,6 +126,22 @@
 
     </form>
 
-</div>
+    <script>
 
-@endsection
+        const plans = document.querySelectorAll('input[name="plan_id"]');
+        const button = document.getElementById('continueButton');
+
+        plans.forEach(plan => {
+
+            plan.addEventListener('change', function () {
+
+                button.disabled = false;
+                button.classList.remove('opacity-50');
+
+            });
+
+        });
+
+    </script>
+
+</x-wizard.layout>
