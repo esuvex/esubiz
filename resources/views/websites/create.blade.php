@@ -1,74 +1,137 @@
-<x-wizard.layout
-    title="Create Website"
-    :step="1"
-    :steps="8"
-    heading="What would you like to build today?"
-    description="Set up your website in under 2 minutes. Choose a website category to get started.">
+@extends('admin.layouts.app')
 
-    @php
+@section('title', 'Create Website')
 
-        $types = [
+@section('content')
 
-            [
-                'id' => 'business',
-                'icon' => '🏢',
-                'title' => 'Business',
-                'desc' => 'Professional websites for companies and brands.',
-                'count' => '24 Templates'
-            ],
+@php
 
-            [
-                'id' => 'ecommerce',
-                'icon' => '🛒',
-                'title' => 'Online Store',
-                'desc' => 'Sell products and receive payments online.',
-                'count' => '18 Templates'
-            ],
+$step = 1;
+$steps = 9;
 
-            [
-                'id' => 'school',
-                'icon' => '🎓',
-                'title' => 'School',
-                'desc' => 'Schools and educational institutions.',
-                'count' => '12 Templates'
-            ],
+$types = [
 
-            [
-                'id' => 'church',
-                'icon' => '⛪',
-                'title' => 'Church',
-                'desc' => 'Churches and faith organizations.',
-                'count' => '10 Templates'
-            ],
+    [
+        'id' => 'business',
+        'icon' => '🏢',
+        'title' => 'Business',
+        'desc' => 'Professional websites for companies and brands.',
+        'count' => '24 Templates',
+    ],
 
-            [
-                'id' => 'hotel',
-                'icon' => '🏨',
-                'title' => 'Hotel',
-                'desc' => 'Hotels and hospitality businesses.',
-                'count' => '9 Templates'
-            ],
+    [
+        'id' => 'ecommerce',
+        'icon' => '🛒',
+        'title' => 'Online Store',
+        'desc' => 'Sell products and receive payments online.',
+        'count' => '18 Templates',
+    ],
 
-            [
-                'id' => 'restaurant',
-                'icon' => '🍽️',
-                'title' => 'Restaurant',
-                'desc' => 'Restaurants, cafés and food businesses.',
-                'count' => '11 Templates'
-            ],
+    [
+        'id' => 'school',
+        'icon' => '🎓',
+        'title' => 'School',
+        'desc' => 'Schools and educational institutions.',
+        'count' => '12 Templates',
+    ],
 
-        ];
+    [
+        'id' => 'church',
+        'icon' => '⛪',
+        'title' => 'Church',
+        'desc' => 'Churches and faith organizations.',
+        'count' => '10 Templates',
+    ],
 
-    @endphp
+    [
+        'id' => 'hotel',
+        'icon' => '🏨',
+        'title' => 'Hotel',
+        'desc' => 'Hotels and hospitality businesses.',
+        'count' => '9 Templates',
+    ],
 
-    <form method="GET"
-          action="{{ route('websites.theme') }}">
+    [
+        'id' => 'restaurant',
+        'icon' => '🍽️',
+        'title' => 'Restaurant',
+        'desc' => 'Restaurants, cafés and food businesses.',
+        'count' => '11 Templates',
+    ],
 
-        <div class="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
+];
+
+@endphp
+
+<form method="POST" action="{{ route('websites.store') }}">
+
+    @csrf
+
+    <div class="rounded-3xl bg-slate-100 p-8">
+
+        <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+
+            <div>
+
+                <h1 class="text-4xl font-bold text-slate-900">
+
+                    Create Website
+
+                </h1>
+
+                <p class="mt-3 text-slate-500">
+
+                    Choose the type of website you want to create.
+
+                </p>
+
+            </div>
+
+            <div class="rounded-2xl bg-white px-6 py-5 shadow-sm">
+
+                <div class="text-sm text-slate-500">
+
+                    Step
+
+                </div>
+
+                <div class="text-3xl font-bold text-blue-600">
+
+                    {{ $step }} / {{ $steps }}
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="mt-10 grid grid-cols-4 gap-4 md:flex md:items-center">
+
+            @for($i = 1; $i <= $steps; $i++)
+
+                <div class="flex justify-center md:flex-1">
+
+                    <div
+                        class="flex h-12 w-12 items-center justify-center rounded-full border-2 text-sm font-bold
+                        {{ $i == $step
+                            ? 'border-blue-600 bg-blue-600 text-white'
+                            : 'border-slate-300 bg-white text-slate-500' }}">
+
+                        {{ $i }}
+
+                    </div>
+
+                </div>
+
+            @endfor
+
+        </div>
+
+        <div class="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
 
             @foreach($types as $type)
 
-                <label class="website-card group cursor-pointer">
+                <label class="group cursor-pointer">
 
                     <input
                         type="radio"
@@ -77,7 +140,7 @@
                         class="peer hidden"
                         required>
 
-                    <div class="rounded-3xl border-2 border-slate-200 bg-white p-8 transition-all duration-300 hover:-translate-y-1 hover:border-blue-500 hover:shadow-xl peer-checked:border-blue-600 peer-checked:bg-blue-50 peer-checked:shadow-2xl">
+                    <div class="rounded-3xl border-2 border-slate-200 bg-white p-8 transition-all duration-300 hover:-translate-y-1 hover:border-blue-500 hover:shadow-xl peer-checked:border-blue-600 peer-checked:bg-blue-50">
 
                         <div class="flex items-start justify-between">
 
@@ -87,11 +150,11 @@
 
                             </div>
 
-                            <div class="hidden h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-lg font-bold text-white peer-checked:flex">
+                            <span class="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-500">
 
-                                ✓
+                                {{ $type['count'] }}
 
-                            </div>
+                            </span>
 
                         </div>
 
@@ -107,22 +170,6 @@
 
                         </p>
 
-                        <div class="mt-8 flex items-center justify-between">
-
-                            <span class="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 peer-checked:bg-blue-600 peer-checked:text-white">
-
-                                {{ $type['count'] }}
-
-                            </span>
-
-                            <span class="text-sm font-medium text-slate-400">
-
-                                Click to Select
-
-                            </span>
-
-                        </div>
-
                     </div>
 
                 </label>
@@ -130,21 +177,19 @@
             @endforeach
 
         </div>
+        <div class="mt-10 flex flex-col gap-4 border-t border-slate-200 pt-8 sm:flex-row sm:items-center sm:justify-between">
 
-        <div class="mt-12 flex items-center justify-between">
+            <a
+                href="{{ route('user.dashboard') }}"
+                class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-6 py-3 font-medium text-slate-700 transition hover:bg-slate-100">
 
-            <a href="{{ route('admin.dashboard') }}"
-               class="rounded-2xl border border-slate-300 bg-white px-8 py-4 font-semibold hover:bg-slate-100">
-
-                ← Back
+                ← Back to Dashboard
 
             </a>
 
             <button
-                id="continueButton"
                 type="submit"
-                disabled
-                class="rounded-2xl bg-blue-600 px-10 py-4 font-semibold text-white opacity-50 transition disabled:cursor-not-allowed">
+                class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-8 py-3 font-semibold text-white transition hover:bg-blue-700">
 
                 Continue →
 
@@ -152,24 +197,8 @@
 
         </div>
 
-    </form>
+    </div>
 
-    <script>
+</form>
 
-        const cards = document.querySelectorAll('input[name="type"]');
-        const button = document.getElementById('continueButton');
-
-        cards.forEach(card => {
-
-            card.addEventListener('change', function () {
-
-                button.disabled = false;
-                button.classList.remove('opacity-50');
-
-            });
-
-        });
-
-    </script>
-
-</x-wizard.layout>
+@endsection

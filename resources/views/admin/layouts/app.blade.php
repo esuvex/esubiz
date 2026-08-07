@@ -70,15 +70,22 @@
 
         <nav class="px-4 py-6 space-y-2">
 
-            <a href="{{ route('admin.dashboard') }}"
-               class="flex items-center rounded-xl bg-blue-600 px-5 py-3 font-medium">
+          <a href="{{ route(request()->is('user/*') ? 'user.dashboard' : 'admin.dashboard') }}"
+   class="flex items-center rounded-xl px-5 py-3 font-medium
+   {{ request()->routeIs('user.dashboard') || request()->routeIs('admin.dashboard')
+        ? 'bg-blue-600 text-white'
+        : 'hover:bg-slate-800' }}">
 
-                Dashboard
+         Dashboard
 
-            </a>
+</a>
 
-            <a href="#"
-               class="flex items-center rounded-xl px-5 py-3 hover:bg-slate-800">
+            <a href="{{ route('websites.create') }}"
+   class="flex items-center rounded-xl px-5 py-3 font-medium
+   {{ request()->routeIs('websites.*')
+        ? 'bg-blue-600 text-white'
+        : 'hover:bg-slate-800' }}">
+ 
 
                 Website Builder
 
@@ -229,7 +236,7 @@
                             @click="profile=!profile"
                             class="w-11 h-11 rounded-full bg-slate-200 font-semibold">
 
-                            AD
+                            {{ strtoupper(substr(auth()->user()->name, 0, 2)) }}
 
                         </button>
 
@@ -245,13 +252,13 @@
 
                                 <div class="font-bold">
 
-                                    Platform Admin
+                                {{ request()->is('user/*') ? auth()->user()->name : 'Platform Admin' }}
 
                                 </div>
 
                                 <div class="text-sm text-slate-500">
 
-                                    administrator@esubiz.com
+                                {{ request()->is('user/*') ? auth()->user()->email : 'administrator@esubiz.com' }}
 
                                 </div>
 

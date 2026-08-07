@@ -1,149 +1,188 @@
-<x-wizard.layout
-    title="Review Website"
-    :step="6"
-    :steps="7"
-    heading="Review your website"
-    description="Confirm your selections before Esubiz provisions your website.">
+@extends('admin.layouts.app')
 
-    <form method="POST" action="{{ route('websites.deploy') }}">
+@section('title', 'Review & Deploy')
 
-        @csrf
+@section('content')
 
-        @foreach($website as $key => $value)
+@php
+$step = 8;
+$steps = 9;
+@endphp
+
+<form method="POST" action="{{ route('websites.deploy', $website) }}">
+
+    @csrf
+
+    @foreach(request()->all() as $key => $value)
+        @if(!is_array($value))
             <input type="hidden" name="{{ $key }}" value="{{ $value }}">
-        @endforeach
+        @endif
+    @endforeach
 
-        <div class="max-w-5xl mx-auto">
+    <div class="rounded-3xl bg-slate-100 p-8">
 
-            <div class="rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
 
-                <div class="border-b px-8 py-6">
+            <div>
 
-                    <h2 class="text-2xl font-bold text-slate-900">
+                <h1 class="text-4xl font-bold text-slate-900">
 
-                        Website Summary
+                    Review Your Website
 
-                    </h2>
+                </h1>
 
-                </div>
+                <p class="mt-3 text-slate-500">
 
-                <div class="grid gap-6 p-8 md:grid-cols-2">
+                    Confirm everything before deploying your website.
 
-                    <div>
-
-                        <p class="text-sm text-slate-500">Website Name</p>
-
-                        <p class="mt-1 text-lg font-semibold">
-                            {{ $website['name'] ?? '-' }}
-                        </p>
-
-                    </div>
-
-                    <div>
-
-                        <p class="text-sm text-slate-500">Website Type</p>
-
-                        <p class="mt-1 text-lg font-semibold capitalize">
-                            {{ $website['type'] ?? '-' }}
-                        </p>
-
-                    </div>
-
-                    <div>
-
-                        <p class="text-sm text-slate-500">Theme</p>
-
-                        <p class="mt-1 text-lg font-semibold capitalize">
-                            {{ $website['theme'] ?? '-' }}
-                        </p>
-
-                    </div>
-
-                    <div>
-
-                        <p class="text-sm text-slate-500">Plan</p>
-
-                        <p class="mt-1 text-lg font-semibold">
-                            {{ $website['plan_id'] ?? '-' }}
-                        </p>
-
-                    </div>
-
-                    <div>
-
-                        <p class="text-sm text-slate-500">Industry</p>
-
-                        <p class="mt-1 text-lg font-semibold">
-                            {{ $website['industry'] ?? '-' }}
-                        </p>
-
-                    </div>
-
-                    <div>
-
-                        <p class="text-sm text-slate-500">Subdomain</p>
-
-                        <p class="mt-1 text-lg font-semibold text-blue-600">
-                            https://{{ $website['subdomain'] ?? 'mybusiness' }}.esubiz.com
-                        </p>
-
-                    </div>
-
-                    <div class="md:col-span-2">
-
-                        <p class="text-sm text-slate-500">Description</p>
-
-                        <p class="mt-2 leading-7 text-slate-700">
-                            {{ $website['description'] ?? '-' }}
-                        </p>
-
-                    </div>
-
-                </div>
+                </p>
 
             </div>
 
-            <div class="mt-8 rounded-3xl border border-blue-200 bg-blue-50 p-6">
+            <div class="rounded-2xl bg-white px-6 py-5 shadow-sm">
 
-                <h3 class="text-lg font-bold text-blue-900">
+                <div class="text-sm text-slate-500">
 
-                    What happens next?
+                    Step
 
-                </h3>
+                </div>
 
-                <ul class="mt-4 space-y-3 text-blue-800">
+                <div class="text-3xl font-bold text-blue-600">
 
-                    <li>✓ Your website will be provisioned automatically.</li>
-                    <li>✓ Your workspace will be configured.</li>
-                    <li>✓ Your selected plan will be activated.</li>
-                    <li>✓ Your Esubiz dashboard will be ready.</li>
+                    {{ $step }} / {{ $steps }}
 
-                </ul>
-
-            </div>
-
-            <div class="mt-10 flex justify-between">
-
-                <a
-                    href="{{ route('websites.address', request()->query()) }}"
-                    class="rounded-2xl border border-slate-300 px-8 py-4 font-semibold hover:bg-slate-100">
-
-                    ← Back
-
-                </a>
-
-                <button
-                    type="submit"
-                    class="rounded-2xl bg-blue-600 px-10 py-4 font-semibold text-white hover:bg-blue-700">
-
-                    Create Website →
-
-                </button>
+                </div>
 
             </div>
 
         </div>
 
-    </form>
+        <div class="mt-10 grid gap-6 lg:grid-cols-2">
 
-</x-wizard.layout>
+            <div class="rounded-2xl bg-white p-6 shadow-sm">
+
+                <h3 class="mb-6 text-xl font-bold text-slate-900">
+
+                    Website Information
+
+                </h3>
+
+                <div class="space-y-4">
+
+                    <div class="flex justify-between">
+
+                        <span class="text-slate-500">Website Name</span>
+
+                        <span class="font-semibold">{{ request('name') }}</span>
+
+                    </div>
+
+                    <div class="flex justify-between">
+
+                        <span class="text-slate-500">Industry</span>
+
+                        <span class="font-semibold">{{ request('industry') }}</span>
+
+                    </div>
+
+                    <div class="flex justify-between">
+
+                        <span class="text-slate-500">Theme</span>
+
+                        <span class="font-semibold">{{ request('theme') }}</span>
+
+                    </div>
+
+                    <div class="flex justify-between">
+
+                        <span class="text-slate-500">Plan</span>
+
+                        <span class="font-semibold">{{ request('plan') }}</span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="rounded-2xl bg-white p-6 shadow-sm">
+
+                <h3 class="mb-6 text-xl font-bold text-slate-900">
+
+                    Administrator
+
+                </h3>
+
+                <div class="space-y-4">
+
+                    <div class="flex justify-between">
+
+                        <span class="text-slate-500">Name</span>
+
+                        <span class="font-semibold">{{ request('admin_name') }}</span>
+
+                    </div>
+
+                    <div class="flex justify-between">
+
+                        <span class="text-slate-500">Email</span>
+
+                        <span class="font-semibold">{{ request('admin_email') }}</span>
+
+                    </div>
+
+                    <div class="flex justify-between">
+
+                        <span class="text-slate-500">Phone</span>
+
+                        <span class="font-semibold">{{ request('admin_phone') }}</span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="mt-10 rounded-2xl border border-blue-200 bg-blue-50 p-6">
+
+            <h3 class="text-lg font-bold text-blue-700">
+
+                Ready to Deploy
+
+            </h3>
+
+            <p class="mt-2 text-slate-600">
+
+                Your website configuration is complete. Click the button below to generate and deploy your website.
+
+            </p>
+
+        </div>
+
+        <div class="mt-10 flex flex-col gap-4 border-t border-slate-200 pt-8 sm:flex-row sm:items-center sm:justify-between">
+
+            <a
+                href="{{ route('websites.administrator', $website) }}"
+                class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-6 py-3 font-medium">
+
+                ← Back
+
+            </a>
+
+            <button
+                type="submit"
+                class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-8 py-3 font-semibold text-white hover:bg-blue-700">
+
+                🚀 Deploy Website
+
+            </button>
+
+        </div>
+
+    </div>
+
+</form>
+
+@endsection

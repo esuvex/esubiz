@@ -27,7 +27,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     */
 
     Route::get('/dashboard', function () {
-        return redirect()->route('admin.dashboard');
+        return view('dashboard');
     })->name('dashboard');
 
     /*
@@ -57,29 +57,71 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/websites/create', [WebsiteWizardController::class, 'create'])
         ->name('websites.create');
 
-    Route::get('/websites/theme', [WebsiteWizardController::class, 'theme'])
+    Route::post('/websites/create', [WebsiteWizardController::class, 'store'])
+        ->name('websites.store');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Continue Draft
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/websites/{website}/continue', [WebsiteWizardController::class, 'continue'])
+        ->name('websites.continue');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Wizard Steps
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/websites/{website}/theme', [WebsiteWizardController::class, 'theme'])
         ->name('websites.theme');
 
-    Route::get('/websites/information', [WebsiteWizardController::class, 'information'])
+    Route::get('/websites/{website}/information', [WebsiteWizardController::class, 'information'])
         ->name('websites.information');
 
-    Route::get('/websites/plan', [WebsiteWizardController::class, 'plan'])
+    Route::get('/websites/{website}/plan', [WebsiteWizardController::class, 'plan'])
         ->name('websites.plan');
 
-    Route::get('/websites/address', [WebsiteWizardController::class, 'address'])
+    /*
+    |--------------------------------------------------------------------------
+    | NEW STEP 5 - Website Address
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/websites/{website}/domain', [WebsiteWizardController::class, 'domain'])
+        ->name('websites.domain');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Step 6
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/websites/{website}/address', [WebsiteWizardController::class, 'address'])
         ->name('websites.address');
 
-    Route::get('/websites/administrator', [WebsiteWizardController::class, 'administrator'])
+    /*
+    |--------------------------------------------------------------------------
+    | Step 7
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/websites/{website}/administrator', [WebsiteWizardController::class, 'administrator'])
         ->name('websites.administrator');
 
-    Route::get('/websites/review', [WebsiteWizardController::class, 'review'])
+    /*
+    |--------------------------------------------------------------------------
+    | Step 8
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/websites/{website}/review', [WebsiteWizardController::class, 'review'])
         ->name('websites.review');
 
-    Route::post('/websites/deploy', [WebsiteWizardController::class, 'deploy'])
+    Route::post('/websites/{website}/deploy', [WebsiteWizardController::class, 'deploy'])
         ->name('websites.deploy');
-
-    Route::post('/websites', [WebsiteController::class, 'store'])
-        ->name('websites.store');
 
     /*
     |--------------------------------------------------------------------------

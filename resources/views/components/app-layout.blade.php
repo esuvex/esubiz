@@ -1,171 +1,18 @@
-<!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
-
-<head>
-
-    <meta charset="utf-8">
-
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1">
-
-    <meta name="csrf-token"
-          content="{{ csrf_token() }}">
-
-    <title>@yield('title','Esubiz') | Esubiz</title>
-
-    @vite([
-        'resources/css/app.css',
-        'resources/js/app.js',
-    ])
-
-</head>
-
-<body
-    class="bg-slate-100 antialiased"
+<div
     x-data="{
         sidebar:false,
         notifications:false,
         profile:false
-    }">
+    }"
+    class="min-h-screen bg-slate-100">
 
-<div class="min-h-screen">
-
-    <!-- Mobile Overlay -->
-
-    <div
-        x-show="sidebar"
-        x-transition.opacity
-        x-cloak
-        @click="sidebar=false"
-        class="fixed inset-0 z-40 bg-black/60 lg:hidden">
-    </div>
-
-    <!-- Sidebar -->
-
-    <aside
-
-        class="fixed inset-y-0 left-0 z-50
-               flex w-72 flex-col
-               bg-slate-900 text-white
-               transition-transform duration-300
-               lg:translate-x-0"
-
-        :class="sidebar
-            ? 'translate-x-0'
-            : '-translate-x-full lg:translate-x-0'">
-
-        <div class="border-b border-slate-800 p-6">
-
-            <a href="{{ route('dashboard') }}">
-
-                <h1 class="text-3xl font-extrabold tracking-wide">
-
-                    ESUBIZ
-
-                </h1>
-
-                <p class="mt-2 text-sm text-slate-400">
-
-                    Business Operating System
-
-                </p>
-
-            </a>
-
-        </div>
-
-        <nav class="flex-1 overflow-y-auto px-4 py-6 space-y-2">
-
-            <a
-                href="{{ route('dashboard') }}"
-                class="block rounded-xl bg-blue-600 px-5 py-3 font-medium">
-
-                Dashboard
-
-            </a>
-
-            <a
-                href="{{ route('websites.create') }}"
-                class="block rounded-xl px-5 py-3 hover:bg-slate-800">
-
-                Websites
-
-            </a>
-
-            <a
-                href="#"
-                class="block rounded-xl px-5 py-3 hover:bg-slate-800">
-
-                Domains
-
-            </a>
-
-            <a
-                href="#"
-                class="block rounded-xl px-5 py-3 hover:bg-slate-800">
-
-                Templates
-
-            </a>
-
-            <a
-                href="#"
-                class="block rounded-xl px-5 py-3 hover:bg-slate-800">
-
-                Marketplace
-
-            </a>
-
-            <a
-                href="#"
-                class="block rounded-xl px-5 py-3 hover:bg-slate-800">
-
-                Billing
-
-            </a>
-            <a
-                href="#"
-                class="block rounded-xl px-5 py-3 hover:bg-slate-800">
-
-                Team
-
-            </a>
-
-            <a
-                href="#"
-                class="block rounded-xl px-5 py-3 hover:bg-slate-800">
-
-                Notifications
-
-            </a>
-
-            <a
-                href="#"
-                class="block rounded-xl px-5 py-3 hover:bg-slate-800">
-
-                Settings
-
-            </a>
-
-            <a
-                href="#"
-                class="block rounded-xl px-5 py-3 hover:bg-slate-800">
-
-                Help
-
-            </a>
-
-        </nav>
-
-    </aside>
-
-    <!-- Main Content -->
+    @include('layouts.navigation')
 
     <div class="lg:ml-72 min-h-screen flex flex-col">
 
-        <!-- Header -->
+        @isset($header)
 
-        <header class="sticky top-0 z-30 border-b border-slate-200 bg-white">
+        <header class="sticky top-0 z-30 bg-white border-b border-slate-200">
 
             <div class="flex h-16 items-center justify-between px-6">
 
@@ -176,7 +23,7 @@
                         class="rounded-lg p-2 hover:bg-slate-100 lg:hidden">
 
                         <svg
-                            class="h-7 w-7"
+                            class="w-7 h-7"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24">
@@ -191,22 +38,11 @@
 
                     </button>
 
-                    <div>
-
-                        <h2 class="text-2xl font-bold text-slate-900">
-
-                            @yield('title')
-
-                        </h2>
-
-                    </div>
+                    {{ $header }}
 
                 </div>
 
                 <div class="flex items-center gap-4">
-
-                    <!-- Notifications -->
-
                     <div class="relative">
 
                         <button
@@ -219,8 +55,8 @@
 
                         <div
                             x-show="notifications"
-                            x-transition
                             x-cloak
+                            x-transition
                             @click.outside="notifications=false"
                             class="absolute right-0 mt-3 w-80 rounded-2xl border bg-white shadow-xl">
 
@@ -239,7 +75,6 @@
                         </div>
 
                     </div>
-                    <!-- Profile -->
 
                     <div class="relative">
 
@@ -253,8 +88,8 @@
 
                         <div
                             x-show="profile"
-                            x-transition
                             x-cloak
+                            x-transition
                             @click.outside="profile=false"
                             class="absolute right-0 mt-3 w-72 rounded-2xl border bg-white shadow-xl">
 
@@ -281,14 +116,6 @@
                                     class="block px-5 py-3 hover:bg-slate-100">
 
                                     My Profile
-
-                                </a>
-
-                                <a
-                                    href="#"
-                                    class="block px-5 py-3 hover:bg-slate-100">
-
-                                    Settings
 
                                 </a>
 
@@ -320,13 +147,13 @@
 
         </header>
 
-        <!-- Page Content -->
+        @endisset
 
         <main class="flex-1">
 
             <div class="mx-auto w-full max-w-7xl p-6 lg:p-8">
 
-                @yield('content')
+                {{ $slot }}
 
             </div>
 
@@ -335,7 +162,3 @@
     </div>
 
 </div>
-
-</body>
-
-</html>

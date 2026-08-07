@@ -1,174 +1,172 @@
-<x-wizard.layout
-    title="Website Administrator"
-    :step="6"
-    :steps="8"
-    heading="Website Administrator"
-    description="Create the administrator account that will be used to log into this website.">
+@extends('admin.layouts.app')
 
-    <form method="GET" action="{{ route('websites.review') }}">
+@section('title', 'Administrator Account')
 
-        @foreach($website as $key => $value)
-            <input type="hidden" name="{{ $key }}" value="{{ $value }}">
-        @endforeach
+@section('content')
 
-        <div class="max-w-5xl mx-auto space-y-8">
+@php
+$step = 7;
+$steps = 9;
+@endphp
 
-            <div class="rounded-3xl border border-blue-200 bg-blue-50 p-6">
+<form method="GET" action="{{ route('websites.review', $website) }}">
 
-                <label class="flex items-start gap-4 cursor-pointer">
+    @foreach(request()->except([
+        'admin_name',
+        'admin_email',
+        'admin_phone',
+        'password',
+        'password_confirmation'
+    ]) as $key => $value)
+        <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+    @endforeach
 
-                    <input
-                        type="checkbox"
-                        id="use_esubiz"
-                        name="use_esubiz"
-                        value="1"
-                        class="mt-1 h-5 w-5 rounded">
+    <div class="rounded-3xl bg-slate-100 p-8">
 
-                    <div>
+        <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
 
-                        <h3 class="text-lg font-bold text-slate-900">
+            <div>
 
-                            Use my Esubiz login details
+                <h1 class="text-4xl font-bold text-slate-900">
+                    Administrator Account
+                </h1>
 
-                        </h3>
-
-                        <p class="mt-2 text-slate-600">
-
-                            The current Esubiz account will become the website administrator.
-
-                        </p>
-
-                    </div>
-
-                </label>
+                <p class="mt-3 text-slate-500">
+                    Create the primary administrator account.
+                </p>
 
             </div>
 
-            <div id="adminFields" class="space-y-6">
+            <div class="rounded-2xl bg-white px-6 py-5 shadow-sm">
 
-                <div>
-
-                    <label class="block mb-2 text-sm font-semibold text-slate-700">
-
-                        Administrator Name
-
-                    </label>
-
-                    <input
-                        type="text"
-                        name="admin_name"
-                        class="w-full rounded-2xl border border-slate-300 px-5 py-4"
-                        placeholder="John Doe">
-
+                <div class="text-sm text-slate-500">
+                    Step
                 </div>
 
-                <div>
-
-                    <label class="block mb-2 text-sm font-semibold text-slate-700">
-
-                        Administrator Email / Username
-
-                    </label>
-
-                    <input
-                        type="text"
-                        name="admin_email"
-                        class="w-full rounded-2xl border border-slate-300 px-5 py-4"
-                        placeholder="admin@company.com">
-
+                <div class="text-3xl font-bold text-blue-600">
+                    {{ $step }} / {{ $steps }}
                 </div>
-
-                <div class="grid md:grid-cols-2 gap-6">
-
-                    <div>
-
-                        <label class="block mb-2 text-sm font-semibold text-slate-700">
-
-                            Administrator Password
-
-                        </label>
-
-                        <input
-                            type="password"
-                            name="admin_password"
-                            class="w-full rounded-2xl border border-slate-300 px-5 py-4">
-
-                    </div>
-
-                    <div>
-
-                        <label class="block mb-2 text-sm font-semibold text-slate-700">
-
-                            Confirm Password
-
-                        </label>
-
-                        <input
-                            type="password"
-                            name="admin_password_confirmation"
-                            class="w-full rounded-2xl border border-slate-300 px-5 py-4">
-
-                    </div>
-
-                </div>
-
-            </div>
-
-            <div class="rounded-3xl border border-amber-200 bg-amber-50 p-6">
-
-                <h3 class="text-lg font-bold text-amber-900">
-
-                    Important
-
-                </h3>
-
-                <ul class="mt-4 space-y-2 text-amber-800">
-
-                    <li>• These credentials will be used at <strong>/login</strong> on this website.</li>
-
-                    <li>• The website administrator can change these credentials at any time.</li>
-
-                    <li>• The Esubiz account owner will always retain management access from the Esubiz portal.</li>
-
-                </ul>
-
-            </div>
-
-            <div class="flex justify-between pt-4">
-
-                <a
-                    href="{{ route('websites.address', request()->query()) }}"
-                    class="rounded-2xl border border-slate-300 px-8 py-4 font-semibold hover:bg-slate-100">
-
-                    ← Back
-
-                </a>
-
-                <button
-                    type="submit"
-                    class="rounded-2xl bg-blue-600 px-10 py-4 font-semibold text-white hover:bg-blue-700">
-
-                    Continue →
-
-                </button>
 
             </div>
 
         </div>
 
-    </form>
+        <div class="mt-10 grid grid-cols-4 gap-4 md:flex md:items-center">
 
-    <script>
+            @for($i = 1; $i <= $steps; $i++)
 
-        const checkbox = document.getElementById('use_esubiz');
-        const fields = document.getElementById('adminFields');
+                <div class="flex justify-center md:flex-1">
 
-        checkbox.addEventListener('change', function () {
+                    <div class="flex h-12 w-12 items-center justify-center rounded-full border-2 text-sm font-bold {{ $i == $step ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 bg-white text-slate-500' }}">
 
-            fields.style.display = this.checked ? 'none' : 'block';
+                        {{ $i }}
 
-        });
+                    </div>
 
-    </script>
+                </div>
 
-</x-wizard.layout>
+            @endfor
+
+        </div>
+
+        <div class="mt-10 grid gap-6 md:grid-cols-2">
+
+            <div>
+
+                <label class="mb-2 block font-medium text-slate-700">
+                    Full Name
+                </label>
+
+                <input
+                    type="text"
+                    name="admin_name"
+                    required
+                    class="w-full rounded-xl border border-slate-300 bg-white px-5 py-4"
+                    value="{{ request('admin_name') }}">
+
+            </div>
+
+            <div>
+
+                <label class="mb-2 block font-medium text-slate-700">
+                    Email Address
+                </label>
+
+                <input
+                    type="email"
+                    name="admin_email"
+                    required
+                    class="w-full rounded-xl border border-slate-300 bg-white px-5 py-4"
+                    value="{{ request('admin_email') }}">
+
+            </div>
+
+            <div>
+
+                <label class="mb-2 block font-medium text-slate-700">
+                    Phone Number
+                </label>
+
+                <input
+                    type="text"
+                    name="admin_phone"
+                    class="w-full rounded-xl border border-slate-300 bg-white px-5 py-4"
+                    value="{{ request('admin_phone') }}">
+
+            </div>
+
+            <div>
+
+                <label class="mb-2 block font-medium text-slate-700">
+                    Password
+                </label>
+
+                <input
+                    type="password"
+                    name="password"
+                    required
+                    class="w-full rounded-xl border border-slate-300 bg-white px-5 py-4">
+
+            </div>
+
+            <div class="md:col-span-2">
+
+                <label class="mb-2 block font-medium text-slate-700">
+                    Confirm Password
+                </label>
+
+                <input
+                    type="password"
+                    name="password_confirmation"
+                    required
+                    class="w-full rounded-xl border border-slate-300 bg-white px-5 py-4">
+
+            </div>
+
+        </div>
+
+        <div class="mt-10 flex flex-col gap-4 border-t border-slate-200 pt-8 sm:flex-row sm:items-center sm:justify-between">
+
+            <a
+                href="{{ route('websites.address', $website) }}"
+                class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-6 py-3 font-medium">
+
+                ← Back
+
+            </a>
+
+            <button
+                type="submit"
+                class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-8 py-3 font-semibold text-white">
+
+                Continue →
+
+            </button>
+
+        </div>
+
+    </div>
+
+</form>
+
+@endsection

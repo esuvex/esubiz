@@ -2,13 +2,26 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreWebsiteDraftRequest;
+use App\Models\Website;
+use App\Services\WebsiteDraftService;
+use App\Services\WebsiteService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class WebsiteWizardController extends Controller
 {
+    public function __construct(
+        protected WebsiteDraftService $draftService,
+        protected WebsiteService $websiteService
+    ) {
+    }
+
     /**
+     * --------------------------------------------------------------------------
      * Step 1 - Website Type
+     * --------------------------------------------------------------------------
      */
     public function create(): View
     {
@@ -16,11 +29,38 @@ class WebsiteWizardController extends Controller
     }
 
     /**
-     * Step 2 - Theme
+     * --------------------------------------------------------------------------
+     * Create a new website draft
+     * --------------------------------------------------------------------------
      */
-    public function theme(Request $request): View
-    {
-        $website = $request->all();
+    public function store(
+        StoreWebsiteDraftRequest $request
+    ): RedirectResponse {
+
+        $website = $this->draftService->create();
+
+        $this->draftService->save(
+            $website,
+            [
+                'type' => $request->validated()['type'],
+            ],
+            1
+        );
+
+        return redirect()->route(
+            'websites.theme',
+            $website
+        );
+    }
+
+    /**
+     * --------------------------------------------------------------------------
+     * Step 2 - Theme
+     * --------------------------------------------------------------------------
+     */
+    public function theme(
+        Website $website
+    ): View {
 
         $themes = [
 
@@ -44,28 +84,41 @@ class WebsiteWizardController extends Controller
 
         ];
 
-        return view('websites.theme', compact(
-            'website',
-            'themes'
-        ));
+        return view(
+            'websites.theme',
+            [
+                'website' => $website,
+                'wizard' => $website->wizard_data ?? [],
+                'themes' => $themes,
+            ]
+        );
     }
-
     /**
+     * --------------------------------------------------------------------------
      * Step 3 - Website Information
+     * --------------------------------------------------------------------------
      */
-    public function information(Request $request): View
-    {
-        return view('websites.information', [
-            'website' => $request->all(),
-        ]);
+    public function information(
+        Website $website
+    ): View {
+
+        return view(
+            'websites.information',
+            [
+                'website' => $website,
+                'wizard' => $website->wizard_data ?? [],
+            ]
+        );
     }
 
     /**
+     * --------------------------------------------------------------------------
      * Step 4 - Plan
+     * --------------------------------------------------------------------------
      */
-    public function plan(Request $request): View
-    {
-        $website = $request->all();
+    public function plan(
+        Website $website
+    ): View {
 
         $plans = [
 
@@ -120,48 +173,143 @@ class WebsiteWizardController extends Controller
 
         ];
 
-        return view('websites.plan', compact(
-            'website',
-            'plans'
-        ));
+        return view(
+            'websites.plan',
+            [
+                'website' => $website,
+                'wizard' => $website->wizard_data ?? [],
+                'plans' => $plans,
+            ]
+        );
     }
 
-    /**
-     * Step 5 - Website Address
-     */
-    public function address(Request $request): View
-    {
-        return view('websites.address', [
-            'website' => $request->all(),
-        ]);
+   /**
+ * --------------------------------------------------------------------------
+ * Step 5 - Website Address
+ * --------------------------------------------------------------------------
+ */
+public function domain(
+    Website $website
+): View {
+
+    return view(
+        'websites.domain',
+        [
+            'website' => $website,
+            'wizard' => $website->wizard_data ?? [],
+        ]
+    );
+
+}
+
+/**
+ * --------------------------------------------------------------------------
+ * Step 6 - Business Address
+ * --------------------------------------------------------------------------
+ */
+public function address(
+    Website $website
+): View {
+
+    return view(
+        'websites.address',
+        [
+            'website' => $website,
+            'wizard' => $website->wizard_data ?? [],
+        ]
+    );
+
+}
+
+/**
+ * --------------------------------------------------------------------------
+ * Step 7 - Website Administrator
+ * --------------------------------------------------------------------------
+ */
+public function administrator(
+    Website $website
+): View {
+
+    return view(
+        'websites.administrator',
+        [
+            'website' => $website,
+            'wizard' => $website->wizard_data ?? [],
+        ]
+    );
+
+}
+
+/**
+ * --------------------------------------------------------------------------
+ * Step 8 - Review
+ * --------------------------------------------------------------------------
+ */
+public function review(
+    Website $website
+): View {
+
+    return view(
+        'websites.review',
+        [
+            'website' => $website,
+            'wizard' => $website->wizard_data ?? [],
+        ]
+    );
+
+}
+
+/**
+ * --------------------------------------------------------------------------
+ * Deploy Website
+ * --------------------------------------------------------------------------
+ */
+public function deploy(
+    Request $request,
+    Website $website
+)
+{
+    /*
+    |--------------------------------------------------------------------------
+    | Final wizard data merge
+    |--------------------------------------------------------------------------
+    */
+
+    if (!empty($request->all())) {
+
+        $this->draftService->save(
+            $website,
+            $request->except([
+                '_token',
+            ]),
+            8
+        );
+
+        $website = $website->fresh();
     }
 
-    /**
-     * Step 6 - Website Administrator
-     */
-    public function administrator(Request $request): View
-    {
-        return view('websites.administrator', [
-            'website' => $request->all(),
-        ]);
-    }
+    /*
+    |--------------------------------------------------------------------------
+    | Mark provisioning
+    |--------------------------------------------------------------------------
+    */
 
-    /**
-     * Step 7 - Review
-     */
-    public function review(Request $request): View
-    {
-        return view('websites.review', [
-            'website' => $request->all(),
-        ]);
-    }
+    $website->markProvisioning();
 
-    /**
-     * Step 8 - Deploy
-     */
-    public function deploy(Request $request)
-    {
-        return app(\App\Services\WebsiteService::class)
-            ->create($request->all());
-    }
+    /*
+    |--------------------------------------------------------------------------
+    | Deploy website
+    |--------------------------------------------------------------------------
+    */
+
+    return $this->websiteService->create(
+        array_merge(
+            $website->wizard_data ?? [],
+            [
+                'website_id' => $website->id,
+            ]
+        )
+    );
+}
+
 }

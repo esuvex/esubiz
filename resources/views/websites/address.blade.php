@@ -1,108 +1,155 @@
-<x-wizard.layout
-    title="Website Address"
-    :step="5"
-    :steps="7"
-    heading="Choose your website address"
-    description="Select a free Esubiz subdomain or connect your own custom domain later.">
+@extends('admin.layouts.app')
 
-    <form method="GET" action="{{ route('websites.review') }}">
+@section('title', 'Business Address')
 
-        @foreach($website as $key => $value)
-            <input type="hidden" name="{{ $key }}" value="{{ $value }}">
-        @endforeach
+@section('content')
 
-        <div class="max-w-5xl mx-auto space-y-8">
+@php
+$step = 6;
+$steps = 9;
+@endphp
+
+<form method="GET" action="{{ route('websites.administrator', $website) }}">
+
+    @foreach(request()->except([
+        'country',
+        'state',
+        'city',
+        'address'
+    ]) as $key => $value)
+        <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+    @endforeach
+
+    <div class="rounded-3xl bg-slate-100 p-8">
+
+        <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
 
             <div>
 
-                <label class="block text-sm font-semibold text-slate-700 mb-2">
-                    Esubiz Subdomain
-                </label>
+                <h1 class="text-4xl font-bold text-slate-900">
+                    Business Address
+                </h1>
 
-                <div class="flex rounded-2xl border border-slate-300 overflow-hidden">
+                <p class="mt-3 text-slate-500">
+                    Enter your business location.
+                </p>
 
-                    <input
-                        type="text"
-                        name="subdomain"
-                        required
-                        class="flex-1 px-5 py-4 border-0 focus:ring-0"
-                        placeholder="mybusiness">
+            </div>
 
-                    <div class="bg-slate-100 px-6 flex items-center font-semibold text-slate-700">
-                        .esubiz.com
-                    </div>
+            <div class="rounded-2xl bg-white px-6 py-5 shadow-sm">
 
+                <div class="text-sm text-slate-500">
+                    Step
                 </div>
 
-                <p class="mt-2 text-sm text-slate-500">
-                    Your website will be available instantly using this address.
-                </p>
-
-            </div>
-
-            <div>
-
-                <label class="block text-sm font-semibold text-slate-700 mb-2">
-                    Custom Domain (Optional)
-                </label>
-
-                <input
-                    type="text"
-                    name="domain"
-                    class="w-full rounded-2xl border border-slate-300 px-5 py-4"
-                    placeholder="www.yourcompany.com">
-
-                <p class="mt-2 text-sm text-slate-500">
-                    You can connect your own domain after deployment.
-                </p>
-
-            </div>
-
-            <div class="rounded-2xl border bg-blue-50 p-6">
-
-                <h3 class="text-lg font-bold text-slate-900">
-                    Your Website URL
-                </h3>
-
-                <p class="mt-3 text-xl font-semibold text-blue-700">
-                    https://<span id="preview">mybusiness</span>.esubiz.com
-                </p>
-
-            </div>
-
-            <div class="flex justify-between">
-
-                <a
-                    href="{{ route('websites.plan', request()->query()) }}"
-                    class="rounded-2xl border border-slate-300 px-8 py-4 font-semibold hover:bg-slate-100">
-
-                    ← Back
-
-                </a>
-
-                <button
-                    type="submit"
-                    class="rounded-2xl bg-blue-600 px-10 py-4 font-semibold text-white hover:bg-blue-700">
-
-                    Continue →
-
-                </button>
+                <div class="text-3xl font-bold text-blue-600">
+                    {{ $step }} / {{ $steps }}
+                </div>
 
             </div>
 
         </div>
 
-    </form>
+        <div class="mt-10 grid grid-cols-4 gap-4 md:flex md:items-center">
 
-    <script>
+            @for($i = 1; $i <= $steps; $i++)
 
-        document.querySelector('input[name="subdomain"]').addEventListener('keyup', function(){
+                <div class="flex justify-center md:flex-1">
 
-            document.getElementById('preview').innerText =
-                this.value || 'mybusiness';
+                    <div class="flex h-12 w-12 items-center justify-center rounded-full border-2 text-sm font-bold {{ $i == $step ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 bg-white text-slate-500' }}">
 
-        });
+                        {{ $i }}
 
-    </script>
+                    </div>
 
-</x-wizard.layout>
+                </div>
+
+            @endfor
+
+        </div>
+
+        <div class="mt-10 grid gap-6 md:grid-cols-2">
+
+            <div>
+
+                <label class="mb-2 block font-medium text-slate-700">
+                    Country
+                </label>
+
+                <input
+                    type="text"
+                    name="country"
+                    class="w-full rounded-xl border border-slate-300 bg-white px-5 py-4"
+                    value="{{ request('country') }}">
+
+            </div>
+
+            <div>
+
+                <label class="mb-2 block font-medium text-slate-700">
+                    State
+                </label>
+
+                <input
+                    type="text"
+                    name="state"
+                    class="w-full rounded-xl border border-slate-300 bg-white px-5 py-4"
+                    value="{{ request('state') }}">
+
+            </div>
+
+            <div>
+
+                <label class="mb-2 block font-medium text-slate-700">
+                    City
+                </label>
+
+                <input
+                    type="text"
+                    name="city"
+                    class="w-full rounded-xl border border-slate-300 bg-white px-5 py-4"
+                    value="{{ request('city') }}">
+
+            </div>
+
+            <div>
+
+                <label class="mb-2 block font-medium text-slate-700">
+                    Address
+                </label>
+
+                <input
+                    type="text"
+                    name="address"
+                    class="w-full rounded-xl border border-slate-300 bg-white px-5 py-4"
+                    value="{{ request('address') }}">
+
+            </div>
+
+        </div>
+
+        <div class="mt-10 flex flex-col gap-4 border-t border-slate-200 pt-8 sm:flex-row sm:items-center sm:justify-between">
+
+            <a
+                href="{{ route('websites.plan', $website) }}"
+                class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-6 py-3 font-medium">
+
+                ← Back
+
+            </a>
+
+            <button
+                type="submit"
+                class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-8 py-3 font-semibold text-white">
+
+                Continue →
+
+            </button>
+
+        </div>
+
+    </div>
+
+</form>
+
+@endsection
