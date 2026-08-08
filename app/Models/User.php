@@ -40,6 +40,14 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
+     * Websites owned by the user.
+     */
+    public function websites()
+    {
+        return $this->hasMany(Website::class, 'owner_id');
+    }
+
+    /**
      * Workspaces owned by the user.
      */
     public function ownedWorkspaces()
@@ -60,6 +68,8 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function currentWorkspace()
     {
-        return $this->workspaceMemberships()->where('status', 'active')->first();
+        return $this->workspaceMemberships()
+            ->where('status', 'active')
+            ->first();
     }
 }

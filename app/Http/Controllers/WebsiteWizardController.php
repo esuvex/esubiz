@@ -30,7 +30,7 @@ class WebsiteWizardController extends Controller
 
     /**
      * --------------------------------------------------------------------------
-     * Create a new website draft
+     * Create Website Draft
      * --------------------------------------------------------------------------
      */
     public function store(
@@ -55,33 +55,71 @@ class WebsiteWizardController extends Controller
 
     /**
      * --------------------------------------------------------------------------
+     * Continue Existing Draft
+     * --------------------------------------------------------------------------
+     */
+    public function continue(
+        Website $website
+    ): RedirectResponse {
+
+        $routes = [
+            1 => 'websites.theme',
+            2 => 'websites.information',
+            3 => 'websites.plan',
+            4 => 'websites.domain',
+            5 => 'websites.address',
+            6 => 'websites.administrator',
+            7 => 'websites.review',
+            8 => 'websites.review',
+            9 => 'websites.review',
+        ];
+
+        $currentStep = (int) ($website->current_step ?? 1);
+
+        $nextStep = min($currentStep + 1, 9);
+
+        return redirect()->route(
+            $routes[$currentStep] ?? 'websites.theme',
+            $website
+        );
+    }
+
+    /**
+     * --------------------------------------------------------------------------
      * Step 2 - Theme
      * --------------------------------------------------------------------------
      */
     public function theme(
+        Request $request,
         Website $website
     ): View {
 
-        $themes = [
+        if ($request->filled('theme')) {
+            $this->draftService->save(
+                $website,
+                $request->except('_token'),
+                2
+            );
 
+            $website = $website->fresh();
+        }
+
+        $themes = [
             [
                 'id' => 'classic',
                 'name' => 'Classic',
                 'description' => 'Clean and timeless business design.',
             ],
-
             [
                 'id' => 'modern',
                 'name' => 'Modern',
                 'description' => 'Modern corporate experience.',
             ],
-
             [
                 'id' => 'premium',
                 'name' => 'Premium',
                 'description' => 'Premium high-converting layout.',
             ],
-
         ];
 
         return view(
@@ -93,14 +131,26 @@ class WebsiteWizardController extends Controller
             ]
         );
     }
+
     /**
      * --------------------------------------------------------------------------
      * Step 3 - Website Information
      * --------------------------------------------------------------------------
      */
     public function information(
+        Request $request,
         Website $website
     ): View {
+
+        if ($request->all()) {
+            $this->draftService->save(
+                $website,
+                $request->except('_token'),
+                3
+            );
+
+            $website = $website->fresh();
+        }
 
         return view(
             'websites.information',
@@ -117,11 +167,21 @@ class WebsiteWizardController extends Controller
      * --------------------------------------------------------------------------
      */
     public function plan(
+        Request $request,
         Website $website
     ): View {
 
-        $plans = [
+        if ($request->all()) {
+            $this->draftService->save(
+                $website,
+                $request->except('_token'),
+                4
+            );
 
+            $website = $website->fresh();
+        }
+
+        $plans = [
             [
                 'id' => 1,
                 'name' => 'Starter',
@@ -137,7 +197,6 @@ class WebsiteWizardController extends Controller
                     '1 Team Member',
                 ],
             ],
-
             [
                 'id' => 2,
                 'name' => 'Professional',
@@ -154,7 +213,6 @@ class WebsiteWizardController extends Controller
                     'Advanced CRM',
                 ],
             ],
-
             [
                 'id' => 3,
                 'name' => 'Business',
@@ -170,7 +228,6 @@ class WebsiteWizardController extends Controller
                     'Priority Support',
                 ],
             ],
-
         ];
 
         return view(
@@ -183,133 +240,171 @@ class WebsiteWizardController extends Controller
         );
     }
 
-   /**
- * --------------------------------------------------------------------------
- * Step 5 - Website Address
- * --------------------------------------------------------------------------
- */
-public function domain(
-    Website $website
-): View {
+    /**
+     * --------------------------------------------------------------------------
+     * Step 5 - Website Address
+     * --------------------------------------------------------------------------
+     */
+    public function domain(
+        Request $request,
+        Website $website
+    ): View {
 
-    return view(
-        'websites.domain',
-        [
-            'website' => $website,
-            'wizard' => $website->wizard_data ?? [],
-        ]
-    );
+        if ($request->all()) {
+            $this->draftService->save(
+                $website,
+                $request->except('_token'),
+                5
+            );
 
-}
+            $website = $website->fresh();
+        }
 
-/**
- * --------------------------------------------------------------------------
- * Step 6 - Business Address
- * --------------------------------------------------------------------------
- */
-public function address(
-    Website $website
-): View {
-
-    return view(
-        'websites.address',
-        [
-            'website' => $website,
-            'wizard' => $website->wizard_data ?? [],
-        ]
-    );
-
-}
-
-/**
- * --------------------------------------------------------------------------
- * Step 7 - Website Administrator
- * --------------------------------------------------------------------------
- */
-public function administrator(
-    Website $website
-): View {
-
-    return view(
-        'websites.administrator',
-        [
-            'website' => $website,
-            'wizard' => $website->wizard_data ?? [],
-        ]
-    );
-
-}
-
-/**
- * --------------------------------------------------------------------------
- * Step 8 - Review
- * --------------------------------------------------------------------------
- */
-public function review(
-    Website $website
-): View {
-
-    return view(
-        'websites.review',
-        [
-            'website' => $website,
-            'wizard' => $website->wizard_data ?? [],
-        ]
-    );
-
-}
-
-/**
- * --------------------------------------------------------------------------
- * Deploy Website
- * --------------------------------------------------------------------------
- */
-public function deploy(
-    Request $request,
-    Website $website
-)
-{
-    /*
-    |--------------------------------------------------------------------------
-    | Final wizard data merge
-    |--------------------------------------------------------------------------
-    */
-
-    if (!empty($request->all())) {
-
-        $this->draftService->save(
-            $website,
-            $request->except([
-                '_token',
-            ]),
-            8
+        return view(
+            'websites.domain',
+            [
+                'website' => $website,
+                'wizard' => $website->wizard_data ?? [],
+            ]
         );
-
-        $website = $website->fresh();
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Mark provisioning
-    |--------------------------------------------------------------------------
-    */
+    /**
+     * --------------------------------------------------------------------------
+     * Step 6 - Business Address
+     * --------------------------------------------------------------------------
+     */
+    public function address(
+        Request $request,
+        Website $website
+    ): View {
 
-    $website->markProvisioning();
+        if ($request->all()) {
+            $this->draftService->save(
+                $website,
+                $request->except('_token'),
+                6
+            );
 
-    /*
-    |--------------------------------------------------------------------------
-    | Deploy website
-    |--------------------------------------------------------------------------
-    */
+            $website = $website->fresh();
+        }
 
-    return $this->websiteService->create(
-        array_merge(
-            $website->wizard_data ?? [],
+        return view(
+            'websites.address',
             [
-                'website_id' => $website->id,
+                'website' => $website,
+                'wizard' => $website->wizard_data ?? [],
             ]
-        )
-    );
-}
+        );
+    }
 
+    /**
+     * --------------------------------------------------------------------------
+     * Step 7 - Website Administrator
+     * --------------------------------------------------------------------------
+     */
+    public function administrator(
+        Request $request,
+        Website $website
+    ): View {
+
+        if ($request->all()) {
+            $this->draftService->save(
+                $website,
+                $request->except('_token'),
+                7
+            );
+
+            $website = $website->fresh();
+        }
+
+        return view(
+            'websites.administrator',
+            [
+                'website' => $website,
+                'wizard' => $website->wizard_data ?? [],
+            ]
+        );
+    }
+
+    /**
+     * --------------------------------------------------------------------------
+     * Step 8 - Review
+     * --------------------------------------------------------------------------
+     */
+    public function review(
+        Request $request,
+        Website $website
+    ): View {
+
+        if ($request->all()) {
+            $this->draftService->save(
+                $website,
+                $request->except('_token'),
+                8
+            );
+
+            $website = $website->fresh();
+        }
+
+        return view(
+            'websites.review',
+            [
+                'website' => $website,
+                'wizard' => $website->wizard_data ?? [],
+            ]
+        );
+    }
+
+    /**
+     * --------------------------------------------------------------------------
+     * Step 9 - Launch Website
+     * --------------------------------------------------------------------------
+     */
+    public function deploy(
+        Request $request,
+        Website $website
+    ) {
+        /*
+        |--------------------------------------------------------------------------
+        | Final wizard data merge
+        |--------------------------------------------------------------------------
+        */
+
+        if (!empty($request->all())) {
+
+            $this->draftService->save(
+                $website,
+                $request->except([
+                    '_token',
+                ]),
+                9
+            );
+
+            $website = $website->fresh();
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Mark provisioning
+        |--------------------------------------------------------------------------
+        */
+
+        $website->markProvisioning();
+
+        /*
+        |--------------------------------------------------------------------------
+        | Launch Website
+        |--------------------------------------------------------------------------
+        */
+
+        return $this->websiteService->create(
+            array_merge(
+                $website->wizard_data ?? [],
+                [
+                    'website_id' => $website->id,
+                ]
+            )
+        );
+    }
 }
