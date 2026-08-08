@@ -43,6 +43,8 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/developer-account', [DeveloperAccountController::class, 'create'])
         ->name('developer-account.create');
+    Route::post('/developer-account', [DeveloperAccountController::class, 'store'])
+        ->name('developer-account.store');
 
     /*
     |--------------------------------------------------------------------------
