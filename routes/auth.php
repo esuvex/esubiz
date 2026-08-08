@@ -8,6 +8,7 @@ use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\Auth\RegisteredDeveloperController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 
@@ -17,10 +18,29 @@ Route::middleware('guest')->group(function () {
 
     Route::post('register', [RegisteredUserController::class, 'store']);
 
+    Route::get('dv-signup', [RegisteredDeveloperController::class, 'create'])
+        ->name('developer.register');
+
+    Route::post('dv-signup', [RegisteredDeveloperController::class, 'store']);
+
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
 
     Route::post('login', [AuthenticatedSessionController::class, 'store']);
+
+    Route::get('am', [AuthenticatedSessionController::class, 'create'])
+        ->defaults('portal', 'admin')
+        ->name('admin.login');
+
+    Route::post('am', [AuthenticatedSessionController::class, 'store'])
+        ->defaults('portal', 'admin');
+
+    Route::get('dv', [AuthenticatedSessionController::class, 'create'])
+        ->defaults('portal', 'developer')
+        ->name('developer.login');
+
+    Route::post('dv', [AuthenticatedSessionController::class, 'store'])
+        ->defaults('portal', 'developer');
 
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');

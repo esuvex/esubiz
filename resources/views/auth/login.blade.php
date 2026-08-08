@@ -2,8 +2,40 @@
     <!-- Session Status -->
     <x-auth-session-status class="mb-4" :status="session('status')" />
 
-    <form method="POST" action="{{ route('login') }}">
-        @csrf
+    @php
+    $loginPortal = request()->routeIs('admin.login')
+        ? 'admin'
+        : (request()->routeIs('developer.login') ? 'developer' : null);
+
+    $loginAction = $loginPortal === 'admin'
+        ? route('admin.login')
+        : ($loginPortal === 'developer' ? route('developer.login') : route('login'));
+@endphp
+
+<form method="POST" action="{{ $loginAction }}">
+        @if($loginPortal)
+        <input type="hidden" name="portal" value="{{ $loginPortal }}">
+    @endif
+
+    @csrf
+
+    <div class="mb-7">
+        <h2 class="text-2xl font-extrabold tracking-tight text-slate-950">
+            {{ $loginPortal === 'admin'
+                ? 'Administrator Sign In'
+                : ($loginPortal === 'developer'
+                    ? 'Developer Sign In'
+                    : 'Sign in to Esubiz') }}
+        </h2>
+
+        <p class="mt-2 text-sm leading-6 text-slate-500">
+            {{ $loginPortal === 'admin'
+                ? 'Access the Esubiz platform administration console.'
+                : ($loginPortal === 'developer'
+                    ? 'Access your Esubiz developer workspace and tools.'
+                    : 'Access your websites, workspace and business tools.') }}
+        </p>
+    </div>
 
         <!-- Email Address -->
         <div>
@@ -40,7 +72,11 @@
             @endif
 
             <x-primary-button class="ms-3">
-                {{ __('Log in') }}
+                {{ $loginPortal === 'admin'
+                    ? 'Sign in to Admin'
+                    : ($loginPortal === 'developer'
+                        ? 'Sign in to Developer Console'
+                        : 'Sign in') }}
             </x-primary-button>
         </div>
     </form>

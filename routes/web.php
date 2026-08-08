@@ -19,7 +19,7 @@ use App\Http\Controllers\User\DashboardController as UserDashboardController;
 
 Route::view('/', 'frontend.home')->name('home');
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware('auth')->group(function () {
 
     /*
     |--------------------------------------------------------------------------

@@ -28,7 +28,50 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        $user = $request->user();
+        $portal = $request->input('portal');
+
+        // Validate a dedicated portal against the user's actual role.
+        if ($portal === 'admin' && !$user->hasRole('platform-admin')) {
+            Auth::guard('web')->logout();
+
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()
+                ->route('login')
+                ->withErrors(['email' => 'You are not authorized to access the Admin Portal.']);
+        }
+
+        if ($portal === 'developer' && !$user->hasRole('developer') && !$user->hasRole('platform-admin')) {
+            Auth::guard('web')->logout();
+
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()
+                ->route('login')
+                ->withErrors(['email' => 'You are not authorized to access the Developer Portal.']);
+        }
+
+        // Determine the initial mode.
+        // A dedicated portal explicitly selects the mode.
+        // Universal /login selects the highest authorized account experience.
+        if ($portal === 'admin') {
+            $mode = 'admin';
+        } elseif ($portal === 'developer') {
+            $mode = 'developer';
+        } elseif ($user->hasRole('platform-admin')) {
+            $mode = 'admin';
+        } elseif ($user->hasRole('developer')) {
+            $mode = 'developer';
+        } else {
+            $mode = 'user';
+        }
+
+        $request->session()->put('account_mode', $mode);
+
+        return redirect()->route($mode . '.dashboard');
     }
 
     /**

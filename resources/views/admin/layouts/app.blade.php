@@ -594,11 +594,14 @@
 
                                 </a>
 
-                                <a href="#" class="block px-5 py-3 hover:bg-red-50 text-red-600">
+                                <form method="POST" action="{{ route('logout') }}">
+                                    @csrf
 
-                                    Logout
-
-                                </a>
+                                    <button type="submit"
+                                            class="w-full text-left px-5 py-3 hover:bg-red-50 text-red-600">
+                                        Logout
+                                    </button>
+                                </form>
 
                             </div>
 
