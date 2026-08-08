@@ -6,7 +6,6 @@ use App\Http\Controllers\WebsiteController;
 use App\Http\Controllers\WebsiteWizardController;
 
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
-use App\Http\Controllers\SaaS\DashboardController as SaaSDashboardController;
 use App\Http\Controllers\Developer\DashboardController as DeveloperDashboardController;
 use App\Http\Controllers\User\DashboardController as UserDashboardController;
 
@@ -38,9 +37,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])
         ->name('admin.dashboard');
-
-    Route::get('/saas/dashboard', [SaaSDashboardController::class, 'index'])
-        ->name('saas.dashboard');
 
     Route::get('/developer/dashboard', [DeveloperDashboardController::class, 'index'])
         ->name('developer.dashboard');
