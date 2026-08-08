@@ -146,11 +146,6 @@
     <!-- ======================================= -->
 
     <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-    <!-- ======================================= -->
-    <!-- STATS -->
-    <!-- ======================================= -->
-
-    <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
 
         <div class="rounded-3xl bg-white p-8 shadow">
 
@@ -159,7 +154,7 @@
             </p>
 
             <h2 class="mt-4 text-4xl font-bold">
-                {{ auth()->user()->websites()->where('status', '!=', 'draft')->count() }}
+                {{ $websiteCount }}
             </h2>
 
         </div>
@@ -171,7 +166,7 @@
             </p>
 
             <h2 class="mt-4 text-4xl font-bold">
-                {{ auth()->user()->websites()->where('status', 'draft')->count() }}
+                {{ $draftCount }}
             </h2>
 
         </div>
@@ -179,11 +174,11 @@
         <div class="rounded-3xl bg-white p-8 shadow">
 
             <p class="text-slate-500">
-                Subscription
+                Subscriptions
             </p>
 
-            <h2 class="mt-4 text-2xl font-bold">
-                Pro Plan
+            <h2 class="mt-4 text-4xl font-bold">
+                {{ $subscriptionCount }}
             </h2>
 
         </div>
@@ -195,7 +190,7 @@
             </p>
 
             <h2 class="mt-4 text-3xl font-bold">
-                ₦25,000
+                ₦{{ number_format($walletBalance, 2) }}
             </h2>
 
         </div>
@@ -203,85 +198,11 @@
     </div>
 
     <!-- ======================================= -->
-    <!-- MY WEBSITES -->
+    <!-- ======================================= -->
+    <!-- QUICK ACTIONS + RECENT ACTIVITY -->
     <!-- ======================================= -->
 
-    <div class="grid gap-8 lg:grid-cols-3">
-
-        <div class="lg:col-span-2 rounded-3xl bg-white shadow">
-
-            <div class="flex items-center justify-between border-b px-8 py-6">
-
-                <div>
-
-                    <h2 class="text-2xl font-bold">
-                        My Websites
-                    </h2>
-
-                    <p class="mt-1 text-slate-500">
-                        Manage all your business websites.
-                    </p>
-
-                </div>
-
-                <a
-                    href="{{ route('websites.create') }}"
-                    class="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700"
-                >
-                    + New Website
-                </a>
-
-            </div>
-
-            <div class="divide-y">
-
-                @if($draft)
-
-                    <div class="flex items-center justify-between px-8 py-6">
-
-                        <div>
-
-                            <h3 class="text-xl font-semibold">
-                                {{ $draftName }}
-                            </h3>
-
-                            <p class="mt-1 text-slate-500">
-                                Draft • Continue from Step {{ $resumeStep }} of {{ $totalSteps }}
-                            </p>
-
-                        </div>
-
-                        <a
-                            href="{{ route($continueRoute, $draft) }}"
-                            class="rounded-xl bg-amber-500 px-5 py-3 font-semibold text-white hover:bg-amber-600"
-                        >
-                            Continue
-                        </a>
-
-                    </div>
-
-                @else
-
-                    <div class="px-8 py-10 text-center">
-
-                        <p class="text-slate-500">
-                            You don't have any website drafts yet.
-                        </p>
-
-                        <a
-                            href="{{ route('websites.create') }}"
-                            class="mt-5 inline-flex rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white"
-                        >
-                            Create Your First Website
-                        </a>
-
-                    </div>
-
-                @endif
-
-            </div>
-
-        </div>
+    <div class="grid gap-8 lg:grid-cols-2">
 
         <!-- ======================================= -->
         <!-- QUICK ACTIONS -->
@@ -297,121 +218,124 @@
 
                 <a
                     href="{{ route('websites.create') }}"
-                    class="block rounded-2xl border p-5 hover:border-blue-500"
+                    class="flex items-center rounded-2xl border p-5 transition hover:border-blue-500 hover:bg-slate-50"
                 >
-                    🌐 Create Website
+                    <span class="mr-4 text-xl">🌐</span>
+                    <span class="font-medium">Create Website</span>
                 </a>
 
                 <a
                     href="#"
-                    class="block rounded-2xl border p-5"
+                    class="flex items-center rounded-2xl border p-5 transition hover:border-blue-500 hover:bg-slate-50"
                 >
-                    🌍 Connect Domain
+                    <span class="mr-4 text-xl">🌍</span>
+                    <span class="font-medium">Connect Domain</span>
                 </a>
 
                 <a
                     href="#"
-                    class="block rounded-2xl border p-5"
+                    class="flex items-center rounded-2xl border p-5 transition hover:border-blue-500 hover:bg-slate-50"
                 >
-                    📦 Upgrade Plan
+                    <span class="mr-4 text-xl">📦</span>
+                    <span class="font-medium">Upgrade Plan</span>
                 </a>
 
                 <a
                     href="#"
-                    class="block rounded-2xl border p-5"
+                    class="flex items-center rounded-2xl border p-5 transition hover:border-blue-500 hover:bg-slate-50"
                 >
-                    💬 Contact Support
+                    <span class="mr-4 text-xl">💬</span>
+                    <span class="font-medium">Contact Support</span>
                 </a>
 
             </div>
 
         </div>
 
-    </div>
-    <!-- ======================================= -->
-    <!-- RECENT ACTIVITY -->
-    <!-- ======================================= -->
+        <!-- ======================================= -->
+        <!-- RECENT ACTIVITY -->
+        <!-- ======================================= -->
 
-    <div class="rounded-3xl bg-white shadow">
+        <div class="rounded-3xl bg-white shadow">
 
-        <div class="border-b px-8 py-6">
+            <div class="border-b px-8 py-6">
 
-            <h2 class="text-2xl font-bold">
-                Recent Activity
-            </h2>
+                <h2 class="text-2xl font-bold">
+                    Recent Activity
+                </h2>
 
-        </div>
+            </div>
 
-        <div class="divide-y">
+            <div class="divide-y">
 
-            @if($draft)
+                @if($draft)
+
+                    <div class="flex items-center justify-between px-8 py-5">
+
+                        <div>
+
+                            <h3 class="font-semibold">
+                                Website draft saved
+                            </h3>
+
+                            <p class="text-slate-500">
+                                {{ $draftName }} • Continue from Step {{ $resumeStep }} of {{ $totalSteps }}
+                            </p>
+
+                        </div>
+
+                        <span class="text-sm text-slate-400">
+                            {{ $draft->last_saved_at?->diffForHumans() ?? 'Recently' }}
+                        </span>
+
+                    </div>
+
+                @endif
 
                 <div class="flex items-center justify-between px-8 py-5">
 
                     <div>
 
                         <h3 class="font-semibold">
-                            Website draft saved
+                            SSL Certificate Installed
                         </h3>
 
                         <p class="text-slate-500">
-                            {{ $draftName }} • Continue from Step {{ $resumeStep }} of {{ $totalSteps }}
+                            Esuvex
                         </p>
 
                     </div>
 
                     <span class="text-sm text-slate-400">
-                        {{ $draft->last_saved_at?->diffForHumans() ?? 'Recently' }}
+                        Today
                     </span>
 
                 </div>
 
-            @endif
+                <div class="flex items-center justify-between px-8 py-5">
 
-            <div class="flex items-center justify-between px-8 py-5">
+                    <div>
 
-                <div>
+                        <h3 class="font-semibold">
+                            CRM Activated
+                        </h3>
 
-                    <h3 class="font-semibold">
-                        SSL Certificate Installed
-                    </h3>
+                        <p class="text-slate-500">
+                            Greenwood Interior Academy
+                        </p>
 
-                    <p class="text-slate-500">
-                        Esuvex
-                    </p>
+                    </div>
 
-                </div>
-
-                <span class="text-sm text-slate-400">
-                    Today
-                </span>
-
-            </div>
-
-            <div class="flex items-center justify-between px-8 py-5">
-
-                <div>
-
-                    <h3 class="font-semibold">
-                        CRM Activated
-                    </h3>
-
-                    <p class="text-slate-500">
-                        Greenwood Interior Academy
-                    </p>
+                    <span class="text-sm text-slate-400">
+                        Yesterday
+                    </span>
 
                 </div>
-
-                <span class="text-sm text-slate-400">
-                    Yesterday
-                </span>
 
             </div>
 
         </div>
 
     </div>
-
-</div>
 
 @endsection
