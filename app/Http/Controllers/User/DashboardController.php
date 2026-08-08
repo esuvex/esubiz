@@ -11,6 +11,8 @@ class DashboardController extends Controller
 {
     public function index()
     {
+        session(['account_mode' => 'user']);
+
         $draftService = app(WebsiteDraftService::class);
 
         $draft = $draftService->latestDraft();

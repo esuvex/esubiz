@@ -14,7 +14,14 @@
 <div x-data="{
         sidebar:false,
         profile:false,
-        notifications:false
+        notifications:false,
+        websiteMenu:false,
+        plansMenu:false,
+        billingMenu:false,
+        referralsMenu:false,
+        teamMenu:false,
+        marketplaceMenu:false,
+        workspaceMenu:false
     }"
     class="min-h-screen">
 
@@ -68,72 +75,331 @@
         </div>
 
 
-        <nav class="px-4 py-6 space-y-2">
+        <nav class="space-y-2">
 
-          <a href="{{ route(request()->is('user/*') ? 'user.dashboard' : 'admin.dashboard') }}"
-   class="flex items-center rounded-xl px-5 py-3 font-medium
-   {{ request()->routeIs('user.dashboard') || request()->routeIs('admin.dashboard')
-        ? 'bg-blue-600 text-white'
-        : 'hover:bg-slate-800' }}">
+    <!-- ================= USER MODE ================= -->
 
-         Dashboard
+    @if(session('account_mode') === 'user')
 
-</a>
+        <a href="{{ route('user.dashboard') }}"
+           class="flex items-center rounded-xl px-5 py-3 font-medium
+           {{ request()->routeIs('user.dashboard')
+                ? 'bg-blue-600 text-white'
+                : 'hover:bg-slate-800' }}">
+            Dashboard
+        </a>
 
-            <a href="{{ route('websites.create') }}"
-   class="flex items-center rounded-xl px-5 py-3 font-medium
-   {{ request()->routeIs('websites.*')
-        ? 'bg-blue-600 text-white'
-        : 'hover:bg-slate-800' }}">
- 
+        <!-- Website Builder -->
+        <div>
+            <button @click="websiteMenu=!websiteMenu"
+                    class="w-full flex items-center justify-between rounded-xl px-5 py-3 hover:bg-slate-800">
+                <span>Website Builder</span>
+                <span>⌄</span>
+            </button>
 
-                Website Builder
+            <div x-show="websiteMenu" x-cloak class="ml-4 mt-1 space-y-1">
+                <a href="{{ route('websites.create') }}"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
+                    Create Website
+                </a>
 
-            </a>
+                <a href="#"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
+                    My Websites
+                </a>
+            </div>
+        </div>
 
-            <a href="#"
-               class="flex items-center rounded-xl px-5 py-3 hover:bg-slate-800">
+        <!-- Plans -->
+        <div>
+            <button @click="plansMenu=!plansMenu"
+                    class="w-full flex items-center justify-between rounded-xl px-5 py-3 hover:bg-slate-800">
+                <span>Plans</span>
+                <span>⌄</span>
+            </button>
 
-                Business
+            <div x-show="plansMenu" x-cloak class="ml-4 mt-1 space-y-1">
+                <a href="#"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
+                    New Plan
+                </a>
 
-            </a>
+                <a href="#"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
+                    My Plans
+                </a>
+            </div>
+        </div>
 
-            <a href="#"
-               class="flex items-center rounded-xl px-5 py-3 hover:bg-slate-800">
+        <!-- Marketplace -->
+        <div>
+            <button @click="marketplaceMenu=!marketplaceMenu"
+                    class="w-full flex items-center justify-between rounded-xl px-5 py-3 hover:bg-slate-800">
+                <span>Marketplace</span>
+                <span>⌄</span>
+            </button>
 
-                Sales
+            <div x-show="marketplaceMenu" x-cloak class="ml-4 mt-1 space-y-1">
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Capacity</a>
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Themes</a>
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Modules</a>
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Others</a>
+            </div>
+        </div>
 
-            </a>
+        <!-- Billing -->
+        <div>
+            <button @click="billingMenu=!billingMenu"
+                    class="w-full flex items-center justify-between rounded-xl px-5 py-3 hover:bg-slate-800">
+                <span>Billing</span>
+                <span>⌄</span>
+            </button>
 
-            <a href="#"
-               class="flex items-center rounded-xl px-5 py-3 hover:bg-slate-800">
+            <div x-show="billingMenu" x-cloak class="ml-4 mt-1 space-y-1">
+                <a href="#"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
+                    Wallet
+                </a>
+            </div>
+        </div>
 
-                Finance
+        <a href="#" class="flex items-center rounded-xl px-5 py-3 hover:bg-slate-800">
+            Tickets
+        </a>
 
-            </a>
+        <!-- Referrals -->
+        <div>
+            <button @click="referralsMenu=!referralsMenu"
+                    class="w-full flex items-center justify-between rounded-xl px-5 py-3 hover:bg-slate-800">
+                <span>Referrals</span>
+                <span>⌄</span>
+            </button>
 
-            <a href="#"
-               class="flex items-center rounded-xl px-5 py-3 hover:bg-slate-800">
+            <div x-show="referralsMenu" x-cloak class="ml-4 mt-1 space-y-1">
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Earnings</a>
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Referral Tree</a>
+            </div>
+        </div>
 
-                Marketplace
+        <!-- Team -->
+        <div>
+            <button @click="teamMenu=!teamMenu"
+                    class="w-full flex items-center justify-between rounded-xl px-5 py-3 hover:bg-slate-800">
+                <span>Team</span>
+                <span>⌄</span>
+            </button>
 
-            </a>
+            <div x-show="teamMenu" x-cloak class="ml-4 mt-1 space-y-1">
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Role &amp; Permission</a>
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Team Members</a>
+            </div>
+        </div>
 
-            <a href="#"
-               class="flex items-center rounded-xl px-5 py-3 hover:bg-slate-800">
+        <a href="#" class="flex items-center rounded-xl px-5 py-3 hover:bg-slate-800">
+            Settings
+        </a>
 
-                API
+    <!-- ================= DEVELOPER MODE ================= -->
 
-            </a>
+    @elseif(session('account_mode') === 'developer')
 
-            <a href="#"
-               class="flex items-center rounded-xl px-5 py-3 hover:bg-slate-800">
+        <a href="{{ route('developer.dashboard') }}"
+           class="flex items-center rounded-xl px-5 py-3 font-medium
+           {{ request()->routeIs('developer.dashboard')
+                ? 'bg-blue-600 text-white'
+                : 'hover:bg-slate-800' }}">
+            Dashboard
+        </a>
 
-                Settings
+        <!-- Website Developer -->
+        <div>
+            <button @click="websiteMenu=!websiteMenu"
+                    class="w-full flex items-center justify-between rounded-xl px-5 py-3 hover:bg-slate-800">
+                <span>Website Developer</span>
+                <span>⌄</span>
+            </button>
 
-            </a>
+            <div x-show="websiteMenu" x-cloak class="ml-4 mt-1 space-y-1">
+                <a href="{{ route('websites.create') }}"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
+                    Build Website
+                </a>
 
-        </nav>
+                <a href="#"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
+                    My Websites
+                </a>
+            </div>
+        </div>
+
+        <!-- Plans -->
+        <div>
+            <button @click="plansMenu=!plansMenu"
+                    class="w-full flex items-center justify-between rounded-xl px-5 py-3 hover:bg-slate-800">
+                <span>Plans</span>
+                <span>⌄</span>
+            </button>
+
+            <div x-show="plansMenu" x-cloak class="ml-4 mt-1 space-y-1">
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">New Plan</a>
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">My Plans</a>
+            </div>
+        </div>
+
+        <!-- Marketplace -->
+        <div>
+            <button @click="marketplaceMenu=!marketplaceMenu"
+                    class="w-full flex items-center justify-between rounded-xl px-5 py-3 hover:bg-slate-800">
+                <span>Marketplace</span>
+                <span>⌄</span>
+            </button>
+
+            <div x-show="marketplaceMenu" x-cloak class="ml-4 mt-1 space-y-1">
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Capacity</a>
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Themes</a>
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Modules</a>
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Others</a>
+            </div>
+        </div>
+
+        <a href="#" class="flex items-center rounded-xl px-5 py-3 hover:bg-slate-800">
+            APIs
+        </a>
+
+        <a href="#" class="flex items-center rounded-xl px-5 py-3 hover:bg-slate-800">
+            Tickets
+        </a>
+
+        <!-- Billing -->
+        <div>
+            <button @click="billingMenu=!billingMenu"
+                    class="w-full flex items-center justify-between rounded-xl px-5 py-3 hover:bg-slate-800">
+                <span>Billing</span>
+                <span>⌄</span>
+            </button>
+
+            <div x-show="billingMenu" x-cloak class="ml-4 mt-1 space-y-1">
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Wallet</a>
+            </div>
+        </div>
+
+        <!-- Referrals -->
+        <div>
+            <button @click="referralsMenu=!referralsMenu"
+                    class="w-full flex items-center justify-between rounded-xl px-5 py-3 hover:bg-slate-800">
+                <span>Referrals</span>
+                <span>⌄</span>
+            </button>
+
+            <div x-show="referralsMenu" x-cloak class="ml-4 mt-1 space-y-1">
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Earnings</a>
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Referral Tree</a>
+            </div>
+        </div>
+
+        <!-- Team -->
+        <div>
+            <button @click="teamMenu=!teamMenu"
+                    class="w-full flex items-center justify-between rounded-xl px-5 py-3 hover:bg-slate-800">
+                <span>Team</span>
+                <span>⌄</span>
+            </button>
+
+            <div x-show="teamMenu" x-cloak class="ml-4 mt-1 space-y-1">
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Role &amp; Permission</a>
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Team Members</a>
+            </div>
+        </div>
+
+        <!-- Workspace -->
+        <div>
+            <button @click="workspaceMenu=!workspaceMenu"
+                    class="w-full flex items-center justify-between rounded-xl px-5 py-3 hover:bg-slate-800">
+                <span>Workspace</span>
+                <span>⌄</span>
+            </button>
+
+            <div x-show="workspaceMenu" x-cloak class="ml-4 mt-1 space-y-1">
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">New Project</a>
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">My Projects</a>
+            </div>
+        </div>
+
+        <a href="#" class="flex items-center rounded-xl px-5 py-3 hover:bg-slate-800">
+            Settings
+        </a>
+
+    <!-- ================= ADMIN MODE ================= -->
+
+    @elseif(session('account_mode') === 'admin')
+
+        <a href="{{ route('admin.dashboard') }}"
+           class="flex items-center rounded-xl px-5 py-3 font-medium
+           {{ request()->routeIs('admin.dashboard')
+                ? 'bg-blue-600 text-white'
+                : 'hover:bg-slate-800' }}">
+            Dashboard
+        </a>
+
+        <!-- Plans Manager -->
+        <div>
+            <button @click="plansMenu=!plansMenu"
+                    class="w-full flex items-center justify-between rounded-xl px-5 py-3 hover:bg-slate-800">
+                <span>Plans Manager</span>
+                <span>⌄</span>
+            </button>
+
+            <div x-show="plansMenu" x-cloak class="ml-4 mt-1 space-y-1">
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">New Plan</a>
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">My Plans</a>
+            </div>
+        </div>
+
+        <!-- Marketplace -->
+        <div>
+            <button @click="marketplaceMenu=!marketplaceMenu"
+                    class="w-full flex items-center justify-between rounded-xl px-5 py-3 hover:bg-slate-800">
+                <span>Marketplace</span>
+                <span>⌄</span>
+            </button>
+
+            <div x-show="marketplaceMenu" x-cloak class="ml-4 mt-1 space-y-1">
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Capacity</a>
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Themes</a>
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Modules</a>
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Others</a>
+            </div>
+        </div>
+
+        <a href="#" class="flex items-center rounded-xl px-5 py-3 hover:bg-slate-800">
+            APIs
+        </a>
+
+        <!-- Users -->
+        <div>
+            <button @click="teamMenu=!teamMenu"
+                    class="w-full flex items-center justify-between rounded-xl px-5 py-3 hover:bg-slate-800">
+                <span>Users</span>
+                <span>⌄</span>
+            </button>
+
+            <div x-show="teamMenu" x-cloak class="ml-4 mt-1 space-y-1">
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Website Owners</a>
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Developers</a>
+            </div>
+        </div>
+
+        <a href="#" class="flex items-center rounded-xl px-5 py-3 hover:bg-slate-800">
+            Platform Management
+        </a>
+
+        <a href="#" class="flex items-center rounded-xl px-5 py-3 hover:bg-slate-800">
+            Site Settings
+        </a>
+
+    @endif
+
+</nav>
 
     </aside>
 
@@ -252,13 +518,13 @@
 
                                 <div class="font-bold">
 
-                                {{ request()->is('user/*') ? auth()->user()->name : 'Platform Admin' }}
+                                {{ auth()->user()->name }}
 
                                 </div>
 
                                 <div class="text-sm text-slate-500">
 
-                                {{ request()->is('user/*') ? auth()->user()->email : 'administrator@esubiz.com' }}
+                                {{ auth()->user()->email }}
 
                                 </div>
 
@@ -266,23 +532,53 @@
 
                             <div class="py-2">
 
-                                <a href="#" class="block px-5 py-3 hover:bg-slate-100">
+                                @if(auth()->user()->hasRole('platform-admin'))
+                                    <form method="POST" action="{{ route('account.mode.switch') }}">
+                                        @csrf
+                                        <input type="hidden" name="mode" value="admin">
 
-                                    🛡 Platform Console
+                                        <button type="submit"
+                                                class="w-full text-left px-5 py-3 hover:bg-slate-100 {{ session('account_mode') === 'admin' ? 'font-semibold text-blue-600' : '' }}">
+                                            🛡 Admin Mode
+                                        </button>
+                                    </form>
+                                @endif
 
-                                </a>
+                                @if(auth()->user()->hasRole('developer') || auth()->user()->hasRole('platform-admin'))
+                                    <form method="POST" action="{{ route('account.mode.switch') }}">
+                                        @csrf
+                                        <input type="hidden" name="mode" value="developer">
 
-                                <a href="#" class="block px-5 py-3 hover:bg-slate-100">
+                                        <button type="submit"
+                                                class="w-full text-left px-5 py-3 hover:bg-slate-100 {{ session('account_mode') === 'developer' ? 'font-semibold text-blue-600' : '' }}">
+                                            👨‍💻 Developer Mode
+                                        </button>
+                                    </form>
+                                @endif
 
-                                    👨‍💻 Creator Mode
+                                @if(auth()->user()->hasRole('user') || auth()->user()->hasRole('developer') || auth()->user()->hasRole('platform-admin'))
+                                    <form method="POST" action="{{ route('account.mode.switch') }}">
+                                        @csrf
+                                        <input type="hidden" name="mode" value="user">
 
-                                </a>
+                                        <button type="submit"
+                                                class="w-full text-left px-5 py-3 hover:bg-slate-100 {{ session('account_mode') === 'user' ? 'font-semibold text-blue-600' : '' }}">
+                                            👤 User Mode
+                                        </button>
+                                    </form>
+                                @endif
 
-                                <a href="#" class="block px-5 py-3 hover:bg-slate-100">
-
-                                    👤 User Mode
-
-                                </a>
+                                @if(
+                                    session('account_mode') === 'user'
+                                    && auth()->user()->hasRole('user')
+                                    && !auth()->user()->hasRole('developer')
+                                    && !auth()->user()->hasRole('platform-admin')
+                                )
+                                    <a href="{{ route('developer-account.create') }}"
+                                       class="block px-5 py-3 hover:bg-slate-100">
+                                        🧑‍💻 Switch to Developer Account
+                                    </a>
+                                @endif
 
                                 <hr>
 

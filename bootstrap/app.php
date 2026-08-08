@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'permission' => \App\Http\Middleware\CheckPermission::class,
+            'account-mode' => \App\Http\Middleware\CheckAccountMode::class,
         ]);
 
     })

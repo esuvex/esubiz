@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\WebsiteController;
 use App\Http\Controllers\WebsiteWizardController;
+use App\Http\Controllers\AccountModeController;
+use App\Http\Controllers\DeveloperAccountController;
 
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Developer\DashboardController as DeveloperDashboardController;
@@ -26,8 +28,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
     */
 
     Route::get('/dashboard', function () {
-        return view('dashboard');
+        $mode = session('account_mode', 'user');
+
+        return match ($mode) {
+            'admin' => redirect()->route('admin.dashboard'),
+            'developer' => redirect()->route('developer.dashboard'),
+            default => redirect()->route('user.dashboard'),
+        };
     })->name('dashboard');
+
+    Route::post('/account/mode', [AccountModeController::class, 'switch'])
+        ->name('account.mode.switch');
+
+
+    Route::get('/developer-account', [DeveloperAccountController::class, 'create'])
+        ->name('developer-account.create');
 
     /*
     |--------------------------------------------------------------------------
@@ -36,12 +51,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     */
 
     Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])
+        ->middleware(['permission:roles.view', 'account-mode:admin'])
         ->name('admin.dashboard');
 
     Route::get('/developer/dashboard', [DeveloperDashboardController::class, 'index'])
+        ->middleware(['permission:developer.console', 'account-mode:developer'])
         ->name('developer.dashboard');
 
     Route::get('/user/dashboard', [UserDashboardController::class, 'index'])
+        ->middleware(['permission:websites.manage', 'account-mode:user'])
         ->name('user.dashboard');
 
     /*

@@ -6,6 +6,8 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use App\Models\Role;
+use App\Models\UserRole;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable implements MustVerifyEmail
@@ -37,6 +39,24 @@ class User extends Authenticatable implements MustVerifyEmail
     public function roles()
     {
         return $this->hasMany(UserRole::class);
+    }
+
+    /**
+     * Determine whether the user has a role by slug.
+     */
+    public function hasRole(string $slug): bool
+    {
+        $role = Role::where('slug', $slug)
+            ->where('is_active', true)
+            ->first();
+
+        if (!$role) {
+            return false;
+        }
+
+        return UserRole::where('user_id', $this->id)
+            ->where('role_id', $role->id)
+            ->exists();
     }
 
     /**
