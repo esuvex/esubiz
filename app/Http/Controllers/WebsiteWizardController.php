@@ -104,25 +104,14 @@ class WebsiteWizardController extends Controller
             $website = $website->fresh();
         }
 
-        $themes = [
-            [
-                'id' => 'classic',
-                'name' => 'Classic',
-                'description' => 'Clean and timeless business design.',
-            ],
-            [
-                'id' => 'modern',
-                'name' => 'Modern',
-                'description' => 'Modern corporate experience.',
-            ],
-            [
-                'id' => 'premium',
-                'name' => 'Premium',
-                'description' => 'Premium high-converting layout.',
-            ],
-        ];
+        $themes = \App\Models\CatalogProduct::query()
+        ->where('product_type', 'theme')
+        ->where('is_active', true)
+        ->whereIn('audience', ['saas', 'both'])
+        ->orderBy('name')
+        ->get();
 
-        return view(
+    return view(
             'websites.theme',
             [
                 'website' => $website,

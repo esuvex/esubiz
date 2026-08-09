@@ -103,6 +103,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/websites/{website}/theme', [WebsiteWizardController::class, 'theme'])
         ->name('websites.theme');
 
+Route::post('/websites/{website}/theme', [WebsiteWizardController::class, 'theme'])
+    ->name('websites.theme.save');
+
     Route::get('/websites/{website}/information', [WebsiteWizardController::class, 'information'])
         ->name('websites.information');
 

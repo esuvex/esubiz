@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Developer;
 use App\Http\Controllers\Controller;
 use App\Models\CapacityProduct;
 use App\Services\Developer\WebsiteCompilerService;
+use App\Models\DeveloperBuild;
+use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
@@ -19,14 +21,30 @@ class BuilderController extends Controller
             ->orderBy('name')
             ->get();
 
+        $modules = \App\Models\CatalogProduct::query()
+            ->where('product_type', 'module')
+            ->where('is_active', true)
+            ->whereIn('audience', ['developer', 'both'])
+            ->orderBy('name')
+            ->get();
+
+        $themes = \App\Models\CatalogProduct::query()
+            ->where('product_type', 'theme')
+            ->where('is_active', true)
+            ->whereIn('audience', ['developer', 'both'])
+            ->orderBy('name')
+            ->get();
+
         return view('developer.builder.index', [
             'capacityBundles' => $capacityBundles,
+            'modules' => $modules,
+            'themes' => $themes,
         ]);
     }
 
-    public function create(Request $request, WebsiteCompilerService $compiler): RedirectResponse
+    public function create(Request $request): RedirectResponse
     {
-        $request->validate([
+        $validated = $request->validate([
             'project_name' => ['required', 'string', 'max:100'],
             'website_type' => [
                 'required',
@@ -39,25 +57,52 @@ class BuilderController extends Controller
                 'exists:capacity_products,id',
             ],
             'theme' => [
-                'required',
-                'string',
-                'in:default,minimal,modern,corporate',
+                'nullable',
+                'integer',
+                'exists:catalog_products,id',
             ],
             'modules' => ['nullable', 'array'],
             'modules.*' => [
-                'string',
-                'in:core,authentication,payments,commerce,notifications',
+                'integer',
+                'exists:catalog_products,id',
             ],
             'ai_theme' => ['nullable', 'boolean'],
+            'ai_theme_prompt' => ['nullable', 'string', 'max:5000'],
+            'ai_theme_preferences' => ['nullable', 'array'],
+            'ai_theme_preferences.mode' => [
+                'nullable',
+                'string',
+                'in:light,dark,mixed',
+            ],
+            'ai_theme_preferences.style' => [
+                'nullable',
+                'string',
+                'in:minimal,modern,corporate,bold,editorial',
+            ],
+            'ai_theme_preferences.animation' => [
+                'nullable',
+                'string',
+                'in:none,subtle,dynamic',
+            ],
         ]);
 
-        $build = $compiler->createWorkspace($request->input('project_name'));
+        $buildId = Str::slug($validated['project_name']) . '-' . Str::lower(Str::random(8));
 
-        $build['website_type'] = $request->input('website_type');
-        $build['capacity_bundle'] = $request->input('capacity_bundle');
-        $build['theme'] = $request->input('theme');
-        $build['modules'] = $request->input('modules', []);
-        $build['ai_theme'] = $request->boolean('ai_theme');
+        $build = \App\Models\DeveloperBuild::create([
+            'uuid' => (string) Str::uuid(),
+            'developer_id' => auth()->id(),
+            'project_name' => $validated['project_name'],
+            'build_id' => $buildId,
+            'version' => '1.0.0',
+            'website_type' => $validated['website_type'],
+            'status' => 'queued',
+            'stage' => 'capacity',
+            'build_type' => 'developer',
+            'payment_status' => 'unpaid',
+            'configuration' => [
+                'ai_theme' => false,
+            ],
+        ]);
 
         return redirect()
             ->route('developer.builder')

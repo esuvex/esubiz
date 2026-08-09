@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Choose Template')
+@section('title', 'Choose Marketplace Theme')
 
 @section('content')
 
@@ -15,18 +15,22 @@ $steps = 9;
         <input type="hidden" name="{{ $key }}" value="{{ $value }}">
     @endforeach
 
-    <div class="rounded-3xl bg-slate-100 p-8">
+    <form method="POST"
+          action="{{ route('websites.theme.save', $website) }}"
+          class="rounded-3xl bg-slate-100 p-8">
+
+    @csrf
 
         <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
 
             <div>
 
                 <h1 class="text-4xl font-bold text-slate-900">
-                    Choose Template
+                    Choose Marketplace Theme
                 </h1>
 
                 <p class="mt-3 text-slate-500">
-                    Select the design template for your website.
+                    Select a design theme from the Esubiz Marketplace for your website. New themes added by Esubiz will automatically become available here.
                 </p>
 
             </div>

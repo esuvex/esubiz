@@ -12,34 +12,12 @@
 
         <div>
 
-            <h1 class="text-5xl font-bold text-slate-800">
-                Platform Console
-            </h1>
+            
 
-            <p class="mt-3 text-xl text-slate-500">
-                Welcome back, manage the entire Esubiz ecosystem.
-            </p>
+            
 
         </div>
-
-        <div class="flex gap-4">
-
-            <a href="{{ route('websites.create') }}"
-               class="inline-flex items-center px-8 py-4 rounded-2xl bg-blue-600 text-white font-semibold shadow hover:bg-blue-700 transition">
-
-                + Create Website
-
-            </a>
-
-            <button class="px-8 py-4 rounded-2xl bg-white border shadow font-semibold hover:bg-slate-50">
-
-                View Reports
-
-            </button>
-
-        </div>
-
-    </div>
+</div>
 
 
 

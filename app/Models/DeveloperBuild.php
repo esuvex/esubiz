@@ -23,6 +23,11 @@ class DeveloperBuild extends Model
         'selected_capacity',
         'selected_modules',
         'selected_theme',
+        'ai_theme_enabled',
+        'ai_theme_prompt',
+        'ai_theme_preferences',
+        'ai_theme_status',
+        'ai_theme_reference',
         'status',
         'stage',
         'build_type',
@@ -47,5 +52,7 @@ class DeveloperBuild extends Model
         'paid_at' => 'datetime',
         'subtotal' => 'decimal:2',
         'total_cost' => 'decimal:2',
+        'ai_theme_enabled' => 'boolean',
+        'ai_theme_preferences' => 'array',
     ];
 }
