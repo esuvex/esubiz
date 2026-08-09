@@ -220,7 +220,7 @@
             </button>
 
             <div x-show="websiteMenu" x-cloak class="ml-4 mt-1 space-y-1">
-                <a href="{{ route('websites.create') }}"
+                <a href="{{ route('developer.builder') }}"
                    class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
                     Build Website
                 </a>

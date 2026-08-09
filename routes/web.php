@@ -9,6 +9,7 @@ use App\Http\Controllers\DeveloperAccountController;
 
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Developer\DashboardController as DeveloperDashboardController;
+use App\Http\Controllers\Developer\BuilderController as DeveloperBuilderController;
 use App\Http\Controllers\User\DashboardController as UserDashboardController;
 
 /*
@@ -59,6 +60,14 @@ Route::middleware('auth')->group(function () {
     Route::get('/developer/dashboard', [DeveloperDashboardController::class, 'index'])
         ->middleware(['permission:developer.console', 'account-mode:developer'])
         ->name('developer.dashboard');
+
+    Route::get('/developer/builder', [DeveloperBuilderController::class, 'index'])
+        ->middleware('account-mode:developer')
+        ->name('developer.builder');
+
+    Route::post('/developer/builder/create', [DeveloperBuilderController::class, 'create'])
+        ->middleware('account-mode:developer')
+        ->name('developer.builder.create');
 
     Route::get('/user/dashboard', [UserDashboardController::class, 'index'])
         ->middleware(['permission:websites.manage', 'account-mode:user'])

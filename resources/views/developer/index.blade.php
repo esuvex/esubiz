@@ -4,26 +4,38 @@
 
 @section('content')
 
-<div class="mb-8">
-    <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+
+{{-- Build Website --}}
+
+<div class="block rounded-3xl bg-blue-700 p-8 text-white shadow-xl mb-8">
+
+    <div class="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+
         <div>
-            <p class="text-sm font-semibold uppercase tracking-wider text-blue-600">
-                Developer Workspace
+            <p class="text-sm font-semibold uppercase tracking-wider text-blue-100">
+                Developer Studio
             </p>
 
-            <h1 class="mt-1 text-3xl font-bold tracking-tight text-slate-900">
-                Developer Dashboard
-            </h1>
+            <h2 class="mt-2 text-3xl font-bold">
+                Build Website
+            </h2>
 
-            <p class="mt-2 text-slate-500">
-                Welcome back, {{ auth()->user()->name }}. Manage your websites and track your developer earnings.
+            <p class="mt-2 max-w-2xl text-sm text-blue-100 sm:text-base">
+                Create, configure, compile and download your developer website.
             </p>
         </div>
 
+        <a href="{{ route('developer.builder') }}"
+           class="inline-flex shrink-0 items-center justify-center rounded-2xl bg-white px-7 py-3 text-sm font-bold text-blue-700 shadow-md transition hover:bg-blue-50 hover:shadow-lg">
+            Start Build →
+        </a>
+
     </div>
+
 </div>
 
 {{-- Statistics --}}
+
 <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
 
     <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
