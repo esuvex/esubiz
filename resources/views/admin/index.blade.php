@@ -52,11 +52,11 @@
             <p class="text-2xl opacity-90">Total Users</p>
 
             <h2 class="text-6xl font-bold mt-5">
-                12,540
+                {{ number_format($totalUsers) }}
             </h2>
 
             <p class="mt-8 text-xl opacity-90">
-                +8.2% this month
+                Registered accounts
             </p>
 
         </div>
@@ -64,15 +64,15 @@
         <div class="rounded-3xl bg-gradient-to-r from-emerald-600 to-green-400 text-white p-8 shadow-xl">
 
             <p class="text-2xl opacity-90">
-                Creator Accounts
+                Developer Accounts
             </p>
 
             <h2 class="text-6xl font-bold mt-5">
-                2,184
+                {{ number_format($developerAccounts) }}
             </h2>
 
             <p class="mt-8 text-xl opacity-90">
-                156 active today
+                Registered developers
             </p>
 
         </div>
@@ -84,11 +84,11 @@
             </p>
 
             <h2 class="text-6xl font-bold mt-5">
-                ₦45.2M
+                ₦{{ number_format($currentMonthRevenue, 2) }}
             </h2>
 
             <p class="mt-8 text-xl opacity-90">
-                Current month
+                Processed revenue this month
             </p>
 
         </div>
@@ -96,15 +96,15 @@
         <div class="rounded-3xl bg-gradient-to-r from-violet-600 to-fuchsia-500 text-white p-8 shadow-xl">
 
             <p class="text-2xl opacity-90">
-                Marketplace
+                Active Websites
             </p>
 
             <h2 class="text-6xl font-bold mt-5">
-                628
+                {{ number_format($activeWebsites) }}
             </h2>
 
             <p class="mt-8 text-xl opacity-90">
-                Products
+                Of {{ number_format($totalWebsites) }} total websites
             </p>
 
         </div>
@@ -131,9 +131,35 @@
 
             </div>
 
-            <div class="mt-8 h-96 rounded-2xl border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400">
+            <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                Chart Coming Next
+                <div class="rounded-2xl bg-slate-50 p-6">
+                    <p class="text-sm text-slate-500">Total Processed Revenue</p>
+                    <p class="mt-2 text-3xl font-bold text-slate-800">
+                        ₦{{ number_format($totalRevenue, 2) }}
+                    </p>
+                </div>
+
+                <div class="rounded-2xl bg-slate-50 p-6">
+                    <p class="text-sm text-slate-500">API Requests</p>
+                    <p class="mt-2 text-3xl font-bold text-slate-800">
+                        {{ number_format($apiRequests) }}
+                    </p>
+                </div>
+
+                <div class="rounded-2xl bg-slate-50 p-6">
+                    <p class="text-sm text-slate-500">Successful API Requests</p>
+                    <p class="mt-2 text-3xl font-bold text-slate-800">
+                        {{ number_format($successfulApiRequests) }}
+                    </p>
+                </div>
+
+                <div class="rounded-2xl bg-slate-50 p-6">
+                    <p class="text-sm text-slate-500">Marketplace Revenue</p>
+                    <p class="mt-2 text-3xl font-bold text-slate-800">
+                        ₦{{ number_format($marketplaceRevenue, 2) }}
+                    </p>
+                </div>
 
             </div>
 
