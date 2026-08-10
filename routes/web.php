@@ -6,6 +6,7 @@ use App\Http\Controllers\WebsiteController;
 use App\Http\Controllers\WebsiteWizardController;
 use App\Http\Controllers\AccountModeController;
 use App\Http\Controllers\DeveloperAccountController;
+use App\Http\Controllers\SsoController;
 
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Developer\DashboardController as DeveloperDashboardController;
@@ -19,6 +20,11 @@ use App\Http\Controllers\User\DashboardController as UserDashboardController;
 */
 
 Route::view('/', 'frontend.home')->name('home');
+
+
+Route::get('/oauth/authorize', [SsoController::class, 'authorize'])
+    ->name('sso.authorize');
+
 
 Route::middleware('auth')->group(function () {
 

@@ -162,6 +162,14 @@ class Website extends Model
         return $this->belongsTo(Workspace::class);
     }
 
+    /**
+     * SSO application registered for this website.
+     */
+    public function apiApplication()
+    {
+        return $this->hasOne(ApiApplication::class);
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Helpers

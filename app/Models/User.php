@@ -60,6 +60,14 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
+     * SSO applications registered by the user.
+     */
+    public function apiApplications()
+    {
+        return $this->hasMany(ApiApplication::class);
+    }
+
+    /**
      * Websites owned by the user.
      */
     public function websites()

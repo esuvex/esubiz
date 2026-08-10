@@ -4,22 +4,31 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class WorkspaceMember extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'workspace_id',
         'user_id',
-        'role',
-        'status',
+        'member_type',
+        'invite_email',
         'joined_at',
+        'status',
+        'is_primary',
+        'is_billable',
     ];
 
-    protected $casts = [
-        'joined_at' => 'datetime',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'joined_at' => 'datetime',
+            'is_primary' => 'boolean',
+            'is_billable' => 'boolean',
+        ];
+    }
 
     /**
      * Workspace.
