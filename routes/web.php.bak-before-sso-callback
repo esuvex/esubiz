@@ -26,9 +26,6 @@ Route::get('/oauth/authorize', [SsoController::class, 'authorize'])
     ->middleware('auth')
     ->name('sso.authorize');
 
-
-Route::get('/sso/callback', [SsoController::class, 'callback'])
-    ->name('sso.callback');
 Route::post('/oauth/token', [SsoController::class, 'token'])
     ->name('sso.token');
 

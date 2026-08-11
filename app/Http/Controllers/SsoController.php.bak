@@ -1,0 +1,110 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Services\Sso\SsoService;
+use Illuminate\Http\Request;
+
+class SsoController extends Controller
+{
+    public function token(Request $request, SsoService $sso)
+    {
+        $clientId = $request->string('client_id')->toString();
+        $clientSecret = $request->string('client_secret')->toString();
+        $code = $request->string('code')->toString();
+
+        $application = $sso->findApplication($clientId);
+
+        abort_unless($application, 400, 'Invalid client.');
+
+        abort_unless(
+            $sso->validateClientSecret($application, $clientSecret),
+            401,
+            'Invalid client credentials.'
+        );
+
+        $authorization = $sso->consumeAuthorizationCode(
+            $application,
+            $code
+        );
+
+        abort_unless($authorization, 400, 'Invalid authorization code.');
+
+        return response()->json([
+            'access_token' => $authorization->access_token,
+            'token_type' => 'Bearer',
+            'expires_in' => 3600,
+            'scopes' => $authorization->scopes,
+        ]);
+    }
+
+    public function user(Request $request, SsoService $sso)
+    {
+        $authorizationHeader = $request->header('Authorization');
+
+        abort_unless(
+            $authorizationHeader &&
+            str_starts_with($authorizationHeader, 'Bearer '),
+            401,
+            'Bearer token required.'
+        );
+
+        $accessToken = trim(substr($authorizationHeader, 7));
+
+        $authorization = $sso->findByAccessToken($accessToken);
+
+        abort_unless($authorization, 401, 'Invalid or expired access token.');
+
+        $user = $authorization->user;
+
+        abort_unless($user, 401, 'User not found.');
+
+        return response()->json([
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'scopes' => $authorization->scopes,
+        ]);
+    }
+
+    public function authorize(Request $request, SsoService $sso)
+    {
+        $clientId = $request->string('client_id')->toString();
+        $redirectUri = $request->string('redirect_uri')->toString();
+        $requestedScopes = array_values(array_filter(
+            preg_split('/\\s+/', $request->string('scope')->toString())
+        ));
+
+        $application = $sso->findApplication($clientId);
+
+        abort_unless($application, 400, 'Invalid client.');
+
+        abort_unless(
+            $sso->validateAuthorizationRequest(
+                $application,
+                $redirectUri
+            ),
+            400,
+            'Invalid redirect URI.'
+        );
+
+        abort_unless(
+            $sso->validateScopes($application, $requestedScopes),
+            400,
+            'Invalid scope.'
+        );
+
+        $authorization = $sso->createAuthorization(
+            $application,
+            $request->user()->id,
+            $requestedScopes
+        );
+
+        return response()->json([
+            'code' => $authorization->authorization_code,
+            'client_id' => $application->client_id,
+            'redirect_uri' => $redirectUri,
+            'scopes' => $authorization->scopes,
+        ]);
+    }
+}

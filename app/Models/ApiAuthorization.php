@@ -16,6 +16,8 @@ class ApiAuthorization extends Model
         'uuid',
         'authorization_code',
         'access_token_hash',
+        'code_consumed_at',
+        'access_token_expires_at',
         'scopes',
         'approved_at',
         'expires_at',
@@ -33,6 +35,8 @@ class ApiAuthorization extends Model
             'scopes' => 'array',
             'approved_at' => 'datetime',
             'expires_at' => 'datetime',
+            'code_consumed_at' => 'datetime',
+            'access_token_expires_at' => 'datetime',
             'is_revoked' => 'boolean',
             'revoked_at' => 'datetime',
         ];

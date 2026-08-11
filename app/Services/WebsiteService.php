@@ -4,64 +4,133 @@ namespace App\Services;
 
 use App\Models\Website;
 use App\Services\Website\WebsiteProvisioningService;
+use App\Services\Sso\SsoService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
 class WebsiteService
 {
     protected WebsiteProvisioningService $provisioningService;
+    protected SsoService $ssoService;
 
-    public function __construct(WebsiteProvisioningService $provisioningService)
-    {
+    public function __construct(
+        WebsiteProvisioningService $provisioningService,
+        SsoService $ssoService
+    ) {
         $this->provisioningService = $provisioningService;
+        $this->ssoService = $ssoService;
     }
 
     /**
-     * Create a new website.
+     * Create or deploy a website.
      */
     public function create(array $data): Website
     {
-        $website = Website::create([
+        /*
+        |--------------------------------------------------------------------------
+        | Existing draft
+        |--------------------------------------------------------------------------
+        */
 
-            'owner_id'        => Auth::id(),
-            'workspace_id'    => $data['workspace_id'] ?? null,
-            'plan_id'         => $data['plan_id'] ?? null,
+        if (!empty($data['website_id'])) {
 
-            'uuid'            => (string) Str::uuid(),
-            'website_code'    => strtoupper(Str::random(10)),
+            $website = Website::findOrFail($data['website_id']);
 
-            'name'            => $data['name'],
-            'type'            => $data['type'],
-            'edition'         => $data['edition'] ?? 'saas',
-            'owner_type'      => $data['owner_type'] ?? 'owner',
+            $website->update([
+                'owner_id'     => $website->owner_id ?? Auth::id(),
+                'workspace_id' => $data['workspace_id'] ?? $website->workspace_id,
+                'plan_id'      => $data['plan_id'] ?? $website->plan_id,
 
-            'slug'            => $this->generateSlug($data['name']),
-            'subdomain'       => $this->generateSubdomain($data['name']),
-            'domain'          => $data['domain'] ?? null,
+                'name'       => $data['name'] ?? $website->name,
+                'type'       => $data['type'] ?? $website->type,
+                'edition'    => $data['edition'] ?? $website->edition,
+                'owner_type' => $data['owner_type'] ?? $website->owner_type,
 
-            'industry'        => $data['industry'] ?? null,
-            'theme'           => $data['theme'] ?? null,
-            'template'        => $data['template'] ?? null,
+                'domain' => $data['domain'] ?? $website->domain,
 
-            'multi_branch'    => false,
-            'branch_limit'    => 1,
+                'industry' => $data['industry'] ?? $website->industry,
+                'theme'    => $data['theme'] ?? $website->theme,
+                'template' => $data['template'] ?? $website->template,
 
-            'ai_credits'      => 0,
-            'sms_credits'     => 0,
+                'status' => 'provisioning',
+            ]);
 
-            'storage_mb'      => 0,
-            'bandwidth_mb'    => 0,
+        } else {
 
-            'enabled_modules' => [],
-            'enabled_features'=> [],
-            'settings'        => [],
+            /*
+            |--------------------------------------------------------------------------
+            | New website
+            |--------------------------------------------------------------------------
+            */
 
-            'status'          => 'provisioning',
-        ]);
+            $website = Website::create([
+
+                'owner_id'        => Auth::id(),
+                'workspace_id'    => $data['workspace_id'] ?? null,
+                'plan_id'         => $data['plan_id'] ?? null,
+
+                'uuid'            => (string) Str::uuid(),
+                'website_code'    => strtoupper(Str::random(10)),
+
+                'name'            => $data['name'],
+                'type'            => $data['type'],
+                'edition'         => $data['edition'] ?? 'saas',
+                'owner_type'      => $data['owner_type'] ?? 'owner',
+
+                'slug'            => $this->generateSlug($data['name']),
+                'subdomain'       => $this->generateSubdomain($data['name']),
+                'domain'          => $data['domain'] ?? null,
+
+                'industry'        => $data['industry'] ?? null,
+                'theme'           => $data['theme'] ?? null,
+                'template'        => $data['template'] ?? null,
+
+                'multi_branch'    => false,
+                'branch_limit'    => 1,
+
+                'ai_credits'      => 0,
+                'sms_credits'     => 0,
+
+                'storage_mb'     => 0,
+                'bandwidth_mb'   => 0,
+
+                'enabled_modules'  => [],
+                'enabled_features' => [],
+                'settings'         => [],
+
+                'status' => 'provisioning',
+            ]);
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Provision website
+        |--------------------------------------------------------------------------
+        */
 
         $this->provisioningService->provision($website);
 
-        return $website;
+        /*
+        |--------------------------------------------------------------------------
+        | Ensure SSO application exists
+        |--------------------------------------------------------------------------
+        */
+
+        if (!$website->apiApplication()->exists()) {
+
+            $this->ssoService->registerApplication(
+                name: $website->name . ' SSO',
+                slug: $website->slug . '-sso',
+                userId: $website->owner_id,
+                workspaceId: $website->workspace_id,
+                websiteId: $website->id,
+                redirectUrls: [
+                    'https://' . $website->subdomain . '.esubiz.com/sso/callback',
+                ],
+            );
+        }
+
+        return $website->fresh();
     }
 
     /**

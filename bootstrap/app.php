@@ -17,6 +17,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'account-mode' => \App\Http\Middleware\CheckAccountMode::class,
         ]);
 
+        $middleware->validateCsrfTokens(except: [
+            'oauth/token',
+        ]);
+
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

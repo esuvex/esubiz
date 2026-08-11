@@ -17,6 +17,38 @@ class SsoService
             ->first();
     }
 
+    public function findWebsiteApplication(int $websiteId): ?ApiApplication
+    {
+        return ApiApplication::query()
+            ->where('website_id', $websiteId)
+            ->where('is_active', true)
+            ->first();
+    }
+
+    public function registerApplication(
+        string $name,
+        string $slug,
+        ?int $userId = null,
+        ?int $workspaceId = null,
+        ?int $websiteId = null,
+        array $redirectUrls = []
+    ): ApiApplication {
+        return ApiApplication::create([
+            'workspace_id' => $workspaceId,
+            'website_id' => $websiteId,
+            'user_id' => $userId,
+            'uuid' => \Illuminate\Support\Str::uuid(),
+            'name' => $name,
+            'slug' => $slug,
+            'client_id' => 'esubiz_' . \Illuminate\Support\Str::random(32),
+            'client_secret' => \Illuminate\Support\Str::random(64),
+            'redirect_urls' => array_values($redirectUrls),
+            'scopes' => [],
+            'is_verified' => false,
+            'is_active' => true,
+        ]);
+    }
+
     public function isValidRedirect(
         ApiApplication $application,
         string $redirectUri
@@ -75,6 +107,16 @@ class SsoService
             && hash_equals($application->client_secret, $clientSecret);
     }
 
+    public function findByAccessToken(string $accessToken): ?\App\Models\ApiAuthorization
+    {
+        return \App\Models\ApiAuthorization::query()
+            ->where('access_token_hash', hash('sha256', $accessToken))
+            ->where('is_revoked', false)
+            ->where('access_token_expires_at', '>', now())
+            ->with('user')
+            ->first();
+    }
+
     public function consumeAuthorizationCode(
         ApiApplication $application,
         string $authorizationCode
@@ -83,6 +125,7 @@ class SsoService
             ->where('api_application_id', $application->id)
             ->where('authorization_code', $authorizationCode)
             ->where('is_revoked', false)
+            ->whereNull('code_consumed_at')
             ->whereNotNull('approved_at')
             ->where('expires_at', '>', now())
             ->first();
@@ -94,8 +137,6 @@ class SsoService
         $accessToken = \Illuminate\Support\Str::random(80);
 
         $authorization->update([
-            'is_revoked' => true,
-            'revoked_at' => now(),
             'code_consumed_at' => now(),
             'access_token_hash' => hash('sha256', $accessToken),
             'access_token_expires_at' => now()->addHours(1),
