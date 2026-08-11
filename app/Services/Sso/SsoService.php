@@ -31,7 +31,9 @@ class SsoService
         ?int $userId = null,
         ?int $workspaceId = null,
         ?int $websiteId = null,
-        array $redirectUrls = []
+        array $redirectUrls = [],
+        string $applicationType = 'external',
+        array $scopes = []
     ): ApiApplication {
         return ApiApplication::create([
             'workspace_id' => $workspaceId,
@@ -40,13 +42,60 @@ class SsoService
             'uuid' => \Illuminate\Support\Str::uuid(),
             'name' => $name,
             'slug' => $slug,
+            'description' => null,
+            'application_type' => $applicationType,
             'client_id' => 'esubiz_' . \Illuminate\Support\Str::random(32),
             'client_secret' => \Illuminate\Support\Str::random(64),
             'redirect_urls' => array_values($redirectUrls),
-            'scopes' => [],
+            'scopes' => array_values($scopes),
             'is_verified' => false,
             'is_active' => true,
         ]);
+    }
+
+    /**
+     * Register an Esubiz application by its canonical identity.
+     *
+     * Existing applications are returned instead of creating duplicates.
+     */
+    public function registerOrGetApplication(
+        string $name,
+        string $slug,
+        string $applicationType,
+        array $redirectUrls = [],
+        array $scopes = [],
+        ?int $userId = null,
+        ?int $workspaceId = null
+    ): ApiApplication {
+        $application = ApiApplication::query()
+            ->where('slug', $slug)
+            ->first();
+
+        if ($application) {
+            return $application;
+        }
+
+        return $this->registerApplication(
+            name: $name,
+            slug: $slug,
+            userId: $userId,
+            workspaceId: $workspaceId,
+            websiteId: null,
+            redirectUrls: $redirectUrls,
+            applicationType: $applicationType,
+            scopes: $scopes,
+        );
+    }
+
+    /**
+     * Find an active application by application type.
+     */
+    public function findByType(string $applicationType): ?ApiApplication
+    {
+        return ApiApplication::query()
+            ->where('application_type', $applicationType)
+            ->where('is_active', true)
+            ->first();
     }
 
     public function isValidRedirect(

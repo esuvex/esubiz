@@ -1,0 +1,23 @@
+{
+  "name": "esubiz/sso-client",
+  "description": "Reusable Esubiz SSO client for Esubiz applications and subdomains.",
+  "type": "library",
+  "license": "proprietary",
+  "require": {
+    "php": "^8.3",
+    "illuminate/support": "^13.0",
+    "illuminate/http": "^13.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "Esubiz\\SsoClient\\": "src/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Esubiz\\SsoClient\\SsoClientServiceProvider"
+      ]
+    }
+  }
+}

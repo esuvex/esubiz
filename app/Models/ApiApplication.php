@@ -18,6 +18,7 @@ class ApiApplication extends Model
         'name',
         'slug',
         'description',
+        'application_type',
         'client_id',
         'client_secret',
         'redirect_urls',

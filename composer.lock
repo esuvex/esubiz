@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "8404219cfdfc592e5f55aad0cf031218",
+    "content-hash": "0c1885fcd6ac37e0eb7e5bc87c56bc4a",
     "packages": [
         {
             "name": "brick/math",
@@ -506,6 +506,41 @@
                 }
             ],
             "time": "2025-03-06T22:45:56+00:00"
+        },
+        {
+            "name": "esubiz/sso-client",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "packages/esubiz/sso-client",
+                "reference": "2b0ecd65bde00f8588c56ae68c536ddfbad30560"
+            },
+            "require": {
+                "illuminate/http": "^13.0",
+                "illuminate/support": "^13.0",
+                "php": "^8.3"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Esubiz\\SsoClient\\SsoClientServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Esubiz\\SsoClient\\": "src/"
+                }
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Reusable Esubiz SSO client for Esubiz applications and subdomains.",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "fruitcake/php-cors",
@@ -8522,7 +8557,9 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "esubiz/sso-client": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
