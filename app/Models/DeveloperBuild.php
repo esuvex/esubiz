@@ -54,5 +54,6 @@ class DeveloperBuild extends Model
         'total_cost' => 'decimal:2',
         'ai_theme_enabled' => 'boolean',
         'ai_theme_preferences' => 'array',
+        'ai_theme_reference' => 'array',
     ];
 }

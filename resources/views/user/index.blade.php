@@ -290,47 +290,13 @@
 
                     </div>
 
+                @else
+
+                    <div class="px-8 py-8 text-slate-500">
+                        No recent activity.
+                    </div>
+
                 @endif
-
-                <div class="flex items-center justify-between px-8 py-5">
-
-                    <div>
-
-                        <h3 class="font-semibold">
-                            SSL Certificate Installed
-                        </h3>
-
-                        <p class="text-slate-500">
-                            Esuvex
-                        </p>
-
-                    </div>
-
-                    <span class="text-sm text-slate-400">
-                        Today
-                    </span>
-
-                </div>
-
-                <div class="flex items-center justify-between px-8 py-5">
-
-                    <div>
-
-                        <h3 class="font-semibold">
-                            CRM Activated
-                        </h3>
-
-                        <p class="text-slate-500">
-                            Greenwood Interior Academy
-                        </p>
-
-                    </div>
-
-                    <span class="text-sm text-slate-400">
-                        Yesterday
-                    </span>
-
-                </div>
 
             </div>
 

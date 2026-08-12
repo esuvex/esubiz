@@ -29,6 +29,7 @@
 
 <form method="POST"
       action="{{ route('developer.builder.create') }}"
+      enctype="multipart/form-data"
       class="space-y-6">
     @csrf
 
@@ -190,17 +191,35 @@
                 class="peer sr-only"
                 @checked(old('ai_theme'))>
 
-            <div class="rounded-2xl border border-violet-200 bg-violet-50 p-5 transition peer-checked:border-violet-500 peer-checked:ring-2 peer-checked:ring-violet-100">
-                <div class="flex items-start gap-4">
-                    <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-lg text-white">
-                        ✨
+            <div class="rounded-2xl border-2 border-violet-200 bg-violet-50 p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-violet-400 hover:bg-violet-100 hover:shadow-md peer-checked:border-violet-500 peer-checked:bg-violet-100 peer-checked:ring-2 peer-checked:ring-violet-100">
+
+                <div class="flex items-center justify-between gap-5">
+
+                    <div class="flex items-start gap-4">
+                        <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-lg text-white shadow-sm">
+                            ✨
+                        </div>
+
+                        <div>
+                            <p class="font-bold text-violet-900">
+                                Generate a Custom Theme with AI
+                            </p>
+
+                            <p class="mt-1 text-sm text-violet-700">
+                                Create a unique website theme using AI. Add a description and an optional reference photo.
+                            </p>
+
+                            <p class="mt-3 text-xs font-bold uppercase tracking-wide text-violet-600">
+                                Click here to configure your AI theme
+                            </p>
+                        </div>
                     </div>
-                    <div>
-                        <p class="font-bold text-violet-900">Generate a Custom Theme with AI</p>
-                        <p class="mt-1 text-sm text-violet-700">
-                            Describe the visual style you want and generate a custom theme using your account's AI credits.
-                        </p>
+
+                    <div class="hidden shrink-0 items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm sm:flex">
+                        Configure AI Theme
+                        <span class="text-lg leading-none">→</span>
                     </div>
+
                 </div>
             </div>
         </label>
@@ -216,6 +235,95 @@
                 maxlength="5000"
                 placeholder="Example: Create a modern dark fintech theme with deep navy backgrounds, electric blue accents, clean typography, glass-effect cards and subtle animations."
                 class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-100">{{ old('ai_theme_prompt') }}</textarea>
+
+            <div class="mt-5">
+                <label class="block text-sm font-semibold text-slate-700">
+                    Reference Photo <span class="font-normal text-slate-400">(Optional)</span>
+                </label>
+
+                <input
+                    id="ai_theme_reference_photo"
+                    type="file"
+                    name="ai_theme_reference_photos[]"
+                    accept="image/jpeg,image/png,image/webp"
+                    multiple
+                    class="hidden">
+
+                <div class="mt-3">
+
+                    <div
+                        id="ai-theme-photo-grid"
+                        class="flex flex-wrap items-start gap-3">
+
+                        <label
+                            for="ai_theme_reference_photo"
+                            id="ai-theme-upload-box"
+                            class="flex h-16 w-16 shrink-0 cursor-pointer items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 transition hover:border-violet-400 hover:bg-violet-50">
+
+                            <div class="text-center">
+                                <div class="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-white text-2xl font-light text-slate-500 shadow-sm">
+                                    +
+                                </div>
+
+                            </div>
+                        </label>
+
+                    </div>
+
+                    <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
+
+                        <div>
+                            <p class="text-sm font-medium text-slate-700">
+                                Use reference photos
+                            </p>
+
+                            <p class="mt-1 max-w-xl text-xs leading-5 text-slate-500">
+                                Upload up to 10 photos to help AI understand the visual direction,
+                                colours, layout, materials or style you want.
+                            </p>
+                        </div>
+
+                        <span
+                            id="ai-theme-photo-count"
+                            class="rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">
+                            0 / 10
+                        </span>
+
+                    </div>
+
+                    <p class="mt-2 text-xs font-medium text-slate-400">
+                        JPG, PNG or WEBP · Maximum 10MB per photo
+                    </p>
+
+                </div>
+
+                <div
+                    id="ai-theme-photo-modal"
+                    class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/70 p-6">
+
+                    <div class="relative flex max-h-[70vh] max-w-[520px] items-center justify-center rounded-2xl bg-white p-3 shadow-2xl">
+
+                        <button
+                            type="button"
+                            id="ai-theme-photo-modal-close"
+                            class="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-slate-900/80 text-lg font-bold text-white hover:bg-slate-900"
+                            aria-label="Close photo preview">
+                            ×
+                        </button>
+
+                        <img
+                            id="ai-theme-photo-modal-image"
+                            src=""
+                            alt="Reference photo enlarged preview"
+                            class="max-h-[60vh] max-w-[70vw] rounded-xl object-contain">
+                    </div>
+
+                </div>
+
+                @error('ai_theme_reference_photo')
+                    <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                @enderror
+            </div>
 
             <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
                 <select name="ai_theme_preferences[mode]"
@@ -335,16 +443,207 @@
         const checkbox = document.getElementById('ai_theme');
         const panel = document.getElementById('ai-theme-panel');
 
-        if (!checkbox || !panel) {
+        if (checkbox && panel) {
+            const sync = () => {
+                panel.classList.toggle('hidden', !checkbox.checked);
+            };
+
+            checkbox.addEventListener('change', sync);
+            sync();
+        }
+
+        const photoInput = document.getElementById('ai_theme_reference_photo');
+        const photoGrid = document.getElementById('ai-theme-photo-grid');
+        const uploadBox = document.getElementById('ai-theme-upload-box');
+        const photoCount = document.getElementById('ai-theme-photo-count');
+
+        const photoModal = document.getElementById('ai-theme-photo-modal');
+        const photoModalImage = document.getElementById('ai-theme-photo-modal-image');
+        const photoModalClose = document.getElementById('ai-theme-photo-modal-close');
+
+        if (!photoInput || !photoGrid || !uploadBox || !photoCount) {
             return;
         }
 
-        const sync = () => {
-            panel.classList.toggle('hidden', !checkbox.checked);
+        const MAX_PHOTOS = 10;
+        const MAX_SIZE = 10 * 1024 * 1024;
+        const ALLOWED_TYPES = [
+            'image/jpeg',
+            'image/png',
+            'image/webp'
+        ];
+
+        let selectedFiles = [];
+
+        const updatePhotoCount = () => {
+            photoCount.textContent = `${selectedFiles.length} / ${MAX_PHOTOS}`;
+            uploadBox.classList.toggle('hidden', selectedFiles.length >= MAX_PHOTOS);
         };
 
-        checkbox.addEventListener('change', sync);
-        sync();
+        const openPreview = (src) => {
+            if (!photoModal || !photoModalImage) {
+                return;
+            }
+
+            photoModalImage.src = src;
+            photoModal.classList.remove('hidden');
+            photoModal.classList.add('flex');
+            document.body.classList.add('overflow-hidden');
+        };
+
+        const closePreview = () => {
+            if (!photoModal || !photoModalImage) {
+                return;
+            }
+
+            photoModal.classList.add('hidden');
+            photoModal.classList.remove('flex');
+            photoModalImage.src = '';
+            document.body.classList.remove('overflow-hidden');
+        };
+
+        const renderPhotos = () => {
+            photoGrid.querySelectorAll('.ai-theme-photo-item').forEach((item) => {
+                item.remove();
+            });
+
+            selectedFiles.forEach((file, index) => {
+                const item = document.createElement('div');
+
+                item.className =
+                    'ai-theme-photo-item relative shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100';
+
+                Object.assign(item.style, {
+                    width: '64px',
+                    height: '64px',
+                    minWidth: '64px',
+                    maxWidth: '64px',
+                    minHeight: '64px',
+                    maxHeight: '64px'
+                });
+
+                const img = document.createElement('img');
+
+                img.src = URL.createObjectURL(file);
+                img.alt = `Reference photo ${index + 1}`;
+
+                Object.assign(img.style, {
+                    display: 'block',
+                    width: '64px',
+                    height: '64px',
+                    minWidth: '64px',
+                    maxWidth: '64px',
+                    minHeight: '64px',
+                    maxHeight: '64px',
+                    objectFit: 'cover',
+                    cursor: 'pointer'
+                });
+
+                img.addEventListener('click', () => {
+                    openPreview(img.src);
+                });
+
+                const removeButton = document.createElement('button');
+
+                removeButton.type = 'button';
+
+                removeButton.className =
+                    'absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-slate-900/90 text-xs font-bold leading-none text-white shadow-sm hover:bg-slate-900';
+
+                removeButton.textContent = '×';
+
+                removeButton.setAttribute(
+                    'aria-label',
+                    `Remove reference photo ${index + 1}`
+                );
+
+                removeButton.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    selectedFiles.splice(index, 1);
+
+                    renderPhotos();
+                    syncInputFiles();
+                });
+
+                item.appendChild(img);
+                item.appendChild(removeButton);
+
+                photoGrid.insertBefore(item, uploadBox);
+            });
+
+            updatePhotoCount();
+        };
+
+        const syncInputFiles = () => {
+            const dataTransfer = new DataTransfer();
+
+            selectedFiles.forEach((file) => {
+                dataTransfer.items.add(file);
+            });
+
+            photoInput.files = dataTransfer.files;
+        };
+
+        photoInput.addEventListener('change', function () {
+            const incomingFiles = Array.from(this.files || []);
+
+            for (const file of incomingFiles) {
+                if (selectedFiles.length >= MAX_PHOTOS) {
+                    break;
+                }
+
+                if (!ALLOWED_TYPES.includes(file.type)) {
+                    alert(
+                        `${file.name} is not a supported image. Please use JPG, PNG or WEBP.`
+                    );
+                    continue;
+                }
+
+                if (file.size > MAX_SIZE) {
+                    alert(`${file.name} is larger than 10MB.`);
+                    continue;
+                }
+
+                const duplicate = selectedFiles.some(
+                    (existing) =>
+                        existing.name === file.name &&
+                        existing.size === file.size &&
+                        existing.lastModified === file.lastModified
+                );
+
+                if (!duplicate) {
+                    selectedFiles.push(file);
+                }
+            }
+
+            syncInputFiles();
+            renderPhotos();
+
+            this.value = '';
+        });
+
+        if (photoModalClose) {
+            photoModalClose.addEventListener('click', closePreview);
+        }
+
+        if (photoModal) {
+            photoModal.addEventListener('click', (event) => {
+                if (event.target === photoModal) {
+                    closePreview();
+                }
+            });
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                closePreview();
+            }
+        });
+
+        renderPhotos();
+        updatePhotoCount();
     })();
 </script>
 

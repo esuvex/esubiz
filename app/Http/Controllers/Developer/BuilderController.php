@@ -68,6 +68,16 @@ class BuilderController extends Controller
             ],
             'ai_theme' => ['nullable', 'boolean'],
             'ai_theme_prompt' => ['nullable', 'string', 'max:5000'],
+            'ai_theme_reference_photos' => [
+                'nullable',
+                'array',
+                'max:10',
+            ],
+            'ai_theme_reference_photos.*' => [
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:10240',
+            ],
             'ai_theme_preferences' => ['nullable', 'array'],
             'ai_theme_preferences.mode' => [
                 'nullable',

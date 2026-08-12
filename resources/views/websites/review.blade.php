@@ -73,7 +73,7 @@ $steps = 9;
 
                         <span class="text-slate-500">Website Name</span>
 
-                        <span class="font-semibold">{{ request('name') }}</span>
+                        <span class="font-semibold">{{ $wizard['name'] ?? $website->name ?? '—' }}</span>
 
                     </div>
 
@@ -81,7 +81,7 @@ $steps = 9;
 
                         <span class="text-slate-500">Industry</span>
 
-                        <span class="font-semibold">{{ request('industry') }}</span>
+                        <span class="font-semibold">{{ $wizard['industry'] ?? '—' }}</span>
 
                     </div>
 
@@ -89,7 +89,7 @@ $steps = 9;
 
                         <span class="text-slate-500">Theme</span>
 
-                        <span class="font-semibold">{{ request('theme') }}</span>
+                        <span class="font-semibold">{{ $wizard['theme'] ?? '—' }}</span>
 
                     </div>
 
@@ -97,7 +97,21 @@ $steps = 9;
 
                         <span class="text-slate-500">Plan</span>
 
-                        <span class="font-semibold">{{ request('plan') }}</span>
+                        <span class="font-semibold">{{ $wizard['plan'] ?? '—' }}</span>
+
+                    </div>
+
+                    <div class="flex justify-between">
+
+                        <span class="text-slate-500">Subdomain</span>
+
+                        <span class="font-semibold break-all">
+                            @if(!empty($wizard['subdomain']))
+                                https://{{ $wizard['subdomain'] }}.esubiz.com
+                            @else
+                                —
+                            @endif
+                        </span>
 
                     </div>
 
@@ -119,7 +133,7 @@ $steps = 9;
 
                         <span class="text-slate-500">Name</span>
 
-                        <span class="font-semibold">{{ request('admin_name') }}</span>
+                        <span class="font-semibold">{{ $wizard['admin_name'] ?? '—' }}</span>
 
                     </div>
 
@@ -127,7 +141,7 @@ $steps = 9;
 
                         <span class="text-slate-500">Email</span>
 
-                        <span class="font-semibold">{{ request('admin_email') }}</span>
+                        <span class="font-semibold">{{ $wizard['admin_email'] ?? '—' }}</span>
 
                     </div>
 
@@ -135,7 +149,7 @@ $steps = 9;
 
                         <span class="text-slate-500">Phone</span>
 
-                        <span class="font-semibold">{{ request('admin_phone') }}</span>
+                        <span class="font-semibold">{{ $wizard['admin_phone'] ?? '—' }}</span>
 
                     </div>
 

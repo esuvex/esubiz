@@ -8,7 +8,7 @@
 $step = 5;
 $steps = 9;
 
-$websiteName = request('name', '');
+$websiteName = request('name', $wizard['name'] ?? $website->name ?? '');
 
 $subdomain = request(
     'subdomain',
@@ -173,9 +173,9 @@ $preview = $subdomain
 
                 </p>
 
-                <div class="mt-3 break-all rounded-2xl bg-white px-6 py-5 text-2xl font-bold text-blue-700">
+                <div id="website-preview" class="mt-3 break-all rounded-2xl bg-white px-6 py-5 text-2xl font-bold text-blue-700">
 
-                    {{ $preview }}
+                    https://{{ $subdomain ?: "yourbusiness" }}.esubiz.com
 
                 </div>
 
@@ -206,5 +206,32 @@ $preview = $subdomain
     </div>
 
 </form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const subdomainInput = document.querySelector('input[name="subdomain"]');
+    const preview = document.getElementById('website-preview');
+
+    if (!subdomainInput || !preview) {
+        return;
+    }
+
+    function updatePreview() {
+        let value = subdomainInput.value
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9-]/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '');
+
+        preview.textContent = value
+            ? 'https://' + value + '.esubiz.com'
+            : 'https://yourbusiness.esubiz.com';
+    }
+
+    subdomainInput.addEventListener('input', updatePreview);
+    updatePreview();
+});
+</script>
 
 @endsection

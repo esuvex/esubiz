@@ -89,6 +89,24 @@ class SsoApplicationRegistry
                 ]);
             }
 
+            foreach ($definition['scopes'] as $scopeSlug) {
+                $scope = \App\Models\ApiScope::query()
+                    ->where('slug', $scopeSlug)
+                    ->first();
+
+                if ($scope) {
+                    \App\Models\ApiApplicationScope::updateOrCreate(
+                        [
+                            'api_application_id' => $application->id,
+                            'api_scope_id' => $scope->id,
+                        ],
+                        [
+                            'is_allowed' => true,
+                        ]
+                    );
+                }
+            }
+
             $results[$key] = $application->fresh();
         }
 
