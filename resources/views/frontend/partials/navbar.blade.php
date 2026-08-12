@@ -214,22 +214,44 @@ Contact Us
 
 <div class="hidden lg:flex items-center gap-5">
 
+@auth
 
-<a href="{{ route('login') }}"
-class="font-semibold text-slate-700">
+    @php
+        $dashboardRoute = match (session('account_mode')) {
+            'admin' => route('admin.dashboard'),
+            'developer' => route('developer.dashboard'),
+            default => route('user.dashboard'),
+        };
+    @endphp
 
-Login
+    <a href="{{ $dashboardRoute }}"
+       class="font-semibold text-slate-700 hover:text-slate-900">
+        Dashboard
+    </a>
 
-</a>
+    <form method="POST" action="{{ route('logout') }}">
+        @csrf
 
+        <button
+            type="submit"
+            class="px-6 py-3 rounded-xl bg-slate-900 text-white font-bold hover:bg-slate-800">
+            Logout
+        </button>
+    </form>
 
-<a href="{{ route('register') }}"
-class="px-6 py-3 rounded-xl bg-slate-900 text-white font-bold">
+@else
 
-Start Free
+    <a href="{{ route('login') }}"
+       class="font-semibold text-slate-700">
+        Login
+    </a>
 
-</a>
+    <a href="{{ route('register') }}"
+       class="px-6 py-3 rounded-xl bg-slate-900 text-white font-bold">
+        Start Free
+    </a>
 
+@endauth
 
 </div>
 
@@ -406,20 +428,44 @@ Contact Us
 
 <hr>
 
+@auth
 
+    @php
+        $dashboardRoute = match (session('account_mode')) {
+            'admin' => route('admin.dashboard'),
+            'developer' => route('developer.dashboard'),
+            default => route('user.dashboard'),
+        };
+    @endphp
 
-<a href="{{ route('login') }}">
-Login
-</a>
+    <a href="{{ $dashboardRoute }}"
+       class="block px-5 py-3">
+        Dashboard
+    </a>
 
+    <form method="POST" action="{{ route('logout') }}">
+        @csrf
 
+        <button
+            type="submit"
+            class="w-full px-5 py-3 text-left text-red-600">
+            Logout
+        </button>
+    </form>
 
-<a href="{{ route('register') }}"
-class="px-5 py-3 rounded-xl bg-slate-900 text-white text-center">
+@else
 
-Start Free
+    <a href="{{ route('login') }}"
+       class="block px-5 py-3">
+        Login
+    </a>
 
-</a>
+    <a href="{{ route('register') }}"
+       class="block px-5 py-3 rounded-xl bg-slate-900 text-white text-center">
+        Start Free
+    </a>
+
+@endauth
 
 
 
