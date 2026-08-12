@@ -29,6 +29,17 @@ return [
 
     'success_redirect' => env('ESUBIZ_SSO_SUCCESS_REDIRECT', '/'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Optional Role-Based Success Redirects
+    |--------------------------------------------------------------------------
+    |
+    | Applications may define destinations for authenticated user roles.
+    | When no matching role exists, success_redirect remains the fallback.
+    |
+    */
+    'success_redirects' => [],
+
     'logout_redirect' => env('ESUBIZ_SSO_LOGOUT_REDIRECT', '/'),
 
     'scopes' => array_values(

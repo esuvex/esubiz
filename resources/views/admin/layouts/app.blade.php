@@ -140,6 +140,7 @@
             </button>
 
             <div x-show="marketplaceMenu" x-cloak class="ml-4 mt-1 space-y-1">
+
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Capacity</a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Themes</a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Modules</a>
@@ -255,7 +256,12 @@
             </button>
 
             <div x-show="marketplaceMenu" x-cloak class="ml-4 mt-1 space-y-1">
-                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Capacity</a>
+                <a href="{{ config('sso.clients.marketplace.url') }}/sso/login"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
+                    Marketplace Dashboard
+                </a>
+
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Add-ons</a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Themes</a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Modules</a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Others</a>
@@ -341,6 +347,28 @@
             Dashboard
         </a>
 
+        <!-- Websites -->
+        <div>
+            <button @click="websiteMenu=!websiteMenu"
+                    class="w-full flex items-center justify-between rounded-xl px-5 py-3 hover:bg-slate-800">
+                <span>Websites</span>
+                <span>⌄</span>
+            </button>
+
+            <div x-show="websiteMenu" x-cloak class="ml-4 mt-1 space-y-1">
+                <a href="{{ route('admin.website-types.index') }}"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800
+                   {{ request()->routeIs('admin.website-types.*') ? 'bg-blue-600 text-white' : '' }}">
+                    Website Types
+                </a>
+
+                <a href="#"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
+                    User Websites
+                </a>
+            </div>
+        </div>
+
         <!-- Plans Manager -->
         <div>
             <button @click="plansMenu=!plansMenu"
@@ -364,6 +392,11 @@
             </button>
 
             <div x-show="marketplaceMenu" x-cloak class="ml-4 mt-1 space-y-1">
+                <a href="{{ config('sso.clients.marketplace.url') }}/sso/login"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
+                    Marketplace Dashboard
+                </a>
+
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Capacity</a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Themes</a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Modules</a>

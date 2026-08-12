@@ -61,10 +61,29 @@ class SsoController extends Controller
 
         abort_unless($user, 401, 'User not found.');
 
+        $centralRole = $user->roles()
+            ->whereHas('role', function ($query) {
+                $query->where('is_active', true);
+            })
+            ->with('role')
+            ->get()
+            ->map(fn ($userRole) => $userRole->role?->slug)
+            ->filter()
+            ->first();
+
+        $marketplaceRole = match ($centralRole) {
+            'platform-admin' => 'admin',
+            'developer' => 'developers',
+            'user' => 'users',
+            default => null,
+        };
+
         return response()->json([
             'id' => $user->id,
             'name' => $user->name,
             'email' => $user->email,
+            'role' => $marketplaceRole,
+            'central_role' => $centralRole,
             'scopes' => $authorization->scopes,
         ]);
     }

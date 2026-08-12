@@ -9,6 +9,7 @@ use App\Http\Controllers\DeveloperAccountController;
 use App\Http\Controllers\SsoController;
 
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\WebsiteTypeController;
 use App\Http\Controllers\Developer\DashboardController as DeveloperDashboardController;
 use App\Http\Controllers\Developer\BuilderController as DeveloperBuilderController;
 use App\Http\Controllers\User\DashboardController as UserDashboardController;
@@ -69,7 +70,11 @@ Route::middleware('auth')->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])
+    Route::get('/admin/website-types', [WebsiteTypeController::class, 'index'])
+    ->middleware(['permission:roles.view', 'account-mode:admin'])
+    ->name('admin.website-types.index');
+
+Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])
         ->middleware(['permission:roles.view', 'account-mode:admin'])
         ->name('admin.dashboard');
 
