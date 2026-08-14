@@ -9,9 +9,14 @@ class WebsiteProvisioningService
 {
     protected RecipeService $recipeService;
 
-    public function __construct(RecipeService $recipeService)
-    {
+    protected WebsiteDatabaseProvisioningService $databaseProvisioningService;
+
+    public function __construct(
+        RecipeService $recipeService,
+        WebsiteDatabaseProvisioningService $databaseProvisioningService
+    ) {
         $this->recipeService = $recipeService;
+        $this->databaseProvisioningService = $databaseProvisioningService;
     }
 
     /**
@@ -31,9 +36,19 @@ class WebsiteProvisioningService
 
         /*
         |--------------------------------------------------------------------------
+        | Dedicated Tenant Database
+        |--------------------------------------------------------------------------
+        */
+
+        $this->databaseProvisioningService->provision($website);
+
+        /*
+        |--------------------------------------------------------------------------
         | Future Provisioning Pipeline
         |--------------------------------------------------------------------------
         |
+        | ✓ Prepared website type
+        | ✓ Dedicated tenant database
         | ✓ Install selected theme
         | ✓ Generate default pages
         | ✓ Install default modules

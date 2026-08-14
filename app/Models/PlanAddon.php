@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class CapacityProductItem extends Model
+class PlanAddon extends Model
 {
     //
 }

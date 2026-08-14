@@ -102,7 +102,7 @@
 
                     <h4 class="font-bold text-white">
 
-                        Capacity Based
+                        Add-on Based
 
                     </h4>
 

@@ -84,32 +84,32 @@
         </div>
     </section>
 
-    {{-- Capacity --}}
+    {{-- Add-ons --}}
     <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <div class="mb-6">
-            <h2 class="text-lg font-bold text-slate-900">Core Capacity</h2>
+            <h2 class="text-lg font-bold text-slate-900">Add-ons</h2>
             <p class="mt-1 text-sm text-slate-500">
-                Choose the capacity bundle that will be included in the compiled website.
+                Choose the add-on bundle that will be included in the compiled website.
             </p>
         </div>
 
-        @if($capacityBundles->isEmpty())
+        @if($addonBundles->isEmpty())
             <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
-                <p class="font-semibold text-slate-700">No capacity bundles available</p>
+                <p class="font-semibold text-slate-700">No add-on bundles available</p>
                 <p class="mt-1 text-sm text-slate-500">
-                    Developer capacity products will appear here when made available by admin.
+                    Developer add-on products will appear here when made available by admin.
                 </p>
             </div>
         @else
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                @foreach($capacityBundles as $bundle)
+                @foreach($addonBundles as $bundle)
                     <label class="cursor-pointer">
                         <input
                             type="radio"
-                            name="capacity_bundle"
+                            name="addon_bundle"
                             value="{{ $bundle->id }}"
                             class="peer sr-only"
-                            @checked(old('capacity_bundle') == $bundle->id)
+                            @checked(old('addon_bundle') == $bundle->id)
                             required>
 
                         <div class="h-full rounded-2xl border border-slate-200 p-5 transition peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:ring-2 peer-checked:ring-blue-100 hover:border-blue-300">
@@ -137,7 +137,7 @@
             </div>
         @endif
 
-        @error('capacity_bundle')
+        @error('addon_bundle')
             <p class="mt-3 text-sm text-red-600">{{ $message }}</p>
         @enderror
     </section>

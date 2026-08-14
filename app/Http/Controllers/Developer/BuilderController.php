@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Developer;
 
 use App\Http\Controllers\Controller;
-use App\Models\CapacityProduct;
+use App\Models\AddonProduct;
 use App\Services\Developer\WebsiteCompilerService;
 use App\Models\DeveloperBuild;
 use Illuminate\Support\Str;
@@ -15,7 +15,7 @@ class BuilderController extends Controller
 {
     public function index(): View
     {
-        $capacityBundles = CapacityProduct::query()
+        $addonBundles = AddonProduct::query()
             ->where('is_active', true)
             ->whereIn('audience', ['developer', 'both'])
             ->orderBy('name')
@@ -36,7 +36,7 @@ class BuilderController extends Controller
             ->get();
 
         return view('developer.builder.index', [
-            'capacityBundles' => $capacityBundles,
+            'addonBundles' => $addonBundles,
             'modules' => $modules,
             'themes' => $themes,
         ]);
@@ -51,10 +51,10 @@ class BuilderController extends Controller
                 'string',
                 'in:business,ecommerce,portfolio,blog,landing',
             ],
-            'capacity_bundle' => [
+            'addon_bundle' => [
                 'required',
                 'integer',
-                'exists:capacity_products,id',
+                'exists:addon_products,id',
             ],
             'theme' => [
                 'nullable',
@@ -106,7 +106,7 @@ class BuilderController extends Controller
             'version' => '1.0.0',
             'website_type' => $validated['website_type'],
             'status' => 'queued',
-            'stage' => 'capacity',
+            'stage' => 'addon',
             'build_type' => 'developer',
             'payment_status' => 'unpaid',
             'configuration' => [

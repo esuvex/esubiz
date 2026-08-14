@@ -177,6 +177,14 @@ class Website extends Model
         return $this->hasOne(ApiApplication::class);
     }
 
+    /**
+     * Database connection used by this website.
+     */
+    public function databaseConnection()
+    {
+        return $this->hasOne(WebsiteDatabaseConnection::class);
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Helpers

@@ -141,7 +141,7 @@
 
             <div x-show="marketplaceMenu" x-cloak class="ml-4 mt-1 space-y-1">
 
-                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Capacity</a>
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Add-ons</a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Themes</a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Modules</a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Others</a>
@@ -397,7 +397,7 @@
                     Marketplace Dashboard
                 </a>
 
-                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Capacity</a>
+                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Add-ons</a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Themes</a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Modules</a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Others</a>

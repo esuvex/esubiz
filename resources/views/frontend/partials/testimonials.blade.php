@@ -143,7 +143,7 @@
 
                     <p class="mt-8 leading-8 text-slate-600">
 
-                        "Starting small and expanding our business capacity only when needed made Esubiz the right choice."
+                        "Starting small and expanding our business resources only when needed made Esubiz the right choice."
 
                     </p>
 
