@@ -12,6 +12,8 @@ class WebsiteType extends Model
     protected $fillable = [
         'name',
         'slug',
+        'package_key',
+        'package_version',
         'description',
         'icon',
         'image',
