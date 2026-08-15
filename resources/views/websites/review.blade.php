@@ -261,6 +261,30 @@
         </div>
 
 
+        @if($errors->has('deployment'))
+            <div class="mb-6 rounded-3xl border border-red-200 bg-red-50 p-6 shadow-sm">
+                <div class="flex items-start gap-4">
+                    <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-100 text-xl font-bold text-red-700">
+                        !
+                    </div>
+
+                    <div>
+                        <h2 class="text-lg font-bold text-red-900">
+                            Deployment failed
+                        </h2>
+
+                        <p class="mt-1 text-sm leading-6 text-red-800">
+                            {{ $errors->first('deployment') }}
+                        </p>
+
+                        <p class="mt-2 text-sm text-red-700">
+                            Your website has not been lost. You can review the details and click Deploy Website again to retry.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         {{-- Deployment Notice --}}
 
         <div class="mt-10 rounded-3xl border border-blue-200 bg-blue-50 p-8">

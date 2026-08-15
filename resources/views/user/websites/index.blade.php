@@ -33,11 +33,39 @@
 
     @if($websites->count())
 
+        @if(session('deployment_success'))
+            <div class="rounded-3xl border border-emerald-200 bg-emerald-50 p-6 shadow-sm">
+                <div class="flex items-start gap-4">
+                    <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-xl font-bold text-emerald-700">
+                        ✓
+                    </div>
+
+                    <div>
+                        <h2 class="text-lg font-bold text-emerald-900">
+                            Website deployed successfully
+                        </h2>
+
+                        <p class="mt-1 text-sm leading-6 text-emerald-800">
+                            Your website is now active. Use the management options on your website card below to continue.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
 
             @foreach($websites as $website)
 
-                <div class="rounded-3xl bg-white p-7 shadow-sm ring-1 ring-slate-200">
+                <div
+                    class="rounded-3xl bg-white p-7 shadow-sm ring-1 {{ session('deployment_success') == $website->id ? 'border-2 border-emerald-400 ring-emerald-200' : 'ring-slate-200' }}"
+                >
+
+                    @if(session('deployment_success') == $website->id)
+                        <div class="mb-5 inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
+                            Newly Deployed
+                        </div>
+                    @endif
 
                     <div class="flex items-start justify-between gap-4">
 

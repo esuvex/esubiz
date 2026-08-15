@@ -480,13 +480,29 @@ class WebsiteWizardController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        return $this->websiteService->create(
-            array_merge(
-                $website->wizard_data ?? [],
-                [
-                    'website_id' => $website->id,
-                ]
-            )
-        );
+        try {
+            $deployedWebsite = $this->websiteService->create(
+                array_merge(
+                    $website->wizard_data ?? [],
+                    [
+                        'website_id' => $website->id,
+                    ]
+                )
+            );
+
+            return redirect()
+                ->route('user.websites.index')
+                ->with('deployment_success', $deployedWebsite->id);
+
+        } catch (\Throwable $e) {
+            report($e);
+
+            return redirect()
+                ->route('websites.review', $website)
+                ->withInput()
+                ->withErrors([
+                    'deployment' => 'Website deployment was not completed. Please try again.',
+                ]);
+        }
     }
 }

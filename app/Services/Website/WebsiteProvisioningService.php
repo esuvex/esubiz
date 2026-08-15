@@ -3,6 +3,7 @@
 namespace App\Services\Website;
 
 use App\Models\Website;
+use RuntimeException;
 use App\Services\Website\Recipes\RecipeService;
 
 class WebsiteProvisioningService
@@ -13,14 +14,18 @@ class WebsiteProvisioningService
 
     protected TenantCoreInstallationService $tenantCoreInstallationService;
 
+    protected WebsiteDatabaseCleanupService $databaseCleanupService;
+
     public function __construct(
         RecipeService $recipeService,
         WebsiteDatabaseProvisioningService $databaseProvisioningService,
-        TenantCoreInstallationService $tenantCoreInstallationService
+        TenantCoreInstallationService $tenantCoreInstallationService,
+        WebsiteDatabaseCleanupService $databaseCleanupService
     ) {
         $this->recipeService = $recipeService;
         $this->databaseProvisioningService = $databaseProvisioningService;
         $this->tenantCoreInstallationService = $tenantCoreInstallationService;
+        $this->databaseCleanupService = $databaseCleanupService;
     }
 
     /**
@@ -38,46 +43,69 @@ class WebsiteProvisioningService
             $website->type ?? 'business'
         );
 
-        /*
-        |--------------------------------------------------------------------------
-        | Dedicated Tenant Database
-        |--------------------------------------------------------------------------
-        */
+        try {
 
-        $this->databaseProvisioningService->provision($website);
+            /*
+            |--------------------------------------------------------------------------
+            | Dedicated Tenant Database
+            |--------------------------------------------------------------------------
+            */
 
-        /*
-        |--------------------------------------------------------------------------
-        | Install Esubiz Core
-        |--------------------------------------------------------------------------
-        */
+            $this->databaseProvisioningService->provision($website);
 
-        $this->tenantCoreInstallationService->install($website);
+            /*
+            |--------------------------------------------------------------------------
+            | Install Esubiz Core
+            |--------------------------------------------------------------------------
+            */
 
-        /*
-        |--------------------------------------------------------------------------
-        | Future Provisioning Pipeline
-        |--------------------------------------------------------------------------
-        |
-        | ✓ Prepared website type
-        | ✓ Dedicated tenant database
-        | ✓ Install selected theme
-        | ✓ Generate default pages
-        | ✓ Install default modules
-        | ✓ Configure CRM
-        | ✓ Configure HR
-        | ✓ Configure Finance
-        | ✓ Configure AI
-        | ✓ Configure Wallet
-        | ✓ Configure Email
-        | ✓ Configure Storage
-        | ✓ Configure Payment Gateway
-        | ✓ Queue deployment jobs
-        |
-        */
+            $this->tenantCoreInstallationService->install($website);
 
-        $website->update([
-            'status' => 'active',
-        ]);
+            /*
+            |--------------------------------------------------------------------------
+            | Future Provisioning Pipeline
+            |--------------------------------------------------------------------------
+            |
+            | ✓ Prepared website type
+            | ✓ Dedicated tenant database
+            | ✓ Install selected theme
+            | ✓ Generate default pages
+            | ✓ Install default modules
+            | ✓ Configure CRM
+            | ✓ Configure HR
+            | ✓ Configure Finance
+            | ✓ Configure AI
+            | ✓ Configure Wallet
+            | ✓ Configure Email
+            | ✓ Configure Storage
+            | ✓ Configure Payment Gateway
+            | ✓ Queue deployment jobs
+            |
+            */
+
+            $website->update([
+                'status' => 'active',
+            ]);
+
+        } catch (\Throwable $e) {
+
+            /*
+            |--------------------------------------------------------------------------
+            | Provisioning Failure Cleanup
+            |--------------------------------------------------------------------------
+            */
+
+            try {
+                $this->databaseCleanupService->cleanup($website);
+            } catch (\Throwable $cleanupException) {
+                report($cleanupException);
+            }
+
+            $website->update([
+                'status' => 'provisioning',
+            ]);
+
+            throw $e;
+        }
     }
 }
