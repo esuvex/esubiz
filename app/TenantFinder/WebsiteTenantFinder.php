@@ -22,6 +22,7 @@ class WebsiteTenantFinder extends TenantFinder
         $website = Website::query()
             ->where('domain', $host)
             ->where('status', 'active')
+            ->where('user_enabled', true)
             ->first();
 
         if (!$website) {
@@ -31,6 +32,7 @@ class WebsiteTenantFinder extends TenantFinder
                 $website = Website::query()
                     ->where('subdomain', $subdomain)
                     ->where('status', 'active')
+                    ->where('user_enabled', true)
                     ->first();
             }
         }

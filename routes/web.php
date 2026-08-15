@@ -3,16 +3,19 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\WebsiteController;
+use App\Http\Controllers\User\WebsiteManagementController;
 use App\Http\Controllers\WebsiteWizardController;
 use App\Http\Controllers\AccountModeController;
 use App\Http\Controllers\DeveloperAccountController;
 use App\Http\Controllers\SsoController;
+use App\Http\Controllers\TenantWebsiteController;
 
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\WebsiteTypeController;
 use App\Http\Controllers\Developer\DashboardController as DeveloperDashboardController;
 use App\Http\Controllers\Developer\BuilderController as DeveloperBuilderController;
 use App\Http\Controllers\User\DashboardController as UserDashboardController;
+use App\Http\Controllers\User\WebsiteController as UserWebsiteController;
 
 /*
 |--------------------------------------------------------------------------
@@ -21,6 +24,24 @@ use App\Http\Controllers\User\DashboardController as UserDashboardController;
 */
 
 Route::view('/', 'frontend.home')->name('home');
+
+Route::domain('www.esubiz.com')
+    ->get('/', fn () => view('frontend.home'))
+    ->name('www.home');
+
+/*
+|--------------------------------------------------------------------------
+| Public Tenant Website
+|--------------------------------------------------------------------------
+*/
+
+Route::domain('{subdomain}.esubiz.com')
+    ->where(['subdomain' => '(?!www$)(?!esubiz$)[a-zA-Z0-9-]+'])
+    ->group(function () {
+        Route::get('/', [TenantWebsiteController::class, 'home'])
+            ->name('tenant.website.home');
+    });
+
 
 
 Route::get('/oauth/authorize', [SsoController::class, 'authorize'])
@@ -74,6 +95,22 @@ Route::middleware('auth')->group(function () {
     ->middleware(['permission:roles.view', 'account-mode:admin'])
     ->name('admin.website-types.index');
 
+    Route::get('/admin/website-types/create', [WebsiteTypeController::class, 'create'])
+        ->middleware(['permission:roles.view', 'account-mode:admin'])
+        ->name('admin.website-types.create');
+
+    Route::post('/admin/website-types', [WebsiteTypeController::class, 'store'])
+        ->middleware(['permission:roles.view', 'account-mode:admin'])
+        ->name('admin.website-types.store');
+
+    Route::get('/admin/website-types/{websiteType}/edit', [WebsiteTypeController::class, 'edit'])
+        ->middleware(['permission:roles.view', 'account-mode:admin'])
+        ->name('admin.website-types.edit');
+
+    Route::put('/admin/website-types/{websiteType}', [WebsiteTypeController::class, 'update'])
+        ->middleware(['permission:roles.view', 'account-mode:admin'])
+        ->name('admin.website-types.update');
+
 Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])
         ->middleware(['permission:roles.view', 'account-mode:admin'])
         ->name('admin.dashboard');
@@ -93,6 +130,9 @@ Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])
     Route::get('/user/dashboard', [UserDashboardController::class, 'index'])
         ->middleware(['permission:websites.manage', 'account-mode:user'])
         ->name('user.dashboard');
+
+    Route::get('/websites', [UserWebsiteController::class, 'index'])
+        ->name('user.websites.index');
 
     /*
     |--------------------------------------------------------------------------
@@ -117,6 +157,19 @@ Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])
 
     /*
     |--------------------------------------------------------------------------
+    | My Website Management
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/websites/{website}/edit', [WebsiteManagementController::class, 'edit'])
+        ->name('user.websites.edit');
+
+    Route::put('/websites/{website}/edit', [WebsiteManagementController::class, 'update'])
+        ->name('user.websites.update');
+
+
+    /*
+    |--------------------------------------------------------------------------
     | Wizard Steps
     |--------------------------------------------------------------------------
     */
@@ -129,6 +182,12 @@ Route::post('/websites/{website}/theme', [WebsiteWizardController::class, 'theme
 
     Route::get('/websites/{website}/information', [WebsiteWizardController::class, 'information'])
         ->name('websites.information');
+
+    Route::post('/websites/{website}/information', [WebsiteWizardController::class, 'information'])
+        ->name('websites.information.save');
+
+    Route::get('/websites/check-subdomain', [WebsiteWizardController::class, 'checkSubdomain'])
+        ->name('websites.check-subdomain');
 
     Route::get('/websites/{website}/plan', [WebsiteWizardController::class, 'plan'])
         ->name('websites.plan');

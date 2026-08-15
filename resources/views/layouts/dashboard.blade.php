@@ -92,14 +92,32 @@
 
                 </a>
 
-                <a href="{{ route('websites.create') }}"
-                   class="flex items-center gap-3 rounded-xl px-4 py-3 font-medium
-                   {{ request()->routeIs('websites.*') ? 'bg-blue-600 text-white' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700' }}">
+                <div class="space-y-1">
 
-                    <span>🌐</span>
-                    <span>Website Builder</span>
+                    <div class="flex items-center gap-3 rounded-xl px-4 py-3 font-semibold text-slate-800">
 
-                </a>
+                        <span>🌐</span>
+                        <span>Website Management</span>
+
+                    </div>
+
+                    <a
+                        href="{{ route('websites.create') }}"
+                        class="ml-8 flex items-center rounded-xl px-4 py-2.5 text-sm font-medium
+                        {{ request()->routeIs('websites.create') ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-blue-50 hover:text-blue-700' }}"
+                    >
+                        Create Website
+                    </a>
+
+                    <a
+                        href="{{ route('user.websites.index') }}"
+                        class="ml-8 flex items-center rounded-xl px-4 py-2.5 text-sm font-medium
+                        {{ request()->routeIs('user.websites.*') ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-blue-50 hover:text-blue-700' }}"
+                    >
+                        My Websites
+                    </a>
+
+                </div>
 
                 <a href="#"
                    class="flex items-center gap-3 rounded-xl px-4 py-3 font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-700">

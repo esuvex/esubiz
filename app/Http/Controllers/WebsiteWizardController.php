@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreWebsiteDraftRequest;
 use App\Models\Website;
+use App\Models\WebsiteType;
 use App\Services\WebsiteDraftService;
 use App\Services\WebsiteService;
 use Illuminate\Http\RedirectResponse;
@@ -25,7 +26,13 @@ class WebsiteWizardController extends Controller
      */
     public function create(): View
     {
-        return view('websites.create');
+        $types = WebsiteType::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+
+        return view('websites.create', compact('types'));
     }
 
     /**
@@ -48,7 +55,7 @@ class WebsiteWizardController extends Controller
         );
 
         return redirect()->route(
-            'websites.theme',
+            'websites.information',
             $website
         );
     }
@@ -63,23 +70,17 @@ class WebsiteWizardController extends Controller
     ): RedirectResponse {
 
         $routes = [
-            1 => 'websites.theme',
-            2 => 'websites.information',
-            3 => 'websites.plan',
-            4 => 'websites.domain',
-            5 => 'websites.address',
-            6 => 'websites.administrator',
-            7 => 'websites.review',
-            8 => 'websites.review',
-            9 => 'websites.review',
+            1 => 'websites.information',
+            2 => 'websites.plan',
+            3 => 'websites.review',
+            4 => 'websites.review',
+            5 => 'websites.review',
         ];
 
         $currentStep = (int) ($website->current_step ?? 1);
 
-        $nextStep = min($currentStep + 1, 9);
-
         return redirect()->route(
-            $routes[$currentStep] ?? 'websites.theme',
+            $routes[$currentStep] ?? 'websites.information',
             $website
         );
     }
@@ -123,22 +124,114 @@ class WebsiteWizardController extends Controller
 
     /**
      * --------------------------------------------------------------------------
-     * Step 3 - Website Information
+     * Check Subdomain Availability
+     * --------------------------------------------------------------------------
+     */
+    public function checkSubdomain(
+        Request $request
+    ): \Illuminate\Http\JsonResponse {
+
+        $subdomain = \Illuminate\Support\Str::slug(
+            $request->query('subdomain', '')
+        );
+
+        if ($subdomain === '') {
+            return response()->json([
+                'available' => false,
+                'message' => 'Enter a subdomain name.',
+            ]);
+        }
+
+        $exists = Website::where(
+            'subdomain',
+            $subdomain
+        )->exists();
+
+        return response()->json([
+            'available' => !$exists,
+            'subdomain' => $subdomain,
+            'message' => $exists
+                ? 'This subdomain is already taken.'
+                : 'This subdomain is available.',
+        ]);
+    }
+
+    /**
+     * --------------------------------------------------------------------------
+     * Step 2 - Website Details
      * --------------------------------------------------------------------------
      */
     public function information(
         Request $request,
         Website $website
-    ): View {
+    ): View|RedirectResponse {
 
-        if ($request->all()) {
-            $this->draftService->save(
-                $website,
-                $request->except('_token'),
-                3
+        if ($request->isMethod('post')) {
+
+            $data = $request->except([
+                '_token',
+                'password_confirmation',
+            ]);
+
+            $name = trim($data['name'] ?? '');
+
+            if ($name === '') {
+                return back()
+                    ->withInput()
+                    ->withErrors([
+                        'name' => 'Please enter a website name.',
+                    ]);
+            }
+
+            $data['name'] = $name;
+
+            /*
+            |--------------------------------------------------------------------------
+            | Keep the central website identity synchronized with the wizard.
+            |--------------------------------------------------------------------------
+            */
+
+            $website->update([
+                'name' => $name,
+            ]);
+
+            $subdomain = \Illuminate\Support\Str::slug(
+                $data['subdomain'] ?? \Illuminate\Support\Str::slug($name)
             );
 
-            $website = $website->fresh();
+            if ($subdomain === '') {
+                return back()
+                    ->withInput()
+                    ->withErrors([
+                        'subdomain' => 'Please enter a subdomain name.',
+                    ]);
+            }
+
+            $taken = Website::query()
+                ->where('subdomain', $subdomain)
+                ->where('id', '!=', $website->id)
+                ->exists();
+
+            if ($taken) {
+                return back()
+                    ->withInput()
+                    ->withErrors([
+                        'subdomain' => 'This subdomain is already taken. Please choose another name.',
+                    ]);
+            }
+
+            $data['subdomain'] = $subdomain;
+
+            $this->draftService->save(
+                $website,
+                $data,
+                2
+            );
+
+            return redirect()->route(
+                'websites.plan',
+                $website
+            );
         }
 
         return view(
@@ -152,7 +245,7 @@ class WebsiteWizardController extends Controller
 
     /**
      * --------------------------------------------------------------------------
-     * Step 4 - Plan
+     * Step 3 - Plan
      * --------------------------------------------------------------------------
      */
     public function plan(
@@ -164,7 +257,7 @@ class WebsiteWizardController extends Controller
             $this->draftService->save(
                 $website,
                 $request->except('_token'),
-                4
+                3
             );
 
             $website = $website->fresh();
@@ -330,7 +423,7 @@ class WebsiteWizardController extends Controller
             $this->draftService->save(
                 $website,
                 $request->except('_token'),
-                8
+                4
             );
 
             $website = $website->fresh();
@@ -347,7 +440,7 @@ class WebsiteWizardController extends Controller
 
     /**
      * --------------------------------------------------------------------------
-     * Step 9 - Launch Website
+     * Step 5 - Deploy
      * --------------------------------------------------------------------------
      */
     public function deploy(
@@ -367,7 +460,7 @@ class WebsiteWizardController extends Controller
                 $request->except([
                     '_token',
                 ]),
-                9
+                5
             );
 
             $website = $website->fresh();

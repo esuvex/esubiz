@@ -15,7 +15,7 @@
     </div>
 
     <a
-        href="#"
+        href="{{ route('admin.website-types.create') }}"
         class="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-slate-800">
         + Add Website Type
     </a>
@@ -49,7 +49,7 @@
             </p>
 
             <a
-                href="#"
+                href="{{ route('admin.website-types.create') }}"
                 class="mt-6 inline-flex items-center justify-center rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white hover:bg-slate-800">
                 Add Website Type
             </a>
@@ -70,7 +70,7 @@
                                     class="h-full w-full object-cover">
                             @elseif($websiteType->icon)
                                 <span class="text-xl">
-                                    {{ $websiteType->icon }}
+                                    {{ config('website_type_icons.' . $websiteType->icon, '🌐') }}
                                 </span>
                             @else
                                 <span class="text-sm font-bold text-slate-400">
@@ -104,7 +104,7 @@
                         @endif
 
                         <a
-                            href="#"
+                            href="{{ route('admin.website-types.edit', $websiteType) }}"
                             class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
                             Edit
                         </a>

@@ -6,7 +6,7 @@
 
 @php
 $step = 2;
-$steps = 9;
+$steps = 5;
 @endphp
 
 <form method="GET" action="{{ route('websites.information', $website) }}">

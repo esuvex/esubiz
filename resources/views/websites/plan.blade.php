@@ -5,8 +5,8 @@
 @section('content')
 
 @php
-$step = 4;
-$steps = 9;
+$step = 3;
+$steps = 5;
 
 $plans = [
     [
@@ -30,7 +30,7 @@ $plans = [
 ];
 @endphp
 
-<form method="GET" action="{{ route('websites.domain', $website) }}">
+<form method="GET" action="{{ route('websites.review', $website) }}">
 
     @foreach(request()->except('plan') as $key => $value)
         <input type="hidden" name="{{ $key }}" value="{{ $value }}">
@@ -70,7 +70,7 @@ $plans = [
 
             @for($i = 1; $i <= $steps; $i++)
 
-                <div class="flex justify-center md:flex-1">
+                <div class="flex shrink-0 justify-center">
 
                     <div class="flex h-12 w-12 items-center justify-center rounded-full border-2 text-sm font-bold {{ $i == $step ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 bg-white text-slate-500' }}">
 

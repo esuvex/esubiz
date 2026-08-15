@@ -7,59 +7,7 @@
 @php
 
 $step = 1;
-$steps = 9;
-
-$types = [
-
-    [
-        'id' => 'business',
-        'icon' => '🏢',
-        'title' => 'Business',
-        'desc' => 'Professional websites for companies and brands.',
-        'count' => '24 Templates',
-    ],
-
-    [
-        'id' => 'ecommerce',
-        'icon' => '🛒',
-        'title' => 'Online Store',
-        'desc' => 'Sell products and receive payments online.',
-        'count' => '18 Templates',
-    ],
-
-    [
-        'id' => 'school',
-        'icon' => '🎓',
-        'title' => 'School',
-        'desc' => 'Schools and educational institutions.',
-        'count' => '12 Templates',
-    ],
-
-    [
-        'id' => 'church',
-        'icon' => '⛪',
-        'title' => 'Church',
-        'desc' => 'Churches and faith organizations.',
-        'count' => '10 Templates',
-    ],
-
-    [
-        'id' => 'hotel',
-        'icon' => '🏨',
-        'title' => 'Hotel',
-        'desc' => 'Hotels and hospitality businesses.',
-        'count' => '9 Templates',
-    ],
-
-    [
-        'id' => 'restaurant',
-        'icon' => '🍽️',
-        'title' => 'Restaurant',
-        'desc' => 'Restaurants, cafés and food businesses.',
-        'count' => '11 Templates',
-    ],
-
-];
+$steps = 5;
 
 @endphp
 
@@ -109,7 +57,7 @@ $types = [
 
             @for($i = 1; $i <= $steps; $i++)
 
-                <div class="flex justify-center md:flex-1">
+                <div class="flex shrink-0 justify-center">
 
                     <div
                         class="flex h-12 w-12 items-center justify-center rounded-full border-2 text-sm font-bold
@@ -136,7 +84,7 @@ $types = [
                     <input
                         type="radio"
                         name="type"
-                        value="{{ $type['id'] }}"
+                        value="{{ $type->slug }}"
                         class="peer hidden"
                         required>
 
@@ -146,13 +94,13 @@ $types = [
 
                             <div class="text-6xl">
 
-                                {{ $type['icon'] }}
+                                {{ config('website_type_icons.' . $type->icon, '🌐') }}
 
                             </div>
 
                             <span class="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-500">
 
-                                {{ $type['count'] }}
+                                Website Type
 
                             </span>
 
@@ -160,13 +108,13 @@ $types = [
 
                         <h3 class="mt-8 text-3xl font-bold text-slate-900">
 
-                            {{ $type['title'] }}
+                            {{ $type->name }}
 
                         </h3>
 
                         <p class="mt-4 leading-7 text-slate-500">
 
-                            {{ $type['desc'] }}
+                            {{ $type->description ?: 'Create a professional website for your business or organization.' }}
 
                         </p>
 

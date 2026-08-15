@@ -6,7 +6,7 @@
 
 @php
 $step = 6;
-$steps = 9;
+$steps = 5;
 @endphp
 
 <form method="GET" action="{{ route('websites.administrator', $website) }}">

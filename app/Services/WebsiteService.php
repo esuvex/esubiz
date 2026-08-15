@@ -46,6 +46,10 @@ class WebsiteService
                 'edition'    => $data['edition'] ?? $website->edition,
                 'owner_type' => $data['owner_type'] ?? $website->owner_type,
 
+                'subdomain' => !empty($data['subdomain'])
+                    ? $this->normalizeSubdomain($data['subdomain'], $website->id)
+                    : $website->subdomain,
+
                 'domain' => $data['domain'] ?? $website->domain,
 
                 'industry' => $data['industry'] ?? $website->industry,
@@ -53,6 +57,7 @@ class WebsiteService
                 'template' => $data['template'] ?? $website->template,
 
                 'status' => 'provisioning',
+                'user_enabled' => true,
             ]);
 
         } else {
@@ -131,6 +136,37 @@ class WebsiteService
         }
 
         return $website->fresh();
+    }
+
+    /**
+     * Normalize and validate the requested subdomain.
+     */
+    protected function normalizeSubdomain(
+        string $subdomain,
+        ?int $websiteId = null
+    ): string {
+        $subdomain = Str::slug($subdomain);
+
+        if ($subdomain === '') {
+            return $this->generateSubdomain('website');
+        }
+
+        $original = $subdomain;
+        $count = 1;
+
+        while (
+            Website::where('subdomain', $subdomain)
+                ->when(
+                    $websiteId,
+                    fn ($query) => $query->where('id', '!=', $websiteId)
+                )
+                ->exists()
+        ) {
+            $subdomain = "{$original}{$count}";
+            $count++;
+        }
+
+        return $subdomain;
     }
 
     /**

@@ -89,24 +89,26 @@
             Dashboard
         </a>
 
-        <!-- Website Builder -->
+        <!-- Website Management -->
         <div>
             <button @click="websiteMenu=!websiteMenu"
                     class="w-full flex items-center justify-between rounded-xl px-5 py-3 hover:bg-slate-800">
-                <span>Website Builder</span>
+                <span>Website Management</span>
                 <span>⌄</span>
             </button>
 
             <div x-show="websiteMenu" x-cloak class="ml-4 mt-1 space-y-1">
+
                 <a href="{{ route('websites.create') }}"
                    class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
                     Create Website
                 </a>
 
-                <a href="#"
+                <a href="{{ route('user.websites.index') }}"
                    class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
                     My Websites
                 </a>
+
             </div>
         </div>
 

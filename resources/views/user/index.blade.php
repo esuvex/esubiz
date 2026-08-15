@@ -8,7 +8,7 @@
     $draft = $draft ?? null;
 
     $currentStep = $draft?->current_step ?? 0;
-    $totalSteps = 9;
+    $totalSteps = 5;
 
     $resumeStep = $currentStep > 0
         ? min($currentStep + 1, $totalSteps)

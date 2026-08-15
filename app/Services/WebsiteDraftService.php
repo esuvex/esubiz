@@ -82,6 +82,21 @@ class WebsiteDraftService
             $step
         );
 
+        /*
+        |--------------------------------------------------------------------------
+        | Website Identity
+        |--------------------------------------------------------------------------
+        |
+        | Website Name is a real website identity field, not only wizard data.
+        |
+        */
+
+        if (!empty($data['name'])) {
+            $website->update([
+                'name' => trim($data['name']),
+            ]);
+        }
+
         return $website->fresh();
     }
 

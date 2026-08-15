@@ -25,6 +25,44 @@ class ProductStorageService
     }
 
     /**
+     * Discover prepared website-type packages.
+     */
+    public function websiteTypePackages(): array
+    {
+        $root = $this->path('packages', 'website-types');
+
+        if (!File::isDirectory($root)) {
+            return [];
+        }
+
+        $packages = [];
+
+        foreach (File::directories($root) as $packageDirectory) {
+            $packageKey = basename($packageDirectory);
+
+            foreach (File::directories($packageDirectory) as $versionDirectory) {
+                $packageVersion = basename($versionDirectory);
+                $manifestPath = $versionDirectory . '/manifest.json';
+
+                if (!File::exists($manifestPath)) {
+                    continue;
+                }
+
+                $packages[] = [
+                    'key' => $packageKey,
+                    'version' => $packageVersion,
+                ];
+            }
+        }
+
+        usort($packages, function (array $a, array $b) {
+            return [$a['key'], $a['version']] <=> [$b['key'], $b['version']];
+        });
+
+        return $packages;
+    }
+
+    /**
      * Check whether a specific Central product exists.
      */
     public function exists(string $type, string $identifier): bool

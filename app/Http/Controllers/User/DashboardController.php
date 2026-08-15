@@ -17,10 +17,13 @@ class DashboardController extends Controller
 
         $draft = $draftService->latestDraft();
 
-        $websiteCount = auth()->user()
+        $websites = auth()->user()
             ->websites()
             ->where('status', 'active')
-            ->count();
+            ->latest()
+            ->get();
+
+        $websiteCount = $websites->count();
 
         $draftCount = auth()->user()
             ->websites()
@@ -42,6 +45,7 @@ class DashboardController extends Controller
 
         return view('user.index', [
             'draft' => $draft,
+            'websites' => $websites,
             'websiteCount' => $websiteCount,
             'draftCount' => $draftCount,
             'subscriptionCount' => $subscriptionCount,

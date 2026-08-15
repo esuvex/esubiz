@@ -6,7 +6,7 @@
 
 @php
 $step = 5;
-$steps = 9;
+$steps = 5;
 
 $websiteName = request('name', $wizard['name'] ?? $website->name ?? '');
 

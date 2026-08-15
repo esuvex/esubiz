@@ -58,6 +58,7 @@ class Website extends Model
         'template',
 
         'status',
+        'user_enabled',
         'current_step',
 
         'wizard_data',
@@ -128,6 +129,7 @@ class Website extends Model
         'settings' => 'array',
 
         'multi_branch' => 'boolean',
+        'user_enabled' => 'boolean',
         'is_default' => 'boolean',
         'is_homepage' => 'boolean',
         'is_pwa' => 'boolean',

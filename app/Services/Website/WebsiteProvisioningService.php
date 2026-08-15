@@ -11,12 +11,16 @@ class WebsiteProvisioningService
 
     protected WebsiteDatabaseProvisioningService $databaseProvisioningService;
 
+    protected TenantCoreInstallationService $tenantCoreInstallationService;
+
     public function __construct(
         RecipeService $recipeService,
-        WebsiteDatabaseProvisioningService $databaseProvisioningService
+        WebsiteDatabaseProvisioningService $databaseProvisioningService,
+        TenantCoreInstallationService $tenantCoreInstallationService
     ) {
         $this->recipeService = $recipeService;
         $this->databaseProvisioningService = $databaseProvisioningService;
+        $this->tenantCoreInstallationService = $tenantCoreInstallationService;
     }
 
     /**
@@ -41,6 +45,14 @@ class WebsiteProvisioningService
         */
 
         $this->databaseProvisioningService->provision($website);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Install Esubiz Core
+        |--------------------------------------------------------------------------
+        */
+
+        $this->tenantCoreInstallationService->install($website);
 
         /*
         |--------------------------------------------------------------------------
