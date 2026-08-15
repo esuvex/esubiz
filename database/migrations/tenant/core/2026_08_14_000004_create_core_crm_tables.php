@@ -33,9 +33,9 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index('email');
-            $table->index('phone');
-            $table->index('status');
+            $table->index('email', 'ix_crm_contacts_email');
+            $table->index('phone', 'ix_crm_contacts_phone');
+            $table->index('status', 'ix_crm_contacts_status');
         });
 
         /*
@@ -62,7 +62,7 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index('status');
+            $table->index('status', 'ix_crm_companie_status');
         });
 
         /*
@@ -90,8 +90,8 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index('status');
-            $table->index('source');
+            $table->index('status', 'ix_crm_leads_status');
+            $table->index('source', 'ix_crm_leads_source');
         });
 
         /*
@@ -107,12 +107,12 @@ return new class extends Migration
 
             $table->foreignId('contact_id')
                 ->nullable()
-                ->constrained('crm_contacts')
+                ->constrained('crm_contacts', 'id', 'fk_crm_deals_contact')
                 ->nullOnDelete();
 
             $table->foreignId('company_id')
                 ->nullable()
-                ->constrained('crm_companies')
+                ->constrained('crm_companies', 'id', 'fk_crm_deals_company')
                 ->nullOnDelete();
 
             $table->decimal('value', 20, 2)->default(0);
@@ -127,8 +127,8 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index('stage');
-            $table->index('status');
+            $table->index('stage', 'ix_crm_deals_stage');
+            $table->index('status', 'ix_crm_deals_status');
         });
 
         /*
@@ -146,12 +146,12 @@ return new class extends Migration
 
             $table->foreignId('contact_id')
                 ->nullable()
-                ->constrained('crm_contacts')
+                ->constrained('crm_contacts', 'id', 'fk_crm_tasks_contact')
                 ->nullOnDelete();
 
             $table->foreignId('deal_id')
                 ->nullable()
-                ->constrained('crm_deals')
+                ->constrained('crm_deals', 'id', 'fk_crm_tasks_deal')
                 ->nullOnDelete();
 
             $table->string('status')->default('pending');
@@ -163,8 +163,8 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index('status');
-            $table->index('priority');
+            $table->index('status', 'ix_crm_tasks_status');
+            $table->index('priority', 'ix_crm_tasks_priority');
         });
 
         /*
@@ -178,17 +178,17 @@ return new class extends Migration
 
             $table->foreignId('contact_id')
                 ->nullable()
-                ->constrained('crm_contacts')
+                ->constrained('crm_contacts', 'id', 'fk_crm_notes_contact')
                 ->cascadeOnDelete();
 
             $table->foreignId('company_id')
                 ->nullable()
-                ->constrained('crm_companies')
+                ->constrained('crm_companies', 'id', 'fk_crm_notes_company')
                 ->cascadeOnDelete();
 
             $table->foreignId('deal_id')
                 ->nullable()
-                ->constrained('crm_deals')
+                ->constrained('crm_deals', 'id', 'fk_crm_notes_deal')
                 ->cascadeOnDelete();
 
             $table->longText('content');
@@ -213,24 +213,24 @@ return new class extends Migration
 
             $table->foreignId('contact_id')
                 ->nullable()
-                ->constrained('crm_contacts')
+                ->constrained('crm_contacts', 'id', 'fk_crm_activiti_contact')
                 ->nullOnDelete();
 
             $table->foreignId('company_id')
                 ->nullable()
-                ->constrained('crm_companies')
+                ->constrained('crm_companies', 'id', 'fk_crm_activiti_company')
                 ->nullOnDelete();
 
             $table->foreignId('deal_id')
                 ->nullable()
-                ->constrained('crm_deals')
+                ->constrained('crm_deals', 'id', 'fk_crm_activiti_deal')
                 ->nullOnDelete();
 
             $table->timestamp('occurred_at')->nullable();
 
             $table->timestamps();
 
-            $table->index('type');
+            $table->index('type', 'ix_crm_activiti_type');
         });
     }
 

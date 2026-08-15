@@ -36,7 +36,7 @@ return new class extends Migration
         Schema::create('site_settings', function (Blueprint $table) {
             $table->id();
 
-            $table->string('key')->unique();
+            $table->string('key')->unique('uq_ss_key');
             $table->longText('value')->nullable();
 
             $table->timestamps();
@@ -52,7 +52,7 @@ return new class extends Migration
             $table->id();
 
             $table->string('name');
-            $table->string('email')->unique();
+            $table->string('email')->unique('uq_su_email');
             $table->string('phone')->nullable();
 
             $table->string('password');
@@ -82,7 +82,7 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->unique('resource');
+            $table->unique('resource', 'uq_cru_resource');
         });
 
         /*
@@ -94,7 +94,7 @@ return new class extends Migration
         Schema::create('core_licenses', function (Blueprint $table) {
             $table->id();
 
-            $table->string('license_key')->unique();
+            $table->string('license_key')->unique('uq_cl_license');
 
             $table->string('product_type')->default('core');
             $table->string('product_name')->default('core');

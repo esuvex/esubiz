@@ -36,7 +36,7 @@ return new class extends Migration
         Schema::create('hr_employees', function (Blueprint $table) {
             $table->id();
 
-            $table->string('employee_code')->unique();
+            $table->string('employee_code')->unique('uq_hr_employee_employee');
 
             $table->string('first_name');
             $table->string('last_name');
@@ -46,7 +46,7 @@ return new class extends Migration
 
             $table->foreignId('department_id')
                 ->nullable()
-                ->constrained('hr_departments')
+                ->constrained('hr_departments', 'id', 'fk_hr_employee_departme')
                 ->nullOnDelete();
 
             $table->string('job_title')->nullable();
@@ -62,7 +62,7 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index('employment_status');
+            $table->index('employment_status', 'ix_hr_employee_employme');
         });
 
         /*
@@ -95,11 +95,11 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('employee_id')
-                ->constrained('hr_employees')
+                ->constrained('hr_employees', 'id', 'fk_hr_leave_re_employee')
                 ->cascadeOnDelete();
 
             $table->foreignId('leave_type_id')
-                ->constrained('hr_leave_types')
+                ->constrained('hr_leave_types', 'id', 'fk_hr_leave_re_leave_ty')
                 ->cascadeOnDelete();
 
             $table->date('start_date');
@@ -115,7 +115,7 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index('status');
+            $table->index('status', 'ix_hr_leave_re_status');
         });
 
         /*
@@ -128,7 +128,7 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('employee_id')
-                ->constrained('hr_employees')
+                ->constrained('hr_employees', 'id', 'fk_hr_attendan_employee')
                 ->cascadeOnDelete();
 
             $table->date('attendance_date');
@@ -142,10 +142,10 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->unique([
-                'employee_id',
-                'attendance_date',
-            ]);
+            $table->unique(
+                ['employee_id', 'attendance_date'],
+                'uq_hr_attendan_employee_att'
+            );
         });
 
         /*
@@ -158,7 +158,7 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('employee_id')
-                ->constrained('hr_employees')
+                ->constrained('hr_employees', 'id', 'fk_hr_payroll__employee')
                 ->cascadeOnDelete();
 
             $table->string('period');
@@ -175,10 +175,10 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->unique([
-                'employee_id',
-                'period',
-            ]);
+            $table->unique(
+                ['employee_id', 'period'],
+                'uq_hr_payroll__employee_per'
+            );
         });
 
         /*
@@ -191,7 +191,7 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('employee_id')
-                ->constrained('hr_employees')
+                ->constrained('hr_employees', 'id', 'fk_hr_performa_employee')
                 ->cascadeOnDelete();
 
             $table->string('review_period');
@@ -217,7 +217,7 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('employee_id')
-                ->constrained('hr_employees')
+                ->constrained('hr_employees', 'id', 'fk_hr_document_employee')
                 ->cascadeOnDelete();
 
             $table->string('name');

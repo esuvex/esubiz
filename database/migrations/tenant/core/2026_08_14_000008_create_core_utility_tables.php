@@ -18,7 +18,7 @@ return new class extends Migration
             $table->id();
 
             $table->string('name');
-            $table->string('code')->unique();
+            $table->string('code')->unique('uq_branches_code');
 
             $table->text('address')->nullable();
 
@@ -82,9 +82,9 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index('event_type');
-            $table->index('severity');
-            $table->index('user_id');
+            $table->index('event_type', 'ix_se_event_ty');
+            $table->index('severity', 'ix_se_severity');
+            $table->index('user_id', 'ix_se_user');
         });
 
         /*
@@ -98,7 +98,7 @@ return new class extends Migration
 
             $table->string('name');
 
-            $table->string('code')->unique();
+            $table->string('code')->unique('uq_qc_code');
 
             $table->string('type')->default('url');
 
@@ -114,7 +114,7 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index('type');
+            $table->index('type', 'ix_qc_type');
         });
 
         /*
@@ -151,7 +151,7 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('panorama_id')
-                ->constrained('panoramas')
+                ->constrained('panoramas', 'id', 'fk_ph_panorama')
                 ->cascadeOnDelete();
 
             $table->string('title')->nullable();

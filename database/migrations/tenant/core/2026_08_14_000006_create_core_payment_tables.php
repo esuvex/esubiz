@@ -18,7 +18,7 @@ return new class extends Migration
             $table->id();
 
             $table->string('name');
-            $table->string('slug')->unique();
+            $table->string('slug')->unique('uq_pay_gw_slug');
 
             $table->string('type')->default('offline');
 
@@ -31,8 +31,8 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index('type');
-            $table->index('status');
+            $table->index('type', 'ix_pay_gw_type');
+            $table->index('status', 'ix_pay_gw_status');
         });
 
         /*
@@ -45,7 +45,7 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('gateway_id')
-                ->constrained('payment_gateways')
+                ->constrained('payment_gateways', 'id', 'fk_pay_mth_gateway')
                 ->cascadeOnDelete();
 
             $table->string('name');
@@ -69,15 +69,15 @@ return new class extends Migration
 
             $table->foreignId('gateway_id')
                 ->nullable()
-                ->constrained('payment_gateways')
+                ->constrained('payment_gateways', 'id', 'fk_pay_tx_gateway')
                 ->nullOnDelete();
 
             $table->foreignId('payment_method_id')
                 ->nullable()
-                ->constrained('payment_methods')
+                ->constrained('payment_methods', 'id', 'fk_pay_tx_payment')
                 ->nullOnDelete();
 
-            $table->string('reference')->unique();
+            $table->string('reference')->unique('uq_pay_tx_referenc');
 
             $table->string('type')->default('payment');
 
@@ -98,8 +98,8 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index('status');
-            $table->index('external_reference');
+            $table->index('status', 'ix_pay_tx_status');
+            $table->index('external_reference', 'ix_pay_tx_external');
         });
 
         /*
@@ -112,10 +112,10 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('payment_transaction_id')
-                ->constrained('payment_transactions')
+                ->constrained('payment_transactions', 'id', 'fk_pr_payment')
                 ->cascadeOnDelete();
 
-            $table->string('reference')->unique();
+            $table->string('reference')->unique('uq_pr_referenc');
 
             $table->decimal('amount', 20, 2);
 
@@ -139,7 +139,7 @@ return new class extends Migration
 
             $table->foreignId('gateway_id')
                 ->nullable()
-                ->constrained('payment_gateways')
+                ->constrained('payment_gateways', 'id', 'fk_pw_gateway')
                 ->nullOnDelete();
 
             $table->string('event')->nullable();
@@ -154,8 +154,8 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index('external_id');
-            $table->index('status');
+            $table->index('external_id', 'ix_pw_external');
+            $table->index('status', 'ix_pw_status');
         });
     }
 

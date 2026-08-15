@@ -18,7 +18,7 @@ return new class extends Migration
             $table->id();
 
             $table->string('name');
-            $table->string('email')->unique();
+            $table->string('email')->unique('uq_email_box_email');
 
             $table->string('username')->nullable();
 
@@ -39,7 +39,7 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('email_box_id')
-                ->constrained('email_boxes')
+                ->constrained('email_boxes', 'id', 'fk_em_email_bo')
                 ->cascadeOnDelete();
 
             $table->string('direction')->default('inbound');
@@ -60,8 +60,8 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index('direction');
-            $table->index('status');
+            $table->index('direction', 'ix_em_directio');
+            $table->index('status', 'ix_em_status');
         });
 
         /*
@@ -96,7 +96,7 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('conversation_id')
-                ->constrained('live_chat_conversations')
+                ->constrained('live_chat_conversations', 'id', 'fk_lcm_conversa')
                 ->cascadeOnDelete();
 
             $table->string('sender_type');
@@ -110,10 +110,10 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index([
-                'sender_type',
-                'sender_id',
-            ]);
+            $table->index(
+                ['sender_type', 'sender_id'],
+                'ix_lcm_sender_t_sender'
+            );
         });
 
         /*
@@ -153,7 +153,7 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('connection_id')
-                ->constrained('whatsapp_connections')
+                ->constrained('whatsapp_connections', 'id', 'fk_wm_connecti')
                 ->cascadeOnDelete();
 
             $table->string('direction');
@@ -172,8 +172,8 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index('external_id');
-            $table->index('status');
+            $table->index('external_id', 'ix_wm_external');
+            $table->index('status', 'ix_wm_status');
         });
     }
 

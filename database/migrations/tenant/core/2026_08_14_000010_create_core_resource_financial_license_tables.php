@@ -33,7 +33,7 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->unique('resource');
+            $table->unique('resource', 'uq_res_ent_resource');
         });
 
         /*
@@ -57,7 +57,7 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->unique('resource');
+            $table->unique('resource', 'uq_ru_resource');
         });
 
         /*
@@ -82,11 +82,11 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index('resource');
-            $table->index([
-                'source_type',
-                'source_id',
-            ]);
+            $table->index('resource', 'ix_rue_resource');
+            $table->index(
+                ['source_type', 'source_id'],
+                'ix_rue_source_t_source'
+            );
         });
 
         /*
@@ -122,10 +122,10 @@ return new class extends Migration
 
             $table->foreignId('account_id')
                 ->nullable()
-                ->constrained('financial_accounts')
+                ->constrained('financial_accounts', 'id', 'fk_ft_account')
                 ->nullOnDelete();
 
-            $table->string('reference')->unique();
+            $table->string('reference')->unique('uq_ft_referenc');
 
             $table->string('type')->default('income');
 
@@ -150,13 +150,13 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index('type');
-            $table->index('category');
-            $table->index('transaction_date');
-            $table->index([
-                'source_type',
-                'source_id',
-            ]);
+            $table->index('type', 'ix_ft_type');
+            $table->index('category', 'ix_ft_category');
+            $table->index('transaction_date', 'ix_ft_transact');
+            $table->index(
+                ['source_type', 'source_id'],
+                'ix_ft_source_t_source'
+            );
         });
 
         /*
@@ -168,7 +168,7 @@ return new class extends Migration
         Schema::create('financial_income_records', function (Blueprint $table) {
             $table->id();
 
-            $table->string('reference')->unique();
+            $table->string('reference')->unique('uq_fir_referenc');
 
             $table->string('source');
 
@@ -184,15 +184,15 @@ return new class extends Migration
 
             $table->foreignId('financial_transaction_id')
                 ->nullable()
-                ->constrained('financial_transactions')
+                ->constrained('financial_transactions', 'id', 'fk_fir_financia')
                 ->nullOnDelete();
 
             $table->json('metadata')->nullable();
 
             $table->timestamps();
 
-            $table->index('source');
-            $table->index('income_date');
+            $table->index('source', 'ix_fir_source');
+            $table->index('income_date', 'ix_fir_income_d');
         });
 
         /*
@@ -207,7 +207,7 @@ return new class extends Migration
         Schema::create('license_assignments', function (Blueprint $table) {
             $table->id();
 
-            $table->string('license_key')->unique();
+            $table->string('license_key')->unique('uq_la_license');
 
             $table->string('product_type');
 
@@ -228,10 +228,10 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index('product_type');
-            $table->index('product_id');
-            $table->index('role');
-            $table->index('status');
+            $table->index('product_type', 'ix_la_product');
+            $table->index('product_id', 'ix_la_product_1');
+            $table->index('role', 'ix_la_role');
+            $table->index('status', 'ix_la_status');
         });
 
         /*
@@ -244,7 +244,7 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('license_assignment_id')
-                ->constrained('license_assignments')
+                ->constrained('license_assignments', 'id', 'fk_lc_license')
                 ->cascadeOnDelete();
 
             $table->string('component_type');
@@ -261,8 +261,8 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index('component_type');
-            $table->index('component_id');
+            $table->index('component_type', 'ix_lc_componen');
+            $table->index('component_id', 'ix_lc_componen_1');
         });
     }
 

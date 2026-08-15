@@ -18,7 +18,7 @@ return new class extends Migration
             $table->id();
 
             $table->string('title');
-            $table->string('slug')->unique();
+            $table->string('slug')->unique('uq_pages_slug');
 
             $table->string('status')->default('draft');
 
@@ -87,12 +87,12 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('menu_id')
-                ->constrained('menus')
+                ->constrained('menus', 'id', 'fk_mi_menu')
                 ->cascadeOnDelete();
 
             $table->foreignId('parent_id')
                 ->nullable()
-                ->constrained('menu_items')
+                ->constrained('menu_items', 'id', 'fk_mi_parent')
                 ->nullOnDelete();
 
             $table->string('label');
@@ -109,7 +109,7 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index('page_id');
+            $table->index('page_id', 'ix_mi_page');
         });
 
         /*
@@ -143,7 +143,7 @@ return new class extends Migration
             $table->id();
 
             $table->string('name');
-            $table->string('slug')->unique();
+            $table->string('slug')->unique('uq_forms_slug');
 
             $table->text('description')->nullable();
 
@@ -164,7 +164,7 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('form_id')
-                ->constrained('forms')
+                ->constrained('forms', 'id', 'fk_ff_form')
                 ->cascadeOnDelete();
 
             $table->string('name');
@@ -191,7 +191,7 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('form_id')
-                ->constrained('forms')
+                ->constrained('forms', 'id', 'fk_fs_form')
                 ->cascadeOnDelete();
 
             $table->json('data');
@@ -211,7 +211,7 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('page_id')
-                ->constrained('pages')
+                ->constrained('pages', 'id', 'fk_pbd_page')
                 ->cascadeOnDelete();
 
             $table->json('content')->nullable();
@@ -220,7 +220,7 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->unique('page_id');
+            $table->unique('page_id', 'uq_pbd_page');
         });
     }
 

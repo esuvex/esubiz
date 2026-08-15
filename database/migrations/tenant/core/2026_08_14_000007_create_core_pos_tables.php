@@ -18,7 +18,7 @@ return new class extends Migration
             $table->id();
 
             $table->string('name');
-            $table->string('code')->unique();
+            $table->string('code')->unique('uq_pos_stores_code');
 
             $table->string('status')->default('active');
 
@@ -39,7 +39,7 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('store_id')
-                ->constrained('pos_stores')
+                ->constrained('pos_stores', 'id', 'fk_pos_terminal_store')
                 ->cascadeOnDelete();
 
             $table->string('name');
@@ -55,10 +55,10 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->unique([
-                'store_id',
-                'code',
-            ]);
+            $table->unique(
+                ['store_id', 'code'],
+                'uq_pos_terminal_store_code'
+            );
         });
 
         /*
@@ -86,7 +86,7 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index('status');
+            $table->index('status', 'ix_pos_products_status');
         });
 
         /*
@@ -99,15 +99,15 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('store_id')
-                ->constrained('pos_stores')
+                ->constrained('pos_stores', 'id', 'fk_pos_sales_store')
                 ->cascadeOnDelete();
 
             $table->foreignId('terminal_id')
                 ->nullable()
-                ->constrained('pos_terminals')
+                ->constrained('pos_terminals', 'id', 'fk_pos_sales_terminal')
                 ->nullOnDelete();
 
-            $table->string('reference')->unique();
+            $table->string('reference')->unique('uq_pos_sales_referenc');
 
             $table->decimal('subtotal', 20, 2)->default(0);
             $table->decimal('discount', 20, 2)->default(0);
@@ -129,9 +129,9 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index('payment_status');
-            $table->index('sale_status');
-            $table->index('offline_reference');
+            $table->index('payment_status', 'ix_pos_sales_payment');
+            $table->index('sale_status', 'ix_pos_sales_sale_sta');
+            $table->index('offline_reference', 'ix_pos_sales_offline');
         });
 
         /*
@@ -144,12 +144,12 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('sale_id')
-                ->constrained('pos_sales')
+                ->constrained('pos_sales', 'id', 'fk_pos_sale_ite_sale')
                 ->cascadeOnDelete();
 
             $table->foreignId('product_id')
                 ->nullable()
-                ->constrained('pos_products')
+                ->constrained('pos_products', 'id', 'fk_pos_sale_ite_product')
                 ->nullOnDelete();
 
             $table->string('product_name');
@@ -177,7 +177,7 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('sale_id')
-                ->constrained('pos_sales')
+                ->constrained('pos_sales', 'id', 'fk_pos_payments_sale')
                 ->cascadeOnDelete();
 
             $table->string('method');
@@ -192,8 +192,8 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index('method');
-            $table->index('reference');
+            $table->index('method', 'ix_pos_payments_method');
+            $table->index('reference', 'ix_pos_payments_referenc');
         });
 
         /*
@@ -222,12 +222,12 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index([
-                'entity_type',
-                'entity_id',
-            ]);
+            $table->index(
+                ['entity_type', 'entity_id'],
+                'ix_pos_offline__entity_t_en'
+            );
 
-            $table->index('status');
+            $table->index('status', 'ix_pos_offline__status');
         });
     }
 

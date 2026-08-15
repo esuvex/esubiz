@@ -53,8 +53,8 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index('feature');
-            $table->index('status');
+            $table->index('feature', 'ix_ai_usage_feature');
+            $table->index('status', 'ix_ai_usage_status');
         });
 
         /*
@@ -78,8 +78,8 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index('feature');
-            $table->index('status');
+            $table->index('feature', 'ix_ai_requests_feature');
+            $table->index('status', 'ix_ai_requests_status');
         });
 
         /*
@@ -127,8 +127,8 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index('recipient');
-            $table->index('status');
+            $table->index('recipient', 'ix_sm_recipien');
+            $table->index('status', 'ix_sm_status');
         });
 
         /*
@@ -159,10 +159,10 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->unique([
-                'platform',
-                'account_id',
-            ]);
+            $table->unique(
+                ['platform', 'account_id'],
+                'uq_soc_conn_platform_accoun'
+            );
         });
 
         /*
@@ -189,8 +189,8 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index('type');
-            $table->index('status');
+            $table->index('type', 'ix_mc_type');
+            $table->index('status', 'ix_mc_status');
         });
 
         /*
@@ -203,21 +203,21 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('campaign_id')
-                ->constrained('marketing_campaigns')
+                ->constrained('marketing_campaigns', 'id', 'fk_mcc_campaign')
                 ->cascadeOnDelete();
 
             $table->foreignId('social_connection_id')
-                ->constrained('social_connections')
+                ->constrained('social_connections', 'id', 'fk_mcc_social_c')
                 ->cascadeOnDelete();
 
             $table->string('status')->default('active');
 
             $table->timestamps();
 
-            $table->unique([
-                'campaign_id',
-                'social_connection_id',
-            ]);
+            $table->unique(
+                ['campaign_id', 'social_connection_id'],
+                'uq_mcc_campaign_social'
+            );
         });
     }
 
