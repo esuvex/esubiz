@@ -97,6 +97,7 @@ class CreditPackageController
         ]);
 
         $productId = DB::table('catalog_products')->insertGetId([
+            'uuid' => (string) \Illuminate\Support\Str::uuid(),
             'name' => $data['name'],
             'product_type' => $data['credit_type'],
             'credit_quantity' => $data['credit_quantity'],
