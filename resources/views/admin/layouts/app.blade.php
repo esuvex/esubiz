@@ -7,6 +7,72 @@
     <title>@yield('title','Platform Console') | Esubiz</title>
 
     @vite(['resources/css/app.css','resources/js/app.js'])
+
+    <style>
+        /* Esubiz Admin UI Foundation */
+        .esubiz-admin-card {
+            border: 1px solid rgb(226 232 240 / .8);
+            background: #fff;
+            border-radius: 1rem;
+            box-shadow: 0 8px 30px rgb(15 23 42 / .04);
+        }
+
+        .esubiz-admin-input {
+            width: 100%;
+            border-radius: .75rem;
+            border-color: rgb(203 213 225);
+            background: #fff;
+            padding: .65rem .85rem;
+            font-size: .875rem;
+            line-height: 1.25rem;
+            transition: border-color .15s ease, box-shadow .15s ease;
+        }
+
+        .esubiz-admin-input:focus {
+            border-color: rgb(37 99 235);
+            box-shadow: 0 0 0 3px rgb(37 99 235 / .10);
+            outline: none;
+        }
+
+        .esubiz-admin-primary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .5rem;
+            border-radius: .75rem;
+            background: rgb(15 23 42);
+            padding: .65rem 1rem;
+            color: #fff;
+            font-size: .875rem;
+            font-weight: 600;
+            transition: transform .15s ease, background .15s ease, box-shadow .15s ease;
+        }
+
+        .esubiz-admin-primary:hover {
+            background: rgb(30 41 59);
+            box-shadow: 0 8px 20px rgb(15 23 42 / .12);
+            transform: translateY(-1px);
+        }
+
+        .esubiz-admin-secondary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .5rem;
+            border: 1px solid rgb(226 232 240);
+            border-radius: .75rem;
+            background: #fff;
+            padding: .65rem 1rem;
+            color: rgb(51 65 85);
+            font-size: .875rem;
+            font-weight: 600;
+        }
+
+        .esubiz-admin-secondary:hover {
+            background: rgb(248 250 252);
+        }
+    </style>
+
 </head>
 
 <body class="bg-slate-100">
