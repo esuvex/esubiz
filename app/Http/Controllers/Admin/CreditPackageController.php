@@ -87,6 +87,61 @@ class CreditPackageController
 
         return back()->with('success', 'Credit package saved successfully.');
     }
+    public function editProduct(int $id)
+    {
+        $product = \Illuminate\Support\Facades\DB::table('catalog_products')
+            ->where('id', $id)
+            ->first();
+
+        if (!$product) {
+            abort(404);
+        }
+
+        $types = [
+            'ai_credits',
+            'sms_credits',
+            'email_credits',
+            'whatsapp_credits',
+        ];
+
+        return view(
+            'admin.credit-packages.edit-product',
+            compact('product', 'types')
+        );
+    }
+
+    public function updateProduct(\Illuminate\Http\Request $request, int $id)
+    {
+        $validated = $request->validate([
+            'credit_type' => [
+                'required',
+                'in:ai_credits,sms_credits,email_credits,whatsapp_credits'
+            ],
+            'name' => ['required', 'string', 'max:255'],
+            'credit_quantity' => ['required', 'integer', 'min:1'],
+        ]);
+
+        \Illuminate\Support\Facades\DB::table('catalog_products')
+            ->where('id', $id)
+            ->update([
+                'name' => $validated['name'],
+                'product_type' => match ($validated['credit_type']) {
+                'ai_credits' => 'ai_credit',
+                'sms_credits' => 'sms_credit',
+                'email_credits' => 'email_credit',
+                'whatsapp_credits' => 'whatsapp_credit',
+                default => $validated['credit_type'],
+            },
+                'credit_quantity' => $validated['credit_quantity'],
+                'updated_at' => now(),
+            ]);
+
+        return redirect()
+            ->route('admin.credit-packages.index')
+            ->with('success', 'Credit product updated successfully.');
+    }
+
+
 
     public function createProduct(Request $request)
     {
