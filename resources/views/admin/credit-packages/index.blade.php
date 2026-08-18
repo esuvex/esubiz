@@ -2,11 +2,10 @@
 
 @section('content')
 
-@extends('admin.layouts.app')
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
 
-
-
-<div class="mb-6 rounded-2xl bg-slate-50 border border-slate-200 p-4">
+    <div class="rounded-3xl bg-white border border-slate-200 shadow-sm p-6">
+        <div class="mb-6 rounded-2xl bg-slate-50 border border-slate-200 p-4">
                 <h3 class="font-semibold text-slate-900 mb-3">
                     Create Credit Product
                 </h3>
@@ -104,7 +103,10 @@
         </div>
 
         <div class="lg:col-span-2 rounded-3xl bg-white border border-slate-200 shadow-sm overflow-hidden">
-            <div class="p-6 border-b border-slate-100">
+    </div>
+
+    <div class="rounded-3xl bg-white border border-slate-200 shadow-sm p-6">
+        <div class="p-6 border-b border-slate-100">
                 <h2 class="text-lg font-bold">Configured Packages</h2>
             </div>
 
@@ -171,6 +173,9 @@
         </div>
 
     </div>
+</div>
+    </div>
+
 </div>
 
 @endsection
