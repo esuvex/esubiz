@@ -265,7 +265,7 @@ Route::post('/admin/financial-reports/email', [\App\Http\Controllers\Admin\Finan
 
 
 
-Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/credit-packages', [\App\Http\Controllers\Admin\CreditPackageController::class, 'index'])
         ->name('credit-packages.index');
     Route::post('/credit-packages', [\App\Http\Controllers\Admin\CreditPackageController::class, 'store'])
