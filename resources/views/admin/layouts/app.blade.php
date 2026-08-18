@@ -138,17 +138,7 @@
             <span>Core</span>
             <span class="text-xs text-slate-400">Features & Limits</span>
         </a>
-
-        <!-- Core -->
-        <div>
-            <a href="{{ route('admin.core-features.index') }}"
-               class="flex items-center rounded-xl px-5 py-3 hover:bg-slate-800
-               {{ request()->routeIs('admin.core-features.*') ? 'bg-blue-600 text-white' : '' }}">
-                Core
-            </a>
-        </div>
-
-        <!-- Marketplace -->
+<!-- Marketplace -->
         <div>
             <button @click="marketplaceMenu=!marketplaceMenu"
                     class="w-full flex items-center justify-between rounded-xl px-5 py-3 hover:bg-slate-800">
@@ -398,6 +388,15 @@
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">New Plan</a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">My Plans</a>
             </div>
+        </div>
+
+        <!-- Core -->
+        <div>
+            <a href="{{ route('admin.core-features.index') }}"
+               class="flex items-center rounded-xl px-5 py-3 hover:bg-slate-800
+               {{ request()->routeIs('admin.core-features.*') ? 'bg-blue-600 text-white' : '' }}">
+                Core
+            </a>
         </div>
 
         <!-- Marketplace -->
