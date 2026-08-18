@@ -149,6 +149,10 @@
             <p class="mt-1 text-sm text-slate-500">
                 Select a marketplace theme or generate a custom theme with AI.
             </p>
+        <a href="{{ route('admin.credit-packages.index') }}"
+           class="block px-4 py-2 text-sm text-slate-600 hover:text-slate-900">
+            Credit Packages
+        </a>
         </div>
 
         @if($themes->isEmpty())

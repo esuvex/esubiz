@@ -426,6 +426,11 @@
 
         <a href="#" class="flex items-center rounded-xl px-5 py-3 hover:bg-slate-800">
             Platform Management
+
+        <a href="{{ route('admin.financial-reports') }}"
+           class="block rounded-xl px-5 py-3 hover:bg-slate-800">
+            Financial Reports
+        </a>
         </a>
 
         <a href="#" class="flex items-center rounded-xl px-5 py-3 hover:bg-slate-800">
