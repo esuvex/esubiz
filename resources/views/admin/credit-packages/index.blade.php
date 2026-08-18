@@ -2,6 +2,10 @@
 
 @section('content')
 
+@extends('admin.layouts.app')
+
+
+
 <div class="mb-6 rounded-2xl bg-slate-50 border border-slate-200 p-4">
                 <h3 class="font-semibold text-slate-900 mb-3">
                     Create Credit Product
@@ -168,6 +172,5 @@
 
     </div>
 </div>
-@endsection
 
 @endsection
