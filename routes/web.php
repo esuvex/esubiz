@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Admin\FinancialReportController;
+
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\WebsiteController;
@@ -249,3 +251,27 @@ Route::post('/websites/{website}/theme', [WebsiteWizardController::class, 'theme
 });
 
 require __DIR__.'/auth.php';
+
+Route::get('/admin/financial-reports', [FinancialReportController::class, 'index'])
+    ->name('admin.financial-reports');
+Route::get('/admin/financial-reports/csv', [\App\Http\Controllers\Admin\FinancialReportController::class, 'csv'])
+    ->name('admin.financial-reports.csv');
+
+Route::get('/admin/financial-reports/pdf', [\App\Http\Controllers\Admin\FinancialReportController::class, 'pdf'])
+    ->name('admin.financial-reports.pdf');
+
+Route::post('/admin/financial-reports/email', [\App\Http\Controllers\Admin\FinancialReportController::class, 'email'])
+    ->name('admin.financial-reports.email');
+
+
+
+Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/credit-packages', [\App\Http\Controllers\Admin\CreditPackageController::class, 'index'])
+        ->name('credit-packages.index');
+    Route::post('/credit-packages', [\App\Http\Controllers\Admin\CreditPackageController::class, 'store'])
+        ->name('credit-packages.store');
+    Route::post('/credit-packages/{id}/toggle', [\App\Http\Controllers\Admin\CreditPackageController::class, 'toggle'])
+        ->name('credit-packages.toggle');
+    Route::delete('/credit-packages/{id}', [\App\Http\Controllers\Admin\CreditPackageController::class, 'destroy'])
+        ->name('credit-packages.destroy');
+});
