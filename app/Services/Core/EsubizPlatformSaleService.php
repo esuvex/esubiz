@@ -106,6 +106,47 @@ class EsubizPlatformSaleService
          * entitlement proves ownership; the existing credit allocation
          * flow must supply the actual credit quantity.
          */
+        /*
+         * Credit products require an explicit quantity from the
+         * originating purchase/package. Price is NEVER converted
+         * into credits automatically.
+         */
+        $creditSources = [
+            'ai_credits',
+            'sms_credits',
+            'email_credits',
+            'whatsapp_credits',
+        ];
+
+        $creditQuantity = null;
+
+        if (in_array($sourceType, $creditSources, true)) {
+            $creditQuantity = (int) ($data['credit_quantity'] ?? 0);
+
+            if ($creditQuantity <= 0) {
+                throw new InvalidArgumentException(
+                    "credit_quantity is required for {$sourceType} purchases."
+                );
+            }
+
+            if ($websiteId === null) {
+                throw new InvalidArgumentException(
+                    "website_id is required for {$sourceType} purchases."
+                );
+            }
+
+            $creditColumn = [
+                'ai_credits' => 'ai_credits',
+                'sms_credits' => 'sms_credits',
+                'email_credits' => 'email_credits',
+                'whatsapp_credits' => 'whatsapp_credits',
+            ][$sourceType];
+
+            \Illuminate\Support\Facades\DB::table('websites')
+                ->where('id', $websiteId)
+                ->increment($creditColumn, $creditQuantity);
+        }
+
         if ($transactionType === 'purchase' && $userId !== null) {
             \Illuminate\Support\Facades\DB::table('product_entitlements')->insert([
                 'user_id' => $userId,
@@ -122,6 +163,7 @@ class EsubizPlatformSaleService
                     'source_module' => $sourceType,
                     'currency' => strtoupper(trim($currency)),
                     'amount' => $amount,
+                    'credit_quantity' => $creditQuantity,
                 ]),
                 'created_at' => now(),
                 'updated_at' => now(),
