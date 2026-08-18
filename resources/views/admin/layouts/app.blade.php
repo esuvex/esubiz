@@ -133,6 +133,12 @@
             </div>
         </div>
 
+        <a href="{{ route('admin.core-features.index') }}"
+           class="flex items-center gap-3 px-4 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100">
+            <span>Core</span>
+            <span class="text-xs text-slate-400">Features & Limits</span>
+        </a>
+
         <!-- Marketplace -->
         <div>
             <button @click="marketplaceMenu=!marketplaceMenu"
