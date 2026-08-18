@@ -70,6 +70,5 @@
 
     </div>
 </div>
-@endsection
 
 @endsection
