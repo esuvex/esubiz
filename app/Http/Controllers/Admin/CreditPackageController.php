@@ -99,6 +99,7 @@ class CreditPackageController
         $productId = DB::table('catalog_products')->insertGetId([
             'uuid' => (string) \Illuminate\Support\Str::uuid(),
             'name' => $data['name'],
+            'slug' => \Illuminate\Support\Str::slug($data['name']) . '-' . \Illuminate\Support\Str::lower(\Illuminate\Support\Str::random(6)),
             'product_type' => $data['credit_type'],
             'credit_quantity' => $data['credit_quantity'],
             'is_active' => true,
