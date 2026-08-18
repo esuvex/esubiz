@@ -139,6 +139,15 @@
             <span class="text-xs text-slate-400">Features & Limits</span>
         </a>
 
+        <!-- Core -->
+        <div>
+            <a href="{{ route('admin.core-features.index') }}"
+               class="flex items-center rounded-xl px-5 py-3 hover:bg-slate-800
+               {{ request()->routeIs('admin.core-features.*') ? 'bg-blue-600 text-white' : '' }}">
+                Core
+            </a>
+        </div>
+
         <!-- Marketplace -->
         <div>
             <button @click="marketplaceMenu=!marketplaceMenu"
