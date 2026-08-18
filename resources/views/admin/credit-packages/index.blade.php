@@ -2,7 +2,7 @@
 
 @section('content')
 
-<div class="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1.5rem;align-items:start;">
 
     {{-- LEFT COLUMN: CREATE PRODUCT + CONFIGURE PACKAGE --}}
     <div class="space-y-6">
