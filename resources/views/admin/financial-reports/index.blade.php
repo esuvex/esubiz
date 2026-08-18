@@ -37,7 +37,7 @@
 
     {{-- SUMMARY --}}
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+    <div class="grid grid-cols-3 gap-5 mb-8">
 
         <div class="financial-summary-card rounded-3xl bg-emerald-500 p-6 text-white shadow-lg">
             <p class="text-sm text-white/80">Total Income</p>
@@ -83,12 +83,15 @@
 
         <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
 
-            <div>
+            <div class="md:col-span-2">
                 <label class="text-xs font-semibold text-slate-500">
                     Period
                 </label>
 
-                <select name="period" class="mt-1 w-full rounded-xl border-slate-300">
+                <select
+                    name="period"
+                    class="mt-1 w-full rounded-xl border-slate-300"
+                >
                     <option value="7d" @selected($period === '7d')>7 days</option>
                     <option value="30d" @selected($period === '30d')>30 days</option>
                     <option value="3m" @selected($period === '3m')>3 months</option>
@@ -96,6 +99,37 @@
                     <option value="12m" @selected($period === '12m')>12 months</option>
                     <option value="custom" @selected($period === 'custom')>Custom Date</option>
                 </select>
+
+                <div
+                    id="custom-date-range"
+                    class="mt-3 grid grid-cols-2 gap-3 {{ $period === 'custom' ? '' : 'hidden' }}"
+                >
+                    <div>
+                        <label class="text-xs font-semibold text-slate-500">
+                            From
+                        </label>
+
+                        <input
+                            type="date"
+                            name="from"
+                            value="{{ $customFrom }}"
+                            class="mt-1 w-full rounded-xl border-slate-300"
+                        >
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-semibold text-slate-500">
+                            To
+                        </label>
+
+                        <input
+                            type="date"
+                            name="to"
+                            value="{{ $customTo }}"
+                            class="mt-1 w-full rounded-xl border-slate-300"
+                        >
+                    </div>
+                </div>
             </div>
 
             <div>
@@ -161,38 +195,6 @@
                 </select>
             </div>
 
-
-            <div
-                id="custom-date-from"
-                class="{{ $period === 'custom' ? '' : 'hidden' }}"
-            >
-                <label class="text-xs font-semibold text-slate-500">
-                    From
-                </label>
-
-                <input
-                    type="date"
-                    name="from"
-                    value="{{ $customFrom }}"
-                    class="mt-1 w-full rounded-xl border-slate-300"
-                >
-            </div>
-
-            <div
-                id="custom-date-to"
-                class="{{ $period === 'custom' ? '' : 'hidden' }}"
-            >
-                <label class="text-xs font-semibold text-slate-500">
-                    To
-                </label>
-
-                <input
-                    type="date"
-                    name="to"
-                    value="{{ $customTo }}"
-                    class="mt-1 w-full rounded-xl border-slate-300"
-                >
-            </div>
 
             <div class="flex items-end">
                 <button
@@ -481,18 +483,16 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const period = document.querySelector('select[name="period"]');
-    const from = document.getElementById('custom-date-from');
-    const to = document.getElementById('custom-date-to');
+    const range = document.getElementById('custom-date-range');
 
     function financialReportPeriodToggle() {
         const custom = period && period.value === 'custom';
 
-        from?.classList.toggle('hidden', !custom);
-        to?.classList.toggle('hidden', !custom);
+        range?.classList.toggle('hidden', !custom);
 
         if (!custom) {
-            const fromInput = from?.querySelector('input[name="from"]');
-            const toInput = to?.querySelector('input[name="to"]');
+            const fromInput = range?.querySelector('input[name="from"]');
+            const toInput = range?.querySelector('input[name="to"]');
 
             if (fromInput) fromInput.value = '';
             if (toInput) toInput.value = '';
