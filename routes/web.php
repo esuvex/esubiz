@@ -268,12 +268,28 @@ Route::post('/admin/financial-reports/email', [\App\Http\Controllers\Admin\Finan
 Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/credit-packages', [\App\Http\Controllers\Admin\CreditPackageController::class, 'index'])
         ->name('credit-packages.index');
+
     Route::post('/credit-packages', [\App\Http\Controllers\Admin\CreditPackageController::class, 'store'])
         ->name('credit-packages.store');
+
     Route::post('/credit-packages/create-product', [\App\Http\Controllers\Admin\CreditPackageController::class, 'createProduct'])
         ->name('credit-packages.create-product');
+
+    Route::get('/credit-packages/products/{id}/edit', [\App\Http\Controllers\Admin\CreditPackageController::class, 'editProduct'])
+        ->name('credit-packages.edit-product');
+
+    Route::post('/credit-packages/products/{id}', [\App\Http\Controllers\Admin\CreditPackageController::class, 'updateProduct'])
+        ->name('credit-packages.update-product');
+
+    Route::get('/credit-packages/{id}/edit', [\App\Http\Controllers\Admin\CreditPackageController::class, 'editPackage'])
+        ->name('credit-packages.edit');
+
+    Route::post('/credit-packages/{id}/update', [\App\Http\Controllers\Admin\CreditPackageController::class, 'updatePackage'])
+        ->name('credit-packages.update');
+
     Route::post('/credit-packages/{id}/toggle', [\App\Http\Controllers\Admin\CreditPackageController::class, 'toggle'])
         ->name('credit-packages.toggle');
+
     Route::delete('/credit-packages/{id}', [\App\Http\Controllers\Admin\CreditPackageController::class, 'destroy'])
         ->name('credit-packages.destroy');
-});
+});;

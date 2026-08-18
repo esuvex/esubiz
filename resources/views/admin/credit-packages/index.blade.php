@@ -65,6 +65,59 @@
         </div>
 
 
+        {{-- MANAGE CREDIT PRODUCTS --}}
+        <div class="rounded-3xl bg-white border border-slate-200 shadow-sm p-6">
+
+            <div class="mb-5">
+                <h3 class="text-lg font-bold text-slate-900">
+                    Manage Credit Products
+                </h3>
+
+                <p class="mt-1 text-sm text-slate-500">
+                    View and edit existing credit catalogue products.
+                </p>
+            </div>
+
+            <div class="divide-y divide-slate-100">
+
+                @forelse($catalogProducts as $product)
+
+                    <div class="flex items-center justify-between gap-4 py-4">
+
+                        <div>
+                            <div class="font-semibold text-slate-900">
+                                {{ $product->name }}
+                            </div>
+
+                            <div class="mt-1 text-xs text-slate-500">
+                                {{ ucwords(str_replace('_', ' ', $product->product_type ?? 'credit')) }}
+                                ·
+                                {{ number_format($product->credit_quantity) }}
+                                credits
+                            </div>
+                        </div>
+
+                        <a
+                            href="{{ route('admin.credit-packages.edit-product', $product->id) }}"
+                            class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+                        >
+                            Edit
+                        </a>
+
+                    </div>
+
+                @empty
+
+                    <div class="py-8 text-center text-slate-500">
+                        No credit products created yet.
+                    </div>
+
+                @endforelse
+
+            </div>
+
+        </div>
+
         {{-- CONFIGURE CREDIT PACKAGE --}}
         <div class="rounded-3xl bg-white border border-slate-200 shadow-sm p-6">
 
@@ -259,9 +312,17 @@
 
                             <td class="px-5 py-4 text-right">
 
+                                <a
+                                    href="{{ route('admin.credit-packages.edit', $package->id) }}"
+                                    class="mr-4 text-slate-900 font-semibold"
+                                >
+                                    Edit
+                                </a>
+
                                 <form
                                     method="POST"
                                     action="{{ route('admin.credit-packages.toggle', $package->id) }}"
+                                    class="inline"
                                 >
 
                                     @csrf

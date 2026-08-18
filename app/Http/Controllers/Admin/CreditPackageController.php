@@ -78,11 +78,6 @@ class CreditPackageController
                 ]
             );
 
-            DB::table('catalog_products')
-                ->where('id', $data['catalog_product_id'])
-                ->update([
-                    'credit_quantity' => $data['credit_quantity'],
-                ]);
         });
 
         return back()->with('success', 'Credit package saved successfully.');
@@ -172,6 +167,67 @@ class CreditPackageController
             'success',
             "Credit product created successfully. Catalogue Product #{$productId}."
         );
+    }
+
+    public function editPackage(int $id)
+    {
+        $package = DB::table('credit_packages')
+            ->where('id', $id)
+            ->first();
+
+        abort_unless($package, 404);
+
+        $catalogProducts = DB::table('catalog_products')
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->orderBy('name')
+            ->get([
+                'id',
+                'name',
+                'product_type',
+                'credit_quantity',
+            ]);
+
+        return view('admin.credit-packages.edit-package', [
+            'package' => $package,
+            'catalogProducts' => $catalogProducts,
+            'types' => $this->types,
+        ]);
+    }
+
+    public function updatePackage(Request $request, int $id)
+    {
+        $data = $request->validate([
+            'catalog_product_id' => ['required', 'integer', 'exists:catalog_products,id'],
+            'credit_type' => ['required', 'in:ai_credits,sms_credits,email_credits,whatsapp_credits'],
+            'name' => ['required', 'string', 'max:255'],
+            'credit_quantity' => ['required', 'integer', 'min:1'],
+            'price' => ['required', 'numeric', 'min:0'],
+            'currency' => ['required', 'string', 'max:10'],
+            'expiry_days' => ['nullable', 'integer', 'min:1'],
+            'description' => ['nullable', 'string'],
+            'sort_order' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        DB::table('credit_packages')
+            ->where('id', $id)
+            ->update([
+                'catalog_product_id' => $data['catalog_product_id'],
+                'credit_type' => $data['credit_type'],
+                'name' => $data['name'],
+                'credit_quantity' => $data['credit_quantity'],
+                'price' => $data['price'],
+                'currency' => strtoupper($data['currency']),
+                'expiry_days' => $data['expiry_days'] ?? null,
+                'description' => $data['description'] ?? null,
+                'sort_order' => $data['sort_order'] ?? 0,
+                'is_active' => $request->boolean('is_active'),
+                'updated_at' => now(),
+            ]);
+
+        return redirect()
+            ->route('admin.credit-packages.index')
+            ->with('success', 'Credit package updated successfully.');
     }
 
     public function toggle(int $id)
