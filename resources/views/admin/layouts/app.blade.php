@@ -403,7 +403,13 @@
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Themes</a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Modules</a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Others</a>
-            </div>
+            
+                    <a href="{{ route('admin.credit-packages.index') }}"
+                       class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800
+                       {{ request()->routeIs('admin.credit-packages.*') ? 'bg-blue-600 text-white' : '' }}">
+                        Credit Packages
+                    </a>
+</div>
         </div>
 
         <a href="#" class="flex items-center rounded-xl px-5 py-3 hover:bg-slate-800">
