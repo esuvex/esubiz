@@ -123,9 +123,21 @@ class EsubizPlatformSaleService
         if (in_array($sourceType, $creditSources, true)) {
             $creditQuantity = (int) ($data['credit_quantity'] ?? 0);
 
+            /*
+             * Credit package quantity is authoritative in the Esubiz
+             * catalog product. Never derive credits from price.
+             */
+            if ($creditQuantity <= 0) {
+                $catalogQuantity = \Illuminate\Support\Facades\DB::table('catalog_products')
+                    ->where('id', $itemId)
+                    ->value('credit_quantity');
+
+                $creditQuantity = (int) ($catalogQuantity ?? 0);
+            }
+
             if ($creditQuantity <= 0) {
                 throw new InvalidArgumentException(
-                    "credit_quantity is required for {$sourceType} purchases."
+                    "No credit_quantity is configured for {$sourceType} product {$itemId}."
                 );
             }
 
