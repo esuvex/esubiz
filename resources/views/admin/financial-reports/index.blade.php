@@ -77,137 +77,204 @@
 
     </div>
 
-    {{-- FILTERS --}}
+    {{-- FILTERS + EXPORTS --}}
 
-    <form method="GET" class="rounded-3xl bg-white border border-slate-200 p-6 shadow-sm mb-8">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
 
-        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <form
+            method="GET"
+            class="lg:col-span-2 rounded-3xl bg-white border border-slate-200 p-6 shadow-sm"
+        >
 
-            <div class="md:col-span-2">
-                <label class="text-xs font-semibold text-slate-500">
-                    Period
-                </label>
+            <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
 
-                <select
-                    name="period"
-                    class="mt-1 w-full rounded-xl border-slate-300"
-                >
-                    <option value="7d" @selected($period === '7d')>7 days</option>
-                    <option value="30d" @selected($period === '30d')>30 days</option>
-                    <option value="3m" @selected($period === '3m')>3 months</option>
-                    <option value="6m" @selected($period === '6m')>6 months</option>
-                    <option value="12m" @selected($period === '12m')>12 months</option>
-                    <option value="custom" @selected($period === 'custom')>Custom Date</option>
-                </select>
+                <div class="md:col-span-2 lg:col-span-2">
+                    <label class="text-xs font-semibold text-slate-500">
+                        Period
+                    </label>
 
-                <div
-                    id="custom-date-range"
-                    class="mt-3 grid grid-cols-2 gap-3 {{ $period === 'custom' ? '' : 'hidden' }}"
-                >
-                    <div>
-                        <label class="text-xs font-semibold text-slate-500">
-                            From
-                        </label>
+                    <select
+                        name="period"
+                        class="mt-1 w-full rounded-xl border-slate-300"
+                    >
+                        <option value="7d" @selected($period === '7d')>7 days</option>
+                        <option value="30d" @selected($period === '30d')>30 days</option>
+                        <option value="3m" @selected($period === '3m')>3 months</option>
+                        <option value="6m" @selected($period === '6m')>6 months</option>
+                        <option value="12m" @selected($period === '12m')>12 months</option>
+                        <option value="custom" @selected($period === 'custom')>Custom Date</option>
+                    </select>
 
-                        <input
-                            type="date"
-                            name="from"
-                            value="{{ $customFrom }}"
-                            class="mt-1 w-full rounded-xl border-slate-300"
-                        >
-                    </div>
+                    <div
+                        id="custom-date-range"
+                        class="mt-3 grid grid-cols-2 gap-3 {{ $period === 'custom' ? '' : 'hidden' }}"
+                    >
+                        <div>
+                            <label class="text-xs font-semibold text-slate-500">
+                                From
+                            </label>
 
-                    <div>
-                        <label class="text-xs font-semibold text-slate-500">
-                            To
-                        </label>
+                            <input
+                                type="date"
+                                name="from"
+                                value="{{ $customFrom }}"
+                                class="mt-1 w-full rounded-xl border-slate-300"
+                            >
+                        </div>
 
-                        <input
-                            type="date"
-                            name="to"
-                            value="{{ $customTo }}"
-                            class="mt-1 w-full rounded-xl border-slate-300"
-                        >
+                        <div>
+                            <label class="text-xs font-semibold text-slate-500">
+                                To
+                            </label>
+
+                            <input
+                                type="date"
+                                name="to"
+                                value="{{ $customTo }}"
+                                class="mt-1 w-full rounded-xl border-slate-300"
+                            >
+                        </div>
                     </div>
                 </div>
+
+                <div>
+                    <label class="text-xs font-semibold text-slate-500">
+                        Type
+                    </label>
+
+                    <select name="type" class="mt-1 w-full rounded-xl border-slate-300">
+                        <option value="all" @selected($type === 'all')>Credit + Debit</option>
+                        <option value="credit" @selected($type === 'credit')>Credit / Income</option>
+                        <option value="debit" @selected($type === 'debit')>Debit / Expense</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="text-xs font-semibold text-slate-500">
+                        Source
+                    </label>
+
+                    <select name="source" class="mt-1 w-full rounded-xl border-slate-300">
+                        <option value="">All sources</option>
+
+                        @foreach($sources as $item)
+                            <option value="{{ $item }}" @selected($source === $item)>
+                                {{ ucwords(str_replace('_', ' ', $item)) }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div>
+                    <label class="text-xs font-semibold text-slate-500">
+                        Status
+                    </label>
+
+                    <select name="status" class="mt-1 w-full rounded-xl border-slate-300">
+                        <option value="">All statuses</option>
+                        <option value="processed" @selected($status === 'processed')>Processed</option>
+                        <option value="pending" @selected($status === 'pending')>Pending</option>
+                        <option value="paid" @selected($status === 'paid')>Paid</option>
+                        <option value="cancelled" @selected($status === 'cancelled')>Cancelled</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="text-xs font-semibold text-slate-500">
+                        Currency
+                    </label>
+
+                    <select
+                        name="currency"
+                        class="mt-1 w-full rounded-xl border-slate-300"
+                    >
+                        <option value="">All currencies</option>
+                        @foreach($enabledCurrencies ?? [] as $enabledCurrency)
+                            <option
+                                value="{{ $enabledCurrency }}"
+                                @selected($currency === $enabledCurrency)
+                            >
+                                {{ $enabledCurrency }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="flex items-end">
+                    <button
+                        type="submit"
+                        class="w-full rounded-xl bg-blue-600 px-5 py-2.5 font-semibold text-white"
+                    >
+                        Apply Filters
+                    </button>
+                </div>
+
             </div>
 
-            <div>
-                <label class="text-xs font-semibold text-slate-500">
-                    Type
-                </label>
+        </form>
 
-                <select name="type" class="mt-1 w-full rounded-xl border-slate-300">
-                    <option value="all" @selected($type === 'all')>Credit + Debit</option>
-                    <option value="credit" @selected($type === 'credit')>Credit / Income</option>
-                    <option value="debit" @selected($type === 'debit')>Debit / Expense</option>
-                </select>
-            </div>
+        {{-- DOWNLOAD / EMAIL --}}
 
-            <div>
-                <label class="text-xs font-semibold text-slate-500">
-                    Source
-                </label>
+        <div class="rounded-3xl bg-white border border-slate-200 p-6 shadow-sm">
 
-                <select name="source" class="mt-1 w-full rounded-xl border-slate-300">
-                    <option value="">All sources</option>
+            <h2 class="text-lg font-bold text-slate-900">
+                Reports
+            </h2>
 
-                    @foreach($sources as $item)
-                        <option value="{{ $item }}" @selected($source === $item)>
-                            {{ ucwords(str_replace('_', ' ', $item)) }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
+            <p class="mt-1 text-sm text-slate-500">
+                Download or email the current financial report.
+            </p>
 
-            <div>
-                <label class="text-xs font-semibold text-slate-500">
-                    Status
-                </label>
+            <div class="mt-5 flex flex-col gap-3">
 
-                <select name="status" class="mt-1 w-full rounded-xl border-slate-300">
-                    <option value="">All statuses</option>
-                    <option value="processed" @selected($status === 'processed')>Processed</option>
-                    <option value="pending" @selected($status === 'pending')>Pending</option>
-                    <option value="paid" @selected($status === 'paid')>Paid</option>
-                    <option value="cancelled" @selected($status === 'cancelled')>Cancelled</option>
-                </select>
-            </div>
-
-            <div>
-                <label class="text-xs font-semibold text-slate-500">
-                    Currency
-                </label>
-
-                <select
-                    name="currency"
-                    class="mt-1 w-full rounded-xl border-slate-300"
+                <a
+                    href="{{ route('admin.financial-reports.csv', request()->query()) }}"
+                    class="w-full text-center rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white"
                 >
-                    <option value="">All currencies</option>
-                    @foreach($enabledCurrencies ?? [] as $enabledCurrency)
-                        <option
-                            value="{{ $enabledCurrency }}"
-                            @selected($currency === $enabledCurrency)
-                        >
-                            {{ $enabledCurrency }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
+                    Download CSV
+                </a>
 
-
-            <div class="flex items-end">
-                <button
-                    type="submit"
-                    class="w-full rounded-xl bg-blue-600 px-5 py-2.5 font-semibold text-white"
+                <a
+                    href="{{ route('admin.financial-reports.pdf', request()->query()) }}"
+                    class="w-full text-center rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white"
                 >
-                    Apply Filters
-                </button>
+                    Download PDF
+                </a>
+
+                <form
+                    method="POST"
+                    action="{{ route('admin.financial-reports.email') }}"
+                    class="flex flex-col gap-2"
+                >
+                    @csrf
+
+                    @foreach(request()->except('page') as $key => $value)
+                        @if(is_scalar($value))
+                            <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                        @endif
+                    @endforeach
+
+                    <input
+                        type="email"
+                        name="email"
+                        required
+                        placeholder="admin@email.com"
+                        class="w-full rounded-xl border-slate-300 text-sm"
+                    >
+
+                    <button
+                        type="submit"
+                        class="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white"
+                    >
+                        Email Report
+                    </button>
+                </form>
+
             </div>
 
         </div>
 
-    </form>
+    </div>
 
     {{-- BREAKDOWN --}}
 
@@ -400,49 +467,6 @@
     </div>
 
     <div class="mt-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-
-        <div class="flex flex-wrap gap-2">
-
-            <a
-                href="{{ route('admin.financial-reports.csv', request()->query()) }}"
-                class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white"
-            >
-                Download CSV
-            </a>
-
-            <a
-                href="{{ route('admin.financial-reports.pdf', request()->query()) }}"
-                class="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white"
-            >
-                Download PDF
-            </a>
-
-            <form method="POST" action="{{ route('admin.financial-reports.email') }}" class="flex gap-2">
-                @csrf
-
-                @foreach(request()->except('page') as $key => $value)
-                    @if(is_scalar($value))
-                        <input type="hidden" name="{{ $key }}" value="{{ $value }}">
-                    @endif
-                @endforeach
-
-                <input
-                    type="email"
-                    name="email"
-                    required
-                    placeholder="admin@email.com"
-                    class="rounded-xl border-slate-300 text-sm"
-                >
-
-                <button
-                    type="submit"
-                    class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
-                >
-                    Email Report
-                </button>
-            </form>
-
-        </div>
 
         <div class="flex items-center gap-3 text-sm text-slate-500">
 
