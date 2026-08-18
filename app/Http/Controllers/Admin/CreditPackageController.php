@@ -100,7 +100,12 @@ class CreditPackageController
             'uuid' => (string) \Illuminate\Support\Str::uuid(),
             'name' => $data['name'],
             'slug' => \Illuminate\Support\Str::slug($data['name']) . '-' . \Illuminate\Support\Str::lower(\Illuminate\Support\Str::random(6)),
-            'product_type' => $data['credit_type'],
+            'product_type' => [
+                'ai_credits' => 'ai_credit',
+                'sms_credits' => 'sms_credit',
+                'email_credits' => 'email_credit',
+                'whatsapp_credits' => 'whatsapp_credit',
+            ][$data['credit_type']],
             'credit_quantity' => $data['credit_quantity'],
             'is_active' => true,
             'is_public' => true,
