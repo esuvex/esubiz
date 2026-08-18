@@ -266,6 +266,28 @@ Route::post('/admin/financial-reports/email', [\App\Http\Controllers\Admin\Finan
 
 
 Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
+
+    Route::get('/core/features', [\App\Http\Controllers\Admin\CoreFeatureController::class, 'index'])
+        ->name('core-features.index');
+
+    Route::post('/core/features', [\App\Http\Controllers\Admin\CoreFeatureController::class, 'storeFeature'])
+        ->name('core-features.store');
+
+    Route::post('/core/features/{id}/update', [\App\Http\Controllers\Admin\CoreFeatureController::class, 'updateFeature'])
+        ->name('core-features.update');
+
+    Route::post('/core/features/{id}/toggle', [\App\Http\Controllers\Admin\CoreFeatureController::class, 'toggleFeature'])
+        ->name('core-features.toggle');
+
+    Route::post('/core/features/{featureId}/limits', [\App\Http\Controllers\Admin\CoreFeatureController::class, 'storeLimit'])
+        ->name('core-features.limits.store');
+
+    Route::post('/core/features/limits/{id}/update', [\App\Http\Controllers\Admin\CoreFeatureController::class, 'updateLimit'])
+        ->name('core-features.limits.update');
+
+    Route::post('/core/features/limits/{id}/toggle', [\App\Http\Controllers\Admin\CoreFeatureController::class, 'toggleLimit'])
+        ->name('core-features.limits.toggle');
+
     Route::get('/credit-packages', [\App\Http\Controllers\Admin\CreditPackageController::class, 'index'])
         ->name('credit-packages.index');
 
@@ -293,3 +315,18 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::delete('/credit-packages/{id}', [\App\Http\Controllers\Admin\CreditPackageController::class, 'destroy'])
         ->name('credit-packages.destroy');
 });;
+
+
+    Route::middleware(['auth'])->prefix('crm')->name('user.crm.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\User\CoreCrmController::class, 'index'])
+            ->name('index');
+
+        Route::post('/contacts', [\App\Http\Controllers\User\CoreCrmController::class, 'storeContact'])
+            ->name('contacts.store');
+
+        Route::post('/leads', [\App\Http\Controllers\User\CoreCrmController::class, 'storeLead'])
+            ->name('leads.store');
+
+        Route::post('/tasks', [\App\Http\Controllers\User\CoreCrmController::class, 'storeTask'])
+            ->name('tasks.store');
+    });
