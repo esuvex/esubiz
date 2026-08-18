@@ -22,9 +22,23 @@ class CreditPackageController
             ->orderBy('id')
             ->get();
 
+        $catalogProducts = DB::table('catalog_products')
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->orderBy('name')
+            ->get([
+                'id',
+                'name',
+                'product_type',
+                'credit_quantity',
+                'is_active',
+                'is_public',
+            ]);
+
         return view('admin.credit-packages.index', [
             'packages' => $packages,
             'types' => $this->types,
+            'catalogProducts' => $catalogProducts,
         ]);
     }
 
@@ -72,6 +86,30 @@ class CreditPackageController
         });
 
         return back()->with('success', 'Credit package saved successfully.');
+    }
+
+    public function createProduct(Request $request)
+    {
+        $data = $request->validate([
+            'credit_type' => ['required', 'in:ai_credits,sms_credits,email_credits,whatsapp_credits'],
+            'name' => ['required', 'string', 'max:255'],
+            'credit_quantity' => ['required', 'integer', 'min:1'],
+        ]);
+
+        $productId = DB::table('catalog_products')->insertGetId([
+            'name' => $data['name'],
+            'product_type' => $data['credit_type'],
+            'credit_quantity' => $data['credit_quantity'],
+            'is_active' => true,
+            'is_public' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return back()->with(
+            'success',
+            "Credit product created successfully. Catalogue Product #{$productId}."
+        );
     }
 
     public function toggle(int $id)

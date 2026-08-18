@@ -270,6 +270,8 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         ->name('credit-packages.index');
     Route::post('/credit-packages', [\App\Http\Controllers\Admin\CreditPackageController::class, 'store'])
         ->name('credit-packages.store');
+    Route::post('/credit-packages/create-product', [\App\Http\Controllers\Admin\CreditPackageController::class, 'createProduct'])
+        ->name('credit-packages.create-product');
     Route::post('/credit-packages/{id}/toggle', [\App\Http\Controllers\Admin\CreditPackageController::class, 'toggle'])
         ->name('credit-packages.toggle');
     Route::delete('/credit-packages/{id}', [\App\Http\Controllers\Admin\CreditPackageController::class, 'destroy'])

@@ -21,12 +21,58 @@
         <div class="lg:col-span-1 rounded-3xl bg-white border border-slate-200 p-6 shadow-sm">
             <h2 class="text-lg font-bold mb-5">Add / Update Package</h2>
 
+            <div class="mb-6 rounded-2xl bg-slate-50 border border-slate-200 p-4">
+                <h3 class="font-semibold text-slate-900 mb-3">
+                    Create Credit Product
+                </h3>
+
+                <form method="POST"
+                      action="{{ route('admin.credit-packages.create-product') }}"
+                      class="space-y-3">
+                    @csrf
+
+                    <select name="credit_type" required
+                            class="w-full rounded-xl border-slate-300">
+                        <option value="">Select credit type</option>
+                        @foreach($types as $type)
+                            <option value="{{ $type }}">
+                                {{ ucwords(str_replace('_', ' ', $type)) }}
+                            </option>
+                        @endforeach
+                    </select>
+
+                    <input name="name"
+                           required
+                           placeholder="Product name, e.g. 10,000 SMS Credits"
+                           class="w-full rounded-xl border-slate-300">
+
+                    <input name="credit_quantity"
+                           type="number"
+                           min="1"
+                           required
+                           placeholder="Credit quantity"
+                           class="w-full rounded-xl border-slate-300">
+
+                    <button class="w-full rounded-xl bg-slate-900 px-4 py-2.5 font-semibold text-white">
+                        Create Credit Product
+                    </button>
+                </form>
+            </div>
+
             <form method="POST" action="{{ route('admin.credit-packages.store') }}" class="space-y-4">
                 @csrf
 
-                <input name="catalog_product_id" type="number" required
-                    placeholder="Catalog Product ID"
-                    class="w-full rounded-xl border-slate-300">
+                <select name="catalog_product_id" required class="w-full rounded-xl border-slate-300">
+                    <option value="">Select catalogue product</option>
+                    @foreach($catalogProducts as $product)
+                        <option value="{{ $product->id }}">
+                            #{{ $product->id }} — {{ $product->name }}
+                            @if($product->credit_quantity)
+                                ({{ number_format($product->credit_quantity) }} credits)
+                            @endif
+                        </option>
+                    @endforeach
+                </select>
 
                 <select name="credit_type" required class="w-full rounded-xl border-slate-300">
                     <option value="">Credit type</option>
