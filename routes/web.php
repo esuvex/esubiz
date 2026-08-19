@@ -60,6 +60,31 @@ Route::get('/oauth/user', [SsoController::class, 'user'])
     ->name('sso.user');
 
 
+
+Route::middleware(['auth'])->prefix('admin/core-addons')->name('admin.core-addons.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Admin\CoreAddonController::class, 'index'])
+        ->name('index');
+
+    Route::post('/addons', [\App\Http\Controllers\Admin\CoreAddonController::class, 'storeAddon'])
+        ->name('addons.store');
+
+    Route::put('/addons/{addon}', [\App\Http\Controllers\Admin\CoreAddonController::class, 'updateAddon'])
+        ->name('addons.update');
+
+    Route::post('/addons/{addon}/toggle', [\App\Http\Controllers\Admin\CoreAddonController::class, 'toggleAddon'])
+        ->name('addons.toggle');
+
+    Route::post('/bundles', [\App\Http\Controllers\Admin\CoreAddonController::class, 'storeBundle'])
+        ->name('bundles.store');
+
+    Route::put('/bundles/{bundle}', [\App\Http\Controllers\Admin\CoreAddonController::class, 'updateBundle'])
+        ->name('bundles.update');
+
+    Route::post('/bundles/{bundle}/toggle', [\App\Http\Controllers\Admin\CoreAddonController::class, 'toggleBundle'])
+        ->name('bundles.toggle');
+});
+
+
 Route::middleware('auth')->group(function () {
 
     /*
