@@ -477,7 +477,11 @@
                     Marketplace Dashboard
                 </a>
 
-                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Add-ons</a>
+                <a href="{{ route('admin.core-addons.index') }}"
+   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800
+   {{ request()->routeIs('admin.core-addons.*') ? 'bg-blue-600 text-white' : '' }}">
+    Add-ons
+</a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Themes</a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Modules</a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Others</a>
