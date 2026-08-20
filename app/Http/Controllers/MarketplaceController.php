@@ -122,10 +122,10 @@ class MarketplaceController extends Controller
     public function checkout(Request $request)
     {
         $data = $request->validate([
-            'product_type' => ['required', 'in:addon,bundle'],
+            'product_type' => ['required', 'string', 'max:100'],
             'product_id' => ['required', 'integer'],
             'deployment_type' => ['required', 'in:saas,off_server'],
-            'website_id' => ['required', 'integer'],
+            'website_id' => ['nullable', 'integer'],
         ]);
 
         $website = DB::table('websites')
@@ -139,12 +139,8 @@ class MarketplaceController extends Controller
 
         abort_unless($website, 403);
 
-        $listingType = $data['product_type'] === 'addon'
-            ? 'core_addon'
-            : 'core_bundle';
-
         $listing = DB::table('marketplace_listings')
-            ->where('product_type', $listingType)
+            ->where('product_type', $data['product_type'])
             ->where('product_id', $data['product_id'])
             ->where('status', 'published')
             ->whereNull('deleted_at')
@@ -152,31 +148,31 @@ class MarketplaceController extends Controller
 
         abort_unless($listing, 404);
 
-        $productTable = $data['product_type'] === 'addon'
-            ? 'core_addons'
-            : 'core_addon_bundles';
+        $productResolver = app(\App\Services\Marketplace\MarketplaceProductResolver::class);
 
-        $product = DB::table($productTable)
-            ->where('id', $data['product_id'])
-            ->where('is_active', true)
-            ->whereNull('deleted_at')
-            ->first();
+        $product = $productResolver->resolve(
+            $data['product_type'],
+            (int) $data['product_id']
+        );
 
         abort_unless($product, 404);
 
-        $available = $data['deployment_type'] === 'saas'
-            ? (bool) $product->saas_available
-            : (bool) $product->off_server_available;
+        $available = $productResolver->available(
+            $product,
+            $data['deployment_type']
+        );
 
         abort_unless($available, 422);
 
-        $price = $data['deployment_type'] === 'saas'
-            ? $product->saas_price
-            : $product->off_server_price;
+        $price = $productResolver->price(
+            $product,
+            $data['deployment_type']
+        );
 
-        $currency = $data['deployment_type'] === 'saas'
-            ? $product->saas_currency
-            : $product->off_server_currency;
+        $currency = $productResolver->currency(
+            $product,
+            $data['deployment_type']
+        );
 
         abort_unless($price !== null && (float) $price >= 0, 422);
 
