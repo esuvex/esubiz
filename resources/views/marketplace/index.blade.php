@@ -72,86 +72,64 @@
                                 </p>
                             @endif
 
-                            {{-- Allocation --}}
-                            <div class="mt-4 flex items-center justify-between rounded-2xl border border-slate-100 bg-white px-4 py-3">
-                                <div>
-                                    <div class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                                        Included allowance
-                                    </div>
+                            {{-- Allocated features --}}
+                            @php
+                                $allocations = collect($addon->capability_allocations ?? []);
+                            @endphp
 
-                                    <div class="mt-1 text-sm font-black text-slate-900">
-                                        @if((bool) ($addon->is_unlimited ?? false))
-                                            Unlimited
-                                        @elseif(isset($addon->default_allocation) && $addon->default_allocation !== null)
-                                            {{ number_format((float) $addon->default_allocation) }}
-                                        @else
-                                            Included
-                                        @endif
-                                    </div>
+                            <div
+                                x-data="{ expanded: false }"
+                                class="mt-4 rounded-2xl border border-slate-100 bg-white px-4 py-3"
+                            >
+                                <div class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                                    Included features
                                 </div>
 
-                                <span class="rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black uppercase text-blue-700">
-                                    Included
-                                </span>
-                            </div>
+                                <div class="mt-3 space-y-2">
+                                    @forelse($allocations as $index => $allocation)
+                                        <div
+                                            x-show="expanded || {{ $index }} < 5"
+                                            class="flex items-center justify-between gap-3 text-sm"
+                                        >
+                                            <span class="font-semibold text-slate-800">
+                                                {{ $allocation->capability_name
+                                                    ?? $allocation->name
+                                                    ?? $allocation->capability_key
+                                                    ?? $allocation->key
+                                                    ?? 'Feature' }}
+                                            </span>
 
-                            {{-- Functionality --}}
-                            <div class="mt-5 rounded-2xl bg-slate-50 p-4">
-
-                                <div class="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                                    What you get
-                                </div>
-
-                                <div class="space-y-2">
-
-                                    @forelse($visibleFeatures as $feature)
-                                        <div class="flex items-start gap-2 text-xs leading-5 text-slate-700">
-                                            <span class="font-black text-blue-600">✓</span>
-                                            <span>
-                                                {{ ucwords(str_replace(['_', '-'], ' ', $feature)) }}
+                                            <span class="whitespace-nowrap rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black text-blue-700">
+                                                @if((bool) ($allocation->is_unlimited ?? false))
+                                                    Unlimited
+                                                @elseif($allocation->allocation !== null && $allocation->allocation !== '')
+                                                    {{ number_format((float) $allocation->allocation) }}
+                                                    {{ $allocation->addon_allocation_unit ?? '' }}
+                                                @else
+                                                    Not configured
+                                                @endif
                                             </span>
                                         </div>
                                     @empty
-                                        <div class="text-xs text-slate-400">
-                                            Feature information available with this add-on.
+                                        <div class="text-sm text-slate-400">
+                                            No allocation details available.
                                         </div>
                                     @endforelse
-
-                                    @if($remainingFeatures->isNotEmpty())
-
-                                        <div
-                                            x-show="expanded"
-                                            x-cloak
-                                            class="space-y-2 pt-1"
-                                        >
-                                            @foreach($remainingFeatures as $feature)
-                                                <div class="flex items-start gap-2 text-xs leading-5 text-slate-700">
-                                                    <span class="font-black text-blue-600">✓</span>
-                                                    <span>
-                                                        {{ ucwords(str_replace(['_', '-'], ' ', $feature)) }}
-                                                    </span>
-                                                </div>
-                                            @endforeach
-                                        </div>
-
-                                        <button
-                                            type="button"
-                                            @click="expanded = !expanded"
-                                            class="pt-2 text-xs font-black text-blue-600 hover:text-blue-800"
-                                        >
-                                            <span x-show="!expanded">
-                                                + See more options
-                                            </span>
-
-                                            <span x-show="expanded" x-cloak>
-                                                Show less
-                                            </span>
-                                        </button>
-
-                                    @endif
-
                                 </div>
+
+                                @if($allocations->count() > 5)
+                                    <button
+                                        type="button"
+                                        @click="expanded = !expanded"
+                                        class="mt-3 text-xs font-bold text-blue-600"
+                                    >
+                                        <span x-show="!expanded">See more</span>
+                                        <span x-show="expanded">See less</span>
+                                    </button>
+                                @endif
                             </div>
+
+                            
                         </div>
 
 

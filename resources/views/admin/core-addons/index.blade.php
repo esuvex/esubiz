@@ -130,6 +130,18 @@
     </div>
 
     <div class="mt-6">
+        <label class="text-sm font-semibold text-slate-700">Allocation Unit</label>
+        <input
+            name="allocation_unit"
+            type="text"
+            placeholder="e.g. g, GB, users, records"
+            class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm">
+        <p class="mt-1 text-xs text-slate-500">
+            Enter the unit exactly as it should appear in the marketplace.
+        </p>
+    </div>
+
+    <div class="mt-6">
         <label class="text-sm font-semibold text-slate-700">Description</label>
         <textarea name="description" rows="3"
                   class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"></textarea>
@@ -141,6 +153,7 @@
             <div class="font-bold text-blue-900">SaaS Rental / Subscription</div>
 
             <label class="mt-4 flex items-center gap-2 text-sm">
+                <input type="hidden" name="saas_available" value="0">
                 <input name="saas_available" value="1" type="checkbox">
                 Available to SaaS websites
             </label>
@@ -172,6 +185,7 @@
             <div class="font-bold text-violet-900">Off-server License</div>
 
             <label class="mt-4 flex items-center gap-2 text-sm">
+                <input type="hidden" name="off_server_available" value="0">
                 <input name="off_server_available" value="1" type="checkbox">
                 Available to off-server websites
             </label>
@@ -553,7 +567,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
 
                     <label class="mt-4 flex items-center gap-2 text-sm">
-                        <input name="saas_available" value="1" type="checkbox">
+                        <input type="hidden" name="saas_available" value="0">
+                <input name="saas_available" value="1" type="checkbox">
                         Available to SaaS websites
                     </label>
 
@@ -587,7 +602,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
 
                     <label class="mt-4 flex items-center gap-2 text-sm">
-                        <input name="off_server_available" value="1" type="checkbox">
+                        <input type="hidden" name="off_server_available" value="0">
+                <input name="off_server_available" value="1" type="checkbox">
                         Available to off-server websites
                     </label>
 
@@ -1005,6 +1021,7 @@ document.addEventListener('click', function (event) {
     setValue('off_server_currency', bundle.off_server_currency);
 
     const saas = form.querySelector('[name="saas_available"]');
+
     const offserver = form.querySelector('[name="off_server_available"]');
 
     if (saas) saas.checked = !!bundle.saas_available;

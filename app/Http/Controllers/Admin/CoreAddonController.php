@@ -389,6 +389,7 @@ return view('admin.core-addons.index', [
             'saas_price' => ['nullable', 'numeric', 'min:0'],
             'saas_period' => ['nullable', 'string', 'max:50'],
             'offserver_price' => ['nullable', 'numeric', 'min:0'],
+            'allocation_unit' => ['nullable', 'string', 'max:50'],
             'is_active' => ['nullable', 'boolean'],
             'capability_allocations' => ['nullable', 'array'],
             'capability_unlimited' => ['nullable', 'array'],
@@ -402,6 +403,7 @@ return view('admin.core-addons.index', [
                 'saas_price' => $data['saas_price'] ?? 0,
                 'saas_billing_period' => $data['saas_period'] ?? null,
                 'off_server_price' => $data['offserver_price'] ?? 0,
+                'allocation_unit' => $data['allocation_unit'] ?? null,
                 'is_active' => $request->boolean('is_active'),
                 'updated_at' => now(),
             ]);

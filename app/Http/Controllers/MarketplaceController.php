@@ -50,12 +50,14 @@ class MarketplaceController extends Controller
     {
         $addons = DB::table('core_addons')
             ->where('is_active', true)
+            ->where('saas_available', true)
             ->whereNull('deleted_at')
             ->orderBy('name')
             ->get();
 
         $bundles = DB::table('core_addon_bundles')
             ->where('is_active', true)
+            ->where('saas_available', true)
             ->whereNull('deleted_at')
             ->orderBy('id')
             ->get();
@@ -73,7 +75,34 @@ class MarketplaceController extends Controller
             ->groupBy('bundle_id');
 
         $capabilityAllocations = DB::table('core_addon_capability_allocations')
+            ->join(
+                'core_addons',
+                'core_addon_capability_allocations.addon_id',
+                '=',
+                'core_addons.id'
+            )
+            ->select(
+                'core_addon_capability_allocations.*',
+                'core_addons.allocation_unit'
+            )
             ->get()
+            ->map(function ($allocation) {
+                $key = (string) $allocation->capability_key;
+
+                $allocation->display_name = ucwords(
+                    str_replace(['_', '-'], ' ', preg_replace('/^crm_/', '', $key))
+                );
+
+                // The unit displayed in Marketplace comes exclusively
+                // from the Admin-configured Add-on allocation unit.
+                $allocation->display_unit =
+                    $allocation->allocation_unit ?: null;
+
+                $allocation->addon_allocation_unit =
+                    $allocation->allocation_unit ?: null;
+
+                return $allocation;
+            })
             ->groupBy('addon_id');
 
         /*
@@ -81,8 +110,25 @@ class MarketplaceController extends Controller
          * This is the authoritative source for quantities/unlimited status.
          */
         foreach ($addons as $addon) {
-            $addon->capability_allocations =
-                collect($capabilityAllocations->get($addon->id, []));
+            $allocations = collect($capabilityAllocations->get($addon->id, []));
+
+            if ($allocations->isEmpty()) {
+                $capabilities = json_decode($addon->capabilities ?? '[]', true) ?: [];
+
+                $allocations = collect($capabilities)->map(function ($key) {
+                    return (object) [
+                        'capability_key' => $key,
+                        'allocation' => null,
+                        'is_unlimited' => false,
+                        'display_name' => ucwords(
+                            str_replace(['_', '-'], ' ', preg_replace('/^crm_/', '', $key))
+                        ),
+                        'display_unit' => null,
+                    ];
+                });
+            }
+
+            $addon->capability_allocations = $allocations;
         }
 
         /*

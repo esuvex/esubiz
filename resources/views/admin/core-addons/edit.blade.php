@@ -76,6 +76,25 @@
                     </div>
 
 
+                    <div class="md:col-span-2 grid grid-cols-1 gap-4 md:grid-cols-2">
+
+                        <label class="flex items-center gap-3">
+                            <input type="hidden" name="saas_available" value="0">
+                            <input type="checkbox" name="saas_available" value="1"
+                                {{ old('saas_available', $addon->saas_available) ? 'checked' : '' }}>
+                            <span class="text-sm font-bold text-slate-700">Available for SaaS websites</span>
+                        </label>
+
+                        <label class="flex items-center gap-3">
+                            <input type="hidden" name="off_server_available" value="0">
+                            <input type="checkbox" name="off_server_available" value="1"
+                                {{ old('off_server_available', $addon->off_server_available) ? 'checked' : '' }}>
+                            <span class="text-sm font-bold text-slate-700">Available for off-server websites</span>
+                        </label>
+
+                    </div>
+
+
                     <div>
 
                         <label class="text-sm font-bold text-slate-700">
@@ -101,9 +120,25 @@
 
                         <input
                             type="text"
-                            name="saas_period"
-                        value="{{ old('saas_period', (($addon->saas_billing_period ?? $addon->saas_period ?? $addon->saas_duration ?? $addon->duration ?? $addon->billing_period ?? '') . (($addon->saas_billing_interval ?? '') ? ' ' . $addon->saas_billing_interval : ''))) }}"
+                            name="saas_billing_period"
+                        value="{{ old('saas_billing_period', $addon->saas_billing_period) }}"
                         class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3">
+
+                    </div>
+
+
+                    <div>
+
+                        <label class="text-sm font-bold text-slate-700">
+                            Allocation Unit
+                        </label>
+
+                        <input
+                            type="text"
+                            name="allocation_unit"
+                            value="{{ old('allocation_unit', $addon->allocation_unit) }}"
+                            placeholder="e.g. g, GB, records, users"
+                            class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3">
 
                     </div>
 
@@ -118,8 +153,8 @@
                             type="number"
                             step="0.01"
                             min="0"
-                            name="offserver_price"
-                            value="{{ $addon->offserver_price ?? '' }}"
+                            name="off_server_price"
+                            value="{{ $addon->off_server_price ?? '' }}"
                             class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3">
 
                     </div>
