@@ -218,6 +218,25 @@ class ReferralRevenueProcessor
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
+
+        // Record the referral commission as a real Esubiz debit.
+        DB::table('expense_events')->insert([
+            'user_id' => $revenueEvent->user_id ?? null,
+            'website_id' => $revenueEvent->website_id ?? null,
+            'workspace_id' => $revenueEvent->workspace_id ?? null,
+            'source' => 'referral_commission',
+            'expense_type' => 'referral_commission',
+            'description' => 'Referral commission paid',
+            'reference_type' => 'revenue_event',
+            'reference_id' => (string) ($revenueEvent->id),
+            'amount' => $amount_var,
+            'currency' => $revenueEvent->currency ?? 'NGN',
+            'status' => 'processed',
+            'occurred_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         });
     }
 

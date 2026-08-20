@@ -1,0 +1,562 @@
+@extends('admin.layouts.app')
+
+@section('content')
+
+<div class="min-h-screen bg-slate-100 px-6 py-8">
+
+    <div class="mx-auto max-w-6xl">
+
+        <div class="mb-8 flex items-center justify-between">
+
+            <div>
+                <div class="text-xs font-black uppercase tracking-widest text-blue-600">
+                    Core Commerce
+                </div>
+
+                <h1 class="mt-2 text-3xl font-black text-slate-900">
+                    Edit Add-on
+                </h1>
+
+                <p class="mt-2 text-sm text-slate-500">
+                    Configure the functions and allocation this add-on unlocks.
+                </p>
+            </div>
+
+            <a href="{{ route('admin.core-addons.index') }}"
+               class="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700">
+                Back
+            </a>
+
+        </div>
+
+
+        <form method="POST"
+              action="{{ route('admin.core-addons.update', $addon->id) }}"
+              class="space-y-6">
+
+            @csrf
+            @method('PUT')
+
+
+            <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+
+                <h2 class="text-lg font-black text-slate-900">
+                    Add-on Details
+                </h2>
+
+                <div class="mt-5 grid gap-5 md:grid-cols-2">
+
+                    <div class="md:col-span-2">
+
+                        <label class="text-sm font-bold text-slate-700">
+                            Add-on Name
+                        </label>
+
+                        <input
+                            type="text"
+                            name="name"
+                            value="{{ $addon->name }}"
+                            required
+                            class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3">
+
+                    </div>
+
+
+                    <div class="md:col-span-2">
+
+                        <label class="text-sm font-bold text-slate-700">
+                            Description
+                        </label>
+
+                        <textarea
+                            name="description"
+                            rows="4"
+                            class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3">{{ $addon->description }}</textarea>
+
+                    </div>
+
+
+                    <div>
+
+                        <label class="text-sm font-bold text-slate-700">
+                            SaaS Price
+                        </label>
+
+                        <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            name="saas_price"
+                            value="{{ old('saas_price', $addon->saas_price ?? 0) }}"
+                            class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3">
+
+                    </div>
+
+
+                    <div>
+
+                        <label class="text-sm font-bold text-slate-700">
+                            SaaS Period
+                        </label>
+
+                        <input
+                            type="text"
+                            name="saas_period"
+                        value="{{ old('saas_period', (($addon->saas_billing_period ?? $addon->saas_period ?? $addon->saas_duration ?? $addon->duration ?? $addon->billing_period ?? '') . (($addon->saas_billing_interval ?? '') ? ' ' . $addon->saas_billing_interval : ''))) }}"
+                        class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3">
+
+                    </div>
+
+
+                    <div>
+
+                        <label class="text-sm font-bold text-slate-700">
+                            Off-server License Price
+                        </label>
+
+                        <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            name="offserver_price"
+                            value="{{ $addon->offserver_price ?? '' }}"
+                            class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3">
+
+                    </div>
+
+
+                    <div class="flex items-end">
+
+                        <label class="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+
+                            <input
+                                type="checkbox"
+                                name="is_active"
+                                value="1"
+                                {{ $addon->is_active ? 'checked' : '' }}>
+
+                            <span class="text-sm font-bold text-slate-700">
+                                Active
+                            </span>
+
+                        </label>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+
+
+            <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+
+                <h2 class="text-lg font-black text-slate-900">
+                    Function Allocations
+                </h2>
+
+                <p class="mt-1 text-sm text-slate-500">
+                    The amount configured here is added every time this add-on is purchased or rented.
+                </p>
+
+
+                <div class="mt-6 space-y-4">
+
+                    @foreach($capabilities as $capability)
+
+                        @php
+                            $key = $capability->limit_key
+                                ?? $capability->capability_key
+                                ?? $capability->feature_key
+                                ?? $capability->key
+                                ?? $capability->name;
+
+                            $allocation = $allocations->get($key);
+
+                            $allocationValue = $allocation
+                                ? ($allocation->allocation ?? 0)
+                                : 0;
+
+                            $isAddonUnlimited = $allocation
+                                && (bool) $allocation->is_unlimited;
+
+                            $type = $capability->type
+                                ?? $capability->entitlement_type
+                                ?? 'feature';
+
+                            $unit = $capability->unit ?? 'records';
+
+                            $coreDefault = $capability->default_value
+                                ?? $capability->default
+                                ?? $capability->limit
+                                ?? null;
+
+                            $supportsUnlimited =
+                                (bool) ($capability->supports_unlimited ?? false)
+                                || (bool) ($capability->allow_unlimited ?? false)
+                                || (bool) ($capability->is_unlimited ?? false)
+                                || strtolower((string) $type) === 'unlimited';
+                        @endphp
+
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+
+                            <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+
+                                <div class="min-w-0">
+
+                                    <h3 class="text-sm font-black text-slate-900">
+                                        {{ ucwords(str_replace('_', ' ', $key)) }}
+                                    </h3>
+
+                                    <div class="mt-3 flex flex-wrap gap-2">
+
+                                        <span class="rounded-full bg-blue-100 px-3 py-1 text-[11px] font-bold text-blue-700">
+                                            Entitlement: {{ ucfirst($type) }}
+                                        </span>
+
+                                        <span class="rounded-full bg-slate-200 px-3 py-1 text-[11px] font-bold text-slate-600">
+                                            Core default:
+                                            {{ $coreDefault ?? '—' }}
+                                            {{ $unit }}
+                                        </span>
+
+                                        <span class="rounded-full bg-slate-200 px-3 py-1 text-[11px] font-bold text-slate-600">
+                                            Unit: {{ $unit }}
+                                        </span>
+
+                                    </div>
+
+                                </div>
+
+                                <div class="w-full lg:max-w-xl">
+
+                                    <label class="text-xs font-black text-slate-700">
+                                        Add-on Allocation
+                                    </label>
+
+                                    <p class="mt-1 text-[11px] text-slate-500">
+                                        Configure the additional amount this add-on contributes each time it is purchased or rented.
+                                    </p>
+
+                                    <div class="mt-2 flex gap-2">
+
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            step="1"
+                                            name="capability_allocations[{{ $key }}]"
+                                            value="{{ $allocationValue }}"
+                                            class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3">
+
+                                        <span class="flex min-w-28 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-500">
+                                            {{ $unit }}
+                                        </span>
+
+                                    </div>
+
+                                    @if($supportsUnlimited)
+
+                                        <label class="mt-3 flex cursor-pointer items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+
+                                            <input
+                                                type="checkbox"
+                                                name="capability_unlimited[{{ $key }}]"
+                                                value="1"
+                                                {{ $isAddonUnlimited ? 'checked' : '' }}
+                                                class="h-4 w-4 rounded border-slate-300">
+
+                                            <span>
+                                                <span class="block text-xs font-black text-slate-900">
+                                                    Unlimited allocation
+                                                </span>
+
+                                                <span class="block text-[11px] text-slate-500">
+                                                    No quantity limit for this function from this add-on.
+                                                </span>
+                                            </span>
+
+                                        </label>
+
+                                    @endif
+
+                                    <p class="mt-2 text-[11px] text-slate-400">
+                                        Every additional purchase or rental adds this configured amount again.
+                                    </p>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    @endforeach
+
+                </div>
+
+            </div>
+
+
+            <div class="flex justify-end gap-3">
+
+                <a href="{{ route('admin.core-addons.index') }}"
+                   class="rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-bold text-slate-700">
+                    Cancel
+                </a>
+
+                <button
+                    type="submit"
+                    class="rounded-xl bg-blue-600 px-7 py-3 text-sm font-black text-white hover:bg-blue-700">
+                    Save Add-on
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    const featureSelect = document.getElementById('edit-addon-core-feature');
+    const functionsBox = document.getElementById('edit-addon-functions');
+
+    if (!featureSelect || !functionsBox) return;
+
+    const limits = @json($featureLimits ?? []);
+    const existing = @json($allocations);
+
+    function featureKey(row) {
+        return row.feature_key
+            || row.feature
+            || row.core_feature_key
+            || row.core_feature_id;
+    }
+
+    function limitKey(row) {
+        return row.key
+            || row.capability_key
+            || row.limit_key
+            || row.name;
+    }
+
+    function typeOf(row) {
+        return row.type
+            || row.entitlement_type
+            || 'feature';
+    }
+
+    function unitOf(row) {
+        const type = typeOf(row);
+
+        if (row.unit) return row.unit;
+        if (type === 'credits') return 'credits';
+        if (type === 'storage') return 'GB';
+        if (type === 'bandwidth') return 'GB';
+
+        return 'records';
+    }
+
+    function defaultOf(row) {
+        return row.default
+            ?? row.default_value
+            ?? row.default_limit
+            ?? row.limit
+            ?? null;
+    }
+
+    function supportsUnlimited(row) {
+        return typeOf(row) === 'unlimited'
+            || row.allow_unlimited === true
+            || row.supports_unlimited === true
+            || row.unlimited === true;
+    }
+
+    function title(value) {
+        return String(value || '')
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    function existingAllocation(key) {
+        if (!existing) return null;
+
+        if (typeof existing.get === 'function') {
+            return existing.get(key) || null;
+        }
+
+        return existing[key] || null;
+    }
+
+    function renderFunctions(feature) {
+
+        functionsBox.innerHTML = '';
+
+        if (!feature) {
+            functionsBox.innerHTML = `
+                <div class="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-400 md:col-span-2">
+                    Select a Core feature first.
+                </div>
+            `;
+            return;
+        }
+
+        const rows = limits.filter(row =>
+            String(featureKey(row)) === String(feature)
+        );
+
+        if (!rows.length) {
+            functionsBox.innerHTML = `
+                <div class="rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-400 md:col-span-2">
+                    This Core feature has no separately registered extension functions.
+                </div>
+            `;
+            return;
+        }
+
+        rows.forEach(row => {
+
+            const key = limitKey(row);
+            const type = typeOf(row);
+            const unit = unitOf(row);
+            const coreDefault = defaultOf(row);
+            const unlimitedSupported = supportsUnlimited(row);
+            const allocation = existingAllocation(key);
+
+            const selected =
+                !!allocation ||
+                {{ Js::from($allocations->keys()->all()) }}.includes(key);
+
+            const allocationValue =
+                allocation?.allocation
+                ?? allocation?.default_allocation
+                ?? 0;
+
+            const addonUnlimited =
+                allocation?.is_unlimited === true ||
+                allocation?.is_unlimited === 1;
+
+            const wrapper = document.createElement('label');
+
+            wrapper.className =
+                'flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 hover:border-blue-300 hover:bg-blue-50';
+
+            wrapper.innerHTML = `
+                <input
+                    type="checkbox"
+                    name="capabilities[]"
+                    value="${key}"
+                    ${selected ? 'checked' : ''}
+                    class="edit-addon-function mt-1 rounded border-slate-300">
+
+                <span class="min-w-0 flex-1">
+
+                    <span class="block text-sm font-semibold text-slate-800">
+                        ${title(row.name || key)}
+                    </span>
+
+                    <span class="mt-1 block text-xs text-slate-500">
+                        Core default:
+                        <strong>${coreDefault ?? '—'}</strong>
+                        ${unit}
+                    </span>
+
+                    <span class="mt-1 block text-xs text-slate-400">
+                        Entitlement: ${title(type)}
+                    </span>
+
+                </span>
+            `;
+
+            functionsBox.appendChild(wrapper);
+        });
+    }
+
+    featureSelect.addEventListener('change', function () {
+        renderFunctions(this.value);
+    });
+
+    /*
+     * Automatically determine the Core feature from the existing
+     * capabilities when the edit page opens.
+     */
+    const currentFeature =
+        featureSelect.value ||
+        @json(
+            old(
+                'parent_capability',
+                $addon->parent_capability
+                ?? $addon->core_feature_key
+                ?? $addon->parent_capability_key
+                ?? $addon->feature_key
+                ?? ''
+            )
+        );
+
+    if (currentFeature) {
+        featureSelect.value = currentFeature;
+        renderFunctions(currentFeature);
+    }
+
+});
+</script>
+
+@endsection
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document
+        .querySelectorAll('input[name^="capability_allocations["]')
+        .forEach(function (input) {
+
+            if (
+                input.parentElement &&
+                input.parentElement.querySelector(
+                    '.esubiz-unlimited-control'
+                )
+            ) {
+                return;
+            }
+
+            const name = input.getAttribute('name');
+
+            if (!name) {
+                return;
+            }
+
+            const unlimitedName = name.replace(
+                'capability_allocations',
+                'capability_unlimited'
+            );
+
+            const wrapper = document.createElement('div');
+
+            wrapper.className =
+                'esubiz-unlimited-control mt-3 flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3';
+
+            wrapper.innerHTML = `
+                <input
+                    type="checkbox"
+                    name="${unlimitedName}"
+                    value="1"
+                    class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                >
+                <div>
+                    <div class="text-sm font-semibold text-slate-800">
+                        Unlimited allocation
+                    </div>
+                    <div class="text-xs text-slate-500">
+                        No quantity limit for this function from this add-on.
+                    </div>
+                </div>
+            `;
+
+            input.closest('div')?.appendChild(wrapper);
+        });
+});
+</script>

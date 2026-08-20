@@ -208,7 +208,7 @@
 
             <div x-show="marketplaceMenu" x-cloak class="ml-4 mt-1 space-y-1">
 
-                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Add-ons</a>
+                <a href="{{ route('marketplace.addons') }}" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Add-ons</a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Themes</a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Modules</a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Others</a>
@@ -224,7 +224,10 @@
             </button>
 
             <div x-show="billingMenu" x-cloak class="ml-4 mt-1 space-y-1">
-                <a href="#"
+                                    <a href="{{ route('marketplace.checkout.index') }}" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
+                        Checkout
+                    </a>
+<a href="#"
                    class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
                     Wallet
                 </a>

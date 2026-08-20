@@ -82,7 +82,49 @@ Route::middleware(['auth'])->prefix('admin/core-addons')->name('admin.core-addon
 
     Route::post('/bundles/{bundle}/toggle', [\App\Http\Controllers\Admin\CoreAddonController::class, 'toggleBundle'])
         ->name('bundles.toggle');
+    Route::delete('/{id}', [\App\Http\Controllers\Admin\CoreAddonController::class, 'destroyAddon'])
+        ->name('addons.destroy');
+
+    Route::delete('/bundles/{bundle}', [\App\Http\Controllers\Admin\CoreAddonController::class, 'destroyBundle'])
+        ->name('bundles.destroy');
+
 });
+
+Route::middleware(['auth'])->group(function () {
+    Route::post('/marketplace/checkout', [\App\Http\Controllers\MarketplaceController::class, 'checkout'])
+        ->name('marketplace.checkout.create');
+
+    Route::get('/marketplace/checkout', [\App\Http\Controllers\MarketplaceController::class, 'pendingCheckouts'])
+        ->name('marketplace.checkout.index');
+
+
+
+    Route::get('/marketplace/checkout/{order}', [\App\Http\Controllers\MarketplaceController::class, 'checkoutPage'])
+        ->name('marketplace.checkout');
+
+    Route::get('/marketplace/orders/{order}/payment-status', [\App\Http\Controllers\MarketplaceController::class, 'paymentStatus'])
+        ->name('marketplace.payment-status');
+
+    Route::get('/marketplace', [\App\Http\Controllers\MarketplaceController::class, 'index'])
+        ->name('marketplace.index');
+    Route::get('/marketplace/addons', [\App\Http\Controllers\MarketplaceController::class, 'addons'])
+        ->name('marketplace.addons');
+
+});
+
+Route::middleware(['auth', 'account-mode:developer'])->group(function () {
+    Route::get('/developer/marketplace', [\App\Http\Controllers\MarketplaceController::class, 'developer'])
+        ->name('developer.marketplace');
+    Route::get('/developer/marketplace/addons', [\App\Http\Controllers\MarketplaceController::class, 'developerAddons'])
+        ->name('developer.marketplace.addons');
+
+});
+
+Route::middleware(['auth'])->post(
+    '/admin/core-addons/fulfil',
+    [\App\Http\Controllers\Admin\CoreAddonFulfilmentController::class, 'fulfil']
+)->name('admin.core-addons.fulfil');
+
 
 
 Route::middleware('auth')->group(function () {
@@ -355,3 +397,19 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::post('/tasks', [\App\Http\Controllers\User\CoreCrmController::class, 'storeTask'])
             ->name('tasks.store');
     });
+
+
+Route::get('/admin/core-addons/{id}/edit', [
+    \App\Http\Controllers\Admin\CoreAddonController::class,
+    'editAddon'
+])->name('admin.core-addons.edit');
+
+Route::put('/admin/core-addons/{id}', [
+    \App\Http\Controllers\Admin\CoreAddonController::class,
+    'updateAddon'
+])->name('admin.core-addons.update');
+
+Route::post('/admin/core-addons/{id}/grant', [
+    \App\Http\Controllers\Admin\CoreAddonController::class,
+    'grantAddon'
+])->name('admin.core-addons.grant');

@@ -25,6 +25,12 @@ class DashboardController extends Controller
 
         $websiteCount = $websites->count();
 
+        $failedWebsites = auth()->user()
+            ->websites()
+            ->where('status', 'failed')
+            ->latest()
+            ->get();
+
         $draftCount = auth()->user()
             ->websites()
             ->where('status', 'draft')
@@ -46,6 +52,7 @@ class DashboardController extends Controller
         return view('user.index', [
             'draft' => $draft,
             'websites' => $websites,
+            'failedWebsites' => $failedWebsites,
             'websiteCount' => $websiteCount,
             'draftCount' => $draftCount,
             'subscriptionCount' => $subscriptionCount,

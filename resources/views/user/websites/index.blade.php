@@ -124,39 +124,52 @@
 
                     <div class="mt-7 grid grid-cols-2 gap-3 border-t border-slate-100 pt-6">
 
-                        @if($website->subdomain)
+                        @if($website->status === 'failed')
 
                             <a
-                                href="https://{{ $website->subdomain }}.esubiz.com"
-                                target="_blank"
-                                rel="noopener"
-                                class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+                                href="{{ route('websites.review', $website) }}"
+                                class="col-span-2 inline-flex items-center justify-center rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white hover:bg-red-700"
                             >
-                                Visit Website
+                                Redeploy Website
+                            </a>
+
+                        @else
+
+                            @if($website->subdomain)
+
+                                <a
+                                    href="https://{{ $website->subdomain }}.esubiz.com"
+                                    target="_blank"
+                                    rel="noopener"
+                                    class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+                                >
+                                    Visit Website
+                                </a>
+
+                                <a
+                                    href="#"
+                                    class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                                >
+                                    Website Dashboard
+                                </a>
+
+                            @endif
+
+                            <a
+                                href="{{ route('user.websites.edit', $website) }}"
+                                class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                            >
+                                Edit Website
                             </a>
 
                             <a
                                 href="#"
                                 class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                             >
-                                Website Dashboard
+                                Add Features
                             </a>
 
                         @endif
-
-                        <a
-                            href="{{ route('user.websites.edit', $website) }}"
-                            class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                        >
-                            Edit Website
-                        </a>
-
-                        <a
-                            href="#"
-                            class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                        >
-                            Add Features
-                        </a>
 
                     </div>
 

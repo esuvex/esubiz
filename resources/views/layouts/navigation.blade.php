@@ -81,19 +81,30 @@
 
         </a>
 
-        <a
-            href="#"
-            class="flex items-center rounded-xl px-5 py-3 transition hover:bg-slate-800">
+        <div class="space-y-1">
+            <a
+                href="{{ session('account_mode', 'user') === 'developer'
+                    ? route('developer.marketplace')
+                    : route('marketplace.index') }}"
+                class="flex items-center rounded-xl px-5 py-3 transition hover:bg-slate-800">
+                Marketplace
+            </a>
 
-            Marketplace
-
-        </a>
+            <a
+                href="{{ session('account_mode', 'user') === 'developer'
+                    ? route('developer.marketplace.addons')
+                    : route('marketplace.addons') }}"
+                class="ml-5 flex items-center rounded-xl px-5 py-2 text-sm transition hover:bg-slate-800">
+                Add-ons & Bundles
+            </a>
+        </div>
 
         <a
             href="#"
             class="flex items-center rounded-xl px-5 py-3 transition hover:bg-slate-800">
 
             Billing
+            <a href="{{ route('marketplace.checkout.create') }}" class="block px-3 py-2 text-sm">Checkout</a>
 
         </a>
         <a

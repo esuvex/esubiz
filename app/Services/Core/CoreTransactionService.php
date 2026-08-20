@@ -58,6 +58,14 @@ class CoreTransactionService
                 $data,
                 [
                     'workspace_id' => $workspaceId,
+                    'website_id' => $data['website_id'] ?? null,
+                    'item_type' => $data['item_type'] ?? $data['product_type'] ?? null,
+                    'item_id' => $data['item_id'] ?? $data['product_id'] ?? null,
+                    'item_name' => $data['item_name']
+                        ?? $data['product_name']
+                        ?? $data['name']
+                        ?? $data['title']
+                        ?? null,
                 ]
             )
         );

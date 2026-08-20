@@ -97,40 +97,83 @@
             <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
                 <p class="font-semibold text-slate-700">No add-on bundles available</p>
                 <p class="mt-1 text-sm text-slate-500">
-                    Developer add-on products will appear here when made available by admin.
+                    Add-on bundles created by Esubiz will appear here.
                 </p>
             </div>
         @else
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div class="grid gap-4 md:grid-cols-2">
                 @foreach($addonBundles as $bundle)
-                    <label class="cursor-pointer">
-                        <input
-                            type="radio"
-                            name="addon_bundle"
-                            value="{{ $bundle->id }}"
-                            class="peer sr-only"
-                            @checked(old('addon_bundle') == $bundle->id)
-                            required>
+                    <label class="block cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-5 hover:border-blue-300 hover:bg-blue-50">
+                        <div class="flex items-start gap-3">
+                            <input
+                                type="radio"
+                                name="addon_bundle"
+                                value="{{ $bundle->id }}"
+                                @checked(old('addon_bundle') == $bundle->id)
+                                class="mt-1"
+                            >
 
-                        <div class="h-full rounded-2xl border border-slate-200 p-5 transition peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:ring-2 peer-checked:ring-blue-100 hover:border-blue-300">
-                            <div class="flex items-start justify-between gap-4">
-                                <div>
-                                    <p class="font-bold text-slate-900">{{ $bundle->name }}</p>
-                                    @if($bundle->description)
-                                        <p class="mt-2 text-sm text-slate-500">
-                                            {{ $bundle->description }}
+                            <div class="flex-1">
+                                <p class="font-bold text-slate-900">
+                                    {{ $bundle->name }}
+                                </p>
+
+                                @if($bundle->description)
+                                    <p class="mt-1 text-sm text-slate-500">
+                                        {{ $bundle->description }}
+                                    </p>
+                                @endif
+
+                                @if($bundle->items->isNotEmpty())
+                                    <div class="mt-4">
+                                        <p class="text-xs font-bold uppercase tracking-wide text-slate-500">
+                                            Included add-ons
                                         </p>
+
+                                        <div class="mt-2 space-y-1">
+                                            @foreach($bundle->items as $item)
+                                                <div class="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-xs">
+                                                    <span class="font-semibold text-slate-700">
+                                                        {{ $item->name }}
+                                                    </span>
+
+                                                    <span class="font-medium text-slate-500">
+                                                        @if($item->is_unlimited)
+                                                            Unlimited
+                                                        @else
+                                                            {{ number_format((int) $item->allocation) }}
+                                                        @endif
+                                                    </span>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endif
+
+                                <div class="mt-3 text-sm font-semibold text-slate-700">
+                                    @if($bundle->saas_available)
+                                        {{ $bundle->saas_currency }}
+                                        {{ number_format((float) $bundle->saas_price, 2) }}
+                                        <span class="text-xs font-medium text-slate-400">
+                                            / {{ $bundle->saas_billing_period }}
+                                            {{ $bundle->saas_billing_interval }}
+                                        </span>
+                                    @elseif($bundle->off_server_available)
+                                        {{ $bundle->off_server_currency }}
+                                        {{ number_format((float) $bundle->off_server_price, 2) }}
+                                    @else
+                                        Included
                                     @endif
                                 </div>
 
-                                <span class="shrink-0 rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">
-                                    Developer
-                                </span>
+                                <a
+                                    href="{{ route('marketplace.product', ['type' => 'bundle', 'id' => $bundle->id]) }}"
+                                    target="_blank"
+                                    class="mt-2 inline-block text-xs font-semibold text-blue-600 hover:text-blue-800"
+                                >
+                                    View Bundle →
+                                </a>
                             </div>
-
-                            <p class="mt-5 text-xl font-bold text-slate-900">
-                                ₦{{ number_format($bundle->price, 2) }}
-                            </p>
                         </div>
                     </label>
                 @endforeach
@@ -138,7 +181,9 @@
         @endif
 
         @error('addon_bundle')
-            <p class="mt-3 text-sm text-red-600">{{ $message }}</p>
+            <p class="mt-3 text-sm font-semibold text-red-600">
+                {{ $message }}
+            </p>
         @enderror
     </section>
 

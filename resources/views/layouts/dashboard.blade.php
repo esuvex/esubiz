@@ -135,11 +135,24 @@
 
                 </a>
 
-                <a href="#"
+                <a href="{{ route('marketplace.index') }}"
                    class="flex items-center gap-3 rounded-xl px-4 py-3 font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-700">
 
                     <span>🛍️</span>
                     <span>Marketplace</span>
+
+                </a>
+
+        <a href="{{ route('marketplace.addons') }}"
+                   class="ml-4 flex items-center rounded-xl px-5 py-2 text-sm transition hover:bg-slate-800">
+            Add-ons & Bundles
+        </a>
+
+                <a href="{{ route('marketplace.addons') }}"
+                   class="ml-7 flex items-center gap-3 rounded-xl px-4 py-2 text-sm font-medium text-slate-600 hover:bg-blue-50 hover:text-blue-700">
+
+                    <span>🧩</span>
+                    <span>Add-ons</span>
 
                 </a>
 
@@ -154,6 +167,7 @@
 
                     <span>💳</span>
                     <span>Billing</span>
+                    <a href="{{ route('marketplace.checkout.create') }}" class="block px-3 py-2 text-sm">Checkout</a>
 
                 </a>
 

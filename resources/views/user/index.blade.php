@@ -142,6 +142,58 @@
     @endif
 
     <!-- ======================================= -->
+    <!-- FAILED DEPLOYMENTS -->
+    <!-- ======================================= -->
+
+    @if($failedWebsites->count())
+
+        <div class="space-y-4">
+
+            @foreach($failedWebsites as $failedWebsite)
+
+                <div class="rounded-3xl border border-red-200 bg-red-50 p-8">
+
+                    <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+
+                        <div>
+
+                            <span class="rounded-full bg-red-200 px-4 py-2 text-xs font-bold uppercase tracking-wider text-red-800">
+                                Deployment Failed
+                            </span>
+
+                            <h2 class="mt-5 text-3xl font-bold text-slate-900">
+                                {{ $failedWebsite->name }}
+                            </h2>
+
+                            <p class="mt-3 max-w-2xl text-slate-600">
+                                Your website setup is complete, but the deployment was not successful.
+                                Your configuration has been preserved. You can retry the deployment from Step 5.
+                            </p>
+
+                        </div>
+
+                        <div class="shrink-0">
+
+                            <a
+                                href="{{ route('websites.review', $failedWebsite) }}"
+                                class="inline-flex items-center rounded-2xl bg-red-600 px-8 py-4 font-semibold text-white shadow-lg transition hover:bg-red-700"
+                            >
+                                Redeploy Website
+                            </a>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            @endforeach
+
+        </div>
+
+    @endif
+
+    <!-- ======================================= -->
     <!-- STATS -->
     <!-- ======================================= -->
 

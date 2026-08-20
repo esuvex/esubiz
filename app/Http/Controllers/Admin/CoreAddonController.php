@@ -11,7 +11,11 @@ class CoreAddonController extends Controller
 {
     public function index()
     {
-        return view('admin.core-addons.index', [
+                $bundles = DB::table('core_addon_bundles')
+            ->orderByDesc('id')
+            ->get();
+
+return view('admin.core-addons.index', [
             'addons' => DB::table('core_addons')
                 ->whereNull('deleted_at')
                 ->orderBy('name')
@@ -25,6 +29,76 @@ class CoreAddonController extends Controller
             'capabilities' => app(
                 \App\Services\Core\CoreCapabilityRegistry::class
             )->all(),
+
+            'coreFeatures' => DB::table('core_features')
+                ->where('is_active', true)
+                ->where('is_core', true)
+                ->orderBy('name')
+                ->get(),
+
+            'featureLimits' => (function () {
+                $columns = \Illuminate\Support\Facades\Schema::getColumnListing(
+                    'core_feature_limits'
+                );
+
+                $limits = DB::table('core_feature_limits')
+                    ->where('is_active', true)
+                    ->get();
+
+                /*
+                 * Normalize the registry relationship into feature_key
+                 * without assuming a specific physical column name.
+                 */
+                $featureColumn = collect([
+                    'feature_key',
+                    'feature',
+                    'core_feature_key',
+                    'feature_id',
+                    'core_feature_id',
+                ])->first(
+                    fn ($column) => in_array($column, $columns, true)
+                );
+
+                if ($featureColumn === null) {
+                    return $limits;
+                }
+
+                if (in_array($featureColumn, ['feature_id', 'core_feature_id'], true)) {
+                    $featureIds = $limits
+                        ->pluck($featureColumn)
+                        ->filter()
+                        ->unique()
+                        ->values();
+
+                    $features = DB::table('core_features')
+                        ->whereIn('id', $featureIds)
+                        ->get()
+                        ->keyBy('id');
+
+                    return $limits->map(function ($limit) use (
+                        $featureColumn,
+                        $features
+                    ) {
+                        $feature = $features->get($limit->{$featureColumn});
+
+                        $limit->feature_key = $feature->key ?? null;
+                        $limit->feature_name = $feature->name ?? null;
+
+                        return $limit;
+                    })->sortBy([
+                        ['feature_key', 'asc'],
+                        ['key', 'asc'],
+                    ])->values();
+                }
+
+                return $limits->map(function ($limit) use ($featureColumn) {
+                    $limit->feature_key = $limit->{$featureColumn};
+                    return $limit;
+                })->sortBy([
+                    ['feature_key', 'asc'],
+                    ['key', 'asc'],
+                ])->values();
+            })(),
         ]);
     }
 
@@ -51,50 +125,28 @@ class CoreAddonController extends Controller
         $data['created_at'] = now();
         $data['updated_at'] = now();
 
-        DB::table('core_addons')->insert($data);
+        $addonId = DB::table('core_addons')->insertGetId($data);
+
+        $this->syncCapabilityAllocations(
+            $addonId,
+            $request->input('capability_allocations', []),
+            $request->input('capability_unlimited', [])
+        );
 
         return back()->with('success', 'Core add-on created successfully.');
     }
 
-    public function updateAddon(Request $request, int $addon)
-    {
-        $record = DB::table('core_addons')
-            ->where('id', $addon)
-            ->whereNull('deleted_at')
-            ->first();
-
-        abort_unless($record, 404);
-
-        $data = $this->validateAddon($request, $addon);
-
-        $data['saas_available'] = $request->boolean('saas_available');
-        $data['off_server_available'] = $request->boolean('off_server_available');
-        $data['is_unlimited'] = $request->boolean('is_unlimited');
-        $data['is_active'] = $request->boolean('is_active');
-        $data['capabilities'] = $this->jsonArray($request->input('capabilities'));
-        $data['metadata'] = json_encode([
-            'deployment_types' => array_values(array_filter([
-                $request->boolean('saas_available') ? 'saas' : null,
-                $request->boolean('off_server_available') ? 'off_server' : null,
-            ])),
-            'commercial_models' => array_values(array_filter([
-                $request->boolean('saas_available') ? 'rental_or_subscription' : null,
-                $request->boolean('off_server_available') ? 'license' : null,
-            ])),
-        ]);
-        $data['updated_at'] = now();
-
-        DB::table('core_addons')
-            ->where('id', $addon)
-            ->update($data);
-
-        return back()->with('success', 'Core add-on updated successfully.');
-    }
+    
 
     public function storeBundle(Request $request)
     {
+        $request->merge([
+            'key' => Str::slug($request->input('name', ''), '_') . '_bundle',
+        ]);
+
         $data = $this->validateBundle($request);
 
+        DB::transaction(function () use ($request, $data) {
         $bundleId = DB::table('core_addon_bundles')->insertGetId([
             'uuid' => (string) Str::uuid(),
             'key' => $data['key'],
@@ -121,10 +173,15 @@ class CoreAddonController extends Controller
             'updated_at' => now(),
         ]);
 
-        $this->syncBundleItems(
-            $bundleId,
-            $request->input('items', [])
+        $items = array_values(
+            array_filter(
+                $request->input('items', []),
+                fn ($item) => !empty($item['addon_id'])
+            )
         );
+
+        $this->syncBundleItems($bundleId, $items);
+        });
 
         return back()->with('success', 'Core add-on bundle created successfully.');
     }
@@ -254,7 +311,7 @@ class CoreAddonController extends Controller
             'off_server_currency' => ['nullable', 'string', 'size:3'],
 
             'items' => ['nullable', 'array'],
-            'items.*.addon_id' => ['required', 'integer', 'exists:core_addons,id'],
+            'items.*.addon_id' => ['nullable', 'integer', 'exists:core_addons,id'],
             'items.*.allocation' => ['nullable', 'numeric', 'min:0'],
             'items.*.is_unlimited' => ['nullable', 'boolean'],
         ]);
@@ -271,14 +328,19 @@ class CoreAddonController extends Controller
         $rows = [];
 
         foreach ($items as $item) {
-            if (empty($item['addon_id'])) {
+            if (!is_array($item) || empty($item['addon_id'])) {
                 continue;
             }
 
             $rows[] = [
                 'bundle_id' => $bundleId,
                 'addon_id' => (int) $item['addon_id'],
-                'allocation' => $item['allocation'] ?? null,
+                'allocation' => (
+                    isset($item['allocation']) &&
+                    $item['allocation'] !== ''
+                )
+                    ? $item['allocation']
+                    : null,
                 'is_unlimited' => !empty($item['is_unlimited']),
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -304,4 +366,316 @@ class CoreAddonController extends Controller
             )
         );
     }
+
+    
+    /**
+     * Update a Core add-on and its per-function allocations.
+     *
+     * Allocation is cumulative:
+     * every additional purchase/rental of the add-on contributes
+     * the configured allocation again.
+     */
+    public function updateAddon(Request $request, int $id)
+    {
+        $addon = DB::table('core_addons')
+            ->where('id', $id)
+            ->first();
+
+        abort_unless($addon, 404);
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'saas_price' => ['nullable', 'numeric', 'min:0'],
+            'saas_period' => ['nullable', 'string', 'max:50'],
+            'offserver_price' => ['nullable', 'numeric', 'min:0'],
+            'is_active' => ['nullable', 'boolean'],
+            'capability_allocations' => ['nullable', 'array'],
+            'capability_unlimited' => ['nullable', 'array'],
+        ]);
+
+        DB::table('core_addons')
+            ->where('id', $id)
+            ->update([
+                'name' => $data['name'],
+                'description' => $data['description'] ?? null,
+                'saas_price' => $data['saas_price'] ?? 0,
+                'saas_billing_period' => $data['saas_period'] ?? null,
+                'off_server_price' => $data['offserver_price'] ?? 0,
+                'is_active' => $request->boolean('is_active'),
+                'updated_at' => now(),
+            ]);
+
+        /*
+         * Persist each selected function independently.
+         *
+         * Example:
+         *
+         * crm_clients = 100
+         * crm_invoices = 50
+         *
+         * The same add-on may therefore extend several CRM
+         * functions at different allocations.
+         */
+        $allocations = $request->input(
+            'capability_allocations',
+            []
+        );
+
+        $unlimited = $request->input(
+            'capability_unlimited',
+            []
+        );
+
+        foreach ($allocations as $capabilityKey => $amount) {
+
+            DB::table('core_addon_capability_allocations')
+                ->updateOrInsert(
+                    [
+                        'addon_id' => $id,
+                        'capability_key' => $capabilityKey,
+                    ],
+                    [
+                        'allocation' => is_numeric($amount)
+                            ? (float) $amount
+                            : 0,
+                        'is_unlimited' => isset(
+                            $unlimited[$capabilityKey]
+                        ),
+                        'updated_at' => now(),
+                        'created_at' => now(),
+                    ]
+                );
+        }
+
+        $this->syncCapabilityAllocations(
+            $id,
+            $request->input('capability_allocations', []),
+            $request->input('capability_unlimited', [])
+        );
+
+        return redirect()
+            ->route('admin.core-addons.index')
+            ->with(
+                'success',
+                'Core add-on updated successfully.'
+            );
+    }
+
+public function editAddon(int $id)
+    {
+        $addon = DB::table('core_addons')
+            ->where('id', $id)
+            ->first();
+
+        abort_unless($addon, 404);
+
+        $allocations = DB::table('core_addon_capability_allocations')
+            ->where('addon_id', $id)
+            ->get()
+            ->keyBy('capability_key');
+
+        $savedCapabilities = json_decode(
+            $addon->capabilities ?? '[]',
+            true
+        );
+
+        if (!is_array($savedCapabilities)) {
+            $savedCapabilities = [];
+        }
+
+        $capabilities = DB::table('core_feature_limits')
+            ->where('is_active', true)
+            ->whereIn('limit_key', $savedCapabilities)
+            ->get()
+            ->keyBy('limit_key')
+            ->values();
+
+        return view('admin.core-addons.edit', [
+            'addon' => $addon,
+            'capabilities' => $capabilities,
+            'allocations' => $allocations,
+        ]);
+    }
+
+
+
+    
+
+    /**
+     * Permanently delete a Core add-on and its catalog/configuration records.
+     * Active SaaS/off-server purchases/rentals are intentionally untouched.
+     */
+    public function destroyAddon(int $id)
+    {
+        $addon = DB::table('core_addons')
+            ->where('id', $id)
+            ->first();
+
+        abort_unless($addon, 404);
+
+        DB::transaction(function () use ($id) {
+            DB::table('core_addon_capability_allocations')
+                ->where('addon_id', $id)
+                ->delete();
+
+            DB::table('core_addon_admin_grants')
+                ->where('addon_id', $id)
+                ->delete();
+
+            DB::table('core_addon_bundle_items')
+                ->where('addon_id', $id)
+                ->delete();
+
+            DB::table('core_addons')
+                ->where('id', $id)
+                ->delete();
+        });
+
+        return redirect()
+            ->route('admin.core-addons.index')
+            ->with('success', 'Core add-on permanently deleted.');
+    }
+
+    /**
+     * Permanently delete a Core add-on bundle and its bundle-item records.
+     * Active purchases/rentals are intentionally untouched.
+     */
+    public function destroyBundle(int $bundle)
+    {
+        $record = DB::table('core_addon_bundles')
+            ->where('id', $bundle)
+            ->first();
+
+        abort_unless($record, 404);
+
+        DB::transaction(function () use ($bundle) {
+            DB::table('core_addon_bundle_items')
+                ->where('bundle_id', $bundle)
+                ->delete();
+
+            DB::table('core_addon_bundles')
+                ->where('id', $bundle)
+                ->delete();
+        });
+
+        return redirect()
+            ->route('admin.core-addons.index')
+            ->with('success', 'Add-on bundle permanently deleted.');
+    }
+
+    public function grantAddon(Request $request, int $id)
+    {
+        $addon = DB::table('core_addons')
+            ->where('id', $id)
+            ->first();
+
+        abort_unless($addon, 404);
+
+        $data = $request->validate([
+            'website_id' => [
+                'required',
+                'integer',
+                'exists:websites,id'
+            ],
+            'price' => [
+                'required',
+                'numeric',
+                'min:0'
+            ],
+            'currency' => [
+                'required',
+                'string',
+                'size:3'
+            ],
+            'duration_days' => [
+                'nullable',
+                'integer',
+                'min:1'
+            ],
+            'starts_at' => [
+                'nullable',
+                'date'
+            ],
+            'expires_at' => [
+                'nullable',
+                'date',
+                'after_or_equal:starts_at'
+            ],
+        ]);
+
+        $website = DB::table('websites')
+            ->where('id', $data['website_id'])
+            ->first();
+
+        abort_unless($website, 404);
+
+        $startsAt = !empty($data['starts_at'])
+            ? \Carbon\Carbon::parse($data['starts_at'])
+            : now();
+
+        $expiresAt = $data['expires_at'] ?? null;
+
+        if (!$expiresAt && !empty($data['duration_days'])) {
+            $expiresAt = $startsAt
+                ->copy()
+                ->addDays((int) $data['duration_days']);
+        }
+
+        DB::table('core_addon_admin_grants')->insert([
+            'addon_id' => $id,
+            'website_id' => $website->id,
+            'workspace_id' => $website->workspace_id ?? null,
+            'user_id' => $website->user_id ?? null,
+            'price' => $data['price'],
+            'currency' => strtoupper($data['currency']),
+            'starts_at' => $startsAt,
+            'expires_at' => $expiresAt,
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return redirect()
+            ->route('admin.core-addons.index')
+            ->with(
+                'success',
+                'Add-on assigned to the SaaS website successfully.'
+            );
+    }
+
+
+    /**
+     * Persist per-function add-on allocations.
+     *
+     * Every purchase/rental of the add-on contributes the configured
+     * allocation again. Unlimited is stored per capability.
+     */
+    private function syncCapabilityAllocations(
+        int $addonId,
+        array $allocations,
+        array $unlimited = []
+    ): void {
+        foreach ($allocations as $capabilityKey => $amount) {
+            DB::table('core_addon_capability_allocations')
+                ->updateOrInsert(
+                    [
+                        'addon_id' => $addonId,
+                        'capability_key' => $capabilityKey,
+                    ],
+                    [
+                        'allocation' => is_numeric($amount)
+                            ? (float) $amount
+                            : 0,
+                        'is_unlimited' => isset(
+                            $unlimited[$capabilityKey]
+                        ) ? 1 : 0,
+                        'updated_at' => now(),
+                        'created_at' => now(),
+                    ]
+                );
+        }
+    }
+
+
 }

@@ -102,7 +102,7 @@ class WebsiteProvisioningService
             }
 
             $website->update([
-                'status' => 'provisioning',
+                'status' => 'failed',
             ]);
 
             throw $e;

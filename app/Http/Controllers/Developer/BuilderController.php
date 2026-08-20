@@ -10,16 +10,45 @@ use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\DB;
 
 class BuilderController extends Controller
 {
     public function index(): View
     {
-        $addonBundles = AddonProduct::query()
+        $coreAddonBundles = DB::table('core_addon_bundles')
             ->where('is_active', true)
-            ->whereIn('audience', ['developer', 'both'])
+            ->whereNull('deleted_at')
             ->orderBy('name')
             ->get();
+
+        $addonBundles = DB::table('core_addon_bundles')
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->orderBy('name')
+            ->get()
+            ->map(function ($bundle) {
+                $bundle->items = DB::table('core_addon_bundle_items as items')
+                    ->join(
+                        'core_addons as addons',
+                        'addons.id',
+                        '=',
+                        'items.addon_id'
+                    )
+                    ->where('items.bundle_id', $bundle->id)
+                    ->where('addons.is_active', true)
+                    ->whereNull('addons.deleted_at')
+                    ->select(
+                        'addons.id',
+                        'addons.name',
+                        'items.allocation',
+                        'items.is_unlimited'
+                    )
+                    ->orderBy('addons.name')
+                    ->get();
+
+                return $bundle;
+            });
 
         $modules = \App\Models\CatalogProduct::query()
             ->where('product_type', 'module')
@@ -37,6 +66,7 @@ class BuilderController extends Controller
 
         return view('developer.builder.index', [
             'addonBundles' => $addonBundles,
+            'coreAddonBundles' => $coreAddonBundles,
             'modules' => $modules,
             'themes' => $themes,
         ]);
@@ -54,7 +84,7 @@ class BuilderController extends Controller
             'addon_bundle' => [
                 'required',
                 'integer',
-                'exists:addon_products,id',
+                'exists:core_addon_bundles,id',
             ],
             'theme' => [
                 'nullable',
