@@ -46,6 +46,293 @@ class MarketplaceController extends Controller
         ]);
     }
 
+
+    public function developerCheckout(string $productType, int $productId)
+    {
+        if (!in_array($productType, ['addon', 'bundle'], true)) {
+            abort(404);
+        }
+
+        $table = $productType === 'addon'
+            ? 'core_addons'
+            : 'core_addon_bundles';
+
+        $product = DB::table($table)
+            ->where('id', $productId)
+            ->where('is_active', true)
+            ->where('off_server_available', true)
+            ->whereNull('deleted_at')
+            ->first();
+
+        if (!$product) {
+            abort(404);
+        }
+
+        $paymentMethods = DB::table('payment_methods as methods')
+            ->join('payment_providers as providers', 'providers.id', '=', 'methods.payment_provider_id')
+            ->where('methods.is_active', true)
+            ->whereNull('methods.deleted_at')
+            ->where('providers.is_active', true)
+            ->whereNull('providers.deleted_at')
+            ->orderBy('methods.priority')
+            ->orderBy('methods.name')
+            ->select(
+                'methods.id',
+                'methods.uuid',
+                'methods.name',
+                'methods.slug',
+                'methods.type',
+                'methods.supported_currencies',
+                'methods.minimum_amount',
+                'methods.maximum_amount',
+                'methods.icon',
+                'providers.id as provider_id',
+                'providers.name as provider_name',
+                'providers.slug as provider_slug',
+                'providers.type as provider_type'
+            )
+            ->get();
+
+        return view('marketplace.developer-checkout', [
+            'product' => $product,
+            'productType' => $productType,
+            'paymentMethods' => $paymentMethods,
+        ]);
+    }
+
+
+    public function developerCheckoutSubmit(Request $request)
+    {
+        $data = $request->validate([
+            'product_type' => ['required', 'string', 'max:100'],
+            'product_id' => ['required', 'integer'],
+            'quantity' => ['required', 'integer', 'min:1'],
+            'payment_method_id' => ['required', 'integer'],
+        ]);
+
+        $listingProductType = match ($data['product_type']) {
+            'addon' => 'core_addon',
+            'bundle' => 'core_bundle',
+            default => $data['product_type'],
+        };
+
+        $listing = $this->resolveMarketplaceListing(
+            $listingProductType,
+            (int) $data['product_id']
+        );
+
+        abort_unless($listing, 404);
+
+        $productTable = match ($data['product_type']) {
+            'addon' => 'core_addons',
+            'bundle' => 'core_addon_bundles',
+            default => null,
+        };
+
+        if (!$productTable) {
+            abort(422, 'Unsupported marketplace product type.');
+        }
+
+        $product = DB::table($productTable)
+            ->where('id', $data['product_id'])
+            ->where('is_active', true)
+            ->where('off_server_available', true)
+            ->whereNull('deleted_at')
+            ->first();
+
+        abort_unless($product, 404);
+
+        $unitPrice = (float) ($product->off_server_price ?? 0);
+        $amount = $unitPrice * (int) $data['quantity'];
+        $currency = $product->off_server_currency ?? 'NGN';
+
+        $orderReference = 'DEV-' . strtoupper(\Illuminate\Support\Str::random(12));
+
+        $paymentMethod = DB::table('payment_methods')
+            ->where('id', $data['payment_method_id'])
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->first();
+
+        abort_unless($paymentMethod, 422, 'Selected payment method is unavailable.');
+
+        $paymentProvider = DB::table('payment_providers')
+            ->where('id', $paymentMethod->payment_provider_id)
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->first();
+
+        abort_unless($paymentProvider, 422, 'Selected payment provider is unavailable.');
+
+        $pendingOrder = DB::table('marketplace_orders')->insertGetId([
+            'marketplace_listing_id' => $listing->id,
+            'vendor_id' => $listing->vendor_id,
+            'workspace_id' => $listing->workspace_id,
+            'buyer_id' => auth()->id(),
+            'uuid' => (string) \Illuminate\Support\Str::uuid(),
+            'reference' => $orderReference,
+            'amount' => $amount,
+            'commission_amount' => 0,
+            'vendor_amount' => $amount,
+            'currency' => $currency,
+            'payment_status' => 'pending',
+            'status' => 'pending',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $transactionReference = 'DEV-TXN-' . strtoupper(\Illuminate\Support\Str::random(12));
+
+        DB::table('payment_transactions')->insert([
+            'workspace_id' => $listing->workspace_id,
+            'wallet_id' => null,
+            'payment_provider_id' => $paymentProvider->id,
+            'reference' => $transactionReference,
+            'amount' => $amount,
+            'currency' => $currency,
+            'status' => 'pending',
+            'payload' => json_encode([
+                'marketplace_order_id' => $pendingOrder,
+                'marketplace_order_reference' => $orderReference,
+                'payment_method_id' => $paymentMethod->id,
+                'payment_method' => $paymentMethod->slug,
+                'payment_provider' => $paymentProvider->slug,
+                'product_type' => $data['product_type'],
+                'product_id' => $data['product_id'],
+                'quantity' => $data['quantity'],
+                'buyer_id' => auth()->id(),
+            ]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return redirect()
+            ->route('marketplace.developer.checkout', [
+                'productType' => $data['product_type'],
+                'productId' => $data['product_id'],
+                'quantity' => $data['quantity'],
+            ])
+            ->with('status', 'Developer marketplace checkout created.');
+    }
+
+
+    public function developerPayment(Request $request)
+    {
+        $data = $request->validate([
+            'transaction_reference' => ['required', 'string'],
+        ]);
+
+        $transaction = DB::table('payment_transactions')
+            ->where('reference', $data['transaction_reference'])
+            ->where('status', 'pending')
+            ->first();
+
+        abort_unless($transaction, 404);
+
+        return response()->json([
+            'status' => 'pending',
+            'reference' => $transaction->reference,
+            'message' => 'Developer payment transaction is ready for gateway processing.',
+        ]);
+    }
+
+
+    public function developerPendingCheckouts()
+    {
+        $checkouts = DB::table('marketplace_orders as orders')
+            ->join('marketplace_listings as listings', 'listings.id', '=', 'orders.marketplace_listing_id')
+            ->leftJoin('payment_transactions as transactions', function ($join) {
+                $join->on(
+                    DB::raw("JSON_UNQUOTE(JSON_EXTRACT(transactions.payload, '$.marketplace_order_id'))"),
+                    '=',
+                    DB::raw('CAST(orders.id AS CHAR)')
+                );
+            })
+            ->where('orders.buyer_id', auth()->id())
+            ->where('orders.payment_status', 'pending')
+            ->where('orders.status', 'pending')
+            ->select(
+                'orders.*',
+                'listings.product_type',
+                'listings.product_id',
+                'listings.title as listing_title',
+                'listings.slug as listing_slug',
+                'transactions.reference as transaction_reference',
+                'transactions.payment_provider_id',
+                'transactions.status as transaction_status'
+            )
+            ->latest('orders.created_at')
+            ->get();
+
+        return view('marketplace.developer-pending-checkouts', [
+            'checkouts' => $checkouts,
+        ]);
+    }
+
+
+    public function continueDeveloperCheckout($order)
+    {
+        $order = DB::table('marketplace_orders as orders')
+            ->join(
+                'marketplace_listings as listings',
+                'listings.id',
+                '=',
+                'orders.marketplace_listing_id'
+            )
+            ->leftJoin('payment_transactions as transactions', function ($join) {
+                $join->on(
+                    DB::raw("JSON_UNQUOTE(JSON_EXTRACT(transactions.payload, '$.marketplace_order_id'))"),
+                    '=',
+                    DB::raw('CAST(orders.id AS CHAR)')
+                );
+            })
+            ->where('orders.id', $order)
+            ->where('orders.buyer_id', auth()->id())
+            ->where('orders.payment_status', 'pending')
+            ->where('orders.status', 'pending')
+            ->select(
+                'orders.id',
+                'orders.reference',
+                'orders.amount',
+                'orders.currency',
+                'listings.product_type',
+                'listings.product_id',
+                'transactions.reference as transaction_reference',
+                'transactions.payload as transaction_payload'
+            )
+            ->first();
+
+        abort_unless($order, 404);
+
+        $productType = match ($order->product_type) {
+            'core_addon' => 'addon',
+            'core_bundle' => 'bundle',
+            default => $order->product_type,
+        };
+
+        $transactionPayload = [];
+
+        if (!empty($order->transaction_payload)) {
+            $transactionPayload = json_decode(
+                $order->transaction_payload,
+                true
+            ) ?: [];
+        }
+
+        $quantity = max(
+            1,
+            (int) ($transactionPayload['quantity'] ?? 1)
+        );
+
+        return redirect()->route('marketplace.developer.checkout', [
+            'productType' => $productType,
+            'productId' => $order->product_id,
+            'quantity' => $quantity,
+            'transaction' => $order->transaction_reference,
+            'order' => $order->id,
+        ]);
+    }
+
     public function addons()
     {
         $addons = DB::table('core_addons')
@@ -163,6 +450,55 @@ class MarketplaceController extends Controller
             ->first();
 
         return $listing;
+    }
+
+    public function developerAddons()
+    {
+        $addons = DB::table('core_addons')
+            ->where('is_active', true)
+            ->where('off_server_available', true)
+            ->whereNull('deleted_at')
+            ->orderBy('name')
+            ->get();
+
+        $capabilityAllocations = DB::table('core_addon_capability_allocations')
+            ->whereIn('addon_id', $addons->pluck('id'))
+            ->get()
+            ->groupBy('addon_id');
+
+        foreach ($addons as $addon) {
+            $addon->capability_allocations =
+                collect($capabilityAllocations->get($addon->id, []));
+        }
+
+        $bundles = DB::table('core_addon_bundles')
+            ->where('is_active', true)
+            ->where('off_server_available', true)
+            ->whereNull('deleted_at')
+            ->orderBy('name')
+            ->get();
+
+        $bundleItems = DB::table('core_addon_bundle_items as items')
+            ->join('core_addons as addons', 'addons.id', '=', 'items.addon_id')
+            ->whereIn('items.bundle_id', $bundles->pluck('id'))
+            ->where('addons.is_active', true)
+            ->whereNull('addons.deleted_at')
+            ->select(
+                'items.bundle_id',
+                'addons.id as addon_id',
+                'addons.name',
+                'items.allocation',
+                'items.is_unlimited'
+            )
+            ->orderBy('addons.name')
+            ->get()
+            ->groupBy('bundle_id');
+
+        return view('marketplace.developer-addons', [
+            'addons' => $addons,
+            'bundles' => $bundles,
+            'bundleItems' => $bundleItems,
+        ]);
     }
 
     public function checkout(Request $request)

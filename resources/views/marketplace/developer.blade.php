@@ -8,6 +8,10 @@
         <div class="mb-8">
             <div class="text-xs font-black uppercase tracking-widest text-blue-600">
                 Developer Marketplace
+                    <a href="{{ route('marketplace.developer.addons') }}"
+                       class="block text-sm font-semibold text-slate-600 hover:text-slate-900">
+                        Developer Add-ons
+                    </a>
             </div>
 
             <h1 class="mt-2 text-3xl font-black text-slate-900">

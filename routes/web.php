@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\MarketplaceController;
+
 use App\Http\Controllers\Admin\FinancialReportController;
 
 use Illuminate\Support\Facades\Route;
@@ -413,3 +415,16 @@ Route::post('/admin/core-addons/{id}/grant', [
     \App\Http\Controllers\Admin\CoreAddonController::class,
     'grantAddon'
 ])->name('admin.core-addons.grant');
+
+Route::post('/marketplace/developer/checkout', [MarketplaceController::class, 'developerCheckoutSubmit'])
+    ->name('marketplace.developer.checkout.submit');
+Route::post('/marketplace/developer/payment', [MarketplaceController::class, 'developerPayment'])
+    ->name('marketplace.developer.payment');
+Route::get('/marketplace/developer/pending-checkouts/{order}/continue', [MarketplaceController::class, 'continueDeveloperCheckout'])
+    ->name('marketplace.developer.pending-checkouts.continue');
+Route::get('/marketplace/developer/pending-checkouts', [MarketplaceController::class, 'developerPendingCheckouts'])
+    ->name('marketplace.developer.pending-checkouts');
+Route::get('/marketplace/developer/checkout/{productType}/{productId}', [MarketplaceController::class, 'developerCheckout'])
+    ->name('marketplace.developer.checkout');
+Route::get('/marketplace/developer/addons', [MarketplaceController::class, 'developerAddons'])
+    ->name('marketplace.developer.addons');

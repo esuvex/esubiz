@@ -331,9 +331,11 @@
                     Marketplace Dashboard
                 </a>
 
-                <a href="{{ route('admin.core-addons.index') }}"
+                <a href="{{ route('marketplace.developer.addons') }}""
    class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800
-   {{ request()->routeIs('admin.core-addons.*') ? 'bg-blue-600 text-white' : '' }}">
+   {{ request()->routeIs('marketplace.developer.*')
+        ? 'bg-blue-600 text-white'
+        : (request()->routeIs('admin.core-addons.*') ? 'bg-blue-600 text-white' : '') }}">
     Add-ons
 </a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Themes</a>
@@ -359,7 +361,15 @@
             </button>
 
             <div x-show="billingMenu" x-cloak class="ml-4 mt-1 space-y-1">
-                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Wallet</a>
+                                <a href="{{ route('marketplace.developer.pending-checkouts') }}"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800
+                   {{ request()->routeIs('marketplace.developer.pending-checkouts')
+                        ? 'bg-blue-600 text-white'
+                        : '' }}">
+                    Pending Checkouts
+                </a>
+
+<a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Wallet</a>
             </div>
         </div>
 
@@ -480,9 +490,13 @@
                     Marketplace Dashboard
                 </a>
 
-                <a href="{{ route('admin.core-addons.index') }}"
+                <a href="{{ request()->routeIs('marketplace.developer.*')
+                    ? route('marketplace.developer.addons')
+                    : route('admin.core-addons.index') }}"
    class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800
-   {{ request()->routeIs('admin.core-addons.*') ? 'bg-blue-600 text-white' : '' }}">
+   {{ request()->routeIs('marketplace.developer.*')
+        ? 'bg-blue-600 text-white'
+        : (request()->routeIs('admin.core-addons.*') ? 'bg-blue-600 text-white' : '') }}">
     Add-ons
 </a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Themes</a>
