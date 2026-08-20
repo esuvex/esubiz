@@ -508,6 +508,15 @@
                        {{ request()->routeIs('admin.credit-packages.*') ? 'bg-blue-600 text-white' : '' }}">
                         Credit Packages
                     </a>
+
+                <a href="{{ route('admin.marketplace.checkout-sessions') }}"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800
+                   {{ request()->routeIs('admin.marketplace.checkout-sessions')
+                        ? 'bg-blue-600 text-white'
+                        : '' }}">
+                    Checkout Sessions
+                </a>
+
 </div>
         </div>
 

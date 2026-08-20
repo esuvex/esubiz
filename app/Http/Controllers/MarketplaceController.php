@@ -203,7 +203,7 @@ class MarketplaceController extends Controller
 
         $transactionReference = 'DEV-TXN-' . strtoupper(\Illuminate\Support\Str::random(12));
 
-        DB::table('payment_transactions')->insert([
+        $paymentTransactionId = DB::table('payment_transactions')->insertGetId([
             'workspace_id' => $listing->workspace_id,
             'wallet_id' => null,
             'payment_provider_id' => $paymentProvider->id,
@@ -225,6 +225,14 @@ class MarketplaceController extends Controller
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+
+        DB::table('marketplace_checkout_sessions')
+            ->where('id', $checkoutSessionId)
+            ->update([
+                'payment_transaction_id' => $paymentTransactionId,
+                'status' => 'pending_payment',
+                'updated_at' => now(),
+            ]);
 
         return redirect()
             ->route('marketplace.developer.checkout', [
@@ -351,6 +359,85 @@ class MarketplaceController extends Controller
             'transaction' => $order->transaction_reference,
             'order' => $order->id,
         ]);
+    }
+
+
+    public function adminCheckoutSessions()
+    {
+        $sessions = DB::table('marketplace_checkout_sessions as sessions')
+            ->leftJoin('users', 'users.id', '=', 'sessions.user_id')
+            ->leftJoin('marketplace_orders as orders', 'orders.id', '=', 'sessions.marketplace_order_id')
+            ->leftJoin('payment_transactions as transactions', 'transactions.id', '=', 'sessions.payment_transaction_id')
+            ->whereIn('sessions.status', [
+                'active',
+                'pending_payment',
+            ])
+            ->select(
+                'sessions.*',
+                'users.name as buyer_name',
+                'users.email as buyer_email',
+                'orders.reference as order_reference',
+                'transactions.reference as transaction_reference'
+            )
+            ->latest('sessions.created_at')
+            ->get();
+
+        return view('admin.marketplace.checkout-sessions', [
+            'sessions' => $sessions,
+        ]);
+    }
+
+
+    public function adminDeleteCheckoutSession($session)
+    {
+        $checkout = DB::table('marketplace_checkout_sessions')
+            ->where('id', $session)
+            ->first();
+
+        abort_unless($checkout, 404);
+
+        if (in_array($checkout->status, ['completed'], true)) {
+            abort(403, 'Completed checkout sessions cannot be deleted.');
+        }
+
+        $orderId = $checkout->marketplace_order_id;
+        $transactionId = $checkout->payment_transaction_id;
+
+        DB::transaction(function () use ($checkout, $orderId, $transactionId) {
+
+            DB::table('marketplace_checkout_sessions')
+                ->where('id', $checkout->id)
+                ->update([
+                    'status' => 'cancelled',
+                    'updated_at' => now(),
+                ]);
+
+            if ($transactionId) {
+                DB::table('payment_transactions')
+                    ->where('id', $transactionId)
+                    ->where('status', 'pending')
+                    ->update([
+                        'status' => 'cancelled',
+                        'updated_at' => now(),
+                    ]);
+            }
+
+            if ($orderId) {
+                DB::table('marketplace_orders')
+                    ->where('id', $orderId)
+                    ->where('payment_status', 'pending')
+                    ->whereIn('status', ['pending', 'processing'])
+                    ->update([
+                        'payment_status' => 'failed',
+                        'status' => 'cancelled',
+                        'updated_at' => now(),
+                    ]);
+            }
+        });
+
+        return redirect()
+            ->route('admin.marketplace.checkout-sessions')
+            ->with('status', 'Checkout session cancelled successfully.');
     }
 
     public function addons()
@@ -580,6 +667,22 @@ class MarketplaceController extends Controller
 
         $orderReference = 'MKT-' . strtoupper(bin2hex(random_bytes(6)));
 
+        $checkoutSessionId = DB::table('marketplace_checkout_sessions')->insertGetId([
+            'user_id' => auth()->id(),
+            'account_mode' => 'user',
+            'product_type' => $data['product_type'],
+            'product_id' => (int) $data['product_id'],
+            'quantity' => 1,
+            'unit_price' => $amount,
+            'total_amount' => $amount,
+            'currency' => $currency,
+            'is_commissionable' => true,
+            'status' => 'pending_payment',
+            'expires_at' => now()->addHours(24),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         $orderId = DB::table('marketplace_orders')->insertGetId([
             'marketplace_listing_id' => $listing->id,
             'vendor_id' => $listing->vendor_id,
@@ -596,6 +699,13 @@ class MarketplaceController extends Controller
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+
+        DB::table('marketplace_checkout_sessions')
+            ->where('id', $checkoutSessionId)
+            ->update([
+                'marketplace_order_id' => $orderId,
+                'updated_at' => now(),
+            ]);
 
         return redirect()
             ->route('marketplace.checkout', $orderId)

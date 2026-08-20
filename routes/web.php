@@ -420,6 +420,10 @@ Route::post('/marketplace/developer/checkout', [MarketplaceController::class, 'd
     ->name('marketplace.developer.checkout.submit');
 Route::post('/marketplace/developer/payment', [MarketplaceController::class, 'developerPayment'])
     ->name('marketplace.developer.payment');
+Route::delete('/admin/marketplace/checkout-sessions/{session}', [MarketplaceController::class, 'adminDeleteCheckoutSession'])
+    ->name('admin.marketplace.checkout-sessions.delete');
+Route::get('/admin/marketplace/checkout-sessions', [MarketplaceController::class, 'adminCheckoutSessions'])
+    ->name('admin.marketplace.checkout-sessions');
 Route::get('/marketplace/developer/pending-checkouts/{order}/continue', [MarketplaceController::class, 'continueDeveloperCheckout'])
     ->name('marketplace.developer.pending-checkouts.continue');
 Route::get('/marketplace/developer/pending-checkouts', [MarketplaceController::class, 'developerPendingCheckouts'])
