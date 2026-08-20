@@ -221,16 +221,17 @@ class MarketplaceController extends Controller
             if ($listing && in_array($listing->product_type, ['core_addon', 'core_bundle'], true)) {
                 $productType = $listing->product_type === 'core_addon' ? 'addon' : 'bundle';
 
-                app(\App\Services\Core\CoreAddonMarketplaceFulfilmentService::class)->fulfil(
-                    auth()->id(),
-                    (int) $listing->product_id,
-                    $productType,
-                    $record->deployment_type ?? 'saas',
-                    $record->website_id ?? null,
-                    $record->workspace_id ?? null,
-                    $record->id,
-                    $record->reference
+                $orderForFulfilment = (object) array_merge(
+                    (array) $record,
+                    [
+                        'deployment_type' => $record->deployment_type ?? 'saas',
+                        'website_id' => $record->website_id ?? null,
+                        'workspace_id' => $record->workspace_id ?? null,
+                    ]
                 );
+
+                app(\App\Services\Marketplace\MarketplaceFulfilmentManager::class)
+                    ->fulfil($orderForFulfilment, $listing);
 
                 DB::table('marketplace_orders')
                     ->where('id', $record->id)
