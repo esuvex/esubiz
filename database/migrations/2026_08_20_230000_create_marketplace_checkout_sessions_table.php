@@ -51,6 +51,18 @@ return new class extends Migration
 
             /*
             |--------------------------------------------------------------------------
+            | Referral Commission
+            |--------------------------------------------------------------------------
+            |
+            | Every Esubiz marketplace product is commissionable by default.
+            | Product type must never determine referral eligibility.
+            |
+            */
+
+            $table->boolean('is_commissionable')->default(true);
+
+            /*
+            |--------------------------------------------------------------------------
             | Payment Selection
             |--------------------------------------------------------------------------
             */

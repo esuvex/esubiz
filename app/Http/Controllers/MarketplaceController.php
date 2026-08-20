@@ -181,6 +181,26 @@ class MarketplaceController extends Controller
             'updated_at' => now(),
         ]);
 
+        $checkoutSessionId = DB::table('marketplace_checkout_sessions')->insertGetId([
+            'user_id' => auth()->id(),
+            'account_mode' => 'developer',
+            'product_type' => $data['product_type'],
+            'product_id' => $data['product_id'],
+            'quantity' => (int) $data['quantity'],
+            'unit_price' => $unitPrice,
+            'total_amount' => $amount,
+            'currency' => $currency,
+            'payment_method_id' => $paymentMethod->id,
+            'payment_provider_id' => $paymentProvider->id,
+            'marketplace_order_id' => $pendingOrder,
+                'checkout_session_id' => $checkoutSessionId,
+            'status' => 'pending_payment',
+            'is_commissionable' => true,
+            'expires_at' => now()->addHours(24),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         $transactionReference = 'DEV-TXN-' . strtoupper(\Illuminate\Support\Str::random(12));
 
         DB::table('payment_transactions')->insert([
