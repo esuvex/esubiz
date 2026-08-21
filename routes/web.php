@@ -117,9 +117,25 @@ Route::middleware(['auth'])->group(function () {
                 'update'
             ])->name('online.update');
 
-            Route::get('/offline', function () {
-                return view('admin.offline-payment.index');
-            })->name('offline.index');
+            Route::get('/offline', [
+                \App\Http\Controllers\Admin\OfflinePaymentController::class,
+                'index'
+            ])->name('offline.index');
+
+            Route::post('/offline', [
+                \App\Http\Controllers\Admin\OfflinePaymentController::class,
+                'store'
+            ])->name('offline.store');
+
+            Route::post('/offline/{method}', [
+                \App\Http\Controllers\Admin\OfflinePaymentController::class,
+                'update'
+            ])->name('offline.update');
+
+            Route::delete('/offline/{method}', [
+                \App\Http\Controllers\Admin\OfflinePaymentController::class,
+                'destroy'
+            ])->name('offline.destroy');
 
         });
 
