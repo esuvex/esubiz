@@ -303,20 +303,6 @@
             </div>
         </div>
 
-        <!-- Plans -->
-        <div>
-            <button @click="plansMenu=!plansMenu"
-                    class="w-full flex items-center justify-between rounded-xl px-5 py-3 hover:bg-slate-800">
-                <span>Plans</span>
-                <span>⌄</span>
-            </button>
-
-            <div x-show="plansMenu" x-cloak class="ml-4 mt-1 space-y-1">
-                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">New Plan</a>
-                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">My Plans</a>
-            </div>
-        </div>
-
         <!-- Marketplace -->
         <div>
             <button @click="marketplaceMenu=!marketplaceMenu"
@@ -414,8 +400,7 @@
             <div x-show="workspaceMenu" x-cloak class="ml-4 mt-1 space-y-1">
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">New Project</a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">My Projects</a>
-            </div>
-        
+            
                 <a href="{{ route('marketplace.developer.library') }}"
                    class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800
                    {{ request()->routeIs('marketplace.developer.library')
@@ -423,6 +408,9 @@
                        : '' }}">
                     My Library
                 </a>
+</div>
+        
+
 </div>
 
         <a href="#" class="flex items-center rounded-xl px-5 py-3 hover:bg-slate-800">
