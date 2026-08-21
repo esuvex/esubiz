@@ -6,7 +6,13 @@ use Illuminate\Support\Facades\DB;
 
 class MarketplaceProductResolver
 {
-    protected array $products = [];
+    protected array $products = [
+        'addon' => 'core_addons',
+        'core_addon' => 'core_addons',
+
+        'bundle' => 'core_addon_bundles',
+        'core_bundle' => 'core_addon_bundles',
+    ];
 
     public function register(string $type, string $table): void
     {

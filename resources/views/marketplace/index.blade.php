@@ -101,10 +101,9 @@
 
                                             <span class="whitespace-nowrap rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black text-blue-700">
                                                 @if((bool) ($allocation->is_unlimited ?? false))
-                                                    Unlimited
+                                                    Unlimited{{ !empty($addon->allocation_unit) ? ' ' . $addon->allocation_unit : '' }}
                                                 @elseif($allocation->allocation !== null && $allocation->allocation !== '')
-                                                    {{ number_format((float) $allocation->allocation) }}
-                                                    {{ $allocation->addon_allocation_unit ?? '' }}
+                                                    {{ number_format((float) $allocation->allocation) }}{{ !empty($addon->allocation_unit) ? ' ' . $addon->allocation_unit : '' }}
                                                 @else
                                                     Not configured
                                                 @endif
