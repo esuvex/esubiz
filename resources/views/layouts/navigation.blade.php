@@ -97,6 +97,13 @@
                 class="ml-5 flex items-center rounded-xl px-5 py-2 text-sm transition hover:bg-slate-800">
                 Add-ons & Bundles
             </a>
+            @if(session('account_mode', 'user') === 'developer')
+                <a
+                    href="{{ route('marketplace.developer.library') }}"
+                    class="ml-5 flex items-center rounded-xl px-5 py-2 text-sm transition hover:bg-slate-800 {{ request()->routeIs('marketplace.developer.library') ? 'bg-blue-600 text-white' : '' }}">
+                    My Library
+                </a>
+            @endif
         </div>
 
         <a
