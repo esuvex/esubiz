@@ -55,10 +55,24 @@ class CoreAddonMarketplaceFulfilmentService
 
                 $addon = $item['addon'];
 
-                if (!$this->availableForDeployment(
-                    $addon,
-                    $deploymentType
-                )) {
+                /*
+                 * Direct add-on purchases must respect the add-on's own
+                 * deployment availability.
+                 *
+                 * Bundle purchases are different: the bundle is the
+                 * commercial product being purchased. If the bundle itself
+                 * is available for the requested deployment, its included
+                 * add-ons are fulfilled as part of that bundle even when an
+                 * individual add-on is not independently available for that
+                 * deployment.
+                 */
+                if (
+                    $productType === 'core_addon'
+                    && !$this->availableForDeployment(
+                        $addon,
+                        $deploymentType
+                    )
+                ) {
                     throw new RuntimeException(
                         "Core add-on [{$addon->key}] is not available for {$deploymentType}."
                     );

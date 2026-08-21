@@ -85,7 +85,11 @@
                 x-data="{
                     quantity: {{ $quantity }},
                     unitPrice: {{ $price }},
-                    paymentMethod: '{{ optional(($paymentMethods ?? collect())->first())->id }}',
+                    paymentMethod: '{{ ($onlineGateways ?? collect())->isNotEmpty()
+                        ? 'online:' . $onlineGateways->first()->slug
+                        : (($offlineMethods ?? collect())->isNotEmpty()
+                            ? 'offline:' . $offlineMethods->first()->id
+                            : '') }}',
                     get total() {
                         return Math.max(1, Number(this.quantity || 1)) * this.unitPrice;
                     }
@@ -182,17 +186,46 @@
 
                     <div class="mt-3 space-y-2">
 
-                        @forelse(($paymentMethods ?? collect()) as $method)
+                        {{-- ONLINE GATEWAYS --}}
+                        @foreach(($onlineGateways ?? collect()) as $gateway)
 
                             <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:border-blue-300 hover:bg-blue-50">
 
                                 <input
                                     type="radio"
-                                    name="payment_method_selector"
-                                    value="{{ $method->id }}"
+                                    name="payment_option_selector"
+                                    value="online:{{ $gateway->slug }}"
                                     x-model="paymentMethod"
                                     class="h-4 w-4 text-blue-600"
-                                    {{ $loop->first ? 'checked' : '' }}
+                                >
+
+                                <span class="min-w-0 flex-1">
+
+                                    <span class="block text-sm font-bold text-slate-800">
+                                        {{ $gateway->name }}
+                                    </span>
+
+                                    <span class="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                                        Online payment
+                                    </span>
+
+                                </span>
+
+                            </label>
+
+                        @endforeach
+
+                        {{-- OFFLINE METHODS --}}
+                        @foreach(($offlineMethods ?? collect()) as $method)
+
+                            <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:border-blue-300 hover:bg-blue-50">
+
+                                <input
+                                    type="radio"
+                                    name="payment_option_selector"
+                                    value="offline:{{ $method->id }}"
+                                    x-model="paymentMethod"
+                                    class="h-4 w-4 text-blue-600"
                                 >
 
                                 <span class="min-w-0 flex-1">
@@ -202,35 +235,37 @@
                                     </span>
 
                                     <span class="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                                        {{ ucwords(str_replace('_', ' ', $method->type)) }}
-                                        @if(!empty($method->provider_name))
-                                            · {{ $method->provider_name }}
-                                        @endif
+                                        Offline payment
                                     </span>
 
                                 </span>
 
                             </label>
 
-                        @empty
+                        @endforeach
+
+                        @if(($onlineGateways ?? collect())->isEmpty() && ($offlineMethods ?? collect())->isEmpty())
 
                             <div class="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-700">
                                 No enabled payment methods are currently available.
                             </div>
 
-                        @endforelse
+                        @endif
 
                     </div>
 
                 </div>
 
-                <form method="POST" action="{{ route('marketplace.developer.payment') }}">
+                <form method="POST" action="{{ route('marketplace.developer.checkout.submit') }}">
                     @csrf
 
-                    <input type="hidden" name="transaction_reference" value="{{ request('transaction') }}">
+                    <input type="hidden" name="product_type" value="{{ $productType }}">
+                    <input type="hidden" name="product_id" value="{{ $product->id }}">
+                    <input type="hidden" name="quantity" :value="quantity">
+                    <input type="hidden" name="payment_option" :value="paymentMethod">
                     
                     
-                    <input type="hidden" name="payment_method_id" :value="paymentMethod">
+                    <input type="hidden" name="payment_option" :value="paymentMethod">
 
                     <div class="mt-7">
                         <button

@@ -117,6 +117,23 @@ Route::middleware(['auth'])->group(function () {
                 'update'
             ])->name('online.update');
 
+            Route::get('/offline-payments', [
+                \App\Http\Controllers\Admin\OfflinePaymentReviewController::class,
+                'index'
+            ])->name('offline-payments.index');
+
+            Route::post('/offline-payments/{attempt}/mark-paid', [
+                \App\Http\Controllers\Admin\OfflinePaymentReviewController::class,
+                'markPaid'
+            ])->name('offline-payments.mark-paid');
+
+            Route::post('/offline-payments/{attempt}/reject', [
+                \App\Http\Controllers\Admin\OfflinePaymentReviewController::class,
+                'reject'
+            ])->name('offline-payments.reject');
+
+
+
             Route::get('/offline', [
                 \App\Http\Controllers\Admin\OfflinePaymentController::class,
                 'index'
@@ -472,6 +489,10 @@ Route::get('/admin/marketplace/checkout-sessions', [MarketplaceController::class
     ->name('admin.marketplace.checkout-sessions');
 Route::get('/marketplace/developer/pending-checkouts/{order}/continue', [MarketplaceController::class, 'continueDeveloperCheckout'])
     ->name('marketplace.developer.pending-checkouts.continue');
+Route::get('/marketplace/developer/library', [MarketplaceController::class, 'developerLibrary'])
+    ->name('marketplace.developer.library')
+    ->middleware('auth');
+
 Route::get('/marketplace/developer/pending-checkouts', [MarketplaceController::class, 'developerPendingCheckouts'])
     ->name('marketplace.developer.pending-checkouts');
 Route::get('/marketplace/developer/checkout/{productType}/{productId}', [MarketplaceController::class, 'developerCheckout'])

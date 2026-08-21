@@ -46,16 +46,693 @@ class MarketplaceController extends Controller
         ]);
     }
 
+
+    public function developerCheckout(string $productType, int $productId)
+    {
+        if (!in_array($productType, ['addon', 'bundle'], true)) {
+            abort(404);
+        }
+
+        $table = $productType === 'addon'
+            ? 'core_addons'
+            : 'core_addon_bundles';
+
+        $product = DB::table($table)
+            ->where('id', $productId)
+            ->where('is_active', true)
+            ->where('off_server_available', true)
+            ->whereNull('deleted_at')
+            ->first();
+
+        if (!$product) {
+            abort(404);
+        }
+
+        /*
+         * Online checkout options are represented once per enabled
+         * payment provider. Individual payment channels such as card
+         * and bank transfer remain available inside the provider.
+         */
+        $onlineGateways = DB::table('payment_providers as providers')
+            ->join(
+                'payment_methods as methods',
+                'methods.payment_provider_id',
+                '=',
+                'providers.id'
+            )
+            ->where('providers.is_active', true)
+            ->whereNull('providers.deleted_at')
+            ->where('methods.is_active', true)
+            ->whereNull('methods.deleted_at')
+            ->select(
+                'providers.id',
+                'providers.uuid',
+                'providers.name',
+                'providers.slug',
+                'providers.type'
+            )
+            ->groupBy(
+                'providers.id',
+                'providers.uuid',
+                'providers.name',
+                'providers.slug',
+                'providers.type'
+            )
+            ->orderBy('providers.name')
+            ->get();
+
+        /*
+         * Offline methods are independent payment options and are
+         * therefore loaded directly from offline_payment_methods.
+         */
+        $offlineMethods = DB::table('offline_payment_methods')
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->orderBy('priority')
+            ->orderBy('name')
+            ->get();
+
+        return view('marketplace.developer-checkout', [
+            'product' => $product,
+            'productType' => $productType,
+            'onlineGateways' => $onlineGateways,
+            'offlineMethods' => $offlineMethods,
+        ]);
+    }
+
+    public function developerCheckoutSubmit(Request $request)
+    {
+        $data = $request->validate([
+            'product_type' => ['required', 'string', 'max:100'],
+            'product_id' => ['required', 'integer'],
+            'quantity' => ['required', 'integer', 'min:1'],
+            'payment_option' => ['required', 'string', 'max:255'],
+        ]);
+
+        $listingProductType = match ($data['product_type']) {
+            'addon' => 'core_addon',
+            'bundle' => 'core_bundle',
+            default => $data['product_type'],
+        };
+
+        $listing = $this->resolveMarketplaceListing(
+            $listingProductType,
+            (int) $data['product_id']
+        );
+
+        $productTable = match ($data['product_type']) {
+            'addon' => 'core_addons',
+            'bundle' => 'core_addon_bundles',
+            default => null,
+        };
+
+        if (!$productTable) {
+            abort(422, 'Unsupported marketplace product type.');
+        }
+
+        $product = DB::table($productTable)
+            ->where('id', $data['product_id'])
+            ->where('is_active', true)
+            ->where('off_server_available', true)
+            ->whereNull('deleted_at')
+            ->first();
+
+        abort_unless($product, 404);
+
+        /*
+         * The marketplace listing is the commercial representation of the
+         * product. If a developer-enabled Core product does not yet have
+         * its marketplace listing, resolve the published listing from the
+         * canonical product identity before continuing.
+         */
+        if (!$listing) {
+            $listing = $this->resolveMarketplaceListing(
+                $listingProductType,
+                (int) $product->id
+            );
+        }
+
+        abort_unless(
+            $listing,
+            422,
+            'This developer product is not yet available as a marketplace listing.'
+        );
+
+        $unitPrice = (float) ($product->off_server_price ?? 0);
+        $amount = $unitPrice * (int) $data['quantity'];
+        $currency = $product->off_server_currency ?? 'NGN';
+
+        $optionParts = explode(':', $data['payment_option'], 2);
+
+        abort_unless(
+            count($optionParts) === 2 &&
+            in_array($optionParts[0], ['online', 'offline'], true),
+            422,
+            'Invalid payment option.'
+        );
+
+        [$paymentMode, $paymentIdentifier] = $optionParts;
+
+        $paymentProvider = null;
+        $paymentMethod = null;
+
+        if ($paymentMode === 'online') {
+            $paymentProvider = DB::table('payment_providers')
+                ->where('slug', $paymentIdentifier)
+                ->where('is_active', true)
+                ->whereNull('deleted_at')
+                ->first();
+
+            abort_unless(
+                $paymentProvider,
+                422,
+                'Selected payment gateway is unavailable.'
+            );
+        }
+
+        if ($paymentMode === 'offline') {
+            $paymentMethod = DB::table('offline_payment_methods')
+                ->where('id', (int) $paymentIdentifier)
+                ->where('is_active', true)
+                ->whereNull('deleted_at')
+                ->first();
+
+            abort_unless(
+                $paymentMethod,
+                422,
+                'Selected offline payment method is unavailable.'
+            );
+        }
+
+        $orderReference = 'DEV-' . strtoupper(
+            \Illuminate\Support\Str::random(12)
+        );
+
+        /*
+         * Developer/off-server marketplace purchases do not require an
+         * Esubiz workspace. Their financial context is the marketplace
+         * order itself.
+         *
+         * This is intentionally separate from User/SaaS checkout.
+         */
+        $developerWorkspaceId = $listing->workspace_id ?? null;
+
+        $pendingOrder = DB::table('marketplace_orders')->insertGetId([
+            'marketplace_listing_id' => $listing->id,
+            'vendor_id' => $listing->vendor_id,
+            'workspace_id' => $developerWorkspaceId,
+            'buyer_id' => auth()->id(),
+            'uuid' => (string) \Illuminate\Support\Str::uuid(),
+            'reference' => $orderReference,
+            'amount' => $amount,
+            'commission_amount' => 0,
+            'vendor_amount' => $amount,
+            'currency' => $currency,
+            'payment_status' => 'pending',
+            'status' => 'pending',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $checkoutSessionId = DB::table('marketplace_checkout_sessions')
+            ->insertGetId([
+                'user_id' => auth()->id(),
+                'account_mode' => 'developer',
+                'product_type' => $data['product_type'],
+                'product_id' => $data['product_id'],
+                'quantity' => (int) $data['quantity'],
+                'unit_price' => $unitPrice,
+                'total_amount' => $amount,
+                'currency' => $currency,
+                'payment_method_id' => null,
+                'payment_provider_id' => $paymentProvider?->id,
+                'marketplace_order_id' => $pendingOrder,
+                'deployment_type' => 'off_server',
+                'status' => 'pending_payment',
+                'is_commissionable' => true,
+                'expires_at' => now()->addHours(24),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        $transactionReference = 'DEV-TXN-' . strtoupper(
+            \Illuminate\Support\Str::random(12)
+        );
+
+        $paymentTransactionId = DB::table('payment_transactions')
+            ->insertGetId([
+                'workspace_id' => $developerWorkspaceId,
+                'wallet_id' => null,
+                'payment_provider_id' => $paymentProvider?->id,
+                'reference' => $transactionReference,
+                'amount' => $amount,
+                'currency' => $currency,
+                'status' => 'pending',
+                'payload' => json_encode([
+                    'marketplace_order_id' => $pendingOrder,
+                    'marketplace_order_reference' => $orderReference,
+                    'payment_mode' => $paymentMode,
+                    'payment_provider' => $paymentProvider?->slug,
+                    'payment_provider_id' => $paymentProvider?->id,
+                    'offline_payment_method_id' => $paymentMethod?->id,
+                    'offline_payment_method' => $paymentMethod?->slug,
+                    'product_type' => $data['product_type'],
+                    'product_id' => $data['product_id'],
+                    'quantity' => $data['quantity'],
+                    'buyer_id' => auth()->id(),
+                ]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        DB::table('marketplace_checkout_sessions')
+            ->where('id', $checkoutSessionId)
+            ->update([
+                'payment_transaction_id' => $paymentTransactionId,
+                'updated_at' => now(),
+            ]);
+
+        /*
+         * Create the payment attempt before contacting the gateway.
+         */
+        $attemptService = app(
+            \App\Services\Payment\CorePaymentAttemptService::class
+        );
+
+        $attemptMetadata = [
+            'marketplace_order_id' => $pendingOrder,
+            'marketplace_order_reference' => $orderReference,
+            'product_type' => $data['product_type'],
+            'product_id' => $data['product_id'],
+            'quantity' => $data['quantity'],
+            'buyer_id' => auth()->id(),
+            'payment_mode' => $paymentMode,
+            'offline_payment_method_id' => $paymentMethod?->id,
+        ];
+
+        $attempt = $attemptService->create(
+            (int) $paymentTransactionId,
+            $paymentProvider?->id,
+            null,
+            (float) $amount,
+            $attemptMetadata
+        );
+
+        /*
+         * ONLINE:
+         * Initialize the selected gateway and redirect directly to
+         * the gateway's hosted payment page.
+         */
+        if ($paymentMode === 'online') {
+            $gatewayManager = app(
+                \App\Services\Payment\CorePaymentGatewayManager::class
+            );
+
+            $gateway = $gatewayManager->resolve(
+                $paymentProvider->slug
+            );
+
+            $customer = DB::table('users')
+                ->where('id', auth()->id())
+                ->first();
+
+            $providerCredentials = $paymentProvider->credentials
+                ? (json_decode($paymentProvider->credentials, true) ?: [])
+                : [];
+
+            $result = $gateway->initialize(
+                DB::table('payment_transactions')
+                    ->where('id', $paymentTransactionId)
+                    ->first(),
+                $attempt,
+                [
+                    'payment_provider' => $paymentProvider->slug,
+                    'secret_key' => $providerCredentials['secret_key'] ?? null,
+                    'public_key' => $providerCredentials['public_key'] ?? null,
+                    'email' => $customer->email ?? null,
+                    'customer_name' => $customer->name ?? null,
+                    'callback_url' => route(
+                        'marketplace.payment-status',
+                        ['order' => $pendingOrder]
+                    ),
+                    'return_url' => route(
+                        'marketplace.payment-status',
+                        ['order' => $pendingOrder]
+                    ),
+                ]
+            );
+
+            $attemptService->update(
+                (int) $attempt->id,
+                'processing',
+                $result['gateway_reference']
+                    ?? $result['reference']
+                    ?? null,
+                $result
+            );
+
+            $authorizationUrl =
+                $result['authorization_url']
+                ?? $result['link']
+                ?? null;
+
+            abort_unless(
+                $authorizationUrl,
+                502,
+                'Payment gateway did not return a checkout URL.'
+            );
+
+            return redirect()->away($authorizationUrl);
+        }
+
+        /*
+         * OFFLINE:
+         * Leave the transaction pending. The offline payment review
+         * workflow will confirm or reject it.
+         */
+        return redirect()
+            ->route('marketplace.developer.checkout', [
+                'productType' => $data['product_type'],
+                'productId' => $data['product_id'],
+                'quantity' => $data['quantity'],
+                'transaction' => $transactionReference,
+            ])
+            ->with(
+                'status',
+                'Offline payment selected. Complete the payment and submit your receipt.'
+            );
+    }
+
+
+    public function developerPayment(Request $request)
+    {
+        $data = $request->validate([
+            'transaction_reference' => ['required', 'string'],
+        ]);
+
+        $transaction = DB::table('payment_transactions')
+            ->where('reference', $data['transaction_reference'])
+            ->where('status', 'pending')
+            ->first();
+
+        abort_unless($transaction, 404);
+
+        $payload = $transaction->payload
+            ? json_decode($transaction->payload, true)
+            : [];
+
+        $gatewaySlug = $payload['payment_provider'] ?? null;
+
+        abort_unless($gatewaySlug, 422, 'Payment gateway is not configured.');
+
+        $gatewayManager = app(
+            \App\Services\Payment\CorePaymentGatewayManager::class
+        );
+
+        $gateway = $gatewayManager->resolve($gatewaySlug);
+
+        $attemptService = app(
+            \App\Services\Payment\CorePaymentAttemptService::class
+        );
+
+        $attemptMetadata = [
+            'marketplace_order_id' => $payload['marketplace_order_id'] ?? null,
+            'marketplace_order_reference' => $payload['marketplace_order_reference'] ?? null,
+            'product_type' => $payload['product_type'] ?? null,
+            'product_id' => $payload['product_id'] ?? null,
+            'quantity' => $payload['quantity'] ?? null,
+            'buyer_id' => $payload['buyer_id'] ?? auth()->id(),
+            'payment_mode' => $payload['payment_mode'] ?? 'online',
+        ];
+
+        $attempt = $attemptService->create(
+            (int) $transaction->id,
+            (int) $transaction->payment_provider_id,
+            (int) $transaction->payment_method_id,
+            (float) $transaction->amount,
+            $attemptMetadata
+        );
+
+        $providerCredentials = $transaction->payment_provider_id
+            ? DB::table('payment_providers')
+                ->where('id', $transaction->payment_provider_id)
+                ->value('credentials')
+            : null;
+
+        $providerCredentials = $providerCredentials
+            ? (json_decode($providerCredentials, true) ?: [])
+            : [];
+
+        $result = $gateway->initialize(
+            $transaction,
+            $attempt,
+            [
+                'payment_method' => $payload['payment_method'] ?? null,
+                'payment_method_id' => $transaction->payment_method_id,
+                'payment_provider' => $gatewaySlug,
+                'secret_key' => $providerCredentials['secret_key'] ?? null,
+                'public_key' => $providerCredentials['public_key'] ?? null,
+                'return_url' => route('marketplace.payment-status', [
+                    'order' => $transaction->marketplace_order_id,
+                ]),
+                'callback_url' => route('marketplace.payment-status', [
+                    'order' => $transaction->marketplace_order_id,
+                ]),
+            ]
+        );
+
+        $attemptService->update(
+            (int) $attempt->id,
+            'processing',
+            $result['reference'] ?? null,
+            $result
+        );
+
+        return response()->json([
+            'status' => 'initialized',
+            'reference' => $transaction->reference,
+            'gateway' => $gatewaySlug,
+            'attempt' => $attempt->uuid,
+            'payment' => $result,
+        ]);
+    }
+
+
+    public function developerLibrary()
+    {
+        $orders = DB::table('marketplace_orders as orders')
+            ->join(
+                'marketplace_listings as listings',
+                'listings.id',
+                '=',
+                'orders.marketplace_listing_id'
+            )
+            ->where('orders.buyer_id', auth()->id())
+            ->where('orders.payment_status', 'paid')
+            ->whereIn('orders.status', ['completed', 'fulfilled'])
+            ->select(
+                'orders.*',
+                'listings.product_type',
+                'listings.product_id',
+                'listings.title as product_title',
+                'listings.slug as product_slug'
+            )
+            ->latest('orders.updated_at')
+            ->get();
+
+        return view('marketplace.developer-library', [
+            'orders' => $orders,
+        ]);
+    }
+
+
+    public function developerPendingCheckouts()
+    {
+        $checkouts = DB::table('marketplace_orders as orders')
+            ->join('marketplace_listings as listings', 'listings.id', '=', 'orders.marketplace_listing_id')
+            ->leftJoin('payment_transactions as transactions', function ($join) {
+                $join->on(
+                    DB::raw("JSON_UNQUOTE(JSON_EXTRACT(transactions.payload, '$.marketplace_order_id'))"),
+                    '=',
+                    DB::raw('CAST(orders.id AS CHAR)')
+                );
+            })
+            ->where('orders.buyer_id', auth()->id())
+            ->where('orders.payment_status', 'pending')
+            ->where('orders.status', 'pending')
+            ->select(
+                'orders.*',
+                'listings.product_type',
+                'listings.product_id',
+                'listings.title as listing_title',
+                'listings.slug as listing_slug',
+                'transactions.reference as transaction_reference',
+                'transactions.payment_provider_id',
+                'transactions.status as transaction_status'
+            )
+            ->latest('orders.created_at')
+            ->get();
+
+        return view('marketplace.developer-pending-checkouts', [
+            'checkouts' => $checkouts,
+        ]);
+    }
+
+
+    public function continueDeveloperCheckout($order)
+    {
+        $order = DB::table('marketplace_orders as orders')
+            ->join(
+                'marketplace_listings as listings',
+                'listings.id',
+                '=',
+                'orders.marketplace_listing_id'
+            )
+            ->leftJoin('payment_transactions as transactions', function ($join) {
+                $join->on(
+                    DB::raw("JSON_UNQUOTE(JSON_EXTRACT(transactions.payload, '$.marketplace_order_id'))"),
+                    '=',
+                    DB::raw('CAST(orders.id AS CHAR)')
+                );
+            })
+            ->where('orders.id', $order)
+            ->where('orders.buyer_id', auth()->id())
+            ->where('orders.payment_status', 'pending')
+            ->where('orders.status', 'pending')
+            ->select(
+                'orders.id',
+                'orders.reference',
+                'orders.amount',
+                'orders.currency',
+                'listings.product_type',
+                'listings.product_id',
+                'transactions.reference as transaction_reference',
+                'transactions.payload as transaction_payload'
+            )
+            ->first();
+
+        abort_unless($order, 404);
+
+        $productType = match ($order->product_type) {
+            'core_addon' => 'addon',
+            'core_bundle' => 'bundle',
+            default => $order->product_type,
+        };
+
+        $transactionPayload = [];
+
+        if (!empty($order->transaction_payload)) {
+            $transactionPayload = json_decode(
+                $order->transaction_payload,
+                true
+            ) ?: [];
+        }
+
+        $quantity = max(
+            1,
+            (int) ($transactionPayload['quantity'] ?? 1)
+        );
+
+        return redirect()->route('marketplace.developer.checkout', [
+            'productType' => $productType,
+            'productId' => $order->product_id,
+            'quantity' => $quantity,
+            'transaction' => $order->transaction_reference,
+            'order' => $order->id,
+        ]);
+    }
+
+
+    public function adminCheckoutSessions()
+    {
+        $sessions = DB::table('marketplace_checkout_sessions as sessions')
+            ->leftJoin('users', 'users.id', '=', 'sessions.user_id')
+            ->leftJoin('marketplace_orders as orders', 'orders.id', '=', 'sessions.marketplace_order_id')
+            ->leftJoin('payment_transactions as transactions', 'transactions.id', '=', 'sessions.payment_transaction_id')
+            ->whereIn('sessions.status', [
+                'active',
+                'pending_payment',
+            ])
+            ->select(
+                'sessions.*',
+                'users.name as buyer_name',
+                'users.email as buyer_email',
+                'orders.reference as order_reference',
+                'transactions.reference as transaction_reference'
+            )
+            ->latest('sessions.created_at')
+            ->get();
+
+        return view('admin.marketplace.checkout-sessions', [
+            'sessions' => $sessions,
+        ]);
+    }
+
+
+    public function adminDeleteCheckoutSession($session)
+    {
+        $checkout = DB::table('marketplace_checkout_sessions')
+            ->where('id', $session)
+            ->first();
+
+        abort_unless($checkout, 404);
+
+        if (in_array($checkout->status, ['completed'], true)) {
+            abort(403, 'Completed checkout sessions cannot be deleted.');
+        }
+
+        $orderId = $checkout->marketplace_order_id;
+        $transactionId = $checkout->payment_transaction_id;
+
+        DB::transaction(function () use ($checkout, $orderId, $transactionId) {
+
+            DB::table('marketplace_checkout_sessions')
+                ->where('id', $checkout->id)
+                ->update([
+                    'status' => 'cancelled',
+                    'updated_at' => now(),
+                ]);
+
+            if ($transactionId) {
+                DB::table('payment_transactions')
+                    ->where('id', $transactionId)
+                    ->where('status', 'pending')
+                    ->update([
+                        'status' => 'cancelled',
+                        'updated_at' => now(),
+                    ]);
+            }
+
+            if ($orderId) {
+                DB::table('marketplace_orders')
+                    ->where('id', $orderId)
+                    ->where('payment_status', 'pending')
+                    ->whereIn('status', ['pending', 'processing'])
+                    ->update([
+                        'payment_status' => 'failed',
+                        'status' => 'cancelled',
+                        'updated_at' => now(),
+                    ]);
+            }
+        });
+
+        return redirect()
+            ->route('admin.marketplace.checkout-sessions')
+            ->with('status', 'Checkout session cancelled successfully.');
+    }
+
     public function addons()
     {
         $addons = DB::table('core_addons')
             ->where('is_active', true)
+            ->where('saas_available', true)
             ->whereNull('deleted_at')
             ->orderBy('name')
             ->get();
 
         $bundles = DB::table('core_addon_bundles')
             ->where('is_active', true)
+            ->where('saas_available', true)
             ->whereNull('deleted_at')
             ->orderBy('id')
             ->get();
@@ -73,7 +750,34 @@ class MarketplaceController extends Controller
             ->groupBy('bundle_id');
 
         $capabilityAllocations = DB::table('core_addon_capability_allocations')
+            ->join(
+                'core_addons',
+                'core_addon_capability_allocations.addon_id',
+                '=',
+                'core_addons.id'
+            )
+            ->select(
+                'core_addon_capability_allocations.*',
+                'core_addons.allocation_unit'
+            )
             ->get()
+            ->map(function ($allocation) {
+                $key = (string) $allocation->capability_key;
+
+                $allocation->display_name = ucwords(
+                    str_replace(['_', '-'], ' ', preg_replace('/^crm_/', '', $key))
+                );
+
+                // The unit displayed in Marketplace comes exclusively
+                // from the Admin-configured Add-on allocation unit.
+                $allocation->display_unit =
+                    $allocation->allocation_unit ?: null;
+
+                $allocation->addon_allocation_unit =
+                    $allocation->allocation_unit ?: null;
+
+                return $allocation;
+            })
             ->groupBy('addon_id');
 
         /*
@@ -81,8 +785,25 @@ class MarketplaceController extends Controller
          * This is the authoritative source for quantities/unlimited status.
          */
         foreach ($addons as $addon) {
-            $addon->capability_allocations =
-                collect($capabilityAllocations->get($addon->id, []));
+            $allocations = collect($capabilityAllocations->get($addon->id, []));
+
+            if ($allocations->isEmpty()) {
+                $capabilities = json_decode($addon->capabilities ?? '[]', true) ?: [];
+
+                $allocations = collect($capabilities)->map(function ($key) {
+                    return (object) [
+                        'capability_key' => $key,
+                        'allocation' => null,
+                        'is_unlimited' => false,
+                        'display_name' => ucwords(
+                            str_replace(['_', '-'], ' ', preg_replace('/^crm_/', '', $key))
+                        ),
+                        'display_unit' => null,
+                    ];
+                });
+            }
+
+            $addon->capability_allocations = $allocations;
         }
 
         /*
@@ -109,14 +830,95 @@ class MarketplaceController extends Controller
     protected function resolveMarketplaceListing(
         string $productType,
         int $productId
-    ): \App\Models\MarketplaceListing {
+    ): ?\App\Models\MarketplaceListing {
+        /*
+         * Generic marketplace resolver.
+         *
+         * The checkout must remain product-agnostic. Normalize the
+         * human-facing product type to the canonical marketplace type,
+         * then resolve the published marketplace listing.
+         */
+        $canonicalType = match ($productType) {
+            'addon',
+            'core_addon',
+            'core-addon' => 'core_addon',
+
+            'bundle',
+            'core_bundle',
+            'core-bundle' => 'core_bundle',
+
+            default => $productType,
+        };
+
         $listing = \App\Models\MarketplaceListing::query()
-            ->where('product_type', $productType)
+            ->where('product_type', $canonicalType)
             ->where('product_id', $productId)
             ->where('status', 'published')
             ->first();
 
+        /*
+         * Fallback for marketplace products whose checkout already sends
+         * the canonical product ID/type. This keeps direct addon checkout
+         * independent of the UI's product-type naming.
+         */
+        if (!$listing && $canonicalType !== $productType) {
+            $listing = \App\Models\MarketplaceListing::query()
+                ->where('product_type', $productType)
+                ->where('product_id', $productId)
+                ->where('status', 'published')
+                ->first();
+        }
+
         return $listing;
+    }
+
+    public function developerAddons()
+    {
+        $addons = DB::table('core_addons')
+            ->where('is_active', true)
+            ->where('off_server_available', true)
+            ->whereNull('deleted_at')
+            ->orderBy('name')
+            ->get();
+
+        $capabilityAllocations = DB::table('core_addon_capability_allocations')
+            ->whereIn('addon_id', $addons->pluck('id'))
+            ->get()
+            ->groupBy('addon_id');
+
+        foreach ($addons as $addon) {
+            $addon->capability_allocations =
+                collect($capabilityAllocations->get($addon->id, []));
+        }
+
+        $bundles = DB::table('core_addon_bundles')
+            ->where('is_active', true)
+            ->where('off_server_available', true)
+            ->whereNull('deleted_at')
+            ->orderBy('name')
+            ->get();
+
+        $bundleItems = DB::table('core_addon_bundle_items as items')
+            ->join('core_addons as addons', 'addons.id', '=', 'items.addon_id')
+            ->whereIn('items.bundle_id', $bundles->pluck('id'))
+            ->where('addons.is_active', true)
+            ->whereNull('addons.deleted_at')
+            ->select(
+                'items.bundle_id',
+                'addons.id as addon_id',
+                'addons.name',
+                'items.allocation',
+                'items.is_unlimited'
+            )
+            ->orderBy('addons.name')
+            ->get()
+            ->groupBy('bundle_id');
+
+        return view('marketplace.developer-addons', [
+            'addons' => $addons,
+            'bundles' => $bundles,
+            'bundleItems' => $bundleItems,
+        ]);
     }
 
     public function checkout(Request $request)
@@ -178,6 +980,22 @@ class MarketplaceController extends Controller
 
         $orderReference = 'MKT-' . strtoupper(bin2hex(random_bytes(6)));
 
+        $checkoutSessionId = DB::table('marketplace_checkout_sessions')->insertGetId([
+            'user_id' => auth()->id(),
+            'account_mode' => 'user',
+            'product_type' => $data['product_type'],
+            'product_id' => (int) $data['product_id'],
+            'quantity' => 1,
+            'unit_price' => $amount,
+            'total_amount' => $amount,
+            'currency' => $currency,
+            'is_commissionable' => true,
+            'status' => 'pending_payment',
+            'expires_at' => now()->addHours(24),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         $orderId = DB::table('marketplace_orders')->insertGetId([
             'marketplace_listing_id' => $listing->id,
             'vendor_id' => $listing->vendor_id,
@@ -195,6 +1013,13 @@ class MarketplaceController extends Controller
             'updated_at' => now(),
         ]);
 
+        DB::table('marketplace_checkout_sessions')
+            ->where('id', $checkoutSessionId)
+            ->update([
+                'marketplace_order_id' => $orderId,
+                'updated_at' => now(),
+            ]);
+
         return redirect()
             ->route('marketplace.checkout', $orderId)
             ->with('success', 'Marketplace order created. Payment is still pending.');
@@ -209,48 +1034,186 @@ class MarketplaceController extends Controller
 
         abort_unless($record, 404);
 
-        if ($record->payment_status === 'paid' && $record->status !== 'fulfilled') {
+        /*
+         * Synchronize the originating marketplace checkout session from
+         * the canonical marketplace payment state.
+         *
+         * This is gateway-agnostic. Paystack, Flutterwave, offline,
+         * wallet and future payment methods all converge here.
+         */
+        if ($record->payment_status === 'paid') {
+            $paymentTransaction = DB::table('payment_transactions')
+                ->where('payload', 'like', '%"marketplace_order_id":' . $record->id . '%')
+                ->latest('id')
+                ->first();
+
+            if ($paymentTransaction) {
+                DB::table('marketplace_checkout_sessions')
+                    ->where('payment_transaction_id', $paymentTransaction->id)
+                    ->where('status', 'pending_payment')
+                    ->update([
+                        'status' => 'completed',
+                        'updated_at' => now(),
+                    ]);
+            }
+        }
+
+        /*
+         * Resolve the payment transaction belonging to this marketplace
+         * order. The transaction payload is intentionally product-agnostic.
+         */
+        $transaction = DB::table('payment_transactions')
+            ->whereRaw(
+                "JSON_UNQUOTE(JSON_EXTRACT(payload, '$.marketplace_order_id')) = ?",
+                [(string) $record->id]
+            )
+            ->latest('id')
+            ->first();
+
+        /*
+         * ONLINE:
+         * Verify through the central gateway interface. This applies to
+         * every registered online gateway without gateway-specific logic.
+         */
+        if (
+            $transaction &&
+            $transaction->status === 'pending' &&
+            $transaction->payment_provider_id
+        ) {
+            $payload = $transaction->payload
+                ? (json_decode($transaction->payload, true) ?: [])
+                : [];
+
+            $paymentMode = $payload['payment_mode'] ?? 'online';
+
+            if ($paymentMode === 'online') {
+                $provider = DB::table('payment_providers')
+                    ->where('id', $transaction->payment_provider_id)
+                    ->where('is_active', true)
+                    ->whereNull('deleted_at')
+                    ->first();
+
+                if ($provider) {
+                    $gatewayManager = app(
+                        \App\Services\Payment\CorePaymentGatewayManager::class
+                    );
+
+                    $gateway = $gatewayManager->resolve($provider->slug);
+
+                    $attempt = DB::table('payment_attempts')
+                        ->where('payment_transaction_id', $transaction->id)
+                        ->whereIn('status', ['initiated', 'processing'])
+                        ->latest('id')
+                        ->first();
+
+                    if ($attempt) {
+                        $credentials = $provider->credentials
+                            ? (json_decode($provider->credentials, true) ?: [])
+                            : [];
+
+                        $verification = $gateway->verify(
+                            $transaction,
+                            $attempt,
+                            [
+                                'payment_provider' => $provider->slug,
+                                'secret_key' => $credentials['secret_key'] ?? null,
+                                'public_key' => $credentials['public_key'] ?? null,
+                            ]
+                        );
+
+                        $verificationStatus = $verification['status'] ?? 'failed';
+
+                        if ($verificationStatus === 'successful') {
+                            app(
+                                \App\Services\Payment\CorePaymentAttemptService::class
+                            )->update(
+                                (int) $attempt->id,
+                                'successful',
+                                $verification['gateway_reference']
+                                    ?? $attempt->gateway_reference,
+                                $verification
+                            );
+
+                            DB::table('payment_transactions')
+                                ->where('id', $transaction->id)
+                                ->update([
+                                    'status' => 'successful',
+                                    'updated_at' => now(),
+                                ]);
+
+                            DB::table('marketplace_orders')
+                                ->where('id', $record->id)
+                                ->update([
+                                    'payment_status' => 'paid',
+                                    'status' => 'processing',
+                                    'updated_at' => now(),
+                                ]);
+
+                            $record->payment_status = 'paid';
+                            $record->status = 'processing';
+                        }
+                    }
+                }
+            }
+        }
+
+        /*
+         * FULFILMENT:
+         * Once payment is confirmed, use the existing generic marketplace
+         * fulfilment manager. Do not hard-code gateway behaviour here.
+         */
+        if (
+            $record->payment_status === 'paid' &&
+            $record->status !== 'fulfilled'
+        ) {
             $listing = DB::table('marketplace_listings')
                 ->where('id', $record->marketplace_listing_id)
                 ->first();
 
-            if ($listing && in_array($listing->product_type, ['core_addon', 'core_bundle'], true)) {
-                $productType = $listing->product_type === 'core_addon' ? 'addon' : 'bundle';
-
+            if ($listing) {
                 $orderForFulfilment = (object) array_merge(
                     (array) $record,
                     [
-                        'deployment_type' => $record->deployment_type ?? 'saas',
+                        'deployment_type' => $record->deployment_type
+                            ?? (str_starts_with((string) $record->reference, 'DEV-')
+                                ? 'off_server'
+                                : 'saas'),
                         'website_id' => $record->website_id ?? null,
                         'workspace_id' => $record->workspace_id ?? null,
                     ]
                 );
 
-                app(\App\Services\Marketplace\MarketplaceFulfilmentManager::class)
-                    ->fulfil($orderForFulfilment, $listing);
+                app(
+                    \App\Services\Marketplace\MarketplaceFulfilmentManager::class
+                )->fulfil($orderForFulfilment, $listing);
 
                 DB::table('marketplace_orders')
                     ->where('id', $record->id)
                     ->update([
-                        'status' => 'fulfilled',
+                        'status' => 'completed',
                         'updated_at' => now(),
                     ]);
 
-                $record->status = 'fulfilled';
+                $record->status = 'completed';
             }
         }
 
-        return response()->json([
-            'success' => true,
-            'order_id' => $record->id,
-            'order_reference' => $record->reference ?? null,
-            'status' => $record->status,
-            'payment_status' => $record->payment_status,
-            'paid' => $record->payment_status === 'paid',
-            'entitlement_activated' => $record->payment_status === 'paid'
-                && $record->status === 'fulfilled',
+        if ($record->payment_status === 'paid') {
+            return view('marketplace.payment-success', [
+                'order' => $record,
+                'paid' => true,
+                'entitlementActivated' =>
+                    $record->status === 'completed'
+                    || $record->status === 'fulfilled',
+            ]);
+        }
+
+        return view('marketplace.payment-success', [
+            'order' => $record,
+            'paid' => false,
+            'entitlementActivated' => false,
         ]);
-    }
+}
 
     public function pendingCheckouts()
     {
@@ -308,56 +1271,6 @@ class MarketplaceController extends Controller
                 ->whereNull('deleted_at')
                 ->orderBy('name')
                 ->get(),
-        ]);
-    }
-
-
-    public function developerAddons()
-    {
-        $addons = DB::table('core_addons')
-            ->where('is_active', true)
-            ->where('off_server_available', true)
-            ->whereNull('deleted_at')
-            ->orderBy('name')
-            ->get();
-
-        $capabilityAllocations = DB::table('core_addon_capability_allocations')
-            ->whereIn('addon_id', $addons->pluck('id'))
-            ->get()
-            ->groupBy('addon_id');
-
-        foreach ($addons as $addon) {
-            $addon->capability_allocations =
-                collect($capabilityAllocations->get($addon->id, []));
-        }
-
-        $bundles = DB::table('core_addon_bundles')
-            ->where('is_active', true)
-            ->where('off_server_available', true)
-            ->whereNull('deleted_at')
-            ->orderBy('name')
-            ->get();
-
-        $bundleItems = DB::table('core_addon_bundle_items as items')
-            ->join('core_addons as addons', 'addons.id', '=', 'items.addon_id')
-            ->whereIn('items.bundle_id', $bundles->pluck('id'))
-            ->where('addons.is_active', true)
-            ->whereNull('addons.deleted_at')
-            ->select(
-                'items.bundle_id',
-                'addons.id as addon_id',
-                'addons.name',
-                'items.allocation',
-                'items.is_unlimited'
-            )
-            ->orderBy('addons.name')
-            ->get()
-            ->groupBy('bundle_id');
-
-        return view('marketplace.developer-addons', [
-            'addons' => $addons,
-            'bundles' => $bundles,
-            'bundleItems' => $bundleItems,
         ]);
     }
 }

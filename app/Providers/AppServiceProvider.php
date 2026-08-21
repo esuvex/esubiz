@@ -17,15 +17,38 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(MarketplaceFulfilmentManager::class, function ($app) {
             $manager = new MarketplaceFulfilmentManager();
 
-            $manager->register(
-                'core_addon',
-                $app->make(CoreAddonMarketplaceFulfilmentService::class)
+            $coreAddonFulfilment = $app->make(
+                CoreAddonMarketplaceFulfilmentService::class
             );
 
-            $manager->register(
-                'core_bundle',
-                $app->make(CoreAddonMarketplaceFulfilmentService::class)
-            );
+            $handler = new class($coreAddonFulfilment) {
+                public function __construct(
+                    protected CoreAddonMarketplaceFulfilmentService $service
+                ) {}
+
+                public function fulfil(object $order, object $listing): array
+                {
+                    $productType = match ($listing->product_type) {
+                        'core_addon' => 'addon',
+                        'core_bundle' => 'bundle',
+                        default => $listing->product_type,
+                    };
+
+                    return $this->service->fulfil(
+                        (int) $order->buyer_id,
+                        (int) $listing->product_id,
+                        $productType,
+                        $order->deployment_type ?? 'off_server',
+                        $order->website_id ?? null,
+                        $order->workspace_id ?? null,
+                        $order->id ?? null,
+                        $order->reference ?? null
+                    );
+                }
+            };
+
+            $manager->register('core_addon', $handler);
+            $manager->register('core_bundle', $handler);
 
             return $manager;
         });
