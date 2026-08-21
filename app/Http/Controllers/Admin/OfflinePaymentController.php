@@ -33,6 +33,8 @@ class OfflinePaymentController extends Controller
             ],
             'instructions' => ['nullable', 'string'],
             'priority' => ['nullable', 'integer', 'min:1'],
+            'receipt_upload_label' => ['nullable', 'string', 'max:255'],
+            'receipt_upload_help' => ['nullable', 'string', 'max:255'],
         ]);
 
         DB::table('offline_payment_methods')->insert([
@@ -41,6 +43,9 @@ class OfflinePaymentController extends Controller
             'slug' => Str::slug($data['name']) . '-' . Str::lower(Str::random(6)),
             'type' => $data['type'],
             'instructions' => $data['instructions'] ?? null,
+            'receipt_upload_enabled' => $request->boolean('receipt_upload_enabled'),
+            'receipt_upload_label' => $data['receipt_upload_label'] ?? null,
+            'receipt_upload_help' => $data['receipt_upload_help'] ?? null,
             'settings' => json_encode([]),
             'is_active' => $request->boolean('is_active'),
             'priority' => $data['priority'] ?? 1,
@@ -96,6 +101,9 @@ class OfflinePaymentController extends Controller
                     'name' => $data['name'],
                     'type' => $data['type'],
                     'instructions' => $data['instructions'] ?? null,
+                    'receipt_upload_enabled' => $request->boolean('receipt_upload_enabled'),
+                    'receipt_upload_label' => $data['receipt_upload_label'] ?? null,
+                    'receipt_upload_help' => $data['receipt_upload_help'] ?? null,
                     'is_active' => $request->boolean('is_active'),
                     'priority' => $data['priority'] ?? 1,
                     'is_default' => $isDefault,

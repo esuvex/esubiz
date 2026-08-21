@@ -536,32 +536,7 @@
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Website Owners</a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Developers</a>
             
-        <div
-            x-data="{ paymentGatewaysOpen: false }"
-            class="mt-1"
-        >
-            <button
-                type="button"
-                @click="paymentGatewaysOpen = !paymentGatewaysOpen"
-                class="flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
-            >
-                <span>Payment Gateways</span>
-                <span
-                    class="text-xs transition-transform duration-200"
-                    :class="{ 'rotate-180': paymentGatewaysOpen }"
-                >▼</span>
-            </button>
 
-            
-        
-        <a
-            href="{{ url('/admin/site-settings/payment-gateways') }}"
-            class="ml-4 items-center justify-between rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 basis-full w-full block"
-        >
-            <span>Payment Gateways</span>
-            <span class="text-xs">›</span>
-        </a>
-</div>
 
     </div>
         </div>

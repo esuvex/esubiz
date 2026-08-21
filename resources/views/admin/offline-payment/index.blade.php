@@ -135,6 +135,69 @@
                     ></textarea>
                 </div>
 
+                <div class="md:col-span-2 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                    <div class="mb-5">
+                        <h3 class="text-sm font-black text-slate-900">
+                            Receipt Upload
+                        </h3>
+
+                        <p class="mt-1 text-xs leading-5 text-slate-500">
+                            Allow customers to upload proof of payment after completing this offline payment.
+                        </p>
+                    </div>
+
+                    <label class="mb-5 inline-flex cursor-pointer items-center gap-3">
+                        <input
+                            type="hidden"
+                            name="receipt_upload_enabled"
+                            value="0"
+                        >
+
+                        <input
+                            type="checkbox"
+                            name="receipt_upload_enabled"
+                            value="1"
+                            class="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        >
+
+                        <span class="text-sm font-bold text-slate-700">
+                            Require receipt upload
+                        </span>
+                    </label>
+
+                    <div class="grid gap-5 md:grid-cols-2">
+
+                        <div>
+                            <label class="mb-2 block text-xs font-black uppercase tracking-wider text-slate-500">
+                                Upload Label
+                            </label>
+
+                            <input
+                                type="text"
+                                name="receipt_upload_label"
+                                value="Upload payment receipt"
+                                class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-500"
+                                placeholder="Upload payment receipt"
+                            >
+                        </div>
+
+                        <div>
+                            <label class="mb-2 block text-xs font-black uppercase tracking-wider text-slate-500">
+                                Customer Help Text
+                            </label>
+
+                            <input
+                                type="text"
+                                name="receipt_upload_help"
+                                value="Upload your payment receipt or proof of payment."
+                                class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-500"
+                                placeholder="Upload your payment receipt or proof of payment."
+                            >
+                        </div>
+
+                    </div>
+                </div>
+
             </div>
 
             <div class="flex justify-end border-t border-slate-100 bg-slate-50 px-6 py-4">
@@ -302,6 +365,70 @@
                             class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white"
                             placeholder="Enter customer payment instructions..."
                         >{{ $method->instructions }}</textarea>
+                    </div>
+
+                    <div class="md:col-span-2 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                        <div class="mb-5">
+                            <h3 class="text-sm font-black text-slate-900">
+                                Receipt Upload
+                            </h3>
+
+                            <p class="mt-1 text-xs leading-5 text-slate-500">
+                                Allow customers to upload proof of payment after completing this offline payment.
+                            </p>
+                        </div>
+
+                        <label class="mb-5 inline-flex cursor-pointer items-center gap-3">
+                            <input
+                                type="hidden"
+                                name="receipt_upload_enabled"
+                                value="0"
+                            >
+
+                            <input
+                                type="checkbox"
+                                name="receipt_upload_enabled"
+                                value="1"
+                                {{ $method->receipt_upload_enabled ? 'checked' : '' }}
+                                class="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            >
+
+                            <span class="text-sm font-bold text-slate-700">
+                                Require receipt upload
+                            </span>
+                        </label>
+
+                        <div class="grid gap-5 md:grid-cols-2">
+
+                            <div>
+                                <label class="mb-2 block text-xs font-black uppercase tracking-wider text-slate-500">
+                                    Upload Label
+                                </label>
+
+                                <input
+                                    type="text"
+                                    name="receipt_upload_label"
+                                    value="{{ $method->receipt_upload_label ?? 'Upload payment receipt' }}"
+                                    class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-500"
+                                    placeholder="Upload payment receipt"
+                                >
+                            </div>
+
+                            <div>
+                                <label class="mb-2 block text-xs font-black uppercase tracking-wider text-slate-500">
+                                    Customer Help Text
+                                </label>
+
+                                <input
+                                    type="text"
+                                    name="receipt_upload_help"
+                                    value="{{ $method->receipt_upload_help ?? 'Upload your payment receipt or proof of payment.' }}"
+                                    class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-500"
+                                    placeholder="Upload your payment receipt or proof of payment."
+                                >
+                            </div>
+
+                        </div>
                     </div>
 
                 </div>
