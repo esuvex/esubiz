@@ -88,7 +88,7 @@
         teamMenu:false,
         marketplaceMenu:false,
         workspaceMenu:false
-    }"
+    , siteSettingsMenu: false}"
     class="min-h-screen">
 
     <!-- Mobile Overlay -->
@@ -535,7 +535,35 @@
             <div x-show="teamMenu" x-cloak class="ml-4 mt-1 space-y-1">
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Website Owners</a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Developers</a>
-            </div>
+            
+        <div
+            x-data="{ paymentGatewaysOpen: false }"
+            class="mt-1"
+        >
+            <button
+                type="button"
+                @click="paymentGatewaysOpen = !paymentGatewaysOpen"
+                class="flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+            >
+                <span>Payment Gateways</span>
+                <span
+                    class="text-xs transition-transform duration-200"
+                    :class="{ 'rotate-180': paymentGatewaysOpen }"
+                >▼</span>
+            </button>
+
+            
+        
+        <a
+            href="{{ url('/admin/site-settings/payment-gateways') }}"
+            class="ml-4 items-center justify-between rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 basis-full w-full block"
+        >
+            <span>Payment Gateways</span>
+            <span class="text-xs">›</span>
+        </a>
+</div>
+
+    </div>
         </div>
 
         <a href="#" class="flex items-center rounded-xl px-5 py-3 hover:bg-slate-800">
@@ -547,9 +575,24 @@
         </a>
         </a>
 
-        <a href="#" class="flex items-center rounded-xl px-5 py-3 hover:bg-slate-800">
-            Site Settings
-        </a>
+        <div>
+            <button
+                @click="siteSettingsMenu=!siteSettingsMenu"
+                class="w-full flex items-center justify-between rounded-xl px-5 py-3 hover:bg-slate-800"
+            >
+                <span>Site Settings</span>
+                <span>⌄</span>
+            </button>
+
+            <div x-show="siteSettingsMenu" x-cloak class="ml-4 mt-1 space-y-1">
+                <a
+                    href="{{ url('/admin/site-settings/payment-gateways') }}"
+                    class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800"
+                >
+                    Payment Gateways
+                </a>
+            </div>
+        </div>
 
     @endif
 

@@ -93,6 +93,36 @@ Route::middleware(['auth'])->prefix('admin/core-addons')->name('admin.core-addon
 });
 
 Route::middleware(['auth'])->group(function () {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Site Settings → Payment Gateways
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/admin/site-settings/payment-gateways', [\App\Http\Controllers\Admin\OnlinePaymentController::class, 'gateways'])
+        ->name('admin.payment-gateways.index');
+
+    Route::prefix('admin/site-settings/payment-gateways')
+        ->name('admin.payment-gateways.')
+        ->group(function () {
+
+            Route::get('/online', [
+                \App\Http\Controllers\Admin\OnlinePaymentController::class,
+                'index'
+            ])->name('online.index');
+
+            Route::post('/online/{provider}', [
+                \App\Http\Controllers\Admin\OnlinePaymentController::class,
+                'update'
+            ])->name('online.update');
+
+            Route::get('/offline', function () {
+                return view('admin.offline-payment.index');
+            })->name('offline.index');
+
+        });
+
     Route::post('/marketplace/checkout', [\App\Http\Controllers\MarketplaceController::class, 'checkout'])
         ->name('marketplace.checkout.create');
 

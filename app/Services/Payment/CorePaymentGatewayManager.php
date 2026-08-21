@@ -18,6 +18,20 @@ class CorePaymentGatewayManager
      */
     protected array $gateways = [];
 
+    public function __construct()
+    {
+        $this->registerConfigured(
+            config('payment.gateways', [])
+        );
+    }
+
+    public function registerConfigured(array $gateways): void
+    {
+        foreach ($gateways as $slug => $gatewayClass) {
+            $this->register($slug, $gatewayClass);
+        }
+    }
+
     public function register(
         string $slug,
         string $gatewayClass
