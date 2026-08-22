@@ -417,6 +417,45 @@ Route::post('/developer/financials/email', [\App\Http\Controllers\Developer\Dash
     ->middleware(['auth'])
     ->name('developer.financial.records.email');
 
+Route::prefix('admin/payment-gateways')->middleware(['auth'])->group(function () {
+
+    Route::get('/gift-card', [
+        \App\Http\Controllers\Admin\GiftCardController::class,
+        'index'
+    ])->name('admin.payment-gateways.gift-card');
+
+    Route::get('/gift-card/create', [
+        \App\Http\Controllers\Admin\GiftCardController::class,
+        'create'
+    ])->name('admin.payment-gateways.gift-card.create');
+
+    Route::post('/gift-card', [
+        \App\Http\Controllers\Admin\GiftCardController::class,
+        'store'
+    ])->name('admin.payment-gateways.gift-card.store');
+
+    Route::get('/gift-card/{id}', [
+        \App\Http\Controllers\Admin\GiftCardController::class,
+        'show'
+    ])->name('admin.payment-gateways.gift-card.show');
+
+    Route::patch('/gift-card/{id}', [
+        \App\Http\Controllers\Admin\GiftCardController::class,
+        'update'
+    ])->name('admin.payment-gateways.gift-card.update');
+
+    Route::post('/gift-card/{id}/enable', [
+        \App\Http\Controllers\Admin\GiftCardController::class,
+        'enable'
+    ])->name('admin.payment-gateways.gift-card.enable');
+
+    Route::post('/gift-card/{id}/disable', [
+        \App\Http\Controllers\Admin\GiftCardController::class,
+        'disable'
+    ])->name('admin.payment-gateways.gift-card.disable');
+
+});
+
 Route::get('/admin/financial-reports', [FinancialReportController::class, 'index'])
     ->name('admin.financial-reports');
 Route::get('/admin/financial-reports/csv', [\App\Http\Controllers\Admin\FinancialReportController::class, 'csv'])
