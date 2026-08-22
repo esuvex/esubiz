@@ -166,8 +166,6 @@
                         @endif
                     </div>
                 @endif
-
-
                 {{-- Included Product Items --}}
                 @if(($includedItems ?? collect())->isNotEmpty())
                     <div
@@ -178,61 +176,99 @@
                             Included in this purchase
                         </div>
 
-                        <div class="mt-4 divide-y divide-slate-100">
-                            @foreach($includedItems as $index => $item)
+                        <div class="mt-4 overflow-hidden rounded-xl border border-slate-100">
+                            <div class="grid grid-cols-[1fr_auto] gap-6 border-b border-slate-100 bg-slate-50 px-4 py-3">
+                                <div class="text-xs font-black uppercase tracking-wider text-slate-500">
+                                    Included
+                                </div>
+
+                                <div class="text-right text-xs font-black uppercase tracking-wider text-slate-500">
+                                    Allocation
+                                </div>
+                            </div>
+
+                            <div class="divide-y divide-slate-100">
                                 @php
-                                    $unlimited = !empty($item->bundle_is_unlimited)
-                                        || !empty($item->is_unlimited);
+                                    $includedRows = collect();
 
-                                    $allocation = $item->allocation
-                                        ?? $item->default_allocation;
+                                    foreach (($includedItems ?? collect()) as $item) {
+                                        if (in_array($productType ?? '', ['bundle', 'core_bundle', 'core-bundle'], true)) {
+                                            $unlimited = !empty($item->bundle_is_unlimited)
+                                                || !empty($item->is_unlimited);
 
-                                    $unit = $item->allocation_unit;
+                                            $allocation = $item->allocation
+                                                ?? $item->default_allocation;
+
+                                            $includedRows->push((object) [
+                                                'name' => $item->name,
+                                                'allocation' => $unlimited
+                                                    ? 'Unlimited'
+                                                    : ($allocation !== null
+                                                        ? rtrim(rtrim(number_format((float) $allocation, 2), '0'), '.')
+                                                            . ' ' . ($item->bundle_unit_name ?? $item->allocation_unit ?? '')
+                                                        : 'Included'),
+                                            ]);
+                                        } elseif (!empty($item->capability_allocations) && $item->capability_allocations->isNotEmpty()) {
+                                            foreach ($item->capability_allocations as $capability) {
+                                                $includedRows->push((object) [
+                                                    'name' => $capability->display_name
+                                                        ?? ucwords(
+                                                            str_replace(
+                                                                ['_', '-'],
+                                                                ' ',
+                                                                preg_replace('/^crm_/', '', $capability->capability_key ?? '')
+                                                            )
+                                                        ),
+                                                    'allocation' => !empty($capability->is_unlimited)
+                                                        ? 'Unlimited'
+                                                        : ($capability->allocation !== null
+                                                            ? rtrim(rtrim(number_format((float) $capability->allocation, 2), '0'), '.')
+                                                                . ' ' . ($capability->display_unit ?? $item->allocation_unit ?? '')
+                                                            : 'Included'),
+                                                ]);
+                                            }
+                                        } else {
+                                            $unlimited = !empty($item->bundle_is_unlimited)
+                                                || !empty($item->is_unlimited);
+
+                                            $allocation = $item->allocation
+                                                ?? $item->default_allocation;
+
+                                            $includedRows->push((object) [
+                                                'name' => $item->name,
+                                                'allocation' => $unlimited
+                                                    ? 'Unlimited'
+                                                    : ($allocation !== null
+                                                        ? rtrim(rtrim(number_format((float) $allocation, 2), '0'), '.')
+                                                            . ' ' . ($item->bundle_unit_name ?? $item->allocation_unit ?? '')
+                                                        : 'Included'),
+                                            ]);
+                                        }
+                                    }
                                 @endphp
 
-                                <div
-                                    class="py-4"
-                                    @if($index >= 5)
-                                        x-show="showAllItems"
-                                        x-cloak
-                                    @endif
-                                >
-                                    <div class="flex items-start justify-between gap-6">
-                                        <div class="min-w-0">
-                                            <div class="text-sm font-black text-slate-900">
-                                                {{ $item->name }}
-                                            </div>
-
-                                            @if(!empty($item->description))
-                                                <div class="mt-1 text-xs leading-5 text-slate-500">
-                                                    {{ $item->description }}
-                                                </div>
-                                            @endif
+                                @foreach($includedRows as $index => $row)
+                                    <div
+                                        class="grid grid-cols-[1fr_auto] items-center gap-6 px-4 py-3"
+                                        @if($index >= 5)
+                                            x-show="showAllItems"
+                                            x-cloak
+                                        @endif
+                                    >
+                                        <div class="text-sm font-bold text-slate-900">
+                                            {{ $row->name }}
                                         </div>
 
-                                        <div class="shrink-0 text-right">
-                                            <div class="text-sm font-black text-slate-900">
-                                                @if($unlimited)
-                                                    Unlimited
-                                                @elseif($allocation !== null)
-                                                    {{ rtrim(rtrim(number_format((float) $allocation, 2), '0'), '.') }}
-                                                    {{ $unit ?? '' }}
-                                                @else
-                                                    Included
-                                                @endif
-                                            </div>
-
-                                            <div class="mt-1 text-xs text-slate-400">
-                                                Included
-                                            </div>
+                                        <div class="text-right text-sm font-bold text-slate-900">
+                                            {{ $row->allocation }}
                                         </div>
                                     </div>
-                                </div>
-                            @endforeach
+                                @endforeach
+                            </div>
                         </div>
 
-                        @if($includedItems->count() > 5)
-                            <div class="mt-4 border-t border-slate-100 pt-4 text-center">
+                        @if($includedRows->count() > 5)
+                            <div class="mt-4 text-center">
                                 <button
                                     type="button"
                                     x-show="!showAllItems"
@@ -255,8 +291,8 @@
                     </div>
                 @endif
 
-
                 {{-- Purchase Summary --}}
+
                 <div class="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
                     <div class="text-xs font-black uppercase tracking-wider text-slate-400">
                         Purchase Summary
@@ -393,10 +429,25 @@
 
                 <form
                     method="POST"
-                    action="{{ route('marketplace.developer.checkout.submit') }}"
+                    action="{{ route('marketplace.payment') }}"
                     class="mt-6"
                 >
                     @csrf
+
+                    <input type="hidden"
+                           name="checkout_context"
+                           value="{{ ($saasCheckout ?? false) ? 'saas' : 'off_server' }}">
+
+                    @if(($saasCheckout ?? false) && !empty($order?->id))
+                        <input type="hidden"
+                               name="order_id"
+                               value="{{ $order->id }}">
+                    @endif
+
+                    <input type="hidden"
+                           name="deployment_type"
+                           value="{{ ($saasCheckout ?? false) ? 'saas' : 'off_server' }}">
+
 
                     <input type="hidden" name="product_type" value="{{ $productType }}">
                     <input type="hidden" name="product_id" value="{{ $product->id }}">

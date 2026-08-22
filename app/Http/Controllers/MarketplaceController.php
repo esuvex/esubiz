@@ -12,15 +12,19 @@ class MarketplaceController extends Controller
         return view('marketplace.index', [
             'addons' => DB::table('core_addons')
                 ->where('is_active', true)
+                ->where('saas_available', true)
                 ->whereNull('deleted_at')
                 ->orderBy('name')
                 ->get(),
 
             'bundles' => DB::table('core_addon_bundles')
                 ->where('is_active', true)
+                ->where('saas_available', true)
                 ->whereNull('deleted_at')
                 ->orderBy('name')
                 ->get(),
+
+            'catalogProducts' => $this->catalogProductsFor('saas'),
 
             'bundleItems' => DB::table('core_addon_bundle_items as items')
                 ->join('core_addons as addons', 'addons.id', '=', 'items.addon_id')
@@ -28,6 +32,7 @@ class MarketplaceController extends Controller
                     'items.bundle_id',
                     DB::table('core_addon_bundles')
                         ->where('is_active', true)
+                        ->where('saas_available', true)
                         ->whereNull('deleted_at')
                         ->pluck('id')
                 )
@@ -124,6 +129,12 @@ class MarketplaceController extends Controller
                     '=',
                     'items.addon_id'
                 )
+                ->join(
+                    'core_addon_bundles as bundles',
+                    'bundles.id',
+                    '=',
+                    'items.bundle_id'
+                )
                 ->where('items.bundle_id', $listing->product_id)
                 ->where('addons.is_active', true)
                 ->whereNull('addons.deleted_at')
@@ -135,7 +146,8 @@ class MarketplaceController extends Controller
                     'addons.allocation_unit',
                     'addons.is_unlimited',
                     'items.allocation',
-                    'items.is_unlimited as bundle_is_unlimited'
+                    'items.is_unlimited as bundle_is_unlimited',
+                    'bundles.unit_name as bundle_unit_name'
                 )
                 ->orderBy('addons.name')
                 ->get();
@@ -231,6 +243,77 @@ class MarketplaceController extends Controller
             'onlineGateways' => $onlineGateways,
             'offlineMethods' => $offlineMethods,
         ]);
+    }
+
+    /**
+     * Unified marketplace payment entry point.
+     *
+     * The checkout UI is shared across SaaS, off-server/developer and
+     * future marketplace products. The payment context determines which
+     * existing fulfilment/payment flow handles the transaction.
+     *
+     * Product availability itself remains controlled by the product resolver
+     * and canonical marketplace product configuration.
+     */
+    public function marketplacePayment(Request $request)
+    {
+        $context = $request->input('checkout_context');
+        $deploymentType = $request->input('deployment_type');
+
+        /*
+         * Normalize the shared checkout context.
+         *
+         * Product-specific checkout remains extensible:
+         * - saas        = SaaS-only purchase
+         * - off_server  = developer/off-server purchase
+         * - both        = product supports either context
+         *
+         * The selected deployment type determines the actual fulfilment
+         * path for products that support both.
+         */
+        if ($context === 'both') {
+            $context = $deploymentType;
+        }
+
+        if (!$context && in_array($deploymentType, ['saas', 'off_server'], true)) {
+            $context = $deploymentType;
+        }
+
+        /*
+         * Existing SaaS checkout:
+         *
+         * SaaS checkout already has a marketplace order. Keep its existing
+         * payment/entitlement flow intact and route it through the unified
+         * entry point.
+         */
+        if ($context === 'saas') {
+            return $this->saasPayment($request);
+        }
+
+        /*
+         * Off-server/developer checkout:
+         *
+         * Developer checkout creates the marketplace order and payment
+         * transaction before redirecting to the selected payment method.
+         */
+        if ($context === 'off_server') {
+            return $this->developerCheckoutSubmit($request);
+        }
+
+        /*
+         * Shared products such as credits and gift cards may support both
+         * deployment contexts. The selected deployment type determines the
+         * payment path.
+         */
+        if ($deploymentType === 'saas') {
+            return $this->saasPayment($request);
+        }
+
+        if ($deploymentType === 'off_server') {
+            return $this->developerCheckoutSubmit($request);
+        }
+
+        abort(422, 'Invalid marketplace checkout context.');
     }
 
     public function developerCheckoutSubmit(Request $request)
@@ -1121,6 +1204,33 @@ class MarketplaceController extends Controller
         ]);
     }
 
+    protected function catalogProductVisibleFor(object $product, string $deploymentType): bool
+    {
+        return match ($product->audience ?? 'both') {
+            'saas' => $deploymentType === 'saas',
+            'developer' => $deploymentType === 'off_server',
+            'both' => true,
+            default => false,
+        };
+    }
+
+    protected function catalogProductsFor(string $deploymentType)
+    {
+        return DB::table('catalog_products')
+            ->where('is_active', true)
+            ->where('is_public', true)
+            ->whereNull('deleted_at')
+            ->where(function ($query) use ($deploymentType) {
+                if ($deploymentType === 'saas') {
+                    $query->whereIn('audience', ['saas', 'both']);
+                } else {
+                    $query->whereIn('audience', ['developer', 'both']);
+                }
+            })
+            ->orderBy('name')
+            ->get();
+    }
+
     protected function resolveMarketplaceListing(
         string $productType,
         int $productId
@@ -1196,6 +1306,7 @@ class MarketplaceController extends Controller
             ->join('core_addons as addons', 'addons.id', '=', 'items.addon_id')
             ->whereIn('items.bundle_id', $bundles->pluck('id'))
             ->where('addons.is_active', true)
+            ->where('addons.off_server_available', true)
             ->whereNull('addons.deleted_at')
             ->select(
                 'items.bundle_id',
@@ -1244,6 +1355,11 @@ class MarketplaceController extends Controller
 
         $productResolver = app(\App\Services\Marketplace\MarketplaceProductResolver::class);
 
+        /*
+         * All marketplace products now resolve through the same registry.
+         * Core add-ons/bundles use their deployment flags while catalog
+         * products use their SaaS/developer/both audience configuration.
+         */
         $product = $productResolver->resolve(
             $data['product_type'],
             (int) $data['product_id']
@@ -1716,6 +1832,69 @@ class MarketplaceController extends Controller
                 ->first();
         }
 
+        /*
+         * Generic included marketplace product information.
+         *
+         * Bundles expose their included add-ons through the bundle-items
+         * table. Standalone add-ons expose their configured capability
+         * allocations through core_addon_capability_allocations.
+         *
+         * This is display-only and does not alter SaaS pricing.
+         */
+        $includedItems = collect();
+
+        if (in_array($order->product_type, ['bundle', 'core_bundle', 'core-bundle'], true)) {
+            $includedItems = DB::table('core_addon_bundle_items as items')
+                ->join(
+                    'core_addons as addons',
+                    'addons.id',
+                    '=',
+                    'items.addon_id'
+                )
+                ->join(
+                    'core_addon_bundles as bundles',
+                    'bundles.id',
+                    '=',
+                    'items.bundle_id'
+                )
+                ->where('items.bundle_id', $order->product_id)
+                ->where('addons.is_active', true)
+                ->whereNull('addons.deleted_at')
+                ->select(
+                    'addons.id',
+                    'addons.name',
+                    'addons.description',
+                    'addons.default_allocation',
+                    'addons.allocation_unit',
+                    'addons.is_unlimited',
+                    'items.allocation',
+                    'items.is_unlimited as bundle_is_unlimited',
+                    'bundles.unit_name as bundle_unit_name'
+                )
+                ->orderBy('addons.name')
+                ->get();
+
+        } elseif (in_array($order->product_type, ['addon', 'core_addon', 'core-addon'], true)) {
+            $includedItems = collect([
+                (object) [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'description' => $product->description,
+                    'default_allocation' => $product->default_allocation,
+                    'allocation_unit' => $product->allocation_unit,
+                    'is_unlimited' => $product->is_unlimited,
+                    'allocation' => null,
+                    'bundle_is_unlimited' => false,
+                    'capability_allocations' => DB::table(
+                        'core_addon_capability_allocations'
+                    )
+                        ->where('addon_id', $product->id)
+                        ->orderBy('id')
+                        ->get(),
+                ],
+            ]);
+        }
+
         return view('marketplace.checkout', [
             'order' => $order,
             'product' => $product,
@@ -1726,6 +1905,7 @@ class MarketplaceController extends Controller
             'price' => (float) $price,
             'currency' => $currency ?: 'NGN',
             'quantity' => 1,
+            'includedItems' => $includedItems,
             'walletEnabled' => (bool) ($wallet->is_active ?? false),
             'walletBalance' => (float) ($wallet->available_balance ?? 0),
             'walletCurrency' => $wallet->currency ?? ($currency ?: 'NGN'),
@@ -1735,14 +1915,17 @@ class MarketplaceController extends Controller
     public function developer()
     {
         return view('marketplace.developer', [
+            'catalogProducts' => $this->catalogProductsFor('off_server'),
             'addons' => DB::table('core_addons')
                 ->where('is_active', true)
+                ->where('off_server_available', true)
                 ->whereNull('deleted_at')
                 ->orderBy('name')
                 ->get(),
 
             'bundles' => DB::table('core_addon_bundles')
                 ->where('is_active', true)
+                ->where('off_server_available', true)
                 ->whereNull('deleted_at')
                 ->orderBy('name')
                 ->get(),
