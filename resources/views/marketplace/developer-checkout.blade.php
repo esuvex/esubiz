@@ -186,6 +186,72 @@
 
                     <div class="mt-3 space-y-2">
 
+                        {{-- SAAS PAYMENT OPTIONS --}}
+                        @if($saasCheckout ?? false)
+
+                            @foreach(($onlineGateways ?? collect())->unique('slug') as $gateway)
+                                <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:border-blue-300 hover:bg-blue-50">
+                                    <input
+                                        type="radio"
+                                        name="payment_option"
+                                        value="online:{{ $gateway->slug }}"
+                                        x-model="paymentMethod"
+                                        class="h-4 w-4 text-blue-600"
+                                    >
+
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block text-sm font-bold text-slate-800">
+                                            {{ $gateway->name }}
+                                        </span>
+                                        <span class="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                                            Online payment
+                                        </span>
+                                    </span>
+                                </label>
+                            @endforeach
+
+                            @if(($offlineMethods ?? collect())->isNotEmpty())
+                                <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:border-blue-300 hover:bg-blue-50">
+                                    <input
+                                        type="radio"
+                                        name="payment_option"
+                                        value="offline:{{ $offlineMethods->first()->id }}"
+                                        x-model="paymentMethod"
+                                        class="h-4 w-4 text-blue-600"
+                                    >
+
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block text-sm font-bold text-slate-800">
+                                            Offline Payment
+                                        </span>
+                                        <span class="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                                            Pay by bank transfer or other offline method
+                                        </span>
+                                    </span>
+                                </label>
+                            @endif
+
+                            <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:border-blue-300 hover:bg-blue-50">
+                                <input
+                                    type="radio"
+                                    name="payment_option"
+                                    value="wallet"
+                                    x-model="paymentMethod"
+                                    class="h-4 w-4 text-blue-600"
+                                >
+
+                                <span class="min-w-0 flex-1">
+                                    <span class="block text-sm font-bold text-slate-800">
+                                        Wallet
+                                    </span>
+                                    <span class="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                                        Pay from your Esubiz wallet
+                                    </span>
+                                </span>
+                            </label>
+
+                        @else
+
                         {{-- ONLINE GATEWAYS --}}
                         @foreach(($onlineGateways ?? collect()) as $gateway)
 
@@ -193,7 +259,7 @@
 
                                 <input
                                     type="radio"
-                                    name="payment_option_selector"
+                                    name="payment_option"
                                     value="online:{{ $gateway->slug }}"
                                     x-model="paymentMethod"
                                     class="h-4 w-4 text-blue-600"
@@ -222,7 +288,7 @@
 
                                 <input
                                     type="radio"
-                                    name="payment_option_selector"
+                                    name="payment_option"
                                     value="offline:{{ $method->id }}"
                                     x-model="paymentMethod"
                                     class="h-4 w-4 text-blue-600"
@@ -248,7 +314,10 @@
 
                             <div class="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-700">
                                 No enabled payment methods are currently available.
-                            </div>
+        
+                        @endif
+
+                    </div>
 
                         @endif
 
@@ -256,7 +325,9 @@
 
                 </div>
 
-                <form method="POST" action="{{ route('marketplace.developer.checkout.submit') }}">
+                <form method="POST" action="{{ $saasCheckout ?? false
+    ? route('marketplace.saas.payment')
+    : route('marketplace.developer.checkout.submit') }}">
                     @csrf
 
                     <input type="hidden" name="product_type" value="{{ $productType }}">

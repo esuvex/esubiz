@@ -57,29 +57,46 @@ class FinancialReportController
          * CREDIT / INCOME
          * -------------------------------------------------------
          */
-        $credits = DB::table('revenue_events')
-            ->whereBetween('created_at', [$from, $to])
-            ->whereNull('deleted_at')
-            ->where('revenue_owner', 'esubiz')
-            ->where('is_platform_revenue', true)
+        $credits = DB::table('revenue_events as revenue')
+            ->leftJoin('websites', 'websites.id', '=', 'revenue.website_id')
+            ->whereBetween('revenue.created_at', [$from, $to])
+            ->whereNull('revenue.deleted_at')
+            ->where('revenue.revenue_owner', 'esubiz')
+            ->where('revenue.is_platform_revenue', true)
             ->select([
-                'id',
-                'source_module',
-                'net_amount',
-                'currency',
-                'status',
-                'user_id',
-                'website_id',
-                'workspace_id',
-                'reference_type',
-                'reference_id',
-                'item_type',
-                'item_id',
-                'item_name',
-                'created_at',
+                'revenue.id',
+                'revenue.source_module',
+                'revenue.net_amount',
+                'revenue.currency',
+                'revenue.status',
+                'revenue.user_id',
+                'revenue.website_id',
+                'revenue.workspace_id',
+                'revenue.reference_type',
+                'revenue.reference_id',
+                'revenue.item_type',
+                'revenue.item_id',
+                'revenue.item_name',
+                'revenue.created_at',
+                'websites.name as website_name',
+                'websites.domain as website_domain',
             ])
             ->get()
             ->map(function ($row) {
+                if (!$row->website_id && $row->user_id) {
+                    $website = DB::table('websites')
+                        ->where('owner_id', $row->user_id)
+                        ->where('status', 'active')
+                        ->orderByDesc('is_default')
+                        ->orderByDesc('updated_at')
+                        ->first();
+
+                    if ($website) {
+                        $row->website_id = $website->id;
+                        $row->website_name = $website->name;
+                        $row->website_domain = $website->domain;
+                    }
+                }
                 return [
                     'id' => $row->id,
                     'type' => 'credit',
@@ -91,6 +108,8 @@ class FinancialReportController
                     'status' => $row->status,
                     'user_id' => $row->user_id,
                     'website_id' => $row->website_id,
+                    'website_name' => $row->website_name ?? null,
+                    'website_domain' => $row->website_domain ?? null,
                     'workspace_id' => $row->workspace_id,
                     'reference_type' => $row->reference_type,
                     'reference_id' => $row->reference_id,
@@ -167,6 +186,7 @@ class FinancialReportController
                 'item_type',
                 'item_id',
                 'item_name',
+
             ] as $column) {
                 if (in_array($column, $expenseColumns)) {
                     $select[] = $column;
@@ -435,6 +455,16 @@ class FinancialReportController
     {
         $data = $this->reportData($request);
 
+        $data['income'] = collect($data['entries'])
+            ->where('type', 'credit')
+            ->sum('amount');
+
+        $data['expenses'] = collect($data['entries'])
+            ->where('type', 'debit')
+            ->sum('amount');
+
+        $data['net'] = $data['income'] - $data['expenses'];
+
         $pdf = Pdf::loadView(
             'admin.financial-reports.pdf',
             $data
@@ -494,78 +524,91 @@ class FinancialReportController
         $status = $request->input('status');
         $currency = strtoupper(trim($request->input('currency', '')));
 
-        $credits = DB::table('revenue_events')
-            ->whereBetween('created_at', [$from, $to])
-            ->whereNull('deleted_at')
-            ->where('revenue_owner', 'esubiz')
-            ->where('is_platform_revenue', true)
+        $credits = DB::table('revenue_events as revenue')
+            ->leftJoin('websites', 'websites.id', '=', 'revenue.website_id')
+            ->whereBetween('revenue.created_at', [$from, $to])
+            ->whereNull('revenue.deleted_at')
+            ->where('revenue.revenue_owner', 'esubiz')
+            ->where('revenue.is_platform_revenue', true)
             ->select([
-                'id',
-                'source_module',
-                'net_amount',
-                'currency',
-                'status',
-                'user_id',
-                'website_id',
-                'workspace_id',
-                'reference_type',
-                'reference_id',
-                'item_type',
-                'item_id',
-                'item_name',
-                'created_at',
+                'revenue.id',
+                'revenue.source_module',
+                'revenue.net_amount',
+                'revenue.currency',
+                'revenue.status',
+                'revenue.user_id',
+                'revenue.website_id',
+                'revenue.workspace_id',
+                'revenue.reference_type',
+                'revenue.reference_id',
+                'revenue.item_type',
+                'revenue.item_id',
+                'revenue.item_name',
+                'revenue.created_at',
+                'websites.name as website_name',
+                'websites.domain as website_domain',
             ])
             ->get()
-            ->map(fn ($row) => [
-                'id' => $row->id,
-                'type' => 'credit',
-                'source' => $row->source_module ?: 'other',
-                'category' => $row->source_module ?: 'other',
-                'item_type' => $row->item_type ?? null,
-                'item_id' => $row->item_id ?? $row->reference_id ?? null,
-                'item_name' => $row->item_name ?? (
-                    ($row->item_type && $row->item_id)
-                        ? ucwords(str_replace('_', ' ', $row->item_type)) . ' #' . $row->item_id
-                        : (
-                            $row->reference_type && $row->reference_id
-                                ? ucwords(str_replace('_', ' ', $row->reference_type)) . ' #' . $row->reference_id
-                                : '—'
-                        )
-                ),
-                'amount' => (float) $row->net_amount,
-                'currency' => $row->currency,
-                'status' => $row->status,
-                'user_id' => $row->user_id,
-                'website_id' => $row->website_id,
-                'workspace_id' => $row->workspace_id,
-                'reference_type' => $row->reference_type,
-                'reference_id' => $row->reference_id,
-                    'item_type' => $row->item_type ?? null,
-                    'item_id' => $row->item_id ?? null,
-                    'item_name' => $row->item_name
-                        ?? (
-                            !empty($row->item_type) && !empty($row->item_id)
-                                ? ucwords(str_replace('_', ' ', $row->item_type)) . ' #' . $row->item_id
-                                : ($row->reference_type
-                                    ? ucwords(str_replace('_', ' ', $row->reference_type)) . ' #' . $row->reference_id
-                                    : '—')
-                        ),
-                    'item' => $row->item_name
-                        ?? (
-                            !empty($row->item_type) && !empty($row->item_id)
-                                ? ucwords(str_replace('_', ' ', $row->item_type)) . ' #' . $row->item_id
-                                : ($row->reference_type
-                                    ? ucwords(str_replace('_', ' ', $row->reference_type)) . ' #' . $row->reference_id
-                                    : '—')
-                        ),
-                'created_at' => $row->created_at,
-            ]);
+            ->map(function ($row) {
+                if (!$row->website_id && $row->user_id) {
+                    $website = DB::table('websites')
+                        ->where('owner_id', $row->user_id)
+                        ->where('status', 'active')
+                        ->orderByDesc('is_default')
+                        ->orderByDesc('updated_at')
+                        ->first();
+
+                    if ($website) {
+                        $row->website_id = $website->id;
+                        $row->website_name = $website->name;
+                        $row->website_domain = $website->domain;
+                    }
+                }
+
+                $itemName = $row->item_name;
+
+                if (!$itemName && $row->item_type && $row->item_id) {
+                    $itemName = ucwords(
+                        str_replace('_', ' ', $row->item_type)
+                    ) . ' #' . $row->item_id;
+                }
+
+                if (!$itemName) {
+                    $itemName = $row->reference_type && $row->reference_id
+                        ? ucwords(str_replace('_', ' ', $row->reference_type))
+                            . ' #' . $row->reference_id
+                        : '—';
+                }
+
+                return [
+                    'id' => $row->id,
+                    'type' => 'credit',
+                    'source' => $row->source_module ?: 'other',
+                    'category' => $row->source_module ?: 'other',
+                    'item_type' => $row->item_type,
+                    'item_id' => $row->item_id,
+                    'item_name' => $itemName,
+                    'amount' => (float) $row->net_amount,
+                    'currency' => $row->currency,
+                    'status' => $row->status,
+                    'user_id' => $row->user_id,
+                    'website_id' => $row->website_id,
+                    'website_name' => $row->website_name ?? null,
+                    'website_domain' => $row->website_domain ?? null,
+                    'workspace_id' => $row->workspace_id,
+                    'reference_type' => $row->reference_type,
+                    'reference_id' => $row->reference_id,
+                    'created_at' => $row->created_at,
+                ];
+            });
 
         $expenseColumns = Schema::getColumnListing('expense_events');
 
         $amountColumn = in_array('amount', $expenseColumns)
             ? 'amount'
-            : (in_array('net_amount', $expenseColumns) ? 'net_amount' : null);
+            : (in_array('net_amount', $expenseColumns)
+                ? 'net_amount'
+                : null);
 
         if ($amountColumn) {
             $expenseRows = DB::table('expense_events')
@@ -573,32 +616,34 @@ class FinancialReportController
                 ->get();
 
             $debits = $expenseRows->map(function ($row) use ($amountColumn) {
-                $source = $row->source_module;
+                $source = isset($row->source_module)
+                    ? $row->source_module
+                    : ($row->source ?? $row->category ?? 'other');
+
+                $itemName = $row->item_name
+                    ?? $row->description
+                    ?? $row->expense_type
+                    ?? $source
+                    ?? '—';
+
                 return [
                     'id' => $row->id,
                     'type' => 'debit',
-                    'source' => $source,
-                    'category' => $row->category ?? $source,
+                    'source' => $source ?: 'other',
+                    'category' => $row->category ?? $source ?? 'other',
+                    'item_type' => $row->item_type ?? null,
+                    'item_id' => $row->item_id ?? $row->reference_id ?? null,
+                    'item_name' => $itemName,
                     'amount' => (float) $row->{$amountColumn},
                     'currency' => $row->currency ?? 'NGN',
                     'status' => $row->status ?? 'processed',
                     'user_id' => $row->user_id ?? null,
                     'website_id' => $row->website_id ?? null,
+                    'website_name' => null,
+                    'website_domain' => null,
                     'workspace_id' => $row->workspace_id ?? null,
                     'reference_type' => $row->reference_type ?? null,
                     'reference_id' => $row->reference_id ?? null,
-                        'item_type' => $row->item_type ?? null,
-                        'item_id' => $row->item_id ?? $row->reference_id ?? null,
-                        'item_name' => $row->item_name
-                            ?? $row->description
-                            ?? $row->expense_type
-                            ?? $source
-                            ?? '—',
-                        'item' => $row->item_name
-                            ?? $row->description
-                            ?? $row->expense_type
-                            ?? $source
-                            ?? '—',
                     'created_at' => $row->created_at,
                 ];
             });
@@ -606,42 +651,71 @@ class FinancialReportController
             $debits = collect();
         }
 
-        $entries = $credits->merge($debits)
-            ->filter(function ($entry) use ($type, $source, $status, $currency) {
-                if ($type !== 'all' && $entry['type'] !== $type) return false;
-                if ($source && $entry['source'] !== $source) return false;
-                if ($status && $entry['status'] !== $status) return false;
-                if ($currency && strtoupper($entry['currency']) !== $currency) return false;
+        $entries = $credits
+            ->merge($debits)
+            ->filter(function ($entry) use (
+                $type,
+                $source,
+                $status,
+                $currency
+            ) {
+                if ($type !== 'all') {
+                    $wantedType = $type === 'revenue'
+                        ? 'credit'
+                        : ($type === 'expense' ? 'debit' : $type);
+
+                    if ($entry['type'] !== $wantedType) {
+                        return false;
+                    }
+                }
+
+                if ($source && $entry['source'] !== $source) {
+                    return false;
+                }
+
+                if ($status && $entry['status'] !== $status) {
+                    return false;
+                }
+
+                if (
+                    $currency
+                    && strtoupper($entry['currency']) !== $currency
+                ) {
+                    return false;
+                }
+
                 return true;
             })
             ->sortByDesc('created_at')
             ->values();
 
-        $websiteIds = $entries->pluck('website_id')->filter()->unique();
-        $userIds = $entries->pluck('user_id')->filter()->unique();
+        $userIds = $entries
+            ->pluck('user_id')
+            ->filter()
+            ->unique()
+            ->values();
 
-        $websites = $websiteIds->isEmpty()
-            ? collect()
-            : DB::table('websites')->whereIn('id', $websiteIds)->pluck('name', 'id');
-
-        $users = $userIds->isEmpty()
-            ? collect()
-            : DB::table('users')
-                ->whereIn('id', $userIds)
-                ->select('id', 'name', 'email')
-                ->get()
-                ->keyBy('id');
+        $websiteIds = $entries
+            ->pluck('website_id')
+            ->filter()
+            ->unique()
+            ->values();
 
         return [
-            'entries' => $entries,
-            'income' => $entries->where('type', 'credit')->sum('amount'),
-            'expenses' => $entries->where('type', 'debit')->sum('amount'),
-            'net' => $entries->where('type', 'credit')->sum('amount')
-                - $entries->where('type', 'debit')->sum('amount'),
-            'websites' => $websites,
-            'users' => $users,
             'from' => $from,
             'to' => $to,
+            'entries' => $entries,
+            'users' => DB::table('users')
+                ->whereIn('id', $userIds)
+                ->get()
+                ->keyBy('id'),
+            'websites' => DB::table('websites')
+                ->whereIn('id', $websiteIds)
+                ->get()
+                ->mapWithKeys(fn ($website) => [
+                    $website->id => $website->name
+                        ?: ($website->domain ?: 'Website #' . $website->id),
+                ]),
         ];
     }
 

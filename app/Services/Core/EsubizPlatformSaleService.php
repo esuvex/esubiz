@@ -83,6 +83,11 @@ class EsubizPlatformSaleService
                     'customer_id' => $userId,
                     'website_id' => $websiteId,
 
+                    // Financial account context.
+                    'financial_account_user_id' => $userId,
+                    'financial_account_developer_id' => $data['developer_id'] ?? null,
+                    'financial_account_type' => $data['financial_account_type'] ?? 'user',
+
                     // Explicit product origin.
                     'item_type' => $itemType,
                     'item_id' => $itemId,

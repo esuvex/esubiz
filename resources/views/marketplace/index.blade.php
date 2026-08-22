@@ -50,7 +50,7 @@
 
                     <div
                         x-data="{ expanded: false, checkout: false }"
-                        class="flex min-h-[430px] flex-col overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl"
+                        class="esubiz-card flex min-h-[430px] flex-col overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm"
                     >
 
                         {{-- Card body --}}

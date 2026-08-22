@@ -167,6 +167,38 @@ class ReferralRevenueProcessor
                 . '-'
                 . $level;
 
+            app(CoreTransactionService::class)->record(
+                null,
+                'referral_commission',
+                $referrerId,
+                'commission',
+                $commission,
+                'NGN',
+                [
+                    'user_id' => $referrerId,
+                    'financial_account_user_id' => $referrerId,
+                    'financial_account_developer_id' => $data['developer_id'] ?? null,
+                    'financial_account_type' => ($data['developer_id'] ?? null)
+                        ? 'developer_referral'
+                        : 'referral',
+                    'item_type' => 'referral_commission',
+                    'item_id' => $referrerId,
+                    'item_name' => 'Referral Commission',
+                    'commission_amount' => $commission,
+                    'reference_type' => 'wallet_transaction',
+
+                    // Accounting classification:
+                    // Esubiz records the commission as an expense.
+                    'financial_direction' => 'expense',
+                    'financial_expense_owner' => 'esubiz',
+
+                    // The referrer receives the same amount as income.
+                    'recipient_financial_direction' => 'revenue',
+                    'recipient_financial_account_user_id' => $referrerId,
+                    'recipient_financial_account_developer_id' => $data['developer_id'] ?? null,
+                ]
+            );
+
             $walletTransactionId = DB::table('wallet_transactions')
                 ->insertGetId([
                     'wallet_id' => $wallet->id,
@@ -183,6 +215,11 @@ class ReferralRevenueProcessor
                     'balance_after' => $balanceAfter,
                     'currency' => $revenueEvent->currency,
                     'source_type' => 'referral_commission',
+                    'financial_account_user_id' => $referrerId,
+                    'financial_account_developer_id' => $data['developer_id'] ?? null,
+                    'financial_account_type' => ($data['developer_id'] ?? null)
+                        ? 'developer_referral'
+                        : 'referral',
                     'source_id' => $revenueEvent->id,
                     'status' => 'completed',
                     'description' => 'Referral commission',

@@ -78,3 +78,25 @@
     }
 
 }
+
+@layer components {
+    .esubiz-card {
+        @apply transition-all duration-300 ease-out;
+        transform: translateY(0);
+    }
+
+    .esubiz-card:hover {
+        transform: translateY(-4px);
+        @apply shadow-xl;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .esubiz-card {
+            transition: none;
+        }
+
+        .esubiz-card:hover {
+            transform: none;
+        }
+    }
+}

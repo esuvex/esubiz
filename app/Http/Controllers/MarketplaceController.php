@@ -112,7 +112,12 @@ class MarketplaceController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('marketplace.developer-checkout', [
+        return view('marketplace.checkout', [
+            'website' => !empty($order->website_id)
+                ? DB::table('websites')
+                    ->where('id', $order->website_id)
+                    ->first()
+                : null,
             'product' => $product,
             'productType' => $productType,
             'onlineGateways' => $onlineGateways,
@@ -421,6 +426,190 @@ class MarketplaceController extends Controller
                 'status',
                 'Offline payment selected. Complete the payment and submit your receipt.'
             );
+    }
+
+
+    public function saasPayment(Request $request)
+    {
+        $data = $request->validate([
+            'order_id' => ['required', 'integer'],
+            'payment_option' => ['required', 'string', 'max:150'],
+            'quantity' => ['nullable', 'integer', 'min:1'],
+            'coupon_code' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $quantity = (int) ($data['quantity'] ?? 1);
+
+        abort_unless(
+            $quantity === 1,
+            422,
+            'SaaS checkout quantity must be one.'
+        );
+
+        $order = DB::table('marketplace_orders')
+            ->where('id', $data['order_id'])
+            ->where('buyer_id', auth()->id())
+            ->where('payment_status', 'pending')
+            ->whereIn('status', ['pending', 'processing'])
+            ->first();
+
+        abort_unless($order, 404);
+
+        [$paymentMode, $paymentIdentifier] = array_pad(
+            explode(':', $data['payment_option'], 2),
+            2,
+            null
+        );
+
+        abort_unless(
+            in_array($paymentMode, ['online', 'offline', 'wallet'], true),
+            422,
+            'Invalid payment method.'
+        );
+
+        abort_unless(
+            $paymentIdentifier !== null || $paymentMode === 'wallet',
+            422,
+            'Payment method is not selected.'
+        );
+
+        /*
+         * ONLINE PAYMENT
+         *
+         * Reuse the central Esubiz gateway manager. SaaS checkout does
+         * not implement gateway-specific payment logic itself.
+         */
+        if ($paymentMode === 'online') {
+
+            $paymentProvider = DB::table('payment_providers')
+                ->where('slug', $paymentIdentifier)
+                ->where('is_active', true)
+                ->whereNull('deleted_at')
+                ->first();
+
+            abort_unless(
+                $paymentProvider,
+                422,
+                'The selected payment gateway is unavailable.'
+            );
+
+            $providerCredentials = $paymentProvider->credentials
+                ? (json_decode($paymentProvider->credentials, true) ?: [])
+                : [];
+
+            $transactionReference = 'SAAS-TXN-' . strtoupper(
+                \Illuminate\Support\Str::random(12)
+            );
+
+            $paymentTransactionId = DB::table('payment_transactions')
+                ->insertGetId([
+                    'workspace_id' => $order->workspace_id,
+                    'wallet_id' => null,
+                    'payment_provider_id' => $paymentProvider->id,
+                    'reference' => $transactionReference,
+                    'amount' => $order->amount,
+                    'currency' => $order->currency,
+                    'status' => 'pending',
+                    'payload' => json_encode([
+                        'marketplace_order_id' => $order->id,
+                        'marketplace_order_reference' => $order->reference,
+                        'product_type' => $order->product_type ?? null,
+                        'product_id' => $order->product_id ?? null,
+                        'quantity' => 1,
+                        'buyer_id' => auth()->id(),
+                        'payment_mode' => 'online',
+                        'payment_provider' => $paymentProvider->slug,
+                        'payment_provider_id' => $paymentProvider->id,
+                    ]),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+            $attemptService = app(
+                \App\Services\Payment\CorePaymentAttemptService::class
+            );
+
+            $attempt = $attemptService->create(
+                (int) $paymentTransactionId,
+                (int) $paymentProvider->id,
+                null,
+                (float) $order->amount,
+                [
+                    'marketplace_order_id' => $order->id,
+                    'marketplace_order_reference' => $order->reference,
+                    'product_type' => $order->product_type ?? null,
+                    'product_id' => $order->product_id ?? null,
+                    'quantity' => 1,
+                    'buyer_id' => auth()->id(),
+                    'payment_mode' => 'online',
+                ]
+            );
+
+            $gatewayManager = app(
+                \App\Services\Payment\CorePaymentGatewayManager::class
+            );
+
+            $gateway = $gatewayManager->resolve(
+                $paymentProvider->slug
+            );
+
+            $customer = DB::table('users')
+                ->where('id', auth()->id())
+                ->first();
+
+            $result = $gateway->initialize(
+                DB::table('payment_transactions')
+                    ->where('id', $paymentTransactionId)
+                    ->first(),
+                $attempt,
+                [
+                    'payment_provider' => $paymentProvider->slug,
+                    'payment_provider_id' => $paymentProvider->id,
+                    'secret_key' => $providerCredentials['secret_key'] ?? null,
+                    'public_key' => $providerCredentials['public_key'] ?? null,
+                    'email' => $customer->email ?? null,
+                    'customer_name' => $customer->name ?? null,
+                    'callback_url' => route(
+                        'marketplace.payment-status',
+                        ['order' => $order->id]
+                    ),
+                    'return_url' => route(
+                        'marketplace.payment-status',
+                        ['order' => $order->id]
+                    ),
+                ]
+            );
+
+            $attemptService->update(
+                (int) $attempt->id,
+                'processing',
+                $result['gateway_reference']
+                    ?? $result['reference']
+                    ?? null,
+                $result
+            );
+
+            $authorizationUrl =
+                $result['authorization_url']
+                ?? $result['link']
+                ?? null;
+
+            abort_unless(
+                $authorizationUrl,
+                502,
+                'Payment gateway did not return a checkout URL.'
+            );
+
+            return redirect()->away($authorizationUrl);
+        }
+
+        /*
+         * Offline and wallet payment paths will use the same SaaS order
+         * and transaction lifecycle. They are intentionally handled
+         * separately from hosted online gateway initialization.
+         */
+        abort(422, 'The selected payment method is not yet connected.');
+
     }
 
 
@@ -941,12 +1130,10 @@ class MarketplaceController extends Controller
 
         abort_unless($website, 403);
 
-        $listing = DB::table('marketplace_listings')
-            ->where('product_type', $data['product_type'])
-            ->where('product_id', $data['product_id'])
-            ->where('status', 'published')
-            ->whereNull('deleted_at')
-            ->first();
+        $listing = $this->resolveMarketplaceListing(
+            $data['product_type'],
+            (int) $data['product_id']
+        );
 
         abort_unless($listing, 404);
 
@@ -978,13 +1165,22 @@ class MarketplaceController extends Controller
 
         abort_unless($price !== null && (float) $price >= 0, 422);
 
+        /*
+         * The marketplace product resolver is the single source of truth
+         * for SaaS pricing. Keep the checkout amount aligned with it.
+         */
+        $amount = (float) $price;
+
         $orderReference = 'MKT-' . strtoupper(bin2hex(random_bytes(6)));
 
         $checkoutSessionId = DB::table('marketplace_checkout_sessions')->insertGetId([
             'user_id' => auth()->id(),
-            'account_mode' => 'user',
+            'account_mode' => session('account_mode', 'user'),
             'product_type' => $data['product_type'],
             'product_id' => (int) $data['product_id'],
+            'deployment_type' => $data['deployment_type'],
+            'website_id' => $website->id,
+            'workspace_id' => $website->workspace_id,
             'quantity' => 1,
             'unit_price' => $amount,
             'total_amount' => $amount,
@@ -1021,7 +1217,7 @@ class MarketplaceController extends Controller
             ]);
 
         return redirect()
-            ->route('marketplace.checkout', $orderId)
+            ->route('marketplace.checkout', ['order' => $orderId])
             ->with('success', 'Marketplace order created. Payment is still pending.');
     }
 
@@ -1151,6 +1347,56 @@ class MarketplaceController extends Controller
 
                             $record->payment_status = 'paid';
                             $record->status = 'processing';
+
+                            /*
+                             * Record the successful marketplace payment as
+                             * Esubiz platform revenue before fulfilment.
+                             *
+                             * The platform sale service feeds the existing
+                             * CoreTransactionService financial records so
+                             * the amount appears in Admin revenue, income
+                             * and ledger reporting.
+                             */
+                            $listing = DB::table('marketplace_listings')
+                                ->where('id', $record->marketplace_listing_id)
+                                ->first();
+
+                            if ($listing) {
+                                app(
+                                    \App\Services\Core\EsubizPlatformSaleService::class
+                                )->record(
+                                    $record->workspace_id ?? null,
+                                    match ($listing->product_type) {
+                                        'core_addon', 'addon' => 'addons',
+                                        'core_bundle', 'bundle' => 'addons',
+                                        'theme' => 'themes',
+                                        'module' => 'modules',
+                                        'subscription' => 'subscriptions',
+                                        'hybrid' => 'hybrid',
+                                        'ai_credits' => 'ai_credits',
+                                        'sms_credits' => 'sms_credits',
+                                        'email_credits' => 'email_credits',
+                                        'whatsapp_credits' => 'whatsapp_credits',
+                                        default => 'marketplace',
+                                    },
+                                    $listing->product_type,
+                                    (int) $listing->product_id,
+                                    $listing->title,
+                                    (float) $record->amount,
+                                    $record->currency ?: 'NGN',
+                                    auth()->id(),
+                                    $record->website_id ?? null,
+                                    'purchase',
+                                    [
+                                        'marketplace_order_id' => $record->id,
+                                        'marketplace_order_reference' => $record->reference,
+                                        'payment_transaction_id' => $transaction->id ?? null,
+                                        'deployment_type' => $record->deployment_type ?? 'saas',
+                                        'developer_id' => $listing->developer_id ?? null,
+                                        'financial_account_developer_id' => $listing->developer_id ?? null,
+                                    ]
+                                );
+                            }
                         }
                     }
                 }
@@ -1198,6 +1444,29 @@ class MarketplaceController extends Controller
             }
         }
 
+        /*
+         * The payment-success page is presentation only.
+         * Payment verification and fulfilment have already completed above.
+         *
+         * Determine the destination from the originating transaction
+         * context so Developer and SaaS purchases are not treated alike.
+         */
+        $successPayload = $transaction?->payload
+            ? (json_decode($transaction->payload, true) ?: [])
+            : [];
+
+        $deploymentType = $successPayload['deployment_type']
+            ?? ($record->deployment_type ?? null)
+            ?? (str_starts_with((string) $record->reference, 'DEV-')
+                ? 'off_server'
+                : 'saas');
+
+        $successDestination = $deploymentType === 'off_server'
+            ? route('marketplace.developer.library')
+            : ($successPayload['website_id'] ?? $record->website_id ?? null
+                ? url('/dashboard')
+                : route('marketplace.index'));
+
         if ($record->payment_status === 'paid') {
             return view('marketplace.payment-success', [
                 'order' => $record,
@@ -1205,6 +1474,8 @@ class MarketplaceController extends Controller
                 'entitlementActivated' =>
                     $record->status === 'completed'
                     || $record->status === 'fulfilled',
+                'deploymentType' => $deploymentType,
+                'successDestination' => $successDestination,
             ]);
         }
 
@@ -1212,6 +1483,8 @@ class MarketplaceController extends Controller
             'order' => $record,
             'paid' => false,
             'entitlementActivated' => false,
+            'deploymentType' => $deploymentType,
+            'successDestination' => $successDestination,
         ]);
 }
 
@@ -1238,7 +1511,12 @@ class MarketplaceController extends Controller
     public function checkoutPage(int $order)
     {
         $order = DB::table('marketplace_orders')
-            ->join('marketplace_listings', 'marketplace_listings.id', '=', 'marketplace_orders.marketplace_listing_id')
+            ->join(
+                'marketplace_listings',
+                'marketplace_listings.id',
+                '=',
+                'marketplace_orders.marketplace_listing_id'
+            )
             ->where('marketplace_orders.id', $order)
             ->where('marketplace_orders.buyer_id', auth()->id())
             ->select(
@@ -1252,8 +1530,100 @@ class MarketplaceController extends Controller
 
         abort_unless($order, 404);
 
+        $resolver = app(
+            \App\Services\Marketplace\MarketplaceProductResolver::class
+        );
+
+        $product = $resolver->resolve(
+            $order->product_type,
+            (int) $order->product_id
+        );
+
+        abort_unless($product, 404);
+
+        $price = $resolver->price($product, 'saas');
+        $currency = $resolver->currency($product, 'saas');
+
+        abort_unless($price !== null, 422);
+
+        $onlineGateways = DB::table('payment_providers as providers')
+            ->join(
+                'payment_methods as methods',
+                'methods.payment_provider_id',
+                '=',
+                'providers.id'
+            )
+            ->where('providers.is_active', true)
+            ->whereNull('providers.deleted_at')
+            ->where('methods.is_active', true)
+            ->whereNull('methods.deleted_at')
+            ->select(
+                'providers.id',
+                'providers.uuid',
+                'providers.name',
+                'providers.slug',
+                'providers.type'
+            )
+            ->groupBy(
+                'providers.id',
+                'providers.uuid',
+                'providers.name',
+                'providers.slug',
+                'providers.type'
+            )
+            ->orderBy('providers.name')
+            ->get();
+
+        $offlineMethods = DB::table('offline_payment_methods')
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->orderBy('priority')
+            ->orderBy('name')
+            ->get();
+
+        $wallet = DB::table('wallets')
+            ->where('user_id', auth()->id())
+            ->whereIn('type', ['customer', 'developer'])
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->orderByRaw("CASE WHEN type = 'customer' THEN 0 ELSE 1 END")
+            ->first();
+
+        if (!$wallet) {
+            $walletId = DB::table('wallets')->insertGetId([
+                'user_id' => auth()->id(),
+                'workspace_id' => $order->workspace_id ?? null,
+                'uuid' => (string) \Illuminate\Support\Str::uuid(),
+                'name' => 'Esubiz Wallet',
+                'type' => 'customer',
+                'currency' => $currency ?: 'NGN',
+                'available_balance' => 0,
+                'pending_balance' => 0,
+                'reserved_balance' => 0,
+                'is_default' => true,
+                'is_active' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $wallet = DB::table('wallets')
+                ->where('id', $walletId)
+                ->first();
+        }
+
         return view('marketplace.checkout', [
             'order' => $order,
+            'product' => $product,
+            'productType' => $order->product_type,
+            'onlineGateways' => $onlineGateways,
+            'offlineMethods' => $offlineMethods,
+            'saasCheckout' => true,
+            'price' => (float) $price,
+            'currency' => $currency ?: 'NGN',
+            'quantity' => 1,
+            'walletEnabled' => (bool) ($wallet->is_active ?? false),
+            'walletBalance' => (float) ($wallet->available_balance ?? 0),
+            'walletCurrency' => $wallet->currency ?? ($currency ?: 'NGN'),
         ]);
     }
 

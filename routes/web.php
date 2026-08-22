@@ -261,7 +261,24 @@ Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])
         ->middleware('account-mode:developer')
         ->name('developer.builder.create');
 
-    Route::get('/user/dashboard', [UserDashboardController::class, 'index'])
+    Route::get('/user/financials', [\App\Http\Controllers\User\DashboardController::class, 'financialRecords'])
+    ->middleware('auth')
+    ->name('user.financial.records');
+
+
+Route::get('/user/financials/csv', [\App\Http\Controllers\User\DashboardController::class, 'downloadFinancialRecordsCsv'])
+    ->middleware('auth')
+    ->name('user.financial.records.csv');
+
+Route::get('/user/financials/pdf', [\App\Http\Controllers\User\DashboardController::class, 'downloadFinancialRecordsPdf'])
+    ->middleware('auth')
+    ->name('user.financial.records.pdf');
+
+Route::post('/user/financials/email', [\App\Http\Controllers\User\DashboardController::class, 'emailFinancialRecords'])
+    ->middleware('auth')
+    ->name('user.financial.records.email');
+
+Route::get('/user/dashboard', [UserDashboardController::class, 'index'])
         ->middleware(['permission:websites.manage', 'account-mode:user'])
         ->name('user.dashboard');
 
@@ -384,6 +401,22 @@ Route::post('/websites/{website}/theme', [WebsiteWizardController::class, 'theme
 
 require __DIR__.'/auth.php';
 
+Route::get('/developer/financials', [\App\Http\Controllers\Developer\DashboardController::class, 'financialRecords'])
+    ->middleware(['auth'])
+    ->name('developer.financial.records');
+
+Route::get('/developer/financials/csv', [\App\Http\Controllers\Developer\DashboardController::class, 'downloadFinancialRecordsCsv'])
+    ->middleware(['auth'])
+    ->name('developer.financial.records.csv');
+
+Route::get('/developer/financials/pdf', [\App\Http\Controllers\Developer\DashboardController::class, 'downloadFinancialRecordsPdf'])
+    ->middleware(['auth'])
+    ->name('developer.financial.records.pdf');
+
+Route::post('/developer/financials/email', [\App\Http\Controllers\Developer\DashboardController::class, 'emailFinancialRecords'])
+    ->middleware(['auth'])
+    ->name('developer.financial.records.email');
+
 Route::get('/admin/financial-reports', [FinancialReportController::class, 'index'])
     ->name('admin.financial-reports');
 Route::get('/admin/financial-reports/csv', [\App\Http\Controllers\Admin\FinancialReportController::class, 'csv'])
@@ -483,6 +516,9 @@ Route::post('/marketplace/developer/checkout', [MarketplaceController::class, 'd
     ->name('marketplace.developer.checkout.submit');
 Route::post('/marketplace/developer/payment', [MarketplaceController::class, 'developerPayment'])
     ->name('marketplace.developer.payment');
+
+Route::post('/marketplace/saas/payment', [MarketplaceController::class, 'saasPayment'])
+    ->name('marketplace.saas.payment');
 Route::delete('/admin/marketplace/checkout-sessions/{session}', [MarketplaceController::class, 'adminDeleteCheckoutSession'])
     ->name('admin.marketplace.checkout-sessions.delete');
 Route::get('/admin/marketplace/checkout-sessions', [MarketplaceController::class, 'adminCheckoutSessions'])

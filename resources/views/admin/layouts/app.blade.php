@@ -224,10 +224,17 @@
             </button>
 
             <div x-show="billingMenu" x-cloak class="ml-4 mt-1 space-y-1">
-                                    <a href="{{ route('marketplace.checkout.index') }}" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
-                        Checkout
-                    </a>
-<a href="#"
+                <a href="{{ route('user.financial.records') }}"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
+                    Financials
+                </a>
+
+                <a href="{{ route('marketplace.checkout.index') }}"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
+                    Checkout
+                </a>
+
+                <a href="#"
                    class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
                     Wallet
                 </a>
@@ -349,7 +356,15 @@
             </button>
 
             <div x-show="billingMenu" x-cloak class="ml-4 mt-1 space-y-1">
-                                <a href="{{ route('marketplace.developer.pending-checkouts') }}"
+                <a href="{{ route('developer.financial.records') }}"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800
+                   {{ request()->routeIs('developer.financial.records')
+                        ? 'bg-blue-600 text-white'
+                        : '' }}">
+                    Financials
+                </a>
+
+                <a href="{{ route('marketplace.developer.pending-checkouts') }}"
                    class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800
                    {{ request()->routeIs('marketplace.developer.pending-checkouts')
                         ? 'bg-blue-600 text-white'

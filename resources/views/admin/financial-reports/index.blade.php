@@ -37,7 +37,7 @@
 
     {{-- SUMMARY --}}
 
-    <div class="grid grid-cols-3 gap-5 mb-8">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
 
         <div class="financial-summary-card rounded-3xl bg-emerald-500 p-6 text-white shadow-lg">
             <p class="text-sm text-white/80">Total Income</p>

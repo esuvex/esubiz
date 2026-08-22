@@ -60,14 +60,18 @@
                 <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
 
                     <a
-                        href="{{ route('marketplace.developer.library') }}"
+                        href="{{ $successDestination }}"
                         class="rounded-xl bg-blue-600 px-6 py-3 text-sm font-black text-white transition hover:bg-blue-700"
                     >
-                        Go to My Library
+                        {{ ($deploymentType ?? 'saas') === 'off_server'
+                            ? 'Go to My Library'
+                            : 'Continue to My Website' }}
                     </a>
 
                     <a
-                        href="{{ route('developer.marketplace') }}"
+                        href="{{ ($deploymentType ?? 'saas') === 'off_server'
+                            ? route('developer.marketplace')
+                            : route('marketplace.index') }}"
                         class="rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-50"
                     >
                         Back to Marketplace
