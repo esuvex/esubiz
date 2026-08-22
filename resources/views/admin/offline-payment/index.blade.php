@@ -2,7 +2,17 @@
 
 @section('title', 'Offline Payment Gateway')
 
+
 @section('content')
+
+<div class="mb-6">
+    <a href="{{ route('admin.payment-gateways.index') }}"
+       class="inline-flex items-center gap-2 text-sm font-black text-blue-600 hover:text-blue-700">
+        <span>←</span>
+        Back to Gateways
+    </a>
+</div>
+
 
 <div class="space-y-8">
 

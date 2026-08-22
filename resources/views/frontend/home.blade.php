@@ -96,7 +96,7 @@
 
     @include('frontend.partials.cta')
 
-    @include('frontend.partials.footer')
+
 
     --}}
 

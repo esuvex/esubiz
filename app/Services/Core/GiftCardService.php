@@ -11,6 +11,98 @@ class GiftCardService
     /**
      * Issue a new Esubiz gift card.
      */
+    public function validateCard(string $code): array
+    {
+        $card = \Illuminate\Support\Facades\DB::table('gift_cards')
+            ->where('code', strtoupper(trim($code)))
+            ->whereNull('deleted_at')
+            ->first();
+
+        if (!$card) {
+            return [
+                'valid' => false,
+                'status' => 'not_found',
+                'message' => 'Gift card not found.',
+                'card' => null,
+            ];
+        }
+
+        $now = now();
+
+        if (!$card->enabled || $card->status === 'disabled') {
+            return [
+                'valid' => false,
+                'status' => 'disabled',
+                'message' => 'This gift card is disabled.',
+                'card' => $card,
+            ];
+        }
+
+        if ($card->status === 'cancelled') {
+            return [
+                'valid' => false,
+                'status' => 'cancelled',
+                'message' => 'This gift card has been cancelled.',
+                'card' => $card,
+            ];
+        }
+
+        if ($card->status === 'exhausted' || (float) $card->remaining_balance <= 0) {
+            return [
+                'valid' => false,
+                'status' => 'exhausted',
+                'message' => 'This gift card has no remaining balance.',
+                'card' => $card,
+            ];
+        }
+
+        if ($card->starts_at && $now->lt($card->starts_at)) {
+            return [
+                'valid' => false,
+                'status' => 'not_started',
+                'message' => 'This gift card is not active yet.',
+                'card' => $card,
+            ];
+        }
+
+        if ($card->expires_at && $now->gt($card->expires_at)) {
+            return [
+                'valid' => false,
+                'status' => 'expired',
+                'message' => 'This gift card has expired.',
+                'card' => $card,
+            ];
+        }
+
+        if (
+            $card->usage_limit !== null &&
+            $card->usage_count >= $card->usage_limit
+        ) {
+            return [
+                'valid' => false,
+                'status' => 'usage_limit_reached',
+                'message' => 'This gift card has reached its usage limit.',
+                'card' => $card,
+            ];
+        }
+
+        return [
+            'valid' => true,
+            'status' => 'active',
+            'message' => 'Gift card is valid.',
+            'card' => $card,
+            'balance' => (float) $card->remaining_balance,
+            'currency' => $card->currency,
+            'usable_at_checkout' => (bool) $card->usable_at_checkout,
+            'usable_for_wallet_funding' => (bool) $card->usable_for_wallet_funding,
+            'allow_partial_redemption' => (bool) $card->allow_partial_redemption,
+            'usage_count' => (int) $card->usage_count,
+            'usage_limit' => $card->usage_limit !== null
+                ? (int) $card->usage_limit
+                : null,
+        ];
+    }
+
     public function issue(
         float $amount,
         string $currency = 'NGN',

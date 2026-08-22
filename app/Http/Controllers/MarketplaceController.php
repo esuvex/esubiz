@@ -49,30 +49,143 @@ class MarketplaceController extends Controller
 
     public function developerCheckout(string $productType, int $productId)
     {
-        if (!in_array($productType, ['addon', 'bundle'], true)) {
-            abort(404);
-        }
+        /*
+         * Developer checkout is marketplace-product agnostic.
+         *
+         * Resolve the published marketplace listing first so future
+         * product types such as themes, modules and website types can
+         * use the same checkout architecture.
+         */
+        $listing = $this->resolveMarketplaceListing(
+            $productType,
+            $productId
+        );
 
-        $table = $productType === 'addon'
-            ? 'core_addons'
-            : 'core_addon_bundles';
+        abort_unless($listing, 404);
 
-        $product = DB::table($table)
-            ->where('id', $productId)
-            ->where('is_active', true)
-            ->where('off_server_available', true)
-            ->whereNull('deleted_at')
-            ->first();
-
-        if (!$product) {
-            abort(404);
-        }
+        $table = match ($listing->product_type) {
+            'core_addon' => 'core_addons',
+            'core_bundle' => 'core_addon_bundles',
+            default => null,
+        };
 
         /*
-         * Online checkout options are represented once per enabled
-         * payment provider. Individual payment channels such as card
-         * and bank transfer remain available inside the provider.
+         * Core products currently have their source records in the
+         * central Core tables. Future marketplace product types can
+         * provide their own source resolution without changing checkout.
          */
+        $product = $table
+            ? DB::table($table)
+                ->where('id', $listing->product_id)
+                ->where('is_active', true)
+                ->whereNull('deleted_at')
+                ->first()
+            : null;
+
+        abort_unless($product, 404);
+
+        /*
+         * Marketplace listing is the commercial source of truth.
+         * It contains the published title, description, price and
+         * currency shown to the buyer.
+         */
+        /*
+         * Developer/off-server checkout must use the Core product's
+         * off-server price, not the marketplace listing's SaaS price.
+         *
+         * SaaS and developer purchases intentionally have independent
+         * pricing.
+         */
+        $price = (float) ($product->off_server_price ?? $listing->price ?? 0);
+        $currency = $product->off_server_currency
+            ?? $listing->currency
+            ?? 'NGN';
+
+        /*
+         * Core bundles expose their included addons through the
+         * bundle-items table. Load these so the checkout can show
+         * exactly what the buyer receives, including allocations
+         * configured by the administrator.
+         */
+        /*
+         * Included product items.
+         *
+         * Bundles expose their included addons through the bundle-items
+         * table. A standalone addon is itself the included product, so
+         * expose it through the same collection used by the checkout.
+         */
+        $includedItems = collect();
+
+        if ($listing->product_type === 'core_bundle') {
+            $includedItems = DB::table('core_addon_bundle_items as items')
+                ->join(
+                    'core_addons as addons',
+                    'addons.id',
+                    '=',
+                    'items.addon_id'
+                )
+                ->where('items.bundle_id', $listing->product_id)
+                ->where('addons.is_active', true)
+                ->whereNull('addons.deleted_at')
+                ->select(
+                    'addons.id',
+                    'addons.name',
+                    'addons.description',
+                    'addons.default_allocation',
+                    'addons.allocation_unit',
+                    'addons.is_unlimited',
+                    'items.allocation',
+                    'items.is_unlimited as bundle_is_unlimited'
+                )
+                ->orderBy('addons.name')
+                ->get();
+        } elseif ($listing->product_type === 'core_addon') {
+            $capabilityAllocations = DB::table('core_addon_capability_allocations')
+                ->where('addon_id', $product->id)
+                ->orderBy('id')
+                ->get();
+
+            $includedItems = $capabilityAllocations->map(function ($allocation) use ($product) {
+                $key = (string) $allocation->capability_key;
+
+                return (object) [
+                    'id' => $allocation->id,
+                    'name' => ucwords(
+                        str_replace(
+                            ['_', '-'],
+                            ' ',
+                            preg_replace('/^crm_/', '', $key)
+                        )
+                    ),
+                    'description' => null,
+                    'default_allocation' => null,
+                    'allocation_unit' => $product->allocation_unit,
+                    'is_unlimited' => (bool) $allocation->is_unlimited,
+                    'allocation' => $allocation->allocation,
+                    'bundle_is_unlimited' => false,
+                ];
+            });
+
+            /*
+             * If an addon has no capability allocation records, keep the
+             * addon itself visible as the included product.
+             */
+            if ($includedItems->isEmpty()) {
+                $includedItems = collect([
+                    (object) [
+                        'id' => $product->id,
+                        'name' => $product->name,
+                        'description' => $product->description,
+                        'default_allocation' => $product->default_allocation,
+                        'allocation_unit' => $product->allocation_unit,
+                        'is_unlimited' => $product->is_unlimited,
+                        'allocation' => null,
+                        'bundle_is_unlimited' => false,
+                    ],
+                ]);
+            }
+        }
+
         $onlineGateways = DB::table('payment_providers as providers')
             ->join(
                 'payment_methods as methods',
@@ -101,10 +214,6 @@ class MarketplaceController extends Controller
             ->orderBy('providers.name')
             ->get();
 
-        /*
-         * Offline methods are independent payment options and are
-         * therefore loaded directly from offline_payment_methods.
-         */
         $offlineMethods = DB::table('offline_payment_methods')
             ->where('is_active', true)
             ->whereNull('deleted_at')
@@ -113,13 +222,12 @@ class MarketplaceController extends Controller
             ->get();
 
         return view('marketplace.checkout', [
-            'website' => !empty($order->website_id)
-                ? DB::table('websites')
-                    ->where('id', $order->website_id)
-                    ->first()
-                : null,
+            'listing' => $listing,
             'product' => $product,
             'productType' => $productType,
+            'price' => $price,
+            'currency' => $currency,
+            'includedItems' => $includedItems,
             'onlineGateways' => $onlineGateways,
             'offlineMethods' => $offlineMethods,
         ]);
@@ -416,15 +524,12 @@ class MarketplaceController extends Controller
          * workflow will confirm or reject it.
          */
         return redirect()
-            ->route('marketplace.developer.checkout', [
-                'productType' => $data['product_type'],
-                'productId' => $data['product_id'],
-                'quantity' => $data['quantity'],
-                'transaction' => $transactionReference,
+            ->route('marketplace.developer.offline-payment', [
+                'attempt' => $attempt->id,
             ])
             ->with(
                 'status',
-                'Offline payment selected. Complete the payment and submit your receipt.'
+                'Offline payment selected. Complete the payment using the instructions below.'
             );
     }
 

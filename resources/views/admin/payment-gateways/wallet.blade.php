@@ -6,6 +6,13 @@
 <div class="min-h-full bg-slate-50 px-6 py-8">
     <div class="mx-auto max-w-6xl">
 
+        <div class="mb-5">
+            <a href="{{ route('admin.payment-gateways.index') }}"
+               class="inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-blue-600 shadow-sm transition hover:bg-slate-50">
+                ← Back to Gateways
+            </a>
+        </div>
+
         <div class="mb-8">
             <p class="text-xs font-black uppercase tracking-[0.2em] text-blue-600">
                 Payment Gateways

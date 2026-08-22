@@ -1,6 +1,16 @@
 @extends('admin.layouts.app')
 
+
 @section('content')
+
+<div class="mb-6">
+    <a href="{{ route('admin.payment-gateways.index') }}"
+       class="inline-flex items-center gap-2 text-sm font-black text-blue-600 hover:text-blue-700">
+        <span>←</span>
+        Back to Gateways
+    </a>
+</div>
+
 
 <div class="min-h-screen bg-slate-50 px-6 py-8">
     <div class="mx-auto max-w-6xl">

@@ -102,7 +102,7 @@
         <div
             x-data="{
                 quantity: 1,
-                unitPrice: {{ (float) ($price ?? $order->amount ?? 0) }},
+                unitPrice: {{ (float) ($price ?? $product->off_server_price ?? 0) }},
                 coupon: '',
                 couponApplied: false,
                 discount: 0,
@@ -129,21 +129,20 @@
                 <div class="mt-2 flex items-start justify-between gap-5">
                     <div>
                         <h2 class="text-2xl font-black text-slate-950">
-                            {{ $product->name ?? $order->listing_title }}
+                            {{ $listing->title ?? $product->name ?? 'Marketplace Product' }}
                         </h2>
 
-                        @if(!empty($product->description))
+                        @if(!empty($listing->description ?? null) || !empty($listing->summary ?? null) || !empty($product->description ?? null))
                             <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-                                {{ $product->description }}
+                                {{ $listing->description ?? $listing->summary ?? $product->description }}
                             </p>
                         @endif
                     </div>
 
                     <div class="shrink-0 rounded-xl bg-blue-50 px-3 py-2 text-[10px] font-black uppercase text-blue-700">
-                        {{ $productType ?? $order->product_type }}
+                        {{ $productType ?? 'product' }}
                     </div>
                 </div>
-
 
                 {{-- Website --}}
                 @if(isset($website) && $website)
@@ -168,6 +167,147 @@
                     </div>
                 @endif
 
+
+                {{-- Included Product Items --}}
+                @if(($includedItems ?? collect())->isNotEmpty())
+                    <div
+                        class="mt-6 rounded-2xl border border-slate-200 p-5"
+                        x-data="{ showAllItems: false }"
+                    >
+                        <div class="text-xs font-black uppercase tracking-wider text-slate-400">
+                            Included in this purchase
+                        </div>
+
+                        <div class="mt-4 divide-y divide-slate-100">
+                            @foreach($includedItems as $index => $item)
+                                @php
+                                    $unlimited = !empty($item->bundle_is_unlimited)
+                                        || !empty($item->is_unlimited);
+
+                                    $allocation = $item->allocation
+                                        ?? $item->default_allocation;
+
+                                    $unit = $item->allocation_unit;
+                                @endphp
+
+                                <div
+                                    class="py-4"
+                                    @if($index >= 5)
+                                        x-show="showAllItems"
+                                        x-cloak
+                                    @endif
+                                >
+                                    <div class="flex items-start justify-between gap-6">
+                                        <div class="min-w-0">
+                                            <div class="text-sm font-black text-slate-900">
+                                                {{ $item->name }}
+                                            </div>
+
+                                            @if(!empty($item->description))
+                                                <div class="mt-1 text-xs leading-5 text-slate-500">
+                                                    {{ $item->description }}
+                                                </div>
+                                            @endif
+                                        </div>
+
+                                        <div class="shrink-0 text-right">
+                                            <div class="text-sm font-black text-slate-900">
+                                                @if($unlimited)
+                                                    Unlimited
+                                                @elseif($allocation !== null)
+                                                    {{ rtrim(rtrim(number_format((float) $allocation, 2), '0'), '.') }}
+                                                    {{ $unit ?? '' }}
+                                                @else
+                                                    Included
+                                                @endif
+                                            </div>
+
+                                            <div class="mt-1 text-xs text-slate-400">
+                                                Included
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+
+                        @if($includedItems->count() > 5)
+                            <div class="mt-4 border-t border-slate-100 pt-4 text-center">
+                                <button
+                                    type="button"
+                                    x-show="!showAllItems"
+                                    @click="showAllItems = true"
+                                    class="text-sm font-black text-blue-600 transition hover:text-blue-700"
+                                >
+                                    See More
+                                </button>
+
+                                <button
+                                    type="button"
+                                    x-show="showAllItems"
+                                    @click="showAllItems = false"
+                                    class="text-sm font-black text-blue-600 transition hover:text-blue-700"
+                                >
+                                    See Less
+                                </button>
+                            </div>
+                        @endif
+                    </div>
+                @endif
+
+
+                {{-- Purchase Summary --}}
+                <div class="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                    <div class="text-xs font-black uppercase tracking-wider text-slate-400">
+                        Purchase Summary
+                    </div>
+
+                    <div class="mt-4 space-y-3">
+                        <div class="flex items-center justify-between gap-6">
+                            <span class="text-sm font-semibold text-slate-500">
+                                Unit Price
+                            </span>
+
+                            <span class="text-sm font-black text-slate-900">
+                                {{ $currency ?? $listing->currency ?? 'NGN' }}
+                                {{ number_format((float) ($price ?? $listing->price ?? 0), 2) }}
+                            </span>
+                        </div>
+
+                        <div class="flex items-center justify-between gap-6">
+                            <span class="text-sm font-semibold text-slate-500">
+                                Quantity
+                            </span>
+
+                            <span
+                                class="text-sm font-black text-slate-900"
+                                x-text="quantity"
+                            >
+                                1
+                            </span>
+                        </div>
+
+                        <div class="border-t border-slate-200 pt-3">
+                            <div class="flex items-center justify-between gap-6">
+                                <span class="text-sm font-black text-slate-900">
+                                    Total
+                                </span>
+
+                                <span class="text-lg font-black text-slate-900">
+                                    {{ $currency ?? $listing->currency ?? 'NGN' }}
+                                    <span
+                                        x-text="Number(total).toLocaleString(undefined, {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2
+                                        })"
+                                    >
+                                        {{ number_format((float) ($price ?? $listing->price ?? 0), 2) }}
+                                    </span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 {{-- Coupon --}}
                 <div class="mt-6 rounded-2xl border border-slate-200 p-5">
@@ -253,15 +393,15 @@
 
                 <form
                     method="POST"
-                    action="{{ route('marketplace.saas.payment') }}"
+                    action="{{ route('marketplace.developer.checkout.submit') }}"
                     class="mt-6"
                 >
                     @csrf
 
-                    <input type="hidden" name="order_id" value="{{ $order->id }}">
+                    <input type="hidden" name="product_type" value="{{ $productType }}">
+                    <input type="hidden" name="product_id" value="{{ $product->id }}">
                     <input type="hidden" name="payment_option" x-bind:value="paymentMethod">
                     <input type="hidden" name="quantity" x-bind:value="quantity">
-                    <input type="hidden" name="coupon_code" x-bind:value="coupon">
 
                     <button
                         type="submit"

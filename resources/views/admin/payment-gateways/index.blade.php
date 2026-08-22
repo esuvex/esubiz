@@ -29,14 +29,14 @@
                 class="group rounded-3xl border border-slate-200 bg-white p-7 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl"
             >
                 <div class="flex items-start justify-between">
-                    <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+                    <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
                         <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
                                   d="M3 7h18v10H3zM3 10h18M7 15h4"/>
                         </svg>
                     </div>
 
-                    <span class="text-sm font-bold text-slate-400 transition group-hover:text-emerald-600">
+                    <span class="text-sm font-bold text-slate-400 transition group-hover:text-blue-600">
                         →
                     </span>
                 </div>
@@ -49,7 +49,7 @@
                     Configure wallet funding, payouts, limits and wallet-related settings.
                 </p>
 
-                <div class="mt-6 inline-flex items-center text-sm font-black text-emerald-600">
+                <div class="mt-6 inline-flex items-center text-sm font-black text-blue-600">
                     Manage wallet
                     <span class="ml-2 transition group-hover:translate-x-1">→</span>
                 </div>
@@ -60,14 +60,14 @@
                 class="group rounded-3xl border border-slate-200 bg-white p-7 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl"
             >
                 <div class="flex items-start justify-between">
-                    <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
+                    <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
                         <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
                                   d="M4 7h16v10H4zM4 10h16M8 7V5a2 2 0 014 0v2M12 7V5a2 2 0 014 0v2"/>
                         </svg>
                     </div>
 
-                    <span class="text-sm font-bold text-slate-400 transition group-hover:text-amber-600">
+                    <span class="text-sm font-bold text-slate-400 transition group-hover:text-blue-600">
                         →
                     </span>
                 </div>
@@ -80,7 +80,7 @@
                     Configure Esubiz gift cards, balances, validity, usage and supported payment uses.
                 </p>
 
-                <div class="mt-6 inline-flex items-center text-sm font-black text-amber-600">
+                <div class="mt-6 inline-flex items-center text-sm font-black text-blue-600">
                     Manage gift cards
                     <span class="ml-2 transition group-hover:translate-x-1">→</span>
                 </div>
@@ -123,14 +123,14 @@
                 class="group rounded-3xl border border-slate-200 bg-white p-7 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl"
             >
                 <div class="flex items-start justify-between">
-                    <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+                    <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
                         <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
                                   d="M4 6h16M4 10h16M7 14h10M7 18h6"/>
                         </svg>
                     </div>
 
-                    <span class="text-sm font-bold text-slate-400 transition group-hover:text-slate-700">
+                    <span class="text-sm font-bold text-slate-400 transition group-hover:text-blue-600">
                         →
                     </span>
                 </div>
@@ -144,7 +144,7 @@
                     deposit and other offline payment options.
                 </p>
 
-                <div class="mt-6 inline-flex items-center text-sm font-black text-slate-700">
+                <div class="mt-6 inline-flex items-center text-sm font-black text-blue-600">
                     Manage offline gateways
                     <span class="ml-2 transition group-hover:translate-x-1">→</span>
                 </div>

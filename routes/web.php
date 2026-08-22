@@ -5,6 +5,17 @@ use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\Admin\FinancialReportController;
 
 use Illuminate\Support\Facades\Route;
+
+Route::get('/gift-card/validate', [
+    \App\Http\Controllers\GiftCardValidatorController::class,
+    'index',
+])->name('gift-card.validate');
+
+Route::post('/gift-card/validate', [
+    \App\Http\Controllers\GiftCardValidatorController::class,
+    'validateCard',
+])->name('gift-card.validate.check');
+
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\WebsiteController;
 use App\Http\Controllers\User\WebsiteManagementController;
@@ -444,6 +455,18 @@ Route::prefix('admin/payment-gateways')->middleware(['auth'])->group(function ()
         \App\Http\Controllers\Admin\GiftCardController::class,
         'store'
     ])->name('admin.payment-gateways.gift-card.store');
+    
+    Route::post('/gift-card/generate',
+        [\App\Http\Controllers\Admin\GiftCardController::class, 'generate']
+    )->name('admin.payment-gateways.gift-card.generate');
+    
+    Route::get('/gift-card/export/csv',
+        [\App\Http\Controllers\Admin\GiftCardController::class, 'csv']
+    )->name('admin.payment-gateways.gift-card.csv');
+
+    Route::get('/gift-card/export/pdf',
+        [\App\Http\Controllers\Admin\GiftCardController::class, 'pdf']
+    )->name('admin.payment-gateways.gift-card.pdf');
 
     Route::get('/gift-card/{id}', [
         \App\Http\Controllers\Admin\GiftCardController::class,
@@ -464,6 +487,10 @@ Route::prefix('admin/payment-gateways')->middleware(['auth'])->group(function ()
         \App\Http\Controllers\Admin\GiftCardController::class,
         'disable'
     ])->name('admin.payment-gateways.gift-card.disable');
+
+    Route::delete('/gift-card/{id}',
+        [\App\Http\Controllers\Admin\GiftCardController::class, 'destroy']
+    )->name('admin.payment-gateways.gift-card.destroy');
 
 });
 
@@ -564,6 +591,9 @@ Route::post('/admin/core-addons/{id}/grant', [
 
 Route::post('/marketplace/developer/checkout', [MarketplaceController::class, 'developerCheckoutSubmit'])
     ->name('marketplace.developer.checkout.submit');
+Route::get('/marketplace/developer/offline-payment/{attempt}', [MarketplaceController::class, 'developerOfflinePayment'])
+    ->name('marketplace.developer.offline-payment');
+
 Route::post('/marketplace/developer/payment', [MarketplaceController::class, 'developerPayment'])
     ->name('marketplace.developer.payment');
 

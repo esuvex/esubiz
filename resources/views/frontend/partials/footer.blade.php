@@ -145,6 +145,13 @@
 
                     <li><a href="#" class="hover:text-amber-400 transition">System Status</a></li>
 
+                    <li>
+                        <a href="{{ route('gift-card.validate') }}"
+                           class="hover:text-amber-400 transition">
+                            Gift Card Validator
+                        </a>
+                    </li>
+
                 </ul>
 
             </div>
@@ -209,4 +216,56 @@
 
     </div>
 
+    <!-- Floating Back to Top -->
+    <button
+        id="back-to-top"
+        type="button"
+        aria-label="Back to top"
+        style="position:fixed;right:24px;bottom:24px;z-index:99999;display:none;width:48px;height:48px;"
+        class="rounded-full bg-[#c89b3c] text-slate-950 shadow-2xl items-center justify-center transition-all duration-300 hover:-translate-y-1 hover:opacity-90 focus:outline-none"
+    >
+        <svg
+            class="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2.5"
+        >
+            <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M5 15l7-7 7 7"
+            />
+        </svg>
+    </button>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const button = document.getElementById('back-to-top');
+
+            if (!button) return;
+
+            function updateBackToTop() {
+                button.style.display = window.scrollY > 300
+                    ? 'flex'
+                    : 'none';
+            }
+
+            window.addEventListener('scroll', updateBackToTop, {
+                passive: true
+            });
+
+            button.addEventListener('click', function () {
+                window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+            });
+
+            updateBackToTop();
+        });
+    </script>
+
 </footer>
+
+
