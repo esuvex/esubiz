@@ -419,6 +419,17 @@ Route::post('/developer/financials/email', [\App\Http\Controllers\Developer\Dash
 
 Route::prefix('admin/payment-gateways')->middleware(['auth'])->group(function () {
 
+    Route::get('/wallet', [
+        \App\Http\Controllers\Admin\WalletController::class,
+        'index'
+    ])->name('admin.payment-gateways.wallet');
+
+    Route::patch('/wallet', [
+        \App\Http\Controllers\Admin\WalletController::class,
+        'update'
+    ])->name('admin.payment-gateways.wallet.update');
+
+
     Route::get('/gift-card', [
         \App\Http\Controllers\Admin\GiftCardController::class,
         'index'

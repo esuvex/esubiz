@@ -25,6 +25,68 @@
         <div class="grid gap-6 md:grid-cols-2">
 
             <a
+                href="{{ route('admin.payment-gateways.wallet') }}"
+                class="group rounded-3xl border border-slate-200 bg-white p-7 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl"
+            >
+                <div class="flex items-start justify-between">
+                    <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+                        <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                                  d="M3 7h18v10H3zM3 10h18M7 15h4"/>
+                        </svg>
+                    </div>
+
+                    <span class="text-sm font-bold text-slate-400 transition group-hover:text-emerald-600">
+                        →
+                    </span>
+                </div>
+
+                <h2 class="mt-6 text-xl font-black text-slate-900">
+                    Wallet
+                </h2>
+
+                <p class="mt-3 text-sm leading-6 text-slate-500">
+                    Configure wallet funding, payouts, limits and wallet-related settings.
+                </p>
+
+                <div class="mt-6 inline-flex items-center text-sm font-black text-emerald-600">
+                    Manage wallet
+                    <span class="ml-2 transition group-hover:translate-x-1">→</span>
+                </div>
+            </a>
+
+            <a
+                href="{{ route('admin.payment-gateways.gift-card') }}"
+                class="group rounded-3xl border border-slate-200 bg-white p-7 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl"
+            >
+                <div class="flex items-start justify-between">
+                    <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
+                        <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                                  d="M4 7h16v10H4zM4 10h16M8 7V5a2 2 0 014 0v2M12 7V5a2 2 0 014 0v2"/>
+                        </svg>
+                    </div>
+
+                    <span class="text-sm font-bold text-slate-400 transition group-hover:text-amber-600">
+                        →
+                    </span>
+                </div>
+
+                <h2 class="mt-6 text-xl font-black text-slate-900">
+                    Gift Card
+                </h2>
+
+                <p class="mt-3 text-sm leading-6 text-slate-500">
+                    Configure Esubiz gift cards, balances, validity, usage and supported payment uses.
+                </p>
+
+                <div class="mt-6 inline-flex items-center text-sm font-black text-amber-600">
+                    Manage gift cards
+                    <span class="ml-2 transition group-hover:translate-x-1">→</span>
+                </div>
+            </a>
+
+            <a
                 href="{{ route('admin.payment-gateways.online.index') }}"
                 class="group rounded-3xl border border-slate-200 bg-white p-7 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl"
             >
