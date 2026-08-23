@@ -210,6 +210,232 @@
 
             </div>
 
+
+            <div class="space-y-5 px-6 pb-6">
+
+                <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                    <h3 class="text-sm font-black text-slate-900">
+                        Allowed Gateway Uses
+                    </h3>
+
+                    <div class="mt-4 grid gap-3 sm:grid-cols-2">
+
+                        <div class="sm:col-span-2">
+                            <div class="mb-2 text-xs font-black uppercase tracking-wider text-blue-600">
+                                User Mode
+                            </div>
+                        </div>
+
+                        @foreach([
+                            'user_marketplace_checkout'
+                                => 'Marketplace Checkout',
+
+                            'user_wallet_funding'
+                                => 'Wallet Funding',
+
+                            'user_checkout_link'
+                                => 'Checkout Link',
+                        ] as $context => $label)
+
+                            <label class="flex items-center gap-3 text-sm font-bold text-slate-700">
+                                <input
+                                    type="checkbox"
+                                    name="usage_contexts[]"
+                                    value="{{ $context }}"
+                                    checked
+                                >
+
+                                {{ $label }}
+                            </label>
+
+                        @endforeach
+
+
+                        <div class="mt-3 sm:col-span-2">
+                            <div class="mb-2 text-xs font-black uppercase tracking-wider text-violet-600">
+                                Developer Mode
+                            </div>
+                        </div>
+
+                        @foreach([
+                            'developer_marketplace_checkout'
+                                => 'Marketplace Checkout',
+
+                            'developer_wallet_funding'
+                                => 'Wallet Funding',
+
+                            'developer_checkout_link'
+                                => 'Checkout Link',
+                        ] as $context => $label)
+
+                            <label class="flex items-center gap-3 text-sm font-bold text-slate-700">
+                                <input
+                                    type="checkbox"
+                                    name="usage_contexts[]"
+                                    value="{{ $context }}"
+                                    checked
+                                >
+
+                                {{ $label }}
+                            </label>
+
+                        @endforeach
+
+                    </div>
+                </div>
+
+
+                <div
+                    x-data="{
+                        enabled: false,
+                        type: 'none',
+                        provider: ''
+                    }"
+                    class="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+                >
+
+                    <div class="flex items-center justify-between gap-4">
+
+                        <div>
+                            <h3 class="text-sm font-black text-slate-900">
+                                Currency / Crypto Conversion
+                            </h3>
+                        </div>
+
+                        <label class="flex items-center gap-2 text-sm font-bold text-slate-700">
+                            <input
+                                type="checkbox"
+                                name="conversion_enabled"
+                                value="1"
+                                x-model="enabled"
+                            >
+
+                            Enable
+                        </label>
+
+                    </div>
+
+                    <div
+                        x-show="enabled"
+                        x-cloak
+                        class="mt-5 grid gap-4 sm:grid-cols-2"
+                    >
+
+                        <select
+                            name="conversion_type"
+                            x-model="type"
+                            class="rounded-xl border border-slate-300 bg-white px-4 py-3"
+                        >
+                            <option value="none">None</option>
+                            <option value="fiat">Fiat Currency</option>
+                            <option value="crypto">Cryptocurrency</option>
+                        </select>
+
+                        <select
+                            name="conversion_provider"
+                            x-model="provider"
+                            class="rounded-xl border border-slate-300 bg-white px-4 py-3"
+                        >
+                            <option value="">Select rate source</option>
+
+                            <option
+                                value="frankfurter"
+                                x-show="type === 'fiat'"
+                            >
+                                Frankfurter
+                            </option>
+
+                            <option
+                                value="coingecko"
+                                x-show="type === 'crypto'"
+                            >
+                                CoinGecko
+                            </option>
+
+                            <option value="manual">
+                                Manual Rate
+                            </option>
+                        </select>
+
+                        <input
+                            type="text"
+                            name="conversion_target"
+                            placeholder="USD, GBP, USDT, BTC"
+                            class="rounded-xl border border-slate-300 bg-white px-4 py-3 uppercase"
+                        >
+
+                        <input
+                            x-show="provider === 'manual'"
+                            x-cloak
+                            type="number"
+                            step="0.000000000001"
+                            min="0.000000000001"
+                            name="manual_conversion_rate"
+                            placeholder="Manual rate"
+                            class="rounded-xl border border-slate-300 bg-white px-4 py-3"
+                        >
+
+                    </div>
+                </div>
+
+
+                <div
+                    x-data="{
+                        enabled: false,
+                        type: 'percentage'
+                    }"
+                    class="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+                >
+
+                    <div class="flex items-center justify-between gap-4">
+
+                        <h3 class="text-sm font-black text-slate-900">
+                            Payment Markup
+                        </h3>
+
+                        <label class="flex items-center gap-2 text-sm font-bold text-slate-700">
+                            <input
+                                type="checkbox"
+                                name="markup_enabled"
+                                value="1"
+                                x-model="enabled"
+                            >
+
+                            Enable
+                        </label>
+
+                    </div>
+
+                    <div
+                        x-show="enabled"
+                        x-cloak
+                        class="mt-5 grid gap-4 sm:grid-cols-2"
+                    >
+
+                        <select
+                            name="markup_type"
+                            x-model="type"
+                            class="rounded-xl border border-slate-300 bg-white px-4 py-3"
+                        >
+                            <option value="percentage">Percentage</option>
+                            <option value="fixed">Fixed</option>
+                        </select>
+
+                        <input
+                            type="number"
+                            step="0.00000001"
+                            min="0"
+                            name="markup_value"
+                            value="0"
+                            class="rounded-xl border border-slate-300 bg-white px-4 py-3"
+                        >
+
+                    </div>
+
+                </div>
+
+            </div>
+
             <div class="flex justify-end border-t border-slate-100 bg-slate-50 px-6 py-4">
                 <button
                     type="submit"
@@ -443,6 +669,344 @@
 
                 </div>
 
+
+                @php
+                    $methodUsage = json_decode(
+                        $method->usage_contexts ?? '[]',
+                        true
+                    );
+
+                    if ($method->usage_contexts === null) {
+                        $methodUsage = [
+                            'user_marketplace_checkout',
+                            'user_wallet_funding',
+                            'user_checkout_link',
+
+                            'developer_marketplace_checkout',
+                            'developer_wallet_funding',
+                            'developer_checkout_link',
+                        ];
+                    }
+
+                    $methodUsage = is_array($methodUsage)
+                        ? $methodUsage
+                        : [];
+                @endphp
+
+                <div class="space-y-5 px-6 pb-6">
+
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+
+                        <h3 class="text-sm font-black text-slate-900">
+                            Allowed Gateway Uses
+                        </h3>
+
+                        <div class="mt-4 grid gap-3 sm:grid-cols-2">
+
+                            <div class="sm:col-span-2">
+                                <div class="mb-2 text-xs font-black uppercase tracking-wider text-blue-600">
+                                    User Mode
+                                </div>
+                            </div>
+
+                            @foreach([
+                                'user_marketplace_checkout'
+                                    => 'Marketplace Checkout',
+
+                                'user_wallet_funding'
+                                    => 'Wallet Funding',
+
+                                'user_checkout_link'
+                                    => 'Checkout Link',
+                            ] as $context => $label)
+
+                                <label class="flex items-center gap-3 text-sm font-bold text-slate-700">
+                                    <input
+                                        type="checkbox"
+                                        name="usage_contexts[]"
+                                        value="{{ $context }}"
+                                        @checked(in_array(
+                                            $context,
+                                            $methodUsage,
+                                            true
+                                        ))
+                                    >
+
+                                    {{ $label }}
+                                </label>
+
+                            @endforeach
+
+
+                            <div class="mt-3 sm:col-span-2">
+                                <div class="mb-2 text-xs font-black uppercase tracking-wider text-violet-600">
+                                    Developer Mode
+                                </div>
+                            </div>
+
+                            @foreach([
+                                'developer_marketplace_checkout'
+                                    => 'Marketplace Checkout',
+
+                                'developer_wallet_funding'
+                                    => 'Wallet Funding',
+
+                                'developer_checkout_link'
+                                    => 'Checkout Link',
+                            ] as $context => $label)
+
+                                <label class="flex items-center gap-3 text-sm font-bold text-slate-700">
+                                    <input
+                                        type="checkbox"
+                                        name="usage_contexts[]"
+                                        value="{{ $context }}"
+                                        @checked(in_array(
+                                            $context,
+                                            $methodUsage,
+                                            true
+                                        ))
+                                    >
+
+                                    {{ $label }}
+                                </label>
+
+                            @endforeach
+
+                        </div>
+                    </div>
+
+
+                    <div
+                        x-data="{
+                            enabled: @js(
+                                (bool) (
+                                    $method->conversion_enabled
+                                        ?? false
+                                )
+                            ),
+                            type: @js(
+                                $method->conversion_type
+                                    ?? 'none'
+                            ),
+                            provider: @js(
+                                $method->conversion_provider
+                                    ?? ''
+                            )
+                        }"
+                        class="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+                    >
+
+                        <div class="flex items-center justify-between gap-4">
+
+                            <h3 class="text-sm font-black text-slate-900">
+                                Currency / Crypto Conversion
+                            </h3>
+
+                            <label class="flex items-center gap-2 text-sm font-bold text-slate-700">
+                                <input
+                                    type="checkbox"
+                                    name="conversion_enabled"
+                                    value="1"
+                                    x-model="enabled"
+                                    @checked(
+                                        $method->conversion_enabled
+                                            ?? false
+                                    )
+                                >
+
+                                Enable
+                            </label>
+
+                        </div>
+
+                        <div
+                            x-show="enabled"
+                            x-cloak
+                            class="mt-5 grid gap-4 sm:grid-cols-2"
+                        >
+
+                            <select
+                                name="conversion_type"
+                                x-model="type"
+                                class="rounded-xl border border-slate-300 bg-white px-4 py-3"
+                            >
+                                <option
+                                    value="none"
+                                    @selected(($method->conversion_type ?? 'none') === 'none')
+                                >
+                                    None
+                                </option>
+
+                                <option
+                                    value="fiat"
+                                    @selected(($method->conversion_type ?? 'none') === 'fiat')
+                                >
+                                    Fiat Currency
+                                </option>
+
+                                <option
+                                    value="crypto"
+                                    @selected(($method->conversion_type ?? 'none') === 'crypto')
+                                >
+                                    Cryptocurrency
+                                </option>
+                            </select>
+
+                            <select
+                                name="conversion_provider"
+                                x-model="provider"
+                                class="rounded-xl border border-slate-300 bg-white px-4 py-3"
+                            >
+                                <option
+                                    value=""
+                                    @selected(empty($method->conversion_provider))
+                                >
+                                    Select rate source
+                                </option>
+
+                                <option
+                                    value="frankfurter"
+                                    x-show="type === 'fiat'"
+                                    @selected(
+                                        ($method->conversion_provider ?? '')
+                                            === 'frankfurter'
+                                    )
+                                >
+                                    Frankfurter
+                                </option>
+
+                                <option
+                                    value="coingecko"
+                                    x-show="type === 'crypto'"
+                                    @selected(
+                                        ($method->conversion_provider ?? '')
+                                            === 'coingecko'
+                                    )
+                                >
+                                    CoinGecko
+                                </option>
+
+                                <option
+                                    value="manual"
+                                    @selected(
+                                        ($method->conversion_provider ?? '')
+                                            === 'manual'
+                                    )
+                                >
+                                    Manual Rate
+                                </option>
+                            </select>
+
+                            <input
+                                type="text"
+                                name="conversion_target"
+                                value="{{ $method->conversion_target }}"
+                                placeholder="USD, GBP, USDT, BTC"
+                                class="rounded-xl border border-slate-300 bg-white px-4 py-3 uppercase"
+                            >
+
+                            <input
+                                x-show="provider === 'manual'"
+                                x-cloak
+                                type="number"
+                                step="0.000000000001"
+                                min="0.000000000001"
+                                name="manual_conversion_rate"
+                                value="{{ $method->manual_conversion_rate }}"
+                                class="rounded-xl border border-slate-300 bg-white px-4 py-3"
+                            >
+
+                        </div>
+
+                    </div>
+
+
+                    <div
+                        x-data="{
+                            enabled: @js(
+                                (bool) (
+                                    $method->markup_enabled
+                                        ?? false
+                                )
+                            ),
+                            type: @js(
+                                $method->markup_type
+                                    ?? 'percentage'
+                            )
+                        }"
+                        class="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+                    >
+
+                        <div class="flex items-center justify-between gap-4">
+
+                            <h3 class="text-sm font-black text-slate-900">
+                                Payment Markup
+                            </h3>
+
+                            <label class="flex items-center gap-2 text-sm font-bold text-slate-700">
+                                <input
+                                    type="checkbox"
+                                    name="markup_enabled"
+                                    value="1"
+                                    x-model="enabled"
+                                    @checked(
+                                        $method->markup_enabled
+                                            ?? false
+                                    )
+                                >
+
+                                Enable
+                            </label>
+
+                        </div>
+
+                        <div
+                            x-show="enabled"
+                            x-cloak
+                            class="mt-5 grid gap-4 sm:grid-cols-2"
+                        >
+
+                            <select
+                                name="markup_type"
+                                x-model="type"
+                                class="rounded-xl border border-slate-300 bg-white px-4 py-3"
+                            >
+                                <option
+                                    value="percentage"
+                                    @selected(
+                                        ($method->markup_type ?? 'percentage')
+                                            === 'percentage'
+                                    )
+                                >
+                                    Percentage
+                                </option>
+
+                                <option
+                                    value="fixed"
+                                    @selected(
+                                        ($method->markup_type ?? 'percentage')
+                                            === 'fixed'
+                                    )
+                                >
+                                    Fixed
+                                </option>
+                            </select>
+
+                            <input
+                                type="number"
+                                step="0.00000001"
+                                min="0"
+                                name="markup_value"
+                                value="{{ $method->markup_value ?? 0 }}"
+                                class="rounded-xl border border-slate-300 bg-white px-4 py-3"
+                            >
+
+                        </div>
+
+                    </div>
+
+                </div>
+
                 <div class="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-6 py-4">
 
                     <button
@@ -487,6 +1051,320 @@
             </div>
 
         @endforelse
+
+    </div>
+
+    {{-- =====================================================
+         Offline Payment Management
+    ====================================================== --}}
+    <div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+
+        <div class="flex flex-col gap-3 border-b border-slate-100 px-6 py-6 md:flex-row md:items-center md:justify-between">
+            <div>
+                <h2 class="text-xl font-black text-slate-900">
+                    Offline Payment Management
+                </h2>
+
+                <p class="mt-1 text-sm text-slate-500">
+                    Review customer payment proofs and approve or reject offline marketplace payments.
+                </p>
+            </div>
+
+            <div class="rounded-full bg-slate-100 px-4 py-2 text-xs font-black text-slate-600">
+                {{ $offlinePayments->count() }} Payments
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+
+                <thead class="bg-slate-50">
+                    <tr class="text-left text-[10px] font-black uppercase tracking-wider text-slate-500">
+                        <th class="px-5 py-4">Customer</th>
+                        <th class="px-5 py-4">Order / Product</th>
+                        <th class="px-5 py-4">Website</th>
+                        <th class="px-5 py-4">Method</th>
+                        <th class="px-5 py-4">Amount</th>
+                        <th class="px-5 py-4">Reference</th>
+                        <th class="px-5 py-4">Receipt</th>
+                        <th class="px-5 py-4">Status</th>
+                        <th class="px-5 py-4">Date</th>
+                        <th class="px-5 py-4 text-right">Action</th>
+                    </tr>
+                </thead>
+
+                <tbody class="divide-y divide-slate-100">
+
+                    @forelse($offlinePayments as $payment)
+                        <tr class="align-top hover:bg-slate-50">
+
+                            {{-- Customer --}}
+                            <td class="px-5 py-4">
+                                <div class="font-black text-slate-900">
+                                    {{ $payment->user->name ?? 'Unknown User' }}
+                                </div>
+
+                                @if(!empty($payment->user->email))
+                                    <div class="mt-1 text-xs text-slate-500">
+                                        {{ $payment->user->email }}
+                                    </div>
+                                @endif
+
+                                <div class="mt-1 text-[10px] font-black uppercase tracking-wide text-slate-400">
+                                    {{ $payment->deployment_type === 'off_server'
+                                        ? 'Developer / Off-server'
+                                        : 'SaaS' }}
+                                </div>
+                            </td>
+
+                            {{-- Order / Product --}}
+                            <td class="px-5 py-4">
+                                @if(!empty($payment->is_wallet_funding))
+                                    <div class="font-black text-slate-900">
+                                        Wallet Funding
+                                    </div>
+
+                                    <div class="mt-1 text-xs text-slate-500">
+                                        {{ $payment->funding->reference
+                                            ?? 'Wallet Funding' }}
+                                    </div>
+                                @else
+                                    <div class="font-black text-slate-900">
+                                        {{ $payment->order->product_title ?? 'Marketplace Product' }}
+                                    </div>
+
+                                    <div class="mt-1 text-xs text-slate-500">
+                                        {{ $payment->order->reference
+                                            ?? ('Order #' . ($payment->order_id ?? '—')) }}
+                                    </div>
+                                @endif
+                            </td>
+
+                            {{-- Website --}}
+                            <td class="px-5 py-4">
+                                @if($payment->deployment_type === 'saas' && $payment->website)
+                                    <div class="font-bold text-slate-900">
+                                        {{ $payment->website->name }}
+                                    </div>
+
+                                    <div class="mt-1 text-xs text-slate-500">
+                                        {{ $payment->website->domain
+                                            ?? $payment->website->subdomain
+                                            ?? '' }}
+                                    </div>
+                                @else
+                                    <span class="text-slate-400">—</span>
+                                @endif
+                            </td>
+
+                            {{-- Method --}}
+                            <td class="px-5 py-4">
+                                <div class="font-bold text-slate-700">
+                                    {{ $payment->payment_method_name ?? 'Offline Payment' }}
+                                </div>
+                            </td>
+
+                            {{-- Amount --}}
+                            <td class="whitespace-nowrap px-5 py-4 font-black text-slate-900">
+                                {{ strtoupper($payment->currency ?? 'NGN') }}
+                                {{ number_format((float) $payment->amount, 2) }}
+                            </td>
+
+                            {{-- Reference --}}
+                            <td class="px-5 py-4">
+                                <code class="break-all rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-600">
+                                    {{ $payment->transaction_reference }}
+                                </code>
+                            </td>
+
+                            {{-- Receipt --}}
+                            <td class="px-5 py-4">
+                                @if(!empty($payment->metadata['receipt_path']))
+                                    <div
+                                        x-data="{
+                                            open: false,
+                                            receiptUrl: @js(
+                                                route(
+                                                    'admin.payment-gateways.offline-payments.receipt',
+                                                    ['attempt' => $payment->id]
+                                                )
+                                            )
+                                        }"
+                                    >
+                                        <button
+                                            type="button"
+                                            @click="open = true"
+                                            class="inline-flex rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-black text-blue-700 hover:bg-blue-100"
+                                        >
+                                            View Receipt
+                                        </button>
+
+                                        <template x-teleport="body">
+                                            <div
+                                                x-show="open"
+                                                x-cloak
+                                                @keydown.escape.window="open = false"
+                                                class="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6"
+                                            >
+                                                <div
+                                                    class="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
+                                                    @click="open = false"
+                                                ></div>
+
+                                                <div
+                                                    x-show="open"
+                                                    x-transition
+                                                    class="relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+                                                >
+                                                    <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4 sm:px-6">
+                                                        <div>
+                                                            <h3 class="text-lg font-black text-slate-900">
+                                                                Payment Receipt
+                                                            </h3>
+
+                                                            <p class="mt-1 text-xs text-slate-500">
+                                                                {{ $payment->metadata['receipt_original_name'] ?? 'Customer payment proof' }}
+                                                            </p>
+                                                        </div>
+
+                                                        <button
+                                                            type="button"
+                                                            @click="open = false"
+                                                            class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-xl font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                                                        >
+                                                            &times;
+                                                        </button>
+                                                    </div>
+
+                                                    <div class="flex max-h-[65vh] min-h-[280px] items-center justify-center overflow-auto bg-slate-100 p-4">
+                                                        <img
+                                                            :src="open ? receiptUrl : ''"
+                                                            alt="Payment receipt"
+                                                            class="max-h-[58vh] max-w-full rounded-xl border border-slate-200 bg-white object-contain shadow-sm"
+                                                        >
+                                                    </div>
+
+                                                    <div class="flex justify-end border-t border-slate-200 bg-white px-5 py-4 sm:px-6">
+                                                        <button
+                                                            type="button"
+                                                            @click="open = false"
+                                                            class="rounded-xl bg-slate-900 px-5 py-3 text-sm font-black text-white hover:bg-slate-800"
+                                                        >
+                                                            Close
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+
+                                    @if(!empty($payment->metadata['receipt_original_name']))
+                                        <div class="mt-1 max-w-[160px] truncate text-[10px] text-slate-400">
+                                            {{ $payment->metadata['receipt_original_name'] }}
+                                        </div>
+                                    @endif
+                                @else
+                                    <span class="text-xs font-semibold text-slate-400">
+                                        Not submitted
+                                    </span>
+                                @endif
+                            </td>
+
+                            {{-- Status --}}
+                            <td class="px-5 py-4">
+                                @php
+                                    $offlineStatus = strtolower($payment->status);
+                                @endphp
+
+                                <span class="inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wide
+                                    {{ $offlineStatus === 'successful'
+                                        ? 'bg-emerald-50 text-emerald-700'
+                                        : ($offlineStatus === 'failed'
+                                            ? 'bg-red-50 text-red-700'
+                                            : ($offlineStatus === 'processing'
+                                                ? 'bg-blue-50 text-blue-700'
+                                                : 'bg-amber-50 text-amber-700')) }}">
+                                    {{ $offlineStatus === 'initiated'
+                                        ? 'Awaiting Proof'
+                                        : ($offlineStatus === 'processing'
+                                            ? 'Awaiting Review'
+                                            : ucfirst($offlineStatus)) }}
+                                </span>
+                            </td>
+
+                            {{-- Date --}}
+                            <td class="whitespace-nowrap px-5 py-4 text-xs text-slate-500">
+                                {{ \Carbon\Carbon::parse($payment->created_at)->format('d M Y') }}
+                                <div class="mt-1">
+                                    {{ \Carbon\Carbon::parse($payment->created_at)->format('h:i A') }}
+                                </div>
+                            </td>
+
+                            {{-- Actions --}}
+                            <td class="px-5 py-4 text-right">
+                                @if(in_array($payment->status, ['initiated', 'processing'], true))
+                                    <div class="flex min-w-[190px] justify-end gap-2">
+
+                                        <form
+                                            method="POST"
+                                            action="{{ route('admin.payment-gateways.offline-payments.mark-paid', ['attempt' => $payment->id]) }}"
+                                            onsubmit="return confirm('Confirm that this offline payment has been received?');"
+                                        >
+                                            @csrf
+
+                                            <button
+                                                type="submit"
+                                                class="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-700"
+                                            >
+                                                Approve
+                                            </button>
+                                        </form>
+
+                                        <form
+                                            method="POST"
+                                            action="{{ route('admin.payment-gateways.offline-payments.reject', ['attempt' => $payment->id]) }}"
+                                            onsubmit="return confirm('Reject this offline payment?');"
+                                        >
+                                            @csrf
+
+                                            <button
+                                                type="submit"
+                                                class="rounded-xl border border-red-200 bg-white px-4 py-2 text-xs font-black text-red-600 hover:bg-red-50"
+                                            >
+                                                Reject
+                                            </button>
+                                        </form>
+
+                                    </div>
+                                @else
+                                    <span class="text-xs font-semibold text-slate-400">
+                                        Reviewed
+                                    </span>
+                                @endif
+                            </td>
+
+                        </tr>
+
+                    @empty
+                        <tr>
+                            <td
+                                colspan="10"
+                                class="px-6 py-14 text-center text-sm text-slate-500"
+                            >
+                                No offline marketplace payments have been submitted yet.
+                            </td>
+                        </tr>
+                    @endforelse
+
+                </tbody>
+            </table>
+        </div>
+
+        @if($offlinePayments->hasPages())
+            <div class="border-t border-slate-100 px-6 py-5">
+                {{ $offlinePayments->links() }}
+            </div>
+        @endif
 
     </div>
 

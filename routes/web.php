@@ -139,6 +139,11 @@ Route::middleware(['auth'])->group(function () {
                 'index'
             ])->name('offline-payments.index');
 
+            Route::get('/offline-payments/{attempt}/receipt', [
+                \App\Http\Controllers\Admin\OfflinePaymentReviewController::class,
+                'receipt'
+            ])->name('offline-payments.receipt');
+
             Route::post('/offline-payments/{attempt}/mark-paid', [
                 \App\Http\Controllers\Admin\OfflinePaymentReviewController::class,
                 'markPaid'
@@ -440,6 +445,33 @@ Route::post('/developer/financials/email', [\App\Http\Controllers\Developer\Dash
     ->middleware(['auth'])
     ->name('developer.financial.records.email');
 
+/*
+|--------------------------------------------------------------------------
+| Central Esubiz Account Wallet
+|--------------------------------------------------------------------------
+| One wallet is shared by User Mode and Developer Mode.
+*/
+Route::get('/wallet', [
+    \App\Http\Controllers\WalletController::class,
+    'index'
+])->middleware(['auth'])->name('account.wallet');
+
+Route::post('/wallet/fund', [
+    \App\Http\Controllers\WalletController::class,
+    'fund'
+])->middleware(['auth'])->name('account.wallet.fund');
+
+Route::post('/wallet/gift-card/validate', [
+    \App\Http\Controllers\WalletController::class,
+    'validateGiftCardFunding'
+])->middleware(['auth'])->name('account.wallet.gift-card.validate');
+
+Route::get('/wallet/funding/{funding}/status', [
+    \App\Http\Controllers\WalletController::class,
+    'fundingStatus'
+])->middleware(['auth'])->name('account.wallet.funding.status');
+
+
 Route::prefix('admin/payment-gateways')->middleware(['auth'])->group(function () {
 
     Route::get('/wallet', [
@@ -609,6 +641,9 @@ Route::post('/marketplace/developer/checkout', [MarketplaceController::class, 'd
 Route::get('/marketplace/developer/offline-payment/{attempt}', [MarketplaceController::class, 'developerOfflinePayment'])
     ->name('marketplace.developer.offline-payment');
 
+Route::post('/marketplace/developer/offline-payment/{attempt}/receipt', [MarketplaceController::class, 'submitOfflinePaymentReceipt'])
+    ->name('marketplace.developer.offline-payment.receipt');
+
 Route::post('/marketplace/developer/payment', [MarketplaceController::class, 'developerPayment'])
     ->name('marketplace.developer.payment');
 
@@ -630,3 +665,64 @@ Route::get('/marketplace/developer/checkout/{productType}/{productId}', [Marketp
     ->name('marketplace.developer.checkout');
 Route::get('/marketplace/developer/addons', [MarketplaceController::class, 'developerAddons'])
     ->name('marketplace.developer.addons');
+
+
+Route::middleware(['auth'])->group(function () {
+    Route::get(
+        '/admin/site-settings/payout',
+        [\App\Http\Controllers\Admin\PayoutController::class, 'index']
+    )->name('admin.site-settings.payout.index');
+
+    Route::get(
+        '/admin/site-settings/payout/automatic',
+        [\App\Http\Controllers\Admin\PayoutController::class, 'automatic']
+    )->name('admin.site-settings.payout.automatic.index');
+
+    Route::get(
+        '/admin/site-settings/payout/manual',
+        [\App\Http\Controllers\Admin\PayoutController::class, 'manual']
+    )->name('admin.site-settings.payout.manual.index');
+
+    Route::post(
+        '/admin/site-settings/payout/automatic/{method}',
+        [\App\Http\Controllers\Admin\PayoutController::class, 'updateAutomatic']
+    )->name('admin.site-settings.payout.automatic.update');
+
+    Route::post(
+        '/admin/site-settings/payout/manual',
+        [\App\Http\Controllers\Admin\PayoutController::class, 'storeManual']
+    )->name('admin.site-settings.payout.manual.store');
+
+    Route::put(
+        '/admin/site-settings/payout/manual/{method}',
+        [\App\Http\Controllers\Admin\PayoutController::class, 'updateManual']
+    )->name('admin.site-settings.payout.manual.update');
+
+    Route::delete(
+        '/admin/site-settings/payout/manual/{method}',
+        [\App\Http\Controllers\Admin\PayoutController::class, 'destroyManual']
+    )->name('admin.site-settings.payout.manual.destroy');
+
+    Route::post(
+    '/admin/site-settings/payout/requests/{requestId}/complete',
+    [\App\Http\Controllers\Admin\PayoutController::class, 'completeRequest']
+)->name('admin.site-settings.payout.request.complete');
+
+Route::post(
+        '/admin/site-settings/payout/requests/{requestId}/reject',
+        [\App\Http\Controllers\Admin\PayoutController::class, 'rejectRequest']
+    )->name('admin.site-settings.payout.request.reject');
+});
+
+
+Route::middleware(['auth'])->group(function () {
+    Route::post(
+        'wallet/payout',
+        [\App\Http\Controllers\WalletController::class, 'requestPayout']
+    )->name('account.wallet.payout.request');
+
+    Route::post(
+        'wallet/payout/preview-conversion',
+        [\App\Http\Controllers\WalletController::class, 'previewPayoutConversion']
+    )->name('account.wallet.payout.preview-conversion');
+});

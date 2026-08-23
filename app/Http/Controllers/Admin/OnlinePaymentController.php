@@ -36,6 +36,51 @@ class OnlinePaymentController extends Controller
 
         abort_unless($gateway, 404);
 
+        $data = $request->validate([
+            'usage_contexts' => [
+                'nullable',
+                'array',
+            ],
+
+            'usage_contexts.*' => [
+                'string',
+                'in:user_marketplace_checkout,user_wallet_funding,user_checkout_link,developer_marketplace_checkout,developer_wallet_funding,developer_checkout_link',
+            ],
+
+            'conversion_type' => [
+                'nullable',
+                'in:none,fiat,crypto',
+            ],
+
+            'conversion_provider' => [
+                'nullable',
+                'in:frankfurter,coingecko,manual',
+            ],
+
+            'conversion_target' => [
+                'nullable',
+                'string',
+                'max:30',
+            ],
+
+            'manual_conversion_rate' => [
+                'nullable',
+                'numeric',
+                'gt:0',
+            ],
+
+            'markup_type' => [
+                'nullable',
+                'in:percentage,fixed',
+            ],
+
+            'markup_value' => [
+                'nullable',
+                'numeric',
+                'min:0',
+            ],
+        ]);
+
         $credentials = $request->input('credentials', []);
         $settings = $request->input('settings', []);
 
@@ -84,9 +129,132 @@ class OnlinePaymentController extends Controller
         DB::table('payment_providers')
             ->where('id', $gateway->id)
             ->update([
-                'credentials' => json_encode($mergedCredentials),
-                'settings' => json_encode($mergedSettings),
-                'is_active' => $request->boolean('is_active'),
+                'credentials' =>
+                    json_encode($mergedCredentials),
+
+                'settings' =>
+                    json_encode($mergedSettings),
+
+                /*
+                 * Allowed payment contexts.
+                 *
+                 * An explicit empty array means Admin has disabled
+                 * this gateway for every payment use.
+                 */
+                'usage_contexts' => json_encode(
+                    array_values(
+                        array_intersect(
+                            $data['usage_contexts'] ?? [],
+                            [
+                                'user_marketplace_checkout',
+                                'user_wallet_funding',
+                                'user_checkout_link',
+
+                                'developer_marketplace_checkout',
+                                'developer_wallet_funding',
+                                'developer_checkout_link',
+                            ]
+                        )
+                    )
+                ),
+
+                /*
+                 * Currency / crypto conversion.
+                 */
+                'conversion_enabled' =>
+                    $request->boolean(
+                        'conversion_enabled'
+                    ),
+
+                'conversion_type' =>
+                    $request->boolean(
+                        'conversion_enabled'
+                    )
+                        ? (
+                            $data['conversion_type']
+                                ?? 'none'
+                        )
+                        : 'none',
+
+                'conversion_provider' =>
+                    $request->boolean(
+                        'conversion_enabled'
+                    )
+                        ? (
+                            $data['conversion_provider']
+                                ?? null
+                        )
+                        : null,
+
+                'conversion_target' =>
+                    $request->boolean(
+                        'conversion_enabled'
+                    )
+                        ? (
+                            !empty(
+                                $data['conversion_target']
+                            )
+                                ? strtoupper(
+                                    trim(
+                                        $data[
+                                            'conversion_target'
+                                        ]
+                                    )
+                                )
+                                : null
+                        )
+                        : null,
+
+                'manual_conversion_rate' =>
+                    (
+                        $request->boolean(
+                            'conversion_enabled'
+                        )
+                        && (
+                            $data['conversion_provider']
+                                ?? null
+                        ) === 'manual'
+                    )
+                        ? (
+                            isset(
+                                $data[
+                                    'manual_conversion_rate'
+                                ]
+                            )
+                            && $data[
+                                'manual_conversion_rate'
+                            ] !== ''
+                                ? (float) $data[
+                                    'manual_conversion_rate'
+                                ]
+                                : null
+                        )
+                        : null,
+
+                /*
+                 * Markup is applied AFTER conversion.
+                 */
+                'markup_enabled' =>
+                    $request->boolean(
+                        'markup_enabled'
+                    ),
+
+                'markup_type' =>
+                    $data['markup_type']
+                        ?? 'percentage',
+
+                'markup_value' =>
+                    max(
+                        0,
+                        (float) (
+                            $data['markup_value']
+                                ?? 0
+                        )
+                    ),
+
+                'is_active' =>
+                    $request->boolean('is_active'),
+
                 'updated_at' => now(),
             ]);
 

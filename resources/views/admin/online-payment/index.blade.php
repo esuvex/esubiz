@@ -205,6 +205,369 @@
 
                     </div>
 
+
+                    @php
+                        $gatewayUsage = json_decode(
+                            $gateway->usage_contexts ?? '[]',
+                            true
+                        );
+
+                        /*
+                         * NULL means legacy gateway.
+                         * Default to all contexts checked until Admin
+                         * saves an explicit selection.
+                         */
+                        if ($gateway->usage_contexts === null) {
+                            $gatewayUsage = [
+                                'user_marketplace_checkout',
+                                'user_wallet_funding',
+                                'user_checkout_link',
+
+                                'developer_marketplace_checkout',
+                                'developer_wallet_funding',
+                                'developer_checkout_link',
+                            ];
+                        }
+
+                        $gatewayUsage = is_array($gatewayUsage)
+                            ? $gatewayUsage
+                            : [];
+                    @endphp
+
+                    <div class="space-y-5 px-6 pb-6">
+
+                        {{-- Allowed Uses --}}
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+
+                            <h3 class="text-sm font-black text-slate-900">
+                                Allowed Gateway Uses
+                            </h3>
+
+                            <p class="mt-1 text-xs text-slate-500">
+                                Choose where this gateway can be used.
+                            </p>
+
+                            <div class="mt-4 grid gap-3 sm:grid-cols-2">
+
+                                <div class="sm:col-span-2">
+                                    <div class="mb-2 text-xs font-black uppercase tracking-wider text-blue-600">
+                                        User Mode
+                                    </div>
+                                </div>
+
+                                @foreach([
+                                    'user_marketplace_checkout'
+                                        => 'Marketplace Checkout',
+
+                                    'user_wallet_funding'
+                                        => 'Wallet Funding',
+
+                                    'user_checkout_link'
+                                        => 'Checkout Link',
+                                ] as $context => $label)
+
+                                    <label class="flex items-center gap-3 text-sm font-bold text-slate-700">
+                                        <input
+                                            type="checkbox"
+                                            name="usage_contexts[]"
+                                            value="{{ $context }}"
+                                            @checked(in_array(
+                                                $context,
+                                                $gatewayUsage,
+                                                true
+                                            ))
+                                            class="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                        >
+
+                                        {{ $label }}
+                                    </label>
+
+                                @endforeach
+
+
+                                <div class="mt-3 sm:col-span-2">
+                                    <div class="mb-2 text-xs font-black uppercase tracking-wider text-violet-600">
+                                        Developer Mode
+                                    </div>
+                                </div>
+
+                                @foreach([
+                                    'developer_marketplace_checkout'
+                                        => 'Marketplace Checkout',
+
+                                    'developer_wallet_funding'
+                                        => 'Wallet Funding',
+
+                                    'developer_checkout_link'
+                                        => 'Checkout Link',
+                                ] as $context => $label)
+
+                                    <label class="flex items-center gap-3 text-sm font-bold text-slate-700">
+                                        <input
+                                            type="checkbox"
+                                            name="usage_contexts[]"
+                                            value="{{ $context }}"
+                                            @checked(in_array(
+                                                $context,
+                                                $gatewayUsage,
+                                                true
+                                            ))
+                                            class="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                        >
+
+                                        {{ $label }}
+                                    </label>
+
+                                @endforeach
+
+                            </div>
+                        </div>
+
+
+                        {{-- Conversion --}}
+                        <div
+                            x-data="{
+                                enabled: @js(
+                                    (bool) (
+                                        $gateway->conversion_enabled
+                                            ?? false
+                                    )
+                                ),
+                                type: @js(
+                                    $gateway->conversion_type
+                                        ?? 'none'
+                                ),
+                                provider: @js(
+                                    $gateway->conversion_provider
+                                        ?? ''
+                                )
+                            }"
+                            class="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+                        >
+
+                            <div class="flex items-center justify-between gap-4">
+
+                                <div>
+                                    <h3 class="text-sm font-black text-slate-900">
+                                        Currency / Crypto Conversion
+                                    </h3>
+
+                                    <p class="mt-1 text-xs text-slate-500">
+                                        Configure automatic payment conversion.
+                                    </p>
+                                </div>
+
+                                <label class="flex items-center gap-2 text-sm font-bold text-slate-700">
+                                    <input
+                                        type="checkbox"
+                                        name="conversion_enabled"
+                                        value="1"
+                                        x-model="enabled"
+                                        @checked(
+                                            $gateway->conversion_enabled
+                                                ?? false
+                                        )
+                                    >
+
+                                    Enable
+                                </label>
+
+                            </div>
+
+                            <div
+                                x-show="enabled"
+                                x-cloak
+                                class="mt-5 grid gap-4 sm:grid-cols-2"
+                            >
+
+                                <div>
+                                    <label class="text-xs font-black uppercase tracking-wide text-slate-500">
+                                        Conversion Type
+                                    </label>
+
+                                    <select
+                                        name="conversion_type"
+                                        x-model="type"
+                                        class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
+                                    >
+                                        <option value="none">
+                                            None
+                                        </option>
+
+                                        <option value="fiat">
+                                            Fiat Currency
+                                        </option>
+
+                                        <option value="crypto">
+                                            Cryptocurrency
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="text-xs font-black uppercase tracking-wide text-slate-500">
+                                        Rate Source
+                                    </label>
+
+                                    <select
+                                        name="conversion_provider"
+                                        x-model="provider"
+                                        class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
+                                    >
+                                        <option value="">
+                                            Select source
+                                        </option>
+
+                                        <option
+                                            value="frankfurter"
+                                            x-show="type === 'fiat'"
+                                        >
+                                            Frankfurter
+                                        </option>
+
+                                        <option
+                                            value="coingecko"
+                                            x-show="type === 'crypto'"
+                                        >
+                                            CoinGecko
+                                        </option>
+
+                                        <option value="manual">
+                                            Manual Rate
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="text-xs font-black uppercase tracking-wide text-slate-500">
+                                        Target Currency / Asset
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        name="conversion_target"
+                                        value="{{ $gateway->conversion_target }}"
+                                        placeholder="USD, GBP, USDT, BTC"
+                                        class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 uppercase"
+                                    >
+                                </div>
+
+                                <div
+                                    x-show="provider === 'manual'"
+                                    x-cloak
+                                >
+                                    <label class="text-xs font-black uppercase tracking-wide text-slate-500">
+                                        Manual Conversion Rate
+                                    </label>
+
+                                    <input
+                                        type="number"
+                                        step="0.000000000001"
+                                        min="0.000000000001"
+                                        name="manual_conversion_rate"
+                                        value="{{ $gateway->manual_conversion_rate }}"
+                                        class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
+                                    >
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        {{-- Markup --}}
+                        <div
+                            x-data="{
+                                enabled: @js(
+                                    (bool) (
+                                        $gateway->markup_enabled
+                                            ?? false
+                                    )
+                                ),
+                                type: @js(
+                                    $gateway->markup_type
+                                        ?? 'percentage'
+                                )
+                            }"
+                            class="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+                        >
+
+                            <div class="flex items-center justify-between gap-4">
+
+                                <div>
+                                    <h3 class="text-sm font-black text-slate-900">
+                                        Payment Markup
+                                    </h3>
+
+                                    <p class="mt-1 text-xs text-slate-500">
+                                        Add a percentage or fixed amount after conversion.
+                                    </p>
+                                </div>
+
+                                <label class="flex items-center gap-2 text-sm font-bold text-slate-700">
+                                    <input
+                                        type="checkbox"
+                                        name="markup_enabled"
+                                        value="1"
+                                        x-model="enabled"
+                                        @checked(
+                                            $gateway->markup_enabled
+                                                ?? false
+                                        )
+                                    >
+
+                                    Enable
+                                </label>
+
+                            </div>
+
+                            <div
+                                x-show="enabled"
+                                x-cloak
+                                class="mt-5 grid gap-4 sm:grid-cols-2"
+                            >
+
+                                <div>
+                                    <label class="text-xs font-black uppercase tracking-wide text-slate-500">
+                                        Markup Type
+                                    </label>
+
+                                    <select
+                                        name="markup_type"
+                                        x-model="type"
+                                        class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
+                                    >
+                                        <option value="percentage">
+                                            Percentage
+                                        </option>
+
+                                        <option value="fixed">
+                                            Fixed
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="text-xs font-black uppercase tracking-wide text-slate-500">
+                                        Markup Value
+                                    </label>
+
+                                    <input
+                                        type="number"
+                                        step="0.00000001"
+                                        min="0"
+                                        name="markup_value"
+                                        value="{{ $gateway->markup_value ?? 0 }}"
+                                        class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
+                                    >
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
                     <div class="flex justify-end border-t border-slate-100 bg-slate-50 px-6 py-4">
                         <button
                             type="submit"
