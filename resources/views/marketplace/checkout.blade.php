@@ -413,6 +413,11 @@
                                 {{ number_format((float) ($walletBalance ?? 0), 2) }}
                             </option>
                         @endif
+
+                        {{-- Gift Card --}}
+                        <option value="giftcard">
+                            Gift Card
+                        </option>
                     </select>
 
                     @if(
@@ -427,7 +432,26 @@
 
                 </div>
 
+                <div
+                    x-show="paymentMethod === 'giftcard'"
+                    x-cloak
+                    class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                >
+                    <label class="text-xs font-black uppercase tracking-wider text-slate-500">
+                        Gift Card Code
+                    </label>
+
+                    <input
+                        type="text"
+                        name="gift_card_code"
+                        form="marketplace-payment-form"
+                        placeholder="Enter gift card code"
+                        class="mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-blue-500"
+                    >
+                </div>
+
                 <form
+                    id="marketplace-payment-form"
                     method="POST"
                     action="{{ route('marketplace.payment') }}"
                     class="mt-6"
@@ -438,7 +462,7 @@
                            name="checkout_context"
                            value="{{ ($saasCheckout ?? false) ? 'saas' : 'off_server' }}">
 
-                    @if(($saasCheckout ?? false) && !empty($order?->id))
+                    @if(!empty($order?->id))
                         <input type="hidden"
                                name="order_id"
                                value="{{ $order->id }}">

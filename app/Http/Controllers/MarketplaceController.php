@@ -233,15 +233,58 @@ class MarketplaceController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('marketplace.checkout', [
-            'listing' => $listing,
-            'product' => $product,
-            'productType' => $productType,
-            'price' => $price,
-            'currency' => $currency,
-            'includedItems' => $includedItems,
-            'onlineGateways' => $onlineGateways,
-            'offlineMethods' => $offlineMethods,
+        /*
+         * Unified checkout entry.
+         *
+         * Developer/off-server purchases now create their pending order
+         * before checkout, exactly like SaaS purchases, then enter the
+         * single marketplace.checkout route.
+         */
+        $quantity = max(1, (int) request()->query('quantity', 1));
+        $amount = (float) $price * $quantity;
+
+        $orderReference = 'MKT-' . strtoupper(
+            \Illuminate\Support\Str::random(12)
+        );
+
+        $orderId = DB::table('marketplace_orders')->insertGetId([
+            'marketplace_listing_id' => $listing->id,
+            'vendor_id' => $listing->vendor_id,
+            'workspace_id' => $listing->workspace_id ?? null,
+            'buyer_id' => auth()->id(),
+            'uuid' => (string) \Illuminate\Support\Str::uuid(),
+            'reference' => $orderReference,
+            'amount' => $amount,
+            'commission_amount' => 0,
+            'vendor_amount' => $amount,
+            'currency' => strtoupper($currency ?: 'NGN'),
+            'status' => 'pending',
+            'payment_status' => 'pending',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('marketplace_checkout_sessions')->insert([
+            'user_id' => auth()->id(),
+            'account_mode' => 'developer',
+            'product_type' => $productType,
+            'product_id' => $productId,
+            'deployment_type' => 'off_server',
+            'workspace_id' => $listing->workspace_id ?? null,
+            'quantity' => $quantity,
+            'unit_price' => (float) $price,
+            'total_amount' => $amount,
+            'currency' => strtoupper($currency ?: 'NGN'),
+            'marketplace_order_id' => $orderId,
+            'is_commissionable' => true,
+            'status' => 'pending_payment',
+            'expires_at' => now()->addHours(24),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return redirect()->route('marketplace.checkout', [
+            'order' => $orderId,
         ]);
     }
 
@@ -280,40 +323,40 @@ class MarketplaceController extends Controller
         }
 
         /*
-         * Existing SaaS checkout:
+         * One central checkout entry point.
          *
-         * SaaS checkout already has a marketplace order. Keep its existing
-         * payment/entitlement flow intact and route it through the unified
-         * entry point.
+         * The payment implementation remains deployment-aware internally,
+         * while the public checkout form and endpoint remain identical for
+         * SaaS, Developer/off-server and future shared products.
          */
-        if ($context === 'saas') {
-            return $this->saasPayment($request);
+        $paymentOption = (string) $request->input('payment_option', '');
+        [$paymentMode] = array_pad(explode(':', $paymentOption, 2), 2, null);
+
+        if ($paymentMode === 'offline') {
+            return $this->processUnifiedOfflineMarketplacePayment(
+                $request,
+                $context ?: $deploymentType
+            );
         }
 
-        /*
-         * Off-server/developer checkout:
-         *
-         * Developer checkout creates the marketplace order and payment
-         * transaction before redirecting to the selected payment method.
-         */
-        if ($context === 'off_server') {
-            return $this->developerCheckoutSubmit($request);
+        if ($paymentMode === 'wallet' || $paymentOption === 'wallet') {
+            return $this->processUnifiedWalletMarketplacePayment(
+                $request,
+                $context ?: $deploymentType
+            );
         }
 
-        /*
-         * Shared products such as credits and gift cards may support both
-         * deployment contexts. The selected deployment type determines the
-         * payment path.
-         */
-        if ($deploymentType === 'saas') {
-            return $this->saasPayment($request);
+        if ($paymentMode === 'giftcard' || $paymentMode === 'gift_card') {
+            return $this->processUnifiedGiftCardMarketplacePayment(
+                $request,
+                $context ?: $deploymentType
+            );
         }
 
-        if ($deploymentType === 'off_server') {
-            return $this->developerCheckoutSubmit($request);
-        }
-
-        abort(422, 'Invalid marketplace checkout context.');
+        return $this->processUnifiedMarketplacePayment(
+            $request,
+            $context ?: $deploymentType
+        );
     }
 
     public function developerCheckoutSubmit(Request $request)
@@ -326,8 +369,8 @@ class MarketplaceController extends Controller
         ]);
 
         $listingProductType = match ($data['product_type']) {
-            'addon' => 'core_addon',
-            'bundle' => 'core_bundle',
+            'addon', 'core_addon', 'core-addon' => 'core_addon',
+            'bundle', 'core_bundle', 'core-bundle' => 'core_bundle',
             default => $data['product_type'],
         };
 
@@ -337,8 +380,8 @@ class MarketplaceController extends Controller
         );
 
         $productTable = match ($data['product_type']) {
-            'addon' => 'core_addons',
-            'bundle' => 'core_addon_bundles',
+            'addon', 'core_addon', 'core-addon' => 'core_addons',
+            'bundle', 'core_bundle', 'core-bundle' => 'core_addon_bundles',
             default => null,
         };
 
@@ -616,6 +659,457 @@ class MarketplaceController extends Controller
             );
     }
 
+
+    protected function processUnifiedOfflineMarketplacePayment(
+        Request $request,
+        ?string $context = null
+    ) {
+        $context = $context ?: $request->input('deployment_type');
+
+        abort_unless(
+            in_array($context, ['saas', 'off_server'], true),
+            422,
+            'Invalid marketplace checkout context.'
+        );
+
+        $data = $request->validate([
+            'order_id' => ['required', 'integer'],
+            'payment_option' => ['required', 'string', 'max:255'],
+        ]);
+
+        [$mode, $methodId] = array_pad(
+            explode(':', $data['payment_option'], 2),
+            2,
+            null
+        );
+
+        abort_unless($mode === 'offline' && $methodId, 422, 'Invalid offline payment method.');
+
+        $order = DB::table('marketplace_orders')
+            ->where('id', $data['order_id'])
+            ->where('buyer_id', auth()->id())
+            ->where('payment_status', 'pending')
+            ->first();
+
+        abort_unless($order, 404);
+
+        $checkoutSession = DB::table('marketplace_checkout_sessions')
+            ->where('marketplace_order_id', $order->id)
+            ->where('user_id', auth()->id())
+            ->latest('id')
+            ->first();
+
+        abort_unless($checkoutSession, 404);
+
+        abort_unless(
+            $checkoutSession->deployment_type === $context,
+            422,
+            'Marketplace checkout context mismatch.'
+        );
+
+        $offlineMethod = DB::table('offline_payment_methods')
+            ->where('id', (int) $methodId)
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->first();
+
+        abort_unless($offlineMethod, 422, 'Selected offline payment method is unavailable.');
+
+        $reference = 'MKT-OFF-' . strtoupper(bin2hex(random_bytes(6)));
+
+        $transactionId = DB::table('payment_transactions')->insertGetId([
+            'workspace_id' => $order->workspace_id,
+            'wallet_id' => null,
+            'payment_provider_id' => null,
+            'reference' => $reference,
+            'amount' => $order->amount,
+            'currency' => strtoupper($order->currency ?: 'NGN'),
+            'status' => 'pending',
+            'payload' => json_encode([
+                'marketplace_order_id' => $order->id,
+                'marketplace_order_reference' => $order->reference,
+                'deployment_type' => $context,
+                'buyer_id' => auth()->id(),
+                'payment_mode' => 'offline',
+                'offline_payment_method_id' => $offlineMethod->id,
+                'offline_payment_method' => $offlineMethod->slug ?? null,
+            ]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('marketplace_checkout_sessions')
+            ->where('id', $checkoutSession->id)
+            ->update([
+                'payment_transaction_id' => $transactionId,
+                'payment_method_id' => $offlineMethod->id,
+                'status' => 'pending_payment',
+                'updated_at' => now(),
+            ]);
+
+        return redirect()->route('marketplace.developer.offline-payment', [
+            'attempt' => $transactionId,
+        ])->with(
+            'success',
+            'Offline payment selected. Complete the payment using the instructions below.'
+        );
+    }
+
+    protected function processUnifiedWalletMarketplacePayment(
+        Request $request,
+        ?string $context = null
+    ) {
+        $context = $context ?: $request->input('deployment_type');
+
+        abort_unless(
+            in_array($context, ['saas', 'off_server'], true),
+            422,
+            'Invalid marketplace checkout context.'
+        );
+
+        $data = $request->validate([
+            'order_id' => ['required', 'integer'],
+        ]);
+
+        return DB::transaction(function () use ($data, $context) {
+            $order = DB::table('marketplace_orders')
+                ->where('id', $data['order_id'])
+                ->where('buyer_id', auth()->id())
+                ->lockForUpdate()
+                ->first();
+
+            abort_unless($order, 404);
+
+            if ($order->payment_status === 'paid') {
+                return redirect()->route(
+                    'marketplace.payment-status',
+                    ['order' => $order->id]
+                );
+            }
+
+            $checkoutSession = DB::table('marketplace_checkout_sessions')
+                ->where('marketplace_order_id', $order->id)
+                ->where('user_id', auth()->id())
+                ->latest('id')
+                ->lockForUpdate()
+                ->first();
+
+            abort_unless($checkoutSession, 404);
+
+            abort_unless(
+                $checkoutSession->deployment_type === $context,
+                422,
+                'Marketplace checkout context mismatch.'
+            );
+
+            $wallet = DB::table('wallets')
+                ->where('user_id', auth()->id())
+                ->whereIn('type', ['customer', 'developer'])
+                ->where('is_active', true)
+                ->whereNull('deleted_at')
+                ->orderByRaw("CASE WHEN type = 'customer' THEN 0 ELSE 1 END")
+                ->lockForUpdate()
+                ->first();
+
+            abort_unless($wallet, 422, 'No active wallet is available.');
+
+            $amount = (float) $order->amount;
+            $walletBalance = (float) $wallet->available_balance;
+
+            abort_unless(
+                strtoupper($wallet->currency ?? 'NGN')
+                    === strtoupper($order->currency ?? 'NGN'),
+                422,
+                'Wallet currency does not match the order currency.'
+            );
+
+            abort_unless(
+                $walletBalance >= $amount,
+                422,
+                'Insufficient wallet balance.'
+            );
+
+            DB::table('wallets')
+                ->where('id', $wallet->id)
+                ->update([
+                    'available_balance' => $walletBalance - $amount,
+                    'updated_at' => now(),
+                ]);
+
+            $transactionReference =
+                'MKT-WAL-' . strtoupper(bin2hex(random_bytes(6)));
+
+            $paymentTransactionId = DB::table('payment_transactions')
+                ->insertGetId([
+                    'workspace_id' => $order->workspace_id,
+                    'wallet_id' => $wallet->id,
+                    'payment_provider_id' => null,
+                    'reference' => $transactionReference,
+                    'amount' => $amount,
+                    'currency' => strtoupper($order->currency ?: 'NGN'),
+                    'status' => 'completed',
+                    'payload' => json_encode([
+                        'marketplace_order_id' => $order->id,
+                        'marketplace_order_reference' => $order->reference,
+                        'deployment_type' => $context,
+                        'buyer_id' => auth()->id(),
+                        'payment_mode' => 'wallet',
+                        'wallet_id' => $wallet->id,
+                    ]),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+            DB::table('marketplace_orders')
+                ->where('id', $order->id)
+                ->update([
+                    'payment_status' => 'paid',
+                    'status' => 'completed',
+                    'updated_at' => now(),
+                ]);
+
+            DB::table('marketplace_checkout_sessions')
+                ->where('id', $checkoutSession->id)
+                ->update([
+                    'payment_transaction_id' => $paymentTransactionId,
+                    'status' => 'completed',
+                    'updated_at' => now(),
+                ]);
+
+            return redirect()->route(
+                'marketplace.payment-status',
+                ['order' => $order->id]
+            );
+        });
+    }
+
+    protected function processUnifiedGiftCardMarketplacePayment(
+        Request $request,
+        ?string $context = null
+    ) {
+        $context = $context ?: $request->input('deployment_type');
+
+        abort_unless(
+            in_array($context, ['saas', 'off_server'], true),
+            422,
+            'Invalid marketplace checkout context.'
+        );
+
+        $data = $request->validate([
+            'order_id' => ['required', 'integer'],
+            'gift_card_code' => ['required', 'string', 'max:100'],
+        ]);
+
+        return DB::transaction(function () use ($data, $context) {
+
+            $order = DB::table('marketplace_orders')
+                ->where('id', $data['order_id'])
+                ->where('buyer_id', auth()->id())
+                ->lockForUpdate()
+                ->first();
+
+            abort_unless($order, 404);
+
+            if ($order->payment_status === 'paid') {
+                return redirect()->route(
+                    'marketplace.payment-status',
+                    ['order' => $order->id]
+                );
+            }
+
+            $checkoutSession = DB::table(
+                    'marketplace_checkout_sessions'
+                )
+                ->where(
+                    'marketplace_order_id',
+                    $order->id
+                )
+                ->where(
+                    'user_id',
+                    auth()->id()
+                )
+                ->latest('id')
+                ->lockForUpdate()
+                ->first();
+
+            abort_unless($checkoutSession, 404);
+
+            abort_unless(
+                $checkoutSession->deployment_type === $context,
+                422,
+                'Marketplace checkout context mismatch.'
+            );
+
+            $giftCards = app(
+                \App\Services\Core\GiftCardService::class
+            );
+
+            /*
+             * Validate centrally first so checkout uses the exact same
+             * enablement, expiry, usage-limit and checkout rules as every
+             * other Esubiz Gift Card integration.
+             */
+            try {
+                $card = $giftCards->validate(
+                    $data['gift_card_code'],
+                    (float) $order->amount,
+                    'checkout'
+                );
+            } catch (\Throwable $e) {
+                abort(422, $e->getMessage());
+            }
+
+            abort_unless(
+                empty($card->issued_to_user_id)
+                    || (int) $card->issued_to_user_id
+                        === (int) auth()->id(),
+                403,
+                'This Gift Card belongs to another user.'
+            );
+
+            abort_unless(
+                strtoupper($card->currency ?? 'NGN')
+                    === strtoupper($order->currency ?? 'NGN'),
+                422,
+                'Gift Card currency does not match the order currency.'
+            );
+
+            /*
+             * Split payment is not enabled yet. Therefore the Gift Card
+             * must cover the complete marketplace order before redemption.
+             */
+            abort_unless(
+                (float) $card->remaining_balance
+                    >= (float) $order->amount,
+                422,
+                'Gift Card balance does not fully cover this order.'
+            );
+
+            try {
+                $redemption = $giftCards->redeem(
+                    $data['gift_card_code'],
+                    (float) $order->amount,
+                    (int) auth()->id(),
+                    'marketplace_checkout',
+                    'marketplace_order',
+                    (int) $order->id,
+                    [
+                        'marketplace_order_reference'
+                            => $order->reference,
+                        'deployment_type'
+                            => $context,
+                        'product_type'
+                            => $checkoutSession->product_type ?? null,
+                        'product_id'
+                            => $checkoutSession->product_id ?? null,
+                        'website_id'
+                            => $context === 'saas'
+                                ? ($checkoutSession->website_id ?? null)
+                                : null,
+                    ]
+                );
+            } catch (\Throwable $e) {
+                abort(422, $e->getMessage());
+            }
+
+            $transactionReference =
+                'MKT-GFT-' . strtoupper(
+                    bin2hex(random_bytes(6))
+                );
+
+            $paymentTransactionId = DB::table(
+                    'payment_transactions'
+                )
+                ->insertGetId([
+                    'workspace_id'
+                        => $order->workspace_id,
+                    'wallet_id'
+                        => null,
+                    'payment_provider_id'
+                        => null,
+                    'reference'
+                        => $transactionReference,
+                    'amount'
+                        => (float) $order->amount,
+                    'currency'
+                        => strtoupper(
+                            $order->currency ?: 'NGN'
+                        ),
+                    'status'
+                        => 'completed',
+                    'payload'
+                        => json_encode([
+                            'marketplace_order_id'
+                                => $order->id,
+                            'marketplace_order_reference'
+                                => $order->reference,
+                            'deployment_type'
+                                => $context,
+                            'buyer_id'
+                                => auth()->id(),
+                            'payment_mode'
+                                => 'gift_card',
+                            'gift_card_id'
+                                => $redemption->gift_card_id,
+                            'gift_card_transaction_id'
+                                => $redemption->transaction_id,
+                            'gift_card_reference'
+                                => $redemption->reference,
+                            'gift_card_redeemed_amount'
+                                => $redemption->amount,
+                            'gift_card_remaining_balance'
+                                => $redemption->remaining_balance,
+                        ]),
+                    'created_at'
+                        => now(),
+                    'updated_at'
+                        => now(),
+                ]);
+
+            DB::table('marketplace_orders')
+                ->where('id', $order->id)
+                ->update([
+                    'payment_status' => 'paid',
+                    'status' => 'completed',
+                    'updated_at' => now(),
+                ]);
+
+            DB::table('marketplace_checkout_sessions')
+                ->where('id', $checkoutSession->id)
+                ->update([
+                    'payment_transaction_id'
+                        => $paymentTransactionId,
+                    'status'
+                        => 'completed',
+                    'updated_at'
+                        => now(),
+                ]);
+
+            return redirect()->route(
+                'marketplace.payment-status',
+                ['order' => $order->id]
+            );
+        });
+    }
+
+    protected function processUnifiedMarketplacePayment(
+        Request $request,
+        ?string $context = null
+    ) {
+        $context = $context ?: $request->input('deployment_type');
+
+        abort_unless(
+            in_array($context, ['saas', 'off_server'], true),
+            422,
+            'Invalid marketplace checkout context.'
+        );
+
+        if ($context === 'saas') {
+            return $this->saasPayment($request);
+        }
+
+        return $this->developerCheckoutSubmit($request);
+    }
 
     public function saasPayment(Request $request)
     {
@@ -904,7 +1398,14 @@ class MarketplaceController extends Controller
                 '=',
                 'orders.marketplace_listing_id'
             )
+            ->join(
+                'marketplace_checkout_sessions as checkout_sessions',
+                'checkout_sessions.marketplace_order_id',
+                '=',
+                'orders.id'
+            )
             ->where('orders.buyer_id', auth()->id())
+            ->where('checkout_sessions.deployment_type', 'off_server')
             ->where('orders.payment_status', 'paid')
             ->whereIn('orders.status', ['completed', 'fulfilled'])
             ->select(
@@ -1306,18 +1807,51 @@ class MarketplaceController extends Controller
             ->join('core_addons as addons', 'addons.id', '=', 'items.addon_id')
             ->whereIn('items.bundle_id', $bundles->pluck('id'))
             ->where('addons.is_active', true)
-            ->where('addons.off_server_available', true)
             ->whereNull('addons.deleted_at')
             ->select(
                 'items.bundle_id',
                 'addons.id as addon_id',
                 'addons.name',
+                'addons.allocation_unit',
                 'items.allocation',
                 'items.is_unlimited'
             )
             ->orderBy('addons.name')
             ->get()
             ->groupBy('bundle_id');
+
+        /*
+         * Restore the detailed bundle contents used by the Developer
+         * marketplace. Each bundle item carries the underlying add-on
+         * capability allocations so its included features/quantities
+         * can be rendered exactly like standalone add-ons.
+         */
+        $bundleAddonIds = $bundleItems
+            ->flatten()
+            ->pluck('addon_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        $bundleCapabilityAllocations = DB::table(
+                'core_addon_capability_allocations'
+            )
+            ->whereIn('addon_id', $bundleAddonIds)
+            ->orderBy('addon_id')
+            ->orderBy('id')
+            ->get()
+            ->groupBy('addon_id');
+
+        foreach ($bundleItems as $items) {
+            foreach ($items as $item) {
+                $item->capability_allocations = collect(
+                    $bundleCapabilityAllocations->get(
+                        $item->addon_id,
+                        []
+                    )
+                );
+            }
+        }
 
         return view('marketplace.developer-addons', [
             'addons' => $addons,
@@ -1709,12 +2243,69 @@ class MarketplaceController extends Controller
         ]);
 }
 
+    public function userOrders()
+    {
+        $orders = DB::table('marketplace_orders as orders')
+            ->join(
+                'marketplace_listings as listings',
+                'listings.id',
+                '=',
+                'orders.marketplace_listing_id'
+            )
+            ->join(
+                'marketplace_checkout_sessions as checkout_sessions',
+                'checkout_sessions.marketplace_order_id',
+                '=',
+                'orders.id'
+            )
+            ->leftJoin(
+                'websites',
+                'websites.id',
+                '=',
+                'checkout_sessions.website_id'
+            )
+            ->where('orders.buyer_id', auth()->id())
+            ->where('checkout_sessions.deployment_type', 'saas')
+            ->select(
+                'orders.*',
+                'listings.title as product_title',
+                'listings.product_type',
+                'checkout_sessions.website_id',
+                'websites.name as website_name',
+                'websites.domain as website_domain',
+                'websites.subdomain as website_subdomain'
+            )
+            ->latest('orders.created_at')
+            ->get();
+
+        return view('marketplace.user-orders', [
+            'orders' => $orders,
+        ]);
+    }
+
+
     public function pendingCheckouts()
     {
         $orders = DB::table('marketplace_orders')
             ->join('marketplace_listings', 'marketplace_listings.id', '=', 'marketplace_orders.marketplace_listing_id')
             ->where('marketplace_orders.buyer_id', auth()->id())
             ->where('marketplace_orders.payment_status', 'pending')
+            ->whereExists(function ($query) {
+                $query->select(DB::raw(1))
+                    ->from('marketplace_checkout_sessions as checkout_sessions')
+                    ->whereColumn(
+                        'checkout_sessions.marketplace_order_id',
+                        'marketplace_orders.id'
+                    )
+                    ->where(
+                        'checkout_sessions.user_id',
+                        auth()->id()
+                    )
+                    ->where(
+                        'checkout_sessions.deployment_type',
+                        'saas'
+                    );
+            })
             ->select(
                 'marketplace_orders.*',
                 'marketplace_listings.product_type',
@@ -1762,8 +2353,35 @@ class MarketplaceController extends Controller
 
         abort_unless($product, 404);
 
-        $price = $resolver->price($product, 'saas');
-        $currency = $resolver->currency($product, 'saas');
+        /*
+         * Unified checkout route:
+         * resolve the deployment context from the originating checkout
+         * session so the same /marketplace/checkout/{order} page serves
+         * both SaaS and off-server purchases.
+         */
+        $checkoutSession = DB::table('marketplace_checkout_sessions')
+            ->where('marketplace_order_id', $order->id)
+            ->where('user_id', auth()->id())
+            ->latest('id')
+            ->first();
+
+        $deploymentType = $checkoutSession->deployment_type
+            ?? 'saas';
+
+        abort_unless(
+            in_array($deploymentType, ['saas', 'off_server'], true),
+            422,
+            'Invalid marketplace deployment type.'
+        );
+
+        abort_unless(
+            $resolver->available($product, $deploymentType),
+            422,
+            'This product is not available for the selected deployment type.'
+        );
+
+        $price = $resolver->price($product, $deploymentType);
+        $currency = $resolver->currency($product, $deploymentType);
 
         abort_unless($price !== null, 422);
 
@@ -1901,7 +2519,9 @@ class MarketplaceController extends Controller
             'productType' => $order->product_type,
             'onlineGateways' => $onlineGateways,
             'offlineMethods' => $offlineMethods,
-            'saasCheckout' => true,
+            'saasCheckout' => $deploymentType === 'saas',
+            'deploymentType' => $deploymentType,
+            'checkoutContext' => $deploymentType,
             'price' => (float) $price,
             'currency' => $currency ?: 'NGN',
             'quantity' => 1,

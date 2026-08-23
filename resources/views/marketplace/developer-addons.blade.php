@@ -118,7 +118,7 @@
         </button>
 
         <a
-            :href="'{{ route('marketplace.developer.checkout', ['productType' => 'addon', 'productId' => $addon->id]) }}?quantity=' + Math.max(1, quantity)"
+            :href="'{{ route('marketplace.checkout.product', ['productType' => 'addon', 'productId' => $addon->id]) }}?quantity=' + Math.max(1, quantity)"
             style="color:#fff !important;" class="mt-2 block w-full rounded-xl bg-blue-600 px-4 py-2 text-center text-xs font-black !text-white transition hover:bg-blue-700"
         >
             Continue
@@ -157,9 +157,22 @@
                         @endif
 
                         @if(isset($bundleItems) && $bundleItems->has($bundle->id))
-                            <div class="mt-5 space-y-2">
-                                @foreach($bundleItems->get($bundle->id) as $item)
-                                    <div class="flex items-center justify-between gap-3 text-sm">
+                            @php
+                                $developerBundleItems = collect($bundleItems->get($bundle->id));
+                            @endphp
+
+                            <div
+                                class="mt-5 space-y-2"
+                                x-data="{ expanded: false }"
+                            >
+                                @foreach($developerBundleItems as $index => $item)
+                                    <div
+                                        @if($index >= 5)
+                                            x-show="expanded"
+                                            x-cloak
+                                        @endif
+                                        class="flex items-center justify-between gap-3 text-sm"
+                                    >
                                         <span class="font-semibold text-slate-700">
                                             {{ $item->name }}
                                         </span>
@@ -168,13 +181,30 @@
                                             @if($item->is_unlimited)
                                                 Unlimited
                                             @elseif($item->allocation !== null && $item->allocation !== '')
-                                                {{ $item->allocation }}
+                                                {{ rtrim(rtrim(number_format((float) $item->allocation, 2), '0'), '.') }}
+                                                {{ $bundle->unit_name ?? $item->allocation_unit ?? '' }}
                                             @else
                                                 Included
                                             @endif
                                         </span>
                                     </div>
                                 @endforeach
+
+                                @if($developerBundleItems->count() > 5)
+                                    <button
+                                        type="button"
+                                        @click="expanded = !expanded"
+                                        class="mt-3 text-xs font-black text-blue-600 hover:text-blue-700"
+                                    >
+                                        <span x-show="!expanded">
+                                            See More ({{ $developerBundleItems->count() - 5 }})
+                                        </span>
+
+                                        <span x-show="expanded" x-cloak>
+                                            See Less
+                                        </span>
+                                    </button>
+                                @endif
                             </div>
                         @endif
 
@@ -224,7 +254,7 @@
         </button>
 
         <a
-            :href="'{{ route('marketplace.developer.checkout', ['productType' => 'bundle', 'productId' => $bundle->id]) }}?quantity=' + Math.max(1, quantity)"
+            :href="'{{ route('marketplace.checkout.product', ['productType' => 'bundle', 'productId' => $bundle->id]) }}?quantity=' + Math.max(1, quantity)"
             style="color:#fff !important;" class="mt-2 block w-full rounded-xl bg-blue-600 px-4 py-2 text-center text-xs font-black !text-white transition hover:bg-blue-700"
         >
             Continue

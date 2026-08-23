@@ -16,6 +16,12 @@ Route::post('/gift-card/validate', [
     'validateCard',
 ])->name('gift-card.validate.check');
 
+Route::post('/gift-card/validate-checkout', [
+    \App\Http\Controllers\GiftCardValidatorController::class,
+    'validateCheckout'
+])->name('gift-card.validate.checkout');
+
+
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\WebsiteController;
 use App\Http\Controllers\User\WebsiteManagementController;
@@ -173,10 +179,16 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/marketplace/checkout', [\App\Http\Controllers\MarketplaceController::class, 'pendingCheckouts'])
         ->name('marketplace.checkout.index');
 
+    Route::get('/billing/orders', [\App\Http\Controllers\MarketplaceController::class, 'userOrders'])
+        ->name('marketplace.user-orders');
+
 
 
     Route::get('/marketplace/checkout/{order}', [\App\Http\Controllers\MarketplaceController::class, 'checkoutPage'])
         ->name('marketplace.checkout');
+
+    Route::get('/marketplace/checkout-product/{productType}/{productId}', [\App\Http\Controllers\MarketplaceController::class, 'developerCheckout'])
+        ->name('marketplace.checkout.product');
 
     Route::get('/marketplace/orders/{order}/payment-status', [\App\Http\Controllers\MarketplaceController::class, 'paymentStatus'])
         ->name('marketplace.payment-status');
@@ -588,6 +600,9 @@ Route::post('/admin/core-addons/{id}/grant', [
     \App\Http\Controllers\Admin\CoreAddonController::class,
     'grantAddon'
 ])->name('admin.core-addons.grant');
+
+Route::post('/marketplace/payment', [MarketplaceController::class, 'marketplacePayment'])
+    ->name('marketplace.payment');
 
 Route::post('/marketplace/developer/checkout', [MarketplaceController::class, 'developerCheckoutSubmit'])
     ->name('marketplace.developer.checkout.submit');

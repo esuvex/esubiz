@@ -83,19 +83,93 @@ class FinancialReportController
             ])
             ->get()
             ->map(function ($row) {
-                if (!$row->website_id && $row->user_id) {
-                    $website = DB::table('websites')
-                        ->where('owner_id', $row->user_id)
-                        ->where('status', 'active')
-                        ->orderByDesc('is_default')
-                        ->orderByDesc('updated_at')
-                        ->first();
+                /*
+                 * Resolve website context from the originating marketplace
+                 * checkout session when the revenue event itself does not
+                 * carry website_id.
+                 *
+                 * SaaS purchases belong to a specific website.
+                 * Off-server/developer purchases must remain website-less.
+                 */
+                if (!$row->website_id && !empty($row->reference_id)) {
+                    /*
+                     * Marketplace revenue commonly references the payment
+                     * transaction, not the marketplace order directly.
+                     *
+                     * Resolve:
+                     * revenue_event
+                     *   -> payment_transaction
+                     *   -> payload.marketplace_order_id
+                     *   -> marketplace_checkout_session
+                     *
+                     * This prevents a transaction ID from being mistaken
+                     * for an unrelated marketplace order ID.
+                     */
+                    $marketplaceOrderId = null;
 
-                    if ($website) {
-                        $row->website_id = $website->id;
-                        $row->website_name = $website->name;
-                        $row->website_domain = $website->domain;
+                    if (($row->reference_type ?? null) === 'payment_transaction') {
+                        $paymentTransaction = DB::table('payment_transactions')
+                            ->where('id', $row->reference_id)
+                            ->first();
+
+                        if ($paymentTransaction) {
+                            $payload = json_decode(
+                                $paymentTransaction->payload ?? '{}',
+                                true
+                            );
+
+                            $marketplaceOrderId =
+                                $payload['marketplace_order_id'] ?? null;
+                        }
+                    } elseif (
+                        in_array(
+                            ($row->reference_type ?? null),
+                            ['marketplace_order', 'marketplace_orders'],
+                            true
+                        )
+                    ) {
+                        $marketplaceOrderId = $row->reference_id;
                     }
+
+                    if ($marketplaceOrderId) {
+                        $checkoutSession = DB::table(
+                                'marketplace_checkout_sessions'
+                            )
+                            ->where(
+                                'marketplace_order_id',
+                                $marketplaceOrderId
+                            )
+                            ->latest('id')
+                            ->first();
+
+                        if (
+                            $checkoutSession
+                            && $checkoutSession->deployment_type === 'saas'
+                            && !empty($checkoutSession->website_id)
+                        ) {
+                            $website = DB::table('websites')
+                                ->where(
+                                    'id',
+                                    $checkoutSession->website_id
+                                )
+                                ->first();
+
+                            if ($website) {
+                                $row->website_id = $website->id;
+                                $row->website_name = $website->name;
+                                $row->website_domain = $website->domain;
+                            }
+                        }
+                    }
+                }
+
+                /*
+                 * Off-server/developer purchases intentionally have no
+                 * website context.
+                 */
+                if (!$row->website_id) {
+                    $row->website_name = null;
+                    $row->website_domain = null;
                 }
                 return [
                     'id' => $row->id,

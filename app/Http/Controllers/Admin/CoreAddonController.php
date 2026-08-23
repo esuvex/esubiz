@@ -153,6 +153,7 @@ return view('admin.core-addons.index', [
             'name' => $data['name'],
             'category' => $data['category'] ?? null,
             'description' => $data['description'] ?? null,
+            'unit_name' => $data['unit_name'] ?? null,
             'saas_available' => $request->boolean('saas_available'),
             'off_server_available' => $request->boolean('off_server_available'),
             'saas_price' => $data['saas_price'] ?? null,
@@ -206,6 +207,7 @@ return view('admin.core-addons.index', [
                     'name' => $data['name'],
                     'category' => $data['category'] ?? null,
                     'description' => $data['description'] ?? null,
+                    'unit_name' => $data['unit_name'] ?? null,
                     'saas_available' => $request->boolean('saas_available'),
                     'off_server_available' => $request->boolean('off_server_available'),
                     'saas_price' => $data['saas_price'] ?? null,
@@ -276,7 +278,7 @@ return view('admin.core-addons.index', [
             'saas_price' => ['nullable', 'numeric', 'min:0'],
             'saas_currency' => ['nullable', 'string', 'size:3'],
             'saas_billing_interval' => ['nullable', 'string', 'max:30'],
-            'saas_billing_period' => ['nullable', 'integer', 'min:1'],
+            'saas_billing_period' => ['nullable', 'string', 'max:30'],
 
             'off_server_price' => ['nullable', 'numeric', 'min:0'],
             'off_server_currency' => ['nullable', 'string', 'size:3'],
@@ -301,11 +303,12 @@ return view('admin.core-addons.index', [
             'name' => ['required', 'string', 'max:255'],
             'category' => ['nullable', 'string', 'max:100'],
             'description' => ['nullable', 'string'],
+            'unit_name' => ['nullable', 'string', 'max:64'],
 
             'saas_price' => ['nullable', 'numeric', 'min:0'],
             'saas_currency' => ['nullable', 'string', 'size:3'],
             'saas_billing_interval' => ['nullable', 'string', 'max:30'],
-            'saas_billing_period' => ['nullable', 'integer', 'min:1'],
+            'saas_billing_period' => ['nullable', 'string', 'max:30'],
 
             'off_server_price' => ['nullable', 'numeric', 'min:0'],
             'off_server_currency' => ['nullable', 'string', 'size:3'],
@@ -384,27 +387,73 @@ return view('admin.core-addons.index', [
         abort_unless($addon, 404);
 
         $data = $request->validate([
+            'key' => [
+                'nullable',
+                'string',
+                'max:100',
+                'regex:/^[a-z0-9_\-]+$/',
+                'unique:core_addons,key,' . $id . ',id',
+            ],
             'name' => ['required', 'string', 'max:255'],
+            'category' => ['nullable', 'string', 'max:100'],
             'description' => ['nullable', 'string'],
-            'saas_price' => ['nullable', 'numeric', 'min:0'],
-            'saas_period' => ['nullable', 'string', 'max:50'],
-            'offserver_price' => ['nullable', 'numeric', 'min:0'],
+            'parent_capability' => ['nullable', 'string', 'max:150'],
+            'entitlement_type' => ['nullable', 'string', 'max:50'],
+            'default_allocation' => ['nullable', 'numeric', 'min:0'],
             'allocation_unit' => ['nullable', 'string', 'max:50'],
+            'saas_price' => ['nullable', 'numeric', 'min:0'],
+            'saas_currency' => ['nullable', 'string', 'size:3'],
+            'saas_billing_interval' => ['nullable', 'string', 'max:30'],
+            'saas_billing_period' => ['nullable', 'string', 'max:30'],
+            'off_server_price' => ['nullable', 'numeric', 'min:0'],
+            'off_server_currency' => ['nullable', 'string', 'size:3'],
+            'saas_available' => ['nullable', 'boolean'],
+            'off_server_available' => ['nullable', 'boolean'],
+            'is_unlimited' => ['nullable', 'boolean'],
             'is_active' => ['nullable', 'boolean'],
+            'capabilities' => ['nullable', 'array'],
+            'capabilities.*' => ['string', 'max:150'],
             'capability_allocations' => ['nullable', 'array'],
             'capability_unlimited' => ['nullable', 'array'],
         ]);
 
+        $data['key'] = $data['key'] ?? $addon->key;
+        $data['entitlement_type'] = $data['entitlement_type'] ?? $addon->entitlement_type;
+        $data['category'] = $data['category'] ?? $addon->category;
+        $data['parent_capability'] = $data['parent_capability'] ?? $addon->parent_capability;
+
         DB::table('core_addons')
             ->where('id', $id)
             ->update([
+                'key' => $data['key'],
                 'name' => $data['name'],
+                'category' => $data['category'] ?? null,
                 'description' => $data['description'] ?? null,
-                'saas_price' => $data['saas_price'] ?? 0,
-                'saas_billing_period' => $data['saas_period'] ?? null,
-                'off_server_price' => $data['offserver_price'] ?? 0,
+                'parent_capability' => $data['parent_capability'] ?? null,
+                'entitlement_type' => $data['entitlement_type'],
+                'default_allocation' => $data['default_allocation'] ?? null,
                 'allocation_unit' => $data['allocation_unit'] ?? null,
+                'saas_available' => $request->boolean('saas_available'),
+                'off_server_available' => $request->boolean('off_server_available'),
+                'is_unlimited' => $request->boolean('is_unlimited'),
+                'saas_price' => $data['saas_price'] ?? null,
+                'saas_currency' => $data['saas_currency'] ?? null,
+                'saas_billing_interval' => $data['saas_billing_interval'] ?? null,
+                'saas_billing_period' => $data['saas_billing_period'] ?? null,
+                'off_server_price' => $data['off_server_price'] ?? null,
+                'off_server_currency' => $data['off_server_currency'] ?? null,
                 'is_active' => $request->boolean('is_active'),
+                'capabilities' => $this->jsonArray($request->input('capabilities')),
+                'metadata' => json_encode([
+                    'deployment_types' => array_values(array_filter([
+                        $request->boolean('saas_available') ? 'saas' : null,
+                        $request->boolean('off_server_available') ? 'off_server' : null,
+                    ])),
+                    'commercial_models' => array_values(array_filter([
+                        $request->boolean('saas_available') ? 'rental_or_subscription' : null,
+                        $request->boolean('off_server_available') ? 'license' : null,
+                    ])),
+                ]),
                 'updated_at' => now(),
             ]);
 
@@ -486,9 +535,27 @@ public function editAddon(int $id)
             $savedCapabilities = [];
         }
 
+        /*
+         * Existing allocation records are authoritative when editing an
+         * add-on. Merge their capability keys with the legacy capabilities
+         * JSON so previously saved Function Allocations always remain
+         * visible and editable.
+         */
+        $allocationCapabilityKeys = $allocations
+            ->keys()
+            ->filter()
+            ->values()
+            ->all();
+
+        $capabilityKeys = collect($savedCapabilities)
+            ->merge($allocationCapabilityKeys)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
         $capabilities = DB::table('core_feature_limits')
-            ->where('is_active', true)
-            ->whereIn('limit_key', $savedCapabilities)
+            ->whereIn('limit_key', $capabilityKeys)
             ->get()
             ->keyBy('limit_key')
             ->values();

@@ -224,6 +224,14 @@
             </button>
 
             <div x-show="billingMenu" x-cloak class="ml-4 mt-1 space-y-1">
+                <a href="{{ route('marketplace.user-orders') }}"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800
+                   {{ request()->routeIs('marketplace.user-orders')
+                        ? 'bg-blue-600 text-white'
+                        : '' }}">
+                    Orders
+                </a>
+
                 <a href="{{ route('user.financial.records') }}"
                    class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
                     Financials
