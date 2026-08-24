@@ -41,8 +41,29 @@ class CheckAccountMode
             abort(403, 'You are not authorized to use this account mode.');
         }
 
+        /*
+         * The central Admin area is itself an explicit request to enter
+         * Admin Mode. A verified platform administrator must therefore
+         * be allowed to establish Admin Mode here before the controller
+         * is reached.
+         *
+         * Developer/User mode switching remains explicit and continues
+         * to use the existing account-mode session.
+         */
+        if (
+            $mode === 'admin'
+            && $user->hasRole('platform-admin')
+        ) {
+            session(['account_mode' => 'admin']);
+
+            return $next($request);
+        }
+
         if (session('account_mode') !== $mode) {
-            abort(403, 'Switch to this account mode before accessing this area.');
+            abort(
+                403,
+                'Switch to this account mode before accessing this area.'
+            );
         }
 
         return $next($request);

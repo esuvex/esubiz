@@ -57,13 +57,154 @@ Route::domain('www.esubiz.com')
 */
 
 Route::domain('{subdomain}.esubiz.com')
-    ->where(['subdomain' => '(?!www$)(?!esubiz$)[a-zA-Z0-9-]+'])
+    ->where([
+        'subdomain' =>
+            '(?!www$)(?!esubiz$)[a-zA-Z0-9-]+'
+    ])
+    ->middleware('website-tenant')
     ->group(function () {
-        Route::get('/', [TenantWebsiteController::class, 'home'])
-            ->name('tenant.website.home');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Public Tenant Website
+        |--------------------------------------------------------------------------
+        */
+        Route::get(
+            '/',
+            [TenantWebsiteController::class, 'home']
+        )->name('tenant.website.home');
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Tenant Core CMS Entry
+        |--------------------------------------------------------------------------
+        |
+        | Every current and future tenant uses:
+        |
+        | tenant.esubiz.com/admin
+        |
+        */
+        Route::get(
+            '/admin',
+            [
+                \App\Http\Controllers\TenantCmsController::class,
+                'admin',
+            ]
+        )->name('tenant.cms.admin');
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Tenant Core CMS Dashboard
+        |--------------------------------------------------------------------------
+        */
+        Route::get(
+            '/admin/dashboard',
+            [
+                \App\Http\Controllers\TenantCmsController::class,
+                'dashboard',
+            ]
+        )->name('tenant.cms.dashboard');
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Homepage Update
+        |--------------------------------------------------------------------------
+        */
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Core CMS - Pages
+        |--------------------------------------------------------------------------
+        |
+        | Core pages are unlimited.
+        */
+        Route::get(
+            '/admin/pages',
+            [
+                \App\Http\Controllers\TenantPagesController::class,
+                'index',
+            ]
+        )->name('tenant.cms.pages.index');
+
+        Route::get(
+            '/admin/pages/create',
+            [
+                \App\Http\Controllers\TenantPagesController::class,
+                'create',
+            ]
+        )->name('tenant.cms.pages.create');
+
+        Route::post(
+            '/admin/pages',
+            [
+                \App\Http\Controllers\TenantPagesController::class,
+                'store',
+            ]
+        )->name('tenant.cms.pages.store');
+
+        Route::get(
+            '/admin/pages/{page}/edit',
+            [
+                \App\Http\Controllers\TenantPagesController::class,
+                'edit',
+            ]
+        )->name('tenant.cms.pages.edit');
+
+        Route::put(
+            '/admin/pages/{page}',
+            [
+                \App\Http\Controllers\TenantPagesController::class,
+                'update',
+            ]
+        )->name('tenant.cms.pages.update');
+
+        Route::delete(
+            '/admin/pages/{page}',
+            [
+                \App\Http\Controllers\TenantPagesController::class,
+                'destroy',
+            ]
+        )->name('tenant.cms.pages.destroy');
+
+
+        Route::post(
+            '/admin/logout',
+            [
+                \App\Http\Controllers\TenantCmsController::class,
+                'logout',
+            ]
+        )->name('tenant.cms.logout');
+
+
+        Route::put(
+            '/admin/homepage',
+            [
+                \App\Http\Controllers\TenantCmsController::class,
+                'updateHomepage',
+            ]
+        )->name('tenant.cms.homepage.update');
+
     });
 
 
+
+Route::domain('esubiz.com')
+    ->middleware([
+        'auth',
+        'account-mode:user',
+    ])
+    ->get(
+        '/websites/{website}/dashboard',
+        [
+            \App\Http\Controllers\User\WebsiteController::class,
+            'openDashboard',
+        ]
+    )
+    ->name('user.websites.dashboard');
 
 Route::get('/oauth/authorize', [SsoController::class, 'authorize'])
     ->middleware('auth')
@@ -273,9 +414,17 @@ Route::middleware('auth')->group(function () {
         ->middleware(['permission:roles.view', 'account-mode:admin'])
         ->name('admin.website-types.update');
 
-Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])
-        ->middleware(['permission:roles.view', 'account-mode:admin'])
-        ->name('admin.dashboard');
+Route::domain('esubiz.com')
+    ->get(
+        '/admin/dashboard',
+        [AdminDashboardController::class, 'index']
+    )
+    ->middleware([
+        'auth',
+        'permission:roles.view',
+        'account-mode:admin',
+    ])
+    ->name('admin.dashboard');
 
     Route::get('/developer/dashboard', [DeveloperDashboardController::class, 'index'])
         ->middleware(['permission:developer.console', 'account-mode:developer'])

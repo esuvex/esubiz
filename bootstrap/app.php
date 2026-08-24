@@ -15,6 +15,23 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'permission' => \App\Http\Middleware\CheckPermission::class,
             'account-mode' => \App\Http\Middleware\CheckAccountMode::class,
+
+            'website-tenant' =>
+                \App\Http\Middleware\ResolveWebsiteTenant::class,
+        ]);
+
+        /*
+         * Tenant-aware routes.
+         *
+         * NeedsTenant invokes the configured WebsiteTenantFinder
+         * and makes the resolved WebsiteTenant current.
+         *
+         * EnsureValidTenantSession protects tenant sessions from
+         * crossing between different tenant websites.
+         */
+        $middleware->group('tenant', [
+            \Spatie\Multitenancy\Http\Middleware\NeedsTenant::class,
+            \Spatie\Multitenancy\Http\Middleware\EnsureValidTenantSession::class,
         ]);
 
         $middleware->validateCsrfTokens(except: [

@@ -71,7 +71,23 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->put('account_mode', $mode);
 
-        return redirect()->route($mode . '.dashboard');
+        /*
+         * Respect the URL that originally required authentication.
+         *
+         * This is required for flows such as:
+         *
+         * Tenant /admin
+         * -> Continue with Esubiz
+         * -> Central login
+         * -> Website Dashboard SSO handoff
+         * -> Tenant /admin/dashboard
+         *
+         * Normal Esubiz logins still fall back to the correct
+         * User / Developer / Admin dashboard.
+         */
+        return redirect()->intended(
+            route($mode . '.dashboard')
+        );
     }
 
     /**
