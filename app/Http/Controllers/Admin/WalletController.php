@@ -41,8 +41,91 @@ class WalletController extends Controller
                 ->first();
         }
 
+        /*
+         * Wallet Funding Records
+         *
+         * Funding attempts are financial audit records, not platform
+         * revenue. Keep them visible to Admin regardless of whether the
+         * funding method is online, offline or Gift Card.
+         */
+        $fundings = DB::table('wallet_fundings as fundings')
+            ->leftJoin(
+                'wallets',
+                'wallets.id',
+                '=',
+                'fundings.wallet_id'
+            )
+            ->leftJoin(
+                'users',
+                'users.id',
+                '=',
+                'fundings.user_id'
+            )
+            ->whereNull('fundings.deleted_at')
+            ->select([
+                'fundings.id',
+                'fundings.reference',
+                'fundings.amount',
+                'fundings.fee',
+                'fundings.net_amount',
+                'fundings.currency',
+                'fundings.method',
+                'fundings.gateway_reference',
+                'fundings.status',
+                'fundings.created_at',
+                'users.name as user_name',
+                'users.email as user_email',
+                'wallets.uuid as wallet_uuid',
+            ])
+            ->orderByDesc('fundings.created_at')
+            ->paginate(10, ['*'], 'funding_page');
+
+        /*
+         * Canonical Wallet Transaction Log
+         *
+         * This is the ledger of completed wallet movements. It remains
+         * separate from funding attempts so Admin can audit both the
+         * payment/funding lifecycle and the resulting balance movement.
+         */
+        $transactions = DB::table(
+                'wallet_transactions as transactions'
+            )
+            ->leftJoin(
+                'wallets',
+                'wallets.id',
+                '=',
+                'transactions.wallet_id'
+            )
+            ->leftJoin(
+                'users',
+                'users.id',
+                '=',
+                'transactions.user_id'
+            )
+            ->whereNull('transactions.deleted_at')
+            ->select([
+                'transactions.id',
+                'transactions.reference',
+                'transactions.type',
+                'transactions.direction',
+                'transactions.amount',
+                'transactions.balance_before',
+                'transactions.balance_after',
+                'transactions.currency',
+                'transactions.status',
+                'transactions.description',
+                'transactions.created_at',
+                'users.name as user_name',
+                'users.email as user_email',
+                'wallets.uuid as wallet_uuid',
+            ])
+            ->orderByDesc('transactions.created_at')
+            ->paginate(10, ['*'], 'transaction_page');
+
         return view('admin.payment-gateways.wallet', [
             'settings' => $settings,
+            'fundings' => $fundings,
+            'transactions' => $transactions,
         ]);
     }
 

@@ -81,19 +81,8 @@
 
                         </div>
 
-                        @php
-                            $websiteIsActive =
-                                strtolower((string) $website->status) === 'active'
-                                && (bool) $website->user_enabled;
-                        @endphp
-
-                        <span
-                            class="shrink-0 rounded-full px-3 py-1 text-xs font-semibold"
-                            style="{{ $websiteIsActive
-                                ? 'background-color:#dcfce7;color:#15803d;'
-                                : 'background-color:#fee2e2;color:#b91c1c;' }}"
-                        >
-                            {{ $websiteIsActive ? 'Active' : 'Inactive' }}
+                        <span class="shrink-0 rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                            {{ ucfirst($website->status) }}
                         </span>
 
                     </div>
@@ -138,9 +127,7 @@
                         @if($website->status === 'failed')
 
                             <a
-                                href="{{ route('user.websites.dashboard', ['website' => $website->id]) }}"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                                href="{{ route('websites.review', $website) }}"
                                 class="col-span-2 inline-flex items-center justify-center rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white hover:bg-red-700"
                             >
                                 Redeploy Website
@@ -159,9 +146,10 @@
                                     Visit Website
                                 </a>
 
-                                <a href="{{ route('user.websites.dashboard', ['website' => $website->id]) }}"
-                    target="_blank"
-                    rel="noopener noreferrer" class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                                <a
+                                    href="#"
+                                    class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                                >
                                     Website Dashboard
                                 </a>
 

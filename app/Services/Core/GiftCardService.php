@@ -74,18 +74,6 @@ class GiftCardService
             ];
         }
 
-        if (
-            $card->usage_limit !== null &&
-            $card->usage_count >= $card->usage_limit
-        ) {
-            return [
-                'valid' => false,
-                'status' => 'usage_limit_reached',
-                'message' => 'This gift card has reached its usage limit.',
-                'card' => $card,
-            ];
-        }
-
         return [
             'valid' => true,
             'status' => 'active',
@@ -221,15 +209,6 @@ class GiftCardService
             );
         }
 
-        if (
-            $card->usage_limit !== null
-            && $card->usage_count >= $card->usage_limit
-        ) {
-            throw new RuntimeException(
-                'This gift card has reached its usage limit.'
-            );
-        }
-
         return $card;
     }
 
@@ -281,15 +260,6 @@ class GiftCardService
             if ($remaining <= 0) {
                 throw new RuntimeException(
                     'This gift card has no remaining balance.'
-                );
-            }
-
-            if (
-                $card->usage_limit !== null
-                && $card->usage_count >= $card->usage_limit
-            ) {
-                throw new RuntimeException(
-                    'This gift card has reached its usage limit.'
                 );
             }
 

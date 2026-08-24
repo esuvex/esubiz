@@ -175,6 +175,8 @@ class FinancialReportController
                     'id' => $row->id,
                     'type' => 'credit',
                     'source' => $row->source_module ?: 'other',
+
+                    'payment_source' => $this->resolvePaymentSource($row),
                     'category' => $row->source_module
  ?: 'other',
                     'amount' => (float) $row->net_amount,
@@ -573,6 +575,108 @@ class FinancialReportController
         );
     }
 
+    protected function resolvePaymentSource(object $row): string
+    {
+        if (
+            ($row->reference_type ?? null) !== 'payment_transaction'
+            || empty($row->reference_id)
+        ) {
+            return 'Esubiz';
+        }
+
+        $transaction = DB::table('payment_transactions')
+            ->where('id', (int) $row->reference_id)
+            ->first();
+
+        if (!$transaction) {
+            return 'Esubiz';
+        }
+
+        $payload = json_decode(
+            $transaction->payload ?? '{}',
+            true
+        ) ?: [];
+
+        $paymentMode = $payload['payment_mode'] ?? null;
+
+        if ($paymentMode === 'wallet') {
+            return 'Wallet';
+        }
+
+        if (in_array($paymentMode, ['gift_card', 'giftcard'], true)) {
+            return 'Gift Card';
+        }
+
+        if ($paymentMode === 'offline') {
+            if (!empty($payload['offline_payment_method_id'])) {
+                $name = DB::table('offline_payment_methods')
+                    ->where(
+                        'id',
+                        (int) $payload['offline_payment_method_id']
+                    )
+                    ->whereNull('deleted_at')
+                    ->value('name');
+
+                if ($name) {
+                    return $name;
+                }
+            }
+
+            if (!empty($payload['offline_payment_method'])) {
+                return ucwords(
+                    str_replace(
+                        ['-', '_'],
+                        ' ',
+                        $payload['offline_payment_method']
+                    )
+                );
+            }
+
+            return 'Offline';
+        }
+
+        if ($paymentMode === 'online') {
+            if (!empty($transaction->payment_provider_id)) {
+                $name = DB::table('payment_providers')
+                    ->where(
+                        'id',
+                        (int) $transaction->payment_provider_id
+                    )
+                    ->value('name');
+
+                if ($name) {
+                    return $name;
+                }
+            }
+
+            return !empty($payload['payment_provider'])
+                ? ucwords(
+                    str_replace(
+                        ['-', '_'],
+                        ' ',
+                        $payload['payment_provider']
+                    )
+                )
+                : 'Online';
+        }
+
+        /*
+         * Fallback for older successful transactions that predate
+         * payment_mode being stored in the payload.
+         */
+        if (!empty($transaction->payment_provider_id)) {
+            return DB::table('payment_providers')
+                ->where(
+                    'id',
+                    (int) $transaction->payment_provider_id
+                )
+                ->value('name')
+                ?? 'Online';
+        }
+
+        return 'Esubiz';
+    }
+
     protected function reportData(Request $request): array
     {
         $period = $request->input('period', '30d');
@@ -658,6 +762,7 @@ class FinancialReportController
                     'id' => $row->id,
                     'type' => 'credit',
                     'source' => $row->source_module ?: 'other',
+                    'payment_source' => $this->resolvePaymentSource($row),
                     'category' => $row->source_module ?: 'other',
                     'item_type' => $row->item_type,
                     'item_id' => $row->item_id,

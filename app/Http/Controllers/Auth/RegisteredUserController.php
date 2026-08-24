@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\UserRole;
+use App\Services\Core\WalletService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -54,6 +55,8 @@ class RegisteredUserController extends Controller
                 'is_primary' => true,
             ]);
         }
+
+        app(WalletService::class)->ensureUserWallet($user->id);
 
         event(new Registered($user));
 

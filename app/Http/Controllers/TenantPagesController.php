@@ -79,12 +79,26 @@ class TenantPagesController extends Controller
             ->pluck('value', 'key')
             ->all();
 
+        $schema = \Illuminate\Support\Facades\Schema::connection(
+            'tenant'
+        );
+
+        $forms = collect();
+
+        if ($schema->hasTable('forms')) {
+            $forms = DB::connection('tenant')
+                ->table('forms')
+                ->orderBy('name')
+                ->get();
+        }
+
         return view(
             'tenant.admin.pages.form',
             [
                 'website' => $website,
                 'settings' => $settings,
                 'page' => null,
+                'forms' => $forms,
             ]
         );
     }
@@ -121,6 +135,11 @@ class TenantPagesController extends Controller
                 'nullable',
                 'boolean',
             ],
+
+            'builder_json' => [
+                'nullable',
+                'string',
+            ],
         ]);
 
         $db = DB::connection('tenant');
@@ -155,6 +174,7 @@ class TenantPagesController extends Controller
             'is_homepage'
         );
 
+
         $db->transaction(
             function () use (
                 $db,
@@ -188,7 +208,14 @@ class TenantPagesController extends Controller
                             $isHomepage,
 
                         'settings' =>
-                            json_encode([]),
+                            json_encode([
+                                'basic_builder' =>
+                                    json_decode(
+                                        $data['builder_json']
+                                            ?? '[]',
+                                        true
+                                    ) ?: [],
+                            ]),
 
                         'seo' =>
                             json_encode([]),
@@ -222,8 +249,10 @@ class TenantPagesController extends Controller
     }
 
 
-    public function edit(int $page)
-    {
+    public function edit(
+        string $subdomain,
+        int $page
+    ) {
         $website = $this->authorizeCms();
 
         $db = DB::connection('tenant');
@@ -232,6 +261,19 @@ class TenantPagesController extends Controller
             ->table('site_settings')
             ->pluck('value', 'key')
             ->all();
+
+        $schema = \Illuminate\Support\Facades\Schema::connection(
+            'tenant'
+        );
+
+        $forms = collect();
+
+        if ($schema->hasTable('forms')) {
+            $forms = $db
+                ->table('forms')
+                ->orderBy('name')
+                ->get();
+        }
 
         $page = $db->table('pages')
             ->where('id', $page)
@@ -244,7 +286,8 @@ class TenantPagesController extends Controller
             compact(
                 'website',
                 'settings',
-                'page'
+                'page',
+                'forms'
             )
         );
     }
@@ -252,6 +295,7 @@ class TenantPagesController extends Controller
 
     public function update(
         Request $request,
+        string $subdomain,
         int $page
     ) {
         $website = $this->authorizeCms();
@@ -282,6 +326,11 @@ class TenantPagesController extends Controller
             'is_homepage' => [
                 'nullable',
                 'boolean',
+            ],
+
+            'builder_json' => [
+                'nullable',
+                'string',
             ],
         ]);
 
@@ -316,6 +365,22 @@ class TenantPagesController extends Controller
             'is_homepage'
         );
 
+        $pageSettings = $existing->settings
+            ? (
+                json_decode(
+                    $existing->settings,
+                    true
+                ) ?: []
+            )
+            : [];
+
+        $pageSettings['basic_builder'] =
+            json_decode(
+                $data['builder_json']
+                    ?? '[]',
+                true
+            ) ?: [];
+
         $db->transaction(
             function () use (
                 $db,
@@ -323,7 +388,8 @@ class TenantPagesController extends Controller
                 $slug,
                 $isHomepage,
                 $existing,
-                $page
+                $page,
+                $pageSettings
             ) {
                 if ($isHomepage) {
                     $db->table('pages')
@@ -359,6 +425,11 @@ class TenantPagesController extends Controller
                         'content' =>
                             $data['content'] ?? '',
 
+                        'settings' =>
+                            json_encode(
+                                $pageSettings
+                            ),
+
                         'is_homepage' =>
                             $finalHomepage,
 
@@ -391,8 +462,10 @@ class TenantPagesController extends Controller
     }
 
 
-    public function destroy(int $page)
-    {
+    public function destroy(
+        string $subdomain,
+        int $page
+    ) {
         $website = $this->authorizeCms();
 
         $db = DB::connection('tenant');

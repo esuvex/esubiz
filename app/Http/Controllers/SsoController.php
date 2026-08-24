@@ -240,7 +240,34 @@ class SsoController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | Establish the website session
+        | Validate Tenant CMS SSO State
+        |--------------------------------------------------------------------------
+        */
+
+        $expectedState = $request->session()->pull(
+            'tenant_cms_sso_state'
+        );
+
+        $receivedState = $request->string(
+            'state'
+        )->toString();
+
+        if ($expectedState !== null) {
+            abort_unless(
+                $receivedState !== ''
+                && hash_equals(
+                    (string) $expectedState,
+                    $receivedState
+                ),
+                419,
+                'Invalid SSO state.'
+            );
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Establish Central + Tenant CMS Session
         |--------------------------------------------------------------------------
         */
 
@@ -248,14 +275,34 @@ class SsoController extends Controller
 
         $request->session()->regenerate();
 
+        $request->session()->put([
+            'tenant_cms_authenticated' => true,
+            'tenant_cms_website_id' =>
+                (int) $website->id,
+
+            'tenant_cms_user_id' =>
+                (int) $user->id,
+
+            'tenant_cms_authenticated_via' =>
+                'esubiz_sso',
+        ]);
+
+        $request->session()->forget([
+            'tenant_cms_sso_website_id',
+            'tenant_cms_sso_destination',
+        ]);
+
+
         /*
         |--------------------------------------------------------------------------
-        | Return to the website
+        | Return Directly To Website CMS
         |--------------------------------------------------------------------------
         */
 
         return redirect()->to(
-            'https://' . $website->subdomain . '.esubiz.com/'
+            'https://'
+            . $website->subdomain
+            . '.esubiz.com/admin/dashboard'
         );
     }
 

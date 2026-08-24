@@ -1,5 +1,19 @@
 <?php
 
+
+
+
+/*
+|--------------------------------------------------------------------------
+| Central Esubiz Login - MUST stay before tenant routes
+|--------------------------------------------------------------------------
+*/
+
+
+
+
+
+
 use App\Http\Controllers\MarketplaceController;
 
 use App\Http\Controllers\Admin\FinancialReportController;
@@ -44,9 +58,167 @@ use App\Http\Controllers\User\WebsiteController as UserWebsiteController;
 |--------------------------------------------------------------------------
 */
 
+
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ-VITE-ASSET-FALLBACK
+|--------------------------------------------------------------------------
+|
+| Serve compiled Vite assets directly through Laravel when the web server
+| rewrites /build/assets requests into index.php.
+|
+*/
+
+Route::get('/build/assets/{file}', function ($file) {
+    abort_if(
+        str_contains($file, '..')
+        || str_contains($file, '/')
+        || str_contains($file, '\\'),
+        404
+    );
+
+    $path = public_path('build/assets/' . $file);
+
+    abort_unless(is_file($path), 404);
+
+    return response()->file($path);
+})
+    ->where('file', '[A-Za-z0-9._-]+')
+    ->name('vite.asset.fallback');
+
+
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ-CENTRAL-PUBLIC-ASSET-FALLBACK
+|--------------------------------------------------------------------------
+|
+| Serve central Esubiz public assets directly from Laravel's public folder
+| when Apache rewrites the request into index.php.
+|
+*/
+
+Route::domain('esubiz.com')
+    ->get('/{asset}', function ($asset) {
+
+        abort_if(
+            str_contains($asset, '..')
+            || str_starts_with($asset, '/'),
+            404
+        );
+
+        $path = public_path($asset);
+
+        abort_unless(
+            is_file($path),
+            404
+        );
+
+        return response()->file($path);
+
+    })
+    ->where(
+        'asset',
+        '^(?:build|images|storage|fonts|css|js|assets)/.+$|^(?:favicon\.ico|robots\.txt)$'
+    )
+    ->name('central.public.asset');
+
+
+
+
+
+/*
+|--------------------------------------------------------------------------
+| CENTRAL-STATIC-FILE-FALLBACK
+|--------------------------------------------------------------------------
+|
+| Central Esubiz only.
+| Serve any genuine static file from Laravel public/ when Apache rewrites
+| the request to index.php.
+|
+*/
+
+$serveCentralStaticFile = function ($file) {
+
+    abort_if(
+        str_contains($file, '..')
+        || str_starts_with($file, '/')
+        || str_contains($file, "\0"),
+        404
+    );
+
+    $path = public_path($file);
+
+    abort_unless(
+        is_file($path),
+        404
+    );
+
+    return response()->file($path);
+};
+
+
+/* esubiz.com */
+Route::domain('esubiz.com')
+    ->get('/{file}', $serveCentralStaticFile)
+    ->where(
+        'file',
+        '.+\.(?:css|js|mjs|map|png|jpe?g|gif|webp|svg|ico|avif|woff2?|ttf|otf|eot|json|xml|txt|pdf)$'
+    )
+    ->name('central.static.file');
+
+
+/* www.esubiz.com */
+Route::domain('www.esubiz.com')
+    ->get('/{file}', $serveCentralStaticFile)
+    ->where(
+        'file',
+        '.+\.(?:css|js|mjs|map|png|jpe?g|gif|webp|svg|ico|avif|woff2?|ttf|otf|eot|json|xml|txt|pdf)$'
+    )
+    ->name('central.static.file.www');
+
+
 Route::view('/', 'frontend.home')->name('home');
 
+
+/*
+|--------------------------------------------------------------------------
+| Central WWW Compatibility
+|--------------------------------------------------------------------------
+|
+| Historical Esubiz behavior:
+|   www.esubiz.com          = public homepage
+|   esubiz.com/*            = application/accounts
+|
+*/
+
 Route::domain('www.esubiz.com')
+    ->get('/', fn () => view('frontend.home'))
+    ->name('www.home');
+
+Route::domain('www.esubiz.com')
+    ->any('/{path}', function (
+        \Illuminate\Http\Request $request,
+        $path
+    ) {
+        return redirect()->to(
+            'https://esubiz.com/' . ltrim($path, '/')
+            . (
+                $request->getQueryString()
+                    ? '?' . $request->getQueryString()
+                    : ''
+            ),
+            302
+        );
+    })
+    ->where('path', '.+')
+    ->name('www.central.redirect');
+
+
+
+
+Route::domain('esubiz.com')
     ->get('/', fn () => view('frontend.home'))
     ->name('www.home');
 
@@ -113,6 +285,21 @@ Route::domain('{subdomain}.esubiz.com')
         | Homepage Update
         |--------------------------------------------------------------------------
         */
+
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Core CMS - Tenant Media Upload
+        |--------------------------------------------------------------------------
+        */
+        Route::post(
+            '/admin/media/upload-image',
+            [
+                \App\Http\Controllers\TenantMediaController::class,
+                'uploadImage',
+            ]
+        )->name('tenant.cms.media.image.upload');
 
 
         /*
@@ -188,6 +375,40 @@ Route::domain('{subdomain}.esubiz.com')
             ]
         )->name('tenant.cms.homepage.update');
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | Public Tenant CMS Pages
+        |--------------------------------------------------------------------------
+        |
+        | Keep this wildcard route LAST inside the tenant domain group so
+        | /admin and every other explicit tenant route always take priority.
+        |
+        */
+
+        /*
+        |--------------------------------------------------------------------------
+        | Public Tenant Media
+        |--------------------------------------------------------------------------
+        */
+        Route::get(
+            '/media/{path}',
+            [
+                \App\Http\Controllers\TenantMediaController::class,
+                'show',
+            ]
+        )
+            ->where('path', '.*')
+            ->name('tenant.website.media');
+
+
+        Route::get(
+            '/{slug}',
+            [TenantWebsiteController::class, 'page']
+        )
+            ->where('slug', '^(?!(?:admin|sso)(?:/|$)).+')
+            ->name('tenant.website.page');
+
     });
 
 
@@ -211,8 +432,31 @@ Route::get('/oauth/authorize', [SsoController::class, 'authorize'])
     ->name('sso.authorize');
 
 
-Route::get('/sso/callback', [SsoController::class, 'callback'])
+
+
+
+/*
+|--------------------------------------------------------------------------
+| SSO Callbacks
+|--------------------------------------------------------------------------
+|
+| Central Esubiz authentication can return centrally, while tenant website
+| SSO may return directly to the originating tenant subdomain.
+|
+*/
+
+Route::domain('esubiz.com')
+    ->get('/sso/callback', [SsoController::class, 'callback'])
+    ->name('sso.callback.central');
+
+Route::domain('{subdomain}.esubiz.com')
+    ->where([
+        'subdomain' => '(?!www$)(?!esubiz$)[a-zA-Z0-9-]+',
+    ])
+    ->get('/sso/callback', [SsoController::class, 'callback'])
     ->name('sso.callback');
+
+
 Route::post('/oauth/token', [SsoController::class, 'token'])
     ->name('sso.token');
 

@@ -95,11 +95,142 @@ class TenantWebsiteController extends Controller
                 }
             }
 
+
+            /*
+             * Core Basic Page Builder currently stores its
+             * structured document in pages.settings.
+             */
+            if (!empty($page->settings)) {
+
+                $pageSettings = json_decode(
+                    $page->settings,
+                    true
+                );
+
+                if (
+                    is_array($pageSettings)
+                    && isset($pageSettings['basic_builder'])
+                    && is_array($pageSettings['basic_builder'])
+                ) {
+                    $builderContent =
+                        $pageSettings['basic_builder'];
+                }
+            }
+
             /*
              * --------------------------------------------------------------
              * Header Menu
              * --------------------------------------------------------------
              */
+            $menu = $db->table('menus')
+                ->where('location', 'header')
+                ->where('is_active', true)
+                ->orderBy('id')
+                ->first();
+
+            $menuItems = collect();
+
+            if ($menu) {
+                $menuItems = $db->table('menu_items')
+                    ->where('menu_id', $menu->id)
+                    ->where('is_active', true)
+                    ->orderBy('sort_order')
+                    ->orderBy('id')
+                    ->get();
+            }
+
+            return view('tenant.website', [
+                'website' => $website,
+                'websiteUrl' => $websiteUrl,
+                'settings' => $settings,
+                'page' => $page,
+                'builderDocument' => $builderDocument,
+                'builderContent' => $builderContent,
+                'menu' => $menu,
+                'menuItems' => $menuItems,
+            ]);
+
+        } finally {
+            $this->tenantDatabaseService->disconnect();
+        }
+    }
+
+    /**
+     * Display a published public CMS page by slug.
+     */
+    public function page(Request $request, string $subdomain, string $slug): View
+    {
+        /** @var WebsiteTenant|null $tenant */
+        $tenant = Tenant::current();
+
+        abort_unless(
+            $tenant,
+            404,
+            'Website tenant not found.'
+        );
+
+        $website = Website::query()
+            ->findOrFail($tenant->website_id);
+
+        $websiteUrl = $request->getScheme() . '://' . $request->getHost();
+
+        $this->tenantDatabaseService->connect($website);
+
+        try {
+            $db = $this->tenantDatabaseService->connection();
+
+            $settings = $db->table('site_settings')
+                ->pluck('value', 'key')
+                ->all();
+
+            $page = $db->table('pages')
+                ->where('slug', $slug)
+                ->where('status', 'published')
+                ->first();
+
+            abort_unless(
+                $page,
+                404,
+                'Published page not found.'
+            );
+
+            $builderDocument = $db->table('page_builder_documents')
+                ->where('page_id', $page->id)
+                ->first();
+
+            $builderContent = [];
+
+            if ($builderDocument && $builderDocument->content) {
+                $decoded = json_decode(
+                    $builderDocument->content,
+                    true
+                );
+
+                if (is_array($decoded)) {
+                    $builderContent = $decoded;
+                }
+            }
+
+            /*
+             * Backward compatibility:
+             * Current Core pages also store the basic builder document
+             * inside pages.settings.
+             */
+            if (!empty($page->settings)) {
+                $pageSettings = json_decode(
+                    $page->settings,
+                    true
+                );
+
+                if (
+                    is_array($pageSettings)
+                    && isset($pageSettings['basic_builder'])
+                    && is_array($pageSettings['basic_builder'])
+                ) {
+                    $builderContent = $pageSettings['basic_builder'];
+                }
+            }
+
             $menu = $db->table('menus')
                 ->where('location', 'header')
                 ->where('is_active', true)

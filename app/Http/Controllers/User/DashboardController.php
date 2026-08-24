@@ -115,7 +115,8 @@ class DashboardController extends Controller
             ->select(
                 'r.*',
                 'pp.name as gateway_name',
-                'pp.slug as gateway_slug'
+                'pp.slug as gateway_slug',
+                'pt.payload as payment_payload'
             )
             ->get()
             ->map(function ($row) {
@@ -154,11 +155,61 @@ class DashboardController extends Controller
                     'created_at' => $row->created_at,
                     'type' => $type,
                     'description' => $description,
-                    'source' => $isReferral
-                        ? 'Esubiz'
-                        : ($row->gateway_name
-                            ?? $row->gateway_slug
-                            ?? 'Esubiz'),
+                    'source' => (function () use ($row, $isReferral) {
+                        if ($isReferral) {
+                            return 'Esubiz';
+                        }
+
+                        $paymentPayload = $row->payment_payload
+                            ? json_decode($row->payment_payload, true)
+                            : [];
+
+                        $paymentMode = $paymentPayload['payment_mode']
+                            ?? null;
+
+                        return match ($paymentMode) {
+                            'wallet' => 'Wallet',
+                            'gift_card', 'giftcard' => 'Gift Card',
+                            'offline' => (
+                                !empty($paymentPayload['offline_payment_method_id'])
+                                    ? (
+                                        \Illuminate\Support\Facades\DB::table(
+                                            'offline_payment_methods'
+                                        )
+                                            ->where(
+                                                'id',
+                                                (int) $paymentPayload[
+                                                    'offline_payment_method_id'
+                                                ]
+                                            )
+                                            ->whereNull('deleted_at')
+                                            ->value('name')
+                                            ?? 'Offline'
+                                    )
+                                    : 'Offline'
+                            ),
+                            'online' => $row->gateway_name
+                                ?? $row->gateway_slug
+                                ?? ucfirst(
+                                    $paymentPayload['payment_provider']
+                                        ?? 'Online'
+                                ),
+                            default => $row->gateway_name
+                                ?? $row->gateway_slug
+                                ?? (
+                                    $row->source_module === 'addons'
+                                        ? 'Esubiz'
+                                        : ucwords(
+                                            str_replace(
+                                                '_',
+                                                ' ',
+                                                $row->source_module
+                                                    ?? 'Esubiz'
+                                            )
+                                        )
+                                ),
+                        };
+                    })(),
                     'reference_id' => $row->reference_id,
                     'currency' => $row->currency ?? 'NGN',
                     'amount' => abs((float) (

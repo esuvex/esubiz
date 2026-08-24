@@ -16,6 +16,50 @@ class WalletService
      *
      * Wallets are created automatically during account registration.
      */
+    /**
+     * Ensure that an Esubiz account has its default customer wallet.
+     *
+     * User Mode and Developer Mode intentionally share this same wallet.
+     */
+    public function ensureUserWallet(
+        int $userId,
+        string $currency = 'NGN'
+    ): Wallet {
+        $currency = strtoupper($currency);
+
+        return DB::transaction(function () use ($userId, $currency) {
+            $wallet = Wallet::query()
+                ->where('user_id', $userId)
+                ->where('type', 'customer')
+                ->where('currency', $currency)
+                ->whereNull('deleted_at')
+                ->lockForUpdate()
+                ->first();
+
+            if ($wallet) {
+                if (!$wallet->is_active) {
+                    $wallet->update(['is_active' => true]);
+                }
+
+                return $wallet->fresh();
+            }
+
+            return Wallet::query()->forceCreate([
+                'workspace_id' => null,
+                'user_id' => $userId,
+                'uuid' => (string) Str::uuid(),
+                'name' => 'Esubiz Wallet',
+                'type' => 'customer',
+                'currency' => $currency,
+                'available_balance' => 0,
+                'pending_balance' => 0,
+                'reserved_balance' => 0,
+                'is_default' => true,
+                'is_active' => true,
+            ]);
+        });
+    }
+
     public function userWallet(
         int $userId,
         string $currency = 'NGN'
@@ -142,6 +186,157 @@ class WalletService
             $source,
             $description ?: 'Wallet payment'
         );
+    }
+
+    /**
+     * Reserve wallet funds for a payout request.
+     *
+     * The money leaves available balance immediately so it cannot be
+     * spent or requested twice, but it remains in reserved_balance until
+     * the payout is completed, rejected or cancelled.
+     */
+    public function reserveForPayout(
+        Wallet $wallet,
+        float $amount
+    ): Wallet {
+        if ($amount <= 0) {
+            throw new RuntimeException(
+                'Payout reserve amount must be greater than zero.'
+            );
+        }
+
+        return DB::transaction(function () use ($wallet, $amount) {
+            $wallet = Wallet::query()
+                ->lockForUpdate()
+                ->findOrFail($wallet->id);
+
+            if (!$wallet->is_active) {
+                throw new RuntimeException(
+                    'This wallet is not active.'
+                );
+            }
+
+            $available = (float) $wallet->available_balance;
+
+            if ($available < $amount) {
+                throw new RuntimeException(
+                    'Insufficient wallet balance.'
+                );
+            }
+
+            $wallet->update([
+                'available_balance' => $available - $amount,
+                'reserved_balance' =>
+                    (float) $wallet->reserved_balance + $amount,
+            ]);
+
+            return $wallet->fresh();
+        });
+    }
+
+    /**
+     * Return a pending payout reservation to available balance.
+     */
+    public function releasePayoutReservation(
+        Wallet $wallet,
+        float $amount
+    ): Wallet {
+        if ($amount <= 0) {
+            throw new RuntimeException(
+                'Payout release amount must be greater than zero.'
+            );
+        }
+
+        return DB::transaction(function () use ($wallet, $amount) {
+            $wallet = Wallet::query()
+                ->lockForUpdate()
+                ->findOrFail($wallet->id);
+
+            $reserved = (float) $wallet->reserved_balance;
+
+            if ($reserved < $amount) {
+                throw new RuntimeException(
+                    'Reserved wallet balance is insufficient.'
+                );
+            }
+
+            $wallet->update([
+                'reserved_balance' => $reserved - $amount,
+                'available_balance' =>
+                    (float) $wallet->available_balance + $amount,
+            ]);
+
+            return $wallet->fresh();
+        });
+    }
+
+    /**
+     * Finalize a successful payout reservation.
+     *
+     * Funds were already removed from available balance when reserved.
+     * Completion removes them from reserved balance and writes the
+     * canonical wallet payout transaction exactly once.
+     */
+    public function completePayoutReservation(
+        Wallet $wallet,
+        float $amount,
+        ?object $source = null,
+        ?string $description = null
+    ): WalletTransaction {
+        if ($amount <= 0) {
+            throw new RuntimeException(
+                'Payout amount must be greater than zero.'
+            );
+        }
+
+        return DB::transaction(function () use (
+            $wallet,
+            $amount,
+            $source,
+            $description
+        ) {
+            $wallet = Wallet::query()
+                ->lockForUpdate()
+                ->findOrFail($wallet->id);
+
+            $reserved = (float) $wallet->reserved_balance;
+
+            if ($reserved < $amount) {
+                throw new RuntimeException(
+                    'Reserved wallet balance is insufficient.'
+                );
+            }
+
+            $before = (float) $wallet->available_balance;
+
+            $wallet->update([
+                'reserved_balance' => $reserved - $amount,
+            ]);
+
+            return WalletTransaction::create([
+                'wallet_id' => $wallet->id,
+                'workspace_id' => $wallet->workspace_id,
+                'user_id' => $wallet->user_id,
+                'uuid' => (string) Str::uuid(),
+                'reference' => 'WLT-' . strtoupper(Str::random(16)),
+                'type' => 'payout',
+                'direction' => 'debit',
+                'amount' => $amount,
+                'balance_before' => $before + $amount,
+                'balance_after' => $before,
+                'currency' => $wallet->currency,
+                'source_type' => $source
+                    ? get_class($source)
+                    : null,
+                'source_id' => $source?->getKey(),
+                'status' => 'completed',
+                'description' =>
+                    $description ?: 'Wallet payout',
+                'metadata' => [
+                    'reserved_before_completion' => $amount,
+                ],
+            ]);
+        });
     }
 
     /**

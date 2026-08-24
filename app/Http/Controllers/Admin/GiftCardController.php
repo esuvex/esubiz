@@ -37,7 +37,7 @@ class GiftCardController extends Controller
                 'users.name as user_name',
                 'users.email as user_email',
             ])
-            ->paginate(25, ['*'], 'usage_page');
+            ->paginate(10, ['*'], 'usage_page');
 
         return view(
             'admin.payment-gateways.gift-card',
@@ -104,7 +104,7 @@ class GiftCardController extends Controller
         $transactions = DB::table('gift_card_transactions')
             ->where('gift_card_id', $id)
             ->orderByDesc('created_at')
-            ->paginate(50);
+            ->paginate(10);
 
         return view(
             'admin.payment-gateways.gift-card-show',
