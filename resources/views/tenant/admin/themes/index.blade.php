@@ -29,48 +29,222 @@
     @endif
 
 
+    
     {{-- =====================================================
-         Theme Discovery / Creation
+         Theme Hub
          ===================================================== --}}
 
     <section>
 
-        <div
-            class="mb-5 flex flex-wrap items-end justify-between gap-4"
-        >
-            <div>
+        <div class="mb-5">
 
-                <div
-                    class="text-xs font-black uppercase tracking-[.16em] text-blue-600"
-                >
-                    Get More Themes
-                </div>
-
-                <h2
-                    class="mt-2 text-2xl font-black tracking-tight text-slate-900"
-                >
-                    Expand your website design
-                </h2>
-
-                <p
-                    class="mt-2 max-w-3xl text-sm leading-6 text-slate-500"
-                >
-                    Browse professionally built Esubiz themes or create
-                    a custom theme using Esubiz AI.
-                </p>
-
+            <div
+                class="text-xs font-black uppercase tracking-[.16em] text-blue-600"
+            >
+                Theme Hub
             </div>
+
+            <h2
+                class="mt-2 text-2xl font-black tracking-tight text-slate-900"
+            >
+                Manage and expand your website design
+            </h2>
+
+            <p
+                class="mt-2 max-w-3xl text-sm leading-6 text-slate-500"
+            >
+                Manage installed themes, explore the Esubiz Theme Marketplace,
+                or build a custom theme with Esubiz AI.
+            </p>
 
         </div>
 
 
         <div
-            class="grid gap-6 lg:grid-cols-2"
+            class="grid auto-rows-fr gap-6 lg:grid-cols-3"
         >
 
-            {{-- Theme Marketplace --}}
+            {{-- Installed Themes first --}}
+            @foreach($themes as $installedTheme)
+
+                @php
+                    $previewUrl = route(
+                        'tenant.cms.themes.business.preview',
+                        [
+                            'subdomain' =>
+                                $website->subdomain
+                        ]
+                    );
+                @endphp
+
+                <article
+                    class="flex h-full flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
+                >
+
+                    <button
+                        type="button"
+                        class="theme-preview-trigger group block w-full overflow-hidden bg-slate-100 text-left"
+                        data-preview="{{ $previewUrl }}"
+                        data-name="{{ $installedTheme['name'] }}"
+                    >
+
+                        <div class="relative h-56 overflow-hidden">
+
+                            <img
+                                src="{{ $previewUrl }}"
+                                alt="{{ $installedTheme['name'] }} theme preview"
+                                class="h-full w-full object-cover object-top transition duration-300 group-hover:scale-[1.02]"
+                            >
+
+                            <div
+                                class="absolute inset-0 flex items-center justify-center bg-slate-950/0 opacity-0 transition group-hover:bg-slate-950/35 group-hover:opacity-100"
+                            >
+                                <span
+                                    class="rounded-xl bg-white px-4 py-2 text-xs font-black text-slate-900 shadow-lg"
+                                >
+                                    View Full Preview
+                                </span>
+                            </div>
+
+                        </div>
+
+                    </button>
+
+
+                    <div class="flex flex-1 flex-col p-6">
+
+                        <div class="flex items-start justify-between gap-4">
+
+                            <div>
+
+                                <div
+                                    class="text-xs font-black uppercase tracking-wide text-blue-600"
+                                >
+                                    Installed Theme
+                                </div>
+
+                                <h3 class="mt-2 text-xl font-black text-slate-900">
+                                    {{ $installedTheme['name'] }}
+                                </h3>
+
+                                <p class="mt-1 text-xs font-bold text-slate-400">
+                                    {{ $installedTheme['version'] }}
+                                </p>
+
+                            </div>
+
+
+                            <div
+                                class="inline-flex overflow-hidden rounded-xl border border-slate-200 text-[10px] font-black uppercase"
+                            >
+
+                                <form
+                                    method="POST"
+                                    action="{{ route(
+                                        'tenant.cms.themes.enable',
+                                        [
+                                            'subdomain' =>
+                                                $website->subdomain,
+
+                                            'theme' =>
+                                                $installedTheme['slug'],
+                                        ]
+                                    ) }}"
+                                >
+                                    @csrf
+
+                                    <button
+                                        type="submit"
+                                        class="px-3 py-2 {{
+                                            $installedTheme['active']
+                                                ? 'bg-emerald-600 text-white'
+                                                : 'bg-white text-slate-400 hover:bg-emerald-50 hover:text-emerald-700'
+                                        }}"
+                                    >
+                                        Enabled
+                                    </button>
+                                </form>
+
+
+                                <form
+                                    method="POST"
+                                    action="{{ route(
+                                        'tenant.cms.themes.disable',
+                                        [
+                                            'subdomain' =>
+                                                $website->subdomain,
+
+                                            'theme' =>
+                                                $installedTheme['slug'],
+                                        ]
+                                    ) }}"
+                                >
+                                    @csrf
+
+                                    <button
+                                        type="submit"
+                                        class="border-l border-slate-200 px-3 py-2 {{
+                                            !$installedTheme['active']
+                                                ? 'bg-red-600 text-white'
+                                                : 'bg-white text-slate-400 hover:bg-red-50 hover:text-red-700'
+                                        }}"
+                                    >
+                                        Disabled
+                                    </button>
+                                </form>
+
+                            </div>
+
+                        </div>
+
+
+                        <p
+                            class="mt-4 text-sm leading-6 text-slate-500"
+                        >
+                            {{ $installedTheme['description'] }}
+                        </p>
+
+
+                        <div
+                            class="mt-auto flex flex-wrap gap-3 pt-6"
+                        >
+
+                            <a
+                                href="{{ route(
+                                    'tenant.cms.themes.business.configure',
+                                    [
+                                        'subdomain' =>
+                                            $website->subdomain
+                                    ]
+                                ) }}"
+                                class="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-black text-white hover:bg-blue-700"
+                            >
+                                Configure
+                            </a>
+
+
+                            <button
+                                type="button"
+                                class="theme-preview-trigger rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-black text-slate-700 hover:bg-slate-50"
+                                data-preview="{{ $previewUrl }}"
+                                data-name="{{ $installedTheme['name'] }}"
+                            >
+                                Preview
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </article>
+
+            @endforeach
+
+
+
+            {{-- Theme Marketplace second --}}
             <article
-                class="relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-950 p-7 text-white shadow-sm"
+                class="relative flex h-full flex-col overflow-hidden rounded-3xl border border-slate-800 bg-slate-950 p-7 text-white shadow-sm"
             >
 
                 <div
@@ -78,9 +252,7 @@
                 ></div>
 
 
-                <div
-                    class="relative"
-                >
+                <div class="relative flex h-full flex-col">
 
                     <div
                         class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-2xl"
@@ -104,18 +276,17 @@
 
 
                     <p
-                        class="mt-3 max-w-xl text-sm leading-6 text-slate-300"
+                        class="mt-3 text-sm leading-6 text-slate-300"
                     >
-                        Discover free and paid themes designed for the
-                        Esubiz website structure. Purchased themes can
-                        be installed and managed from this Themes area.
+                        Discover free and paid themes designed for the Esubiz
+                        website structure. Purchased themes will appear here
+                        with your installed themes.
                     </p>
 
 
                     <div
                         class="mt-5 flex flex-wrap gap-2"
                     >
-
                         <span
                             class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-bold text-slate-300"
                         >
@@ -139,33 +310,30 @@
                         >
                             More
                         </span>
-
                     </div>
 
 
-                    <div
-                        class="mt-7"
-                    >
+                    <div class="mt-auto pt-7">
 
                         <a
                             href="https://marketplace.esubiz.com/themes"
                             target="_blank"
                             rel="noopener noreferrer"
-                            class="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-950/20 transition hover:bg-blue-500"
+                            class="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white transition hover:bg-blue-500"
                         >
                             Browse Themes
                             <span aria-hidden="true">↗</span>
                         </a>
 
+
+                        <p
+                            class="mt-4 text-[11px] leading-5 text-slate-400"
+                        >
+                            Theme pricing and installation will respect the
+                            website's SaaS or off-server deployment settings.
+                        </p>
+
                     </div>
-
-
-                    <p
-                        class="mt-4 text-[11px] leading-5 text-slate-400"
-                    >
-                        Availability, pricing and installation will respect
-                        the website's SaaS or off-server deployment settings.
-                    </p>
 
                 </div>
 
@@ -173,9 +341,9 @@
 
 
 
-            {{-- Build Theme with AI --}}
+            {{-- Build Theme with AI third --}}
             <article
-                class="relative overflow-hidden rounded-3xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-blue-50 p-7 shadow-sm"
+                class="relative flex h-full flex-col overflow-hidden rounded-3xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-blue-50 p-7 shadow-sm"
             >
 
                 <div
@@ -183,9 +351,7 @@
                 ></div>
 
 
-                <div
-                    class="relative"
-                >
+                <div class="relative flex h-full flex-col">
 
                     <div
                         class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-600 text-xl font-black text-white shadow-sm"
@@ -209,74 +375,32 @@
 
 
                     <p
-                        class="mt-3 max-w-xl text-sm leading-6 text-slate-600"
+                        class="mt-3 text-sm leading-6 text-slate-600"
                     >
-                        Create a customizable website theme from your
-                        business description, preferred style and website
-                        type using the approved Esubiz theme structure.
+                        Describe the website you want and optionally attach
+                        visual references. Esubiz AI will build against the
+                        approved Esubiz theme structure.
                     </p>
 
 
                     <div
-                        class="mt-5 grid gap-3 sm:grid-cols-3"
+                        class="mt-5 rounded-2xl border border-violet-100 bg-white/80 p-4"
                     >
-
                         <div
-                            class="rounded-2xl border border-violet-100 bg-white/80 p-3"
+                            class="text-xs font-black text-slate-900"
                         >
-                            <div
-                                class="text-xs font-black text-slate-900"
-                            >
-                                1. Describe
-                            </div>
-
-                            <div
-                                class="mt-1 text-[11px] leading-5 text-slate-500"
-                            >
-                                Tell AI about the brand.
-                            </div>
+                            Visual references supported
                         </div>
 
-
-                        <div
-                            class="rounded-2xl border border-violet-100 bg-white/80 p-3"
+                        <p
+                            class="mt-1 text-[11px] leading-5 text-slate-500"
                         >
-                            <div
-                                class="text-xs font-black text-slate-900"
-                            >
-                                2. Generate
-                            </div>
-
-                            <div
-                                class="mt-1 text-[11px] leading-5 text-slate-500"
-                            >
-                                Esubiz builds the theme.
-                            </div>
-                        </div>
-
-
-                        <div
-                            class="rounded-2xl border border-violet-100 bg-white/80 p-3"
-                        >
-                            <div
-                                class="text-xs font-black text-slate-900"
-                            >
-                                3. Customize
-                            </div>
-
-                            <div
-                                class="mt-1 text-[11px] leading-5 text-slate-500"
-                            >
-                                Fine-tune before activation.
-                            </div>
-                        </div>
-
+                            Attach up to 5 images below 10 MB each.
+                        </p>
                     </div>
 
 
-                    <div
-                        class="mt-7"
-                    >
+                    <div class="mt-auto pt-7">
 
                         <button
                             type="button"
@@ -286,16 +410,14 @@
                             ✦ Build with AI
                         </button>
 
+
+                        <p
+                            class="mt-4 text-[11px] leading-5 text-slate-500"
+                        >
+                            Uses Esubiz AI Credits.
+                        </p>
+
                     </div>
-
-
-                    <p
-                        class="mt-4 text-[11px] leading-5 text-slate-500"
-                    >
-                        Uses Esubiz AI Credits. Generated themes will follow
-                        the same installable theme package standard used by
-                        Marketplace themes.
-                    </p>
 
                 </div>
 
@@ -307,208 +429,190 @@
 
 
 
-    {{-- =====================================================
-         Installed Themes
-         ===================================================== --}}
+    {{-- Build Theme with AI Chat --}}
+    <div
+        id="themeAiModal"
+        class="fixed inset-0 z-[3200] hidden overflow-y-auto bg-slate-950/70 p-3 backdrop-blur-sm sm:p-6"
+        aria-hidden="true"
+    >
 
-    <section>
-
-        <div class="mb-5">
+        <div
+            id="themeAiPanel"
+            class="mx-auto flex max-h-[calc(100dvh-1.5rem)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl sm:max-h-[calc(100dvh-3rem)]"
+        >
 
             <div
-                class="text-xs font-black uppercase tracking-[.16em] text-blue-600"
+                class="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 bg-white p-5 sm:p-6"
             >
-                Installed Themes
-            </div>
 
-            <h2
-                class="mt-2 text-2xl font-black tracking-tight text-slate-900"
-            >
-                Your website themes
-            </h2>
+                <div>
 
-            <p
-                class="mt-2 max-w-3xl text-sm leading-6 text-slate-500"
-            >
-                Enable, disable, preview and configure themes already
-                installed on this website.
-            </p>
+                    <div
+                        class="text-xs font-black uppercase tracking-[.16em] text-violet-600"
+                    >
+                        Esubiz AI
+                    </div>
 
-        </div>
+                    <h2
+                        class="mt-1 text-xl font-black text-slate-950"
+                    >
+                        Build Theme with AI
+                    </h2>
 
+                    <p
+                        class="mt-1 text-xs leading-5 text-slate-500"
+                    >
+                        Describe your website and attach optional visual references.
+                    </p>
 
-        <div class="grid gap-7 lg:grid-cols-2 xl:grid-cols-3">
+                </div>
 
-        @foreach($themes as $installedTheme)
-
-            @php
-                $previewUrl = route(
-                    'tenant.cms.themes.business.preview',
-                    [
-                        'subdomain' =>
-                            $website->subdomain
-                    ]
-                );
-            @endphp
-
-            <article
-                class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
-            >
 
                 <button
                     type="button"
-                    class="theme-preview-trigger group block w-full overflow-hidden bg-slate-100 text-left"
-                    data-preview="{{ $previewUrl }}"
-                    data-name="{{ $installedTheme['name'] }}"
+                    id="closeThemeAi"
+                    class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-xl font-black text-slate-700 hover:bg-slate-200"
                 >
-                    <div class="relative h-64 overflow-hidden">
-
-                        <img
-                            src="{{ $previewUrl }}"
-                            alt="Business theme preview"
-                            class="h-full w-full object-cover object-top transition duration-300 group-hover:scale-[1.02]"
-                        >
-
-                        <div
-                            class="absolute inset-0 flex items-center justify-center bg-slate-950/0 opacity-0 transition group-hover:bg-slate-950/35 group-hover:opacity-100"
-                        >
-                            <span
-                                class="rounded-xl bg-white px-4 py-2 text-xs font-black text-slate-900 shadow-lg"
-                            >
-                                View Full Preview
-                            </span>
-                        </div>
-
-                    </div>
+                    ×
                 </button>
 
-
-                <div class="p-6">
-
-                    <div class="flex items-start justify-between gap-4">
-
-                        <div>
-                            <h2 class="text-xl font-black text-slate-900">
-                                Business
-                            </h2>
-
-                            <p class="mt-1 text-xs font-bold text-slate-400">
-                                v1.0
-                            </p>
-                        </div>
+            </div>
 
 
-                        <div
-                            class="inline-flex overflow-hidden rounded-xl border border-slate-200 text-[10px] font-black uppercase"
-                        >
+            <div
+                id="themeAiConversation"
+                class="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-5 sm:p-6"
+                style="-webkit-overflow-scrolling:touch;"
+            >
 
-                            <form
-                                method="POST"
-                                action="{{ route(
-                                    'tenant.cms.themes.enable',
-                                    [
-                                        'subdomain' =>
-                                            $website->subdomain,
+                <div
+                    class="max-w-[85%] rounded-2xl rounded-tl-md border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-600 shadow-sm"
+                >
+                    Tell me about the business, preferred visual style,
+                    website type, important sections, colours, and anything
+                    else that should influence the theme.
+                </div>
 
-                                        'theme' =>
-                                            'business',
-                                    ]
-                                ) }}"
+
+                <div
+                    id="themeAiAttachments"
+                    class="mt-5 flex flex-wrap gap-3"
+                ></div>
+
+            </div>
+
+
+            <div
+                class="shrink-0 border-t border-slate-200 bg-white p-4 sm:p-5"
+            >
+
+                <div
+                    id="themeAiUploadStatus"
+                    class="mb-3 hidden rounded-xl border px-3 py-2 text-xs font-bold"
+                ></div>
+
+
+                <div
+                    class="rounded-2xl border border-slate-300 bg-white p-3 focus-within:border-violet-500"
+                >
+
+                    <textarea
+                        id="themeAiPrompt"
+                        rows="4"
+                        placeholder="Describe the theme you want..."
+                        class="max-h-40 min-h-[88px] w-full resize-y border-0 bg-transparent px-1 text-sm leading-6 outline-none"
+                    ></textarea>
+
+
+                    <div
+                        class="mt-3 flex flex-wrap items-center justify-between gap-3"
+                    >
+
+                        <div class="flex items-center gap-2">
+
+                            <label
+                                class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-100"
                             >
-                                @csrf
+                                + Add photos
 
-                                <button
-                                    type="submit"
-                                    class="px-3 py-2 {{
-                                        $installedTheme['active']
-                                            ? 'bg-emerald-600 text-white'
-                                            : 'bg-white text-slate-400 hover:bg-emerald-50 hover:text-emerald-700'
-                                    }}"
+                                <input
+                                    type="file"
+                                    id="themeAiImages"
+                                    accept="image/jpeg,image/png"
+                                    multiple
+                                    class="hidden"
                                 >
-                                    Enabled
-                                </button>
-                            </form>
+                            </label>
 
 
-                            <form
-                                method="POST"
-                                action="{{ route(
-                                    'tenant.cms.themes.disable',
-                                    [
-                                        'subdomain' =>
-                                            $website->subdomain,
-
-                                        'theme' =>
-                                            'business',
-                                    ]
-                                ) }}"
+                            <span
+                                id="themeAiImageCount"
+                                class="text-[11px] font-bold text-slate-400"
                             >
-                                @csrf
-
-                                <button
-                                    type="submit"
-                                    class="border-l border-slate-200 px-3 py-2 {{
-                                        !$installedTheme['active']
-                                            ? 'bg-red-600 text-white'
-                                            : 'bg-white text-slate-400 hover:bg-red-50 hover:text-red-700'
-                                    }}"
-                                >
-                                    Disabled
-                                </button>
-
-                            </form>
+                                0 / 5
+                            </span>
 
                         </div>
-
-                    </div>
-
-
-                    <p class="mt-4 text-sm leading-6 text-slate-500">
-                        A clean and responsive business website theme with
-                        animations, homepage sections, testimonials, FAQs,
-                        contact and legal pages.
-                    </p>
-
-
-                    <div class="mt-6 flex flex-wrap gap-3">
-
-                        <a
-                            href="{{ route(
-                                'tenant.cms.themes.business.configure',
-                                [
-                                    'subdomain' =>
-                                        $website->subdomain
-                                ]
-                            ) }}"
-                            class="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-black text-white hover:bg-blue-700"
-                        >
-                            Configure
-                        </a>
 
 
                         <button
                             type="button"
-                            class="theme-preview-trigger rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-black text-slate-700 hover:bg-slate-50"
-                            data-preview="{{ $previewUrl }}"
-                            data-name="Business"
+                            id="generateThemeAi"
+                            class="rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-black text-white hover:bg-violet-700"
                         >
-                            Preview
+                            Generate Theme
                         </button>
 
                     </div>
 
                 </div>
 
-            </article>
 
-        @endforeach
+                <p
+                    class="mt-3 text-[11px] leading-5 text-slate-400"
+                >
+                    Images are stored in this website's own storage.
+                    Maximum 5 images, each below 10 MB.
+                </p>
+
+            </div>
 
         </div>
 
-    </section>
+    </div>
 
 
-    <style>
+
+    {{-- AI image enlarged preview --}}
+    <div
+        id="themeAiImagePreview"
+        class="fixed inset-0 z-[3300] hidden items-center justify-center bg-slate-950/80 p-4"
+    >
+        <div
+            id="themeAiImagePreviewCard"
+            class="relative max-h-[85vh] max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl"
+        >
+
+            <button
+                type="button"
+                id="closeThemeAiImagePreview"
+                class="absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full bg-white/90 text-lg font-black text-slate-700 shadow"
+            >
+                ×
+            </button>
+
+            <img
+                id="themeAiImagePreviewImage"
+                src=""
+                alt="Theme reference preview"
+                class="block max-h-[85vh] w-auto max-w-full object-contain"
+            >
+
+        </div>
+    </div>
+
+
+<style>
         #businessThemePreviewModal {
             display: none;
         }
@@ -587,14 +691,628 @@
                         'buildThemeWithAi'
                     );
 
+                const themeAiModal =
+                    document.getElementById(
+                        'themeAiModal'
+                    );
+
+                const themeAiPanel =
+                    document.getElementById(
+                        'themeAiPanel'
+                    );
+
+                const closeThemeAi =
+                    document.getElementById(
+                        'closeThemeAi'
+                    );
+
+                const themeAiImages =
+                    document.getElementById(
+                        'themeAiImages'
+                    );
+
+                const themeAiAttachments =
+                    document.getElementById(
+                        'themeAiAttachments'
+                    );
+
+                const themeAiImageCount =
+                    document.getElementById(
+                        'themeAiImageCount'
+                    );
+
+                const themeAiUploadStatus =
+                    document.getElementById(
+                        'themeAiUploadStatus'
+                    );
+
+                const generateThemeAi =
+                    document.getElementById(
+                        'generateThemeAi'
+                    );
+
+                const themeAiPrompt =
+                    document.getElementById(
+                        'themeAiPrompt'
+                    );
+
+                const imagePreview =
+                    document.getElementById(
+                        'themeAiImagePreview'
+                    );
+
+                const imagePreviewCard =
+                    document.getElementById(
+                        'themeAiImagePreviewCard'
+                    );
+
+                const imagePreviewImage =
+                    document.getElementById(
+                        'themeAiImagePreviewImage'
+                    );
+
+                const closeImagePreview =
+                    document.getElementById(
+                        'closeThemeAiImagePreview'
+                    );
+
+
+                const themeAiUploadUrl =
+                    @json(
+                        route(
+                            'tenant.cms.media.image.upload',
+                            [
+                                'subdomain' =>
+                                    $website->subdomain
+                            ]
+                        )
+                    );
+
+
+                let themeAiUploadedImages =
+                    [];
+
+
+                function openThemeAi() {
+
+                    themeAiModal.classList.remove(
+                        'hidden'
+                    );
+
+                    themeAiModal.setAttribute(
+                        'aria-hidden',
+                        'false'
+                    );
+
+                    document.body.style.overflow =
+                        'hidden';
+
+                    setTimeout(
+                        () => {
+                            themeAiPrompt?.focus();
+                        },
+                        50
+                    );
+                }
+
+
+                function closeThemeAiModal() {
+
+                    themeAiModal.classList.add(
+                        'hidden'
+                    );
+
+                    themeAiModal.setAttribute(
+                        'aria-hidden',
+                        'true'
+                    );
+
+                    document.body.style.overflow =
+                        '';
+                }
+
+
+                function showAiUploadStatus(
+                    message,
+                    type = 'info'
+                ) {
+
+                    themeAiUploadStatus.textContent =
+                        message;
+
+                    themeAiUploadStatus.classList.remove(
+                        'hidden',
+                        'border-blue-200',
+                        'bg-blue-50',
+                        'text-blue-700',
+                        'border-emerald-200',
+                        'bg-emerald-50',
+                        'text-emerald-700',
+                        'border-red-200',
+                        'bg-red-50',
+                        'text-red-700'
+                    );
+
+
+                    if (type === 'success') {
+                        themeAiUploadStatus.classList.add(
+                            'border-emerald-200',
+                            'bg-emerald-50',
+                            'text-emerald-700'
+                        );
+                    } else if (type === 'error') {
+                        themeAiUploadStatus.classList.add(
+                            'border-red-200',
+                            'bg-red-50',
+                            'text-red-700'
+                        );
+                    } else {
+                        themeAiUploadStatus.classList.add(
+                            'border-blue-200',
+                            'bg-blue-50',
+                            'text-blue-700'
+                        );
+                    }
+                }
+
+
+                function renderThemeAiAttachments() {
+
+                    themeAiAttachments.innerHTML =
+                        '';
+
+                    themeAiImageCount.textContent =
+                        themeAiUploadedImages.length
+                        + ' / 5';
+
+
+                    themeAiUploadedImages.forEach(
+                        function (
+                            image,
+                            index
+                        ) {
+
+                            const wrapper =
+                                document.createElement(
+                                    'div'
+                                );
+
+                            wrapper.className =
+                                'group relative h-20 w-20 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm';
+
+
+                            wrapper.innerHTML = `
+                                <button
+                                    type="button"
+                                    class="theme-ai-image-open block h-full w-full"
+                                    data-index="${index}"
+                                >
+                                    <img
+                                        src="${image.url}"
+                                        alt=""
+                                        class="h-full w-full object-cover"
+                                    >
+                                </button>
+
+                                <button
+                                    type="button"
+                                    class="theme-ai-image-remove absolute right-1 top-1 grid h-6 w-6 place-items-center rounded-full bg-slate-950/80 text-xs font-black text-white opacity-0 transition group-hover:opacity-100"
+                                    data-index="${index}"
+                                    title="Remove image"
+                                >
+                                    ×
+                                </button>
+                            `;
+
+
+                            wrapper
+                                .querySelector(
+                                    '.theme-ai-image-open'
+                                )
+                                .addEventListener(
+                                    'click',
+                                    function () {
+
+                                        imagePreviewImage.src =
+                                            image.url;
+
+                                        imagePreview.classList.remove(
+                                            'hidden'
+                                        );
+
+                                        imagePreview.classList.add(
+                                            'flex'
+                                        );
+                                    }
+                                );
+
+
+                            wrapper
+                                .querySelector(
+                                    '.theme-ai-image-remove'
+                                )
+                                .addEventListener(
+                                    'click',
+                                    function () {
+
+                                        themeAiUploadedImages.splice(
+                                            index,
+                                            1
+                                        );
+
+                                        renderThemeAiAttachments();
+                                    }
+                                );
+
+
+                            themeAiAttachments.appendChild(
+                                wrapper
+                            );
+                        }
+                    );
+                }
+
+
+                async function uploadThemeAiImage(
+                    file
+                ) {
+
+                    const formData =
+                        new FormData();
+
+                    formData.append(
+                        'image',
+                        file
+                    );
+
+
+                    const csrfToken =
+                        document.querySelector(
+                            'meta[name="csrf-token"]'
+                        )?.getAttribute(
+                            'content'
+                        )
+                        || document.querySelector(
+                            'input[name="_token"]'
+                        )?.value
+                        || '';
+
+
+                    const response =
+                        await fetch(
+                            themeAiUploadUrl,
+                            {
+                                method:
+                                    'POST',
+
+                                headers: {
+                                    'X-CSRF-TOKEN':
+                                        csrfToken,
+
+                                    'Accept':
+                                        'application/json'
+                                },
+
+                                body:
+                                    formData
+                            }
+                        );
+
+
+                    let payload = {};
+
+                    try {
+                        payload =
+                            await response.json();
+                    } catch {
+                        payload = {};
+                    }
+
+
+                    if (!response.ok) {
+
+                        throw new Error(
+                            payload?.message
+                            || 'Image upload failed.'
+                        );
+                    }
+
+
+                    if (!payload?.url) {
+
+                        throw new Error(
+                            'Upload succeeded but no image URL was returned.'
+                        );
+                    }
+
+
+                    return {
+                        url:
+                            payload.url,
+
+                        path:
+                            payload.path
+                            || '',
+
+                        filename:
+                            payload.filename
+                            || file.name,
+
+                        bytes:
+                            payload.bytes
+                            || file.size,
+
+                        mime:
+                            payload.mime
+                            || file.type
+                    };
+                }
+
 
                 buildThemeWithAi?.addEventListener(
                     'click',
+                    openThemeAi
+                );
+
+
+                closeThemeAi?.addEventListener(
+                    'click',
+                    closeThemeAiModal
+                );
+
+
+                themeAiModal?.addEventListener(
+                    'click',
+                    function (event) {
+
+                        if (
+                            event.target
+                            === themeAiModal
+                        ) {
+                            closeThemeAiModal();
+                        }
+                    }
+                );
+
+
+                themeAiPanel?.addEventListener(
+                    'click',
+                    function (event) {
+                        event.stopPropagation();
+                    }
+                );
+
+
+                themeAiImages?.addEventListener(
+                    'change',
+                    async function () {
+
+                        const files =
+                            Array.from(
+                                themeAiImages.files
+                                || []
+                            );
+
+
+                        themeAiImages.value =
+                            '';
+
+
+                        if (!files.length) {
+                            return;
+                        }
+
+
+                        if (
+                            themeAiUploadedImages.length
+                            + files.length
+                            > 5
+                        ) {
+
+                            showAiUploadStatus(
+                                'You can attach a maximum of 5 images.',
+                                'error'
+                            );
+
+                            return;
+                        }
+
+
+                        for (const file of files) {
+
+                            if (
+                                ![
+                                    'image/jpeg',
+                                    'image/png'
+                                ].includes(
+                                    file.type
+                                )
+                            ) {
+
+                                showAiUploadStatus(
+                                    'Only JPG, JPEG and PNG images are allowed.',
+                                    'error'
+                                );
+
+                                return;
+                            }
+
+
+                            if (
+                                file.size
+                                >= 10 * 1024 * 1024
+                            ) {
+
+                                showAiUploadStatus(
+                                    'Each image must be below 10 MB.',
+                                    'error'
+                                );
+
+                                return;
+                            }
+                        }
+
+
+                        showAiUploadStatus(
+                            'Uploading reference images...'
+                        );
+
+
+                        try {
+
+                            for (const file of files) {
+
+                                const uploaded =
+                                    await uploadThemeAiImage(
+                                        file
+                                    );
+
+                                themeAiUploadedImages.push(
+                                    uploaded
+                                );
+
+                                renderThemeAiAttachments();
+                            }
+
+
+                            showAiUploadStatus(
+                                'Reference images uploaded to this website storage.',
+                                'success'
+                            );
+
+                        } catch (error) {
+
+                            console.error(
+                                error
+                            );
+
+
+                            showAiUploadStatus(
+                                error.message
+                                || 'Image upload failed.',
+                                'error'
+                            );
+                        }
+                    }
+                );
+
+
+                closeImagePreview?.addEventListener(
+                    'click',
                     function () {
 
-                        alert(
-                            'Build Theme with AI is ready for the next integration step. It will use Esubiz AI Credits and the approved Esubiz theme package structure.'
+                        imagePreview.classList.add(
+                            'hidden'
                         );
+
+                        imagePreview.classList.remove(
+                            'flex'
+                        );
+
+                        imagePreviewImage.src =
+                            '';
+                    }
+                );
+
+
+                imagePreview?.addEventListener(
+                    'click',
+                    function (event) {
+
+                        if (
+                            event.target
+                            === imagePreview
+                        ) {
+
+                            imagePreview.classList.add(
+                                'hidden'
+                            );
+
+                            imagePreview.classList.remove(
+                                'flex'
+                            );
+
+                            imagePreviewImage.src =
+                                '';
+                        }
+                    }
+                );
+
+
+                imagePreviewCard?.addEventListener(
+                    'click',
+                    function (event) {
+                        event.stopPropagation();
+                    }
+                );
+
+
+                generateThemeAi?.addEventListener(
+                    'click',
+                    function () {
+
+                        const prompt =
+                            themeAiPrompt.value.trim();
+
+
+                        if (!prompt) {
+
+                            showAiUploadStatus(
+                                'Describe the theme you want before generating.',
+                                'error'
+                            );
+
+                            themeAiPrompt.focus();
+
+                            return;
+                        }
+
+
+                        showAiUploadStatus(
+                            'AI theme generation backend is the next integration step. No AI Credits have been deducted.',
+                            'info'
+                        );
+                    }
+                );
+
+
+                document.addEventListener(
+                    'keydown',
+                    function (event) {
+
+                        if (
+                            event.key === 'Escape'
+                        ) {
+
+                            if (
+                                !imagePreview.classList.contains(
+                                    'hidden'
+                                )
+                            ) {
+
+                                imagePreview.classList.add(
+                                    'hidden'
+                                );
+
+                                imagePreview.classList.remove(
+                                    'flex'
+                                );
+
+                                imagePreviewImage.src =
+                                    '';
+
+                                return;
+                            }
+
+
+                            if (
+                                !themeAiModal.classList.contains(
+                                    'hidden'
+                                )
+                            ) {
+                                closeThemeAiModal();
+                            }
+                        }
                     }
                 );
 
