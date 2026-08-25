@@ -1,0 +1,311 @@
+<svg
+xmlns="http://www.w3.org/2000/svg"
+width="1440"
+height="5200"
+viewBox="0 0 1440 5200">
+
+<rect width="1440" height="5200" fill="#ffffff"/>
+
+<!-- Header -->
+<rect width="1440" height="90" fill="#ffffff"/>
+<rect y="89" width="1440" height="1" fill="#e2e8f0"/>
+
+<rect x="80" y="22" width="46" height="46" rx="14" fill="#2563eb"/>
+<text x="103" y="54" text-anchor="middle" font-family="Arial" font-size="22" font-weight="700" fill="#fff">B</text>
+
+<text x="145" y="54" font-family="Arial" font-size="25" font-weight="700" fill="#0f172a">
+Business
+</text>
+
+<text x="800" y="54" font-family="Arial" font-size="17" fill="#334155">
+Home     About     FAQs     Contact     Login
+</text>
+
+<rect x="1240" y="22" width="120" height="46" rx="13" fill="#2563eb"/>
+<text x="1300" y="51" text-anchor="middle" font-family="Arial" font-size="16" font-weight="700" fill="#fff">
+Register
+</text>
+
+
+<!-- Hero -->
+<rect y="90" width="1440" height="780" fill="#f8fbff"/>
+
+<text x="90" y="230" font-family="Arial" font-size="18" font-weight="700" fill="#2563eb">
+WELCOME
+</text>
+
+<text x="90" y="350" font-family="Arial" font-size="76" font-weight="800" fill="#0f172a">
+Helping you move
+</text>
+
+<text x="90" y="440" font-family="Arial" font-size="76" font-weight="800" fill="#2563eb">
+forward.
+</text>
+
+<text x="90" y="515" font-family="Arial" font-size="22" fill="#64748b">
+Thoughtful solutions designed around people,
+</text>
+
+<text x="90" y="550" font-family="Arial" font-size="22" fill="#64748b">
+quality and dependable service.
+</text>
+
+<rect x="90" y="615" width="165" height="58" rx="14" fill="#2563eb"/>
+<text x="172" y="651" text-anchor="middle" font-family="Arial" font-size="18" font-weight="700" fill="#fff">
+Get Started
+</text>
+
+<rect x="275" y="615" width="165" height="58" rx="14" fill="#fff" stroke="#cbd5e1"/>
+<text x="357" y="651" text-anchor="middle" font-family="Arial" font-size="18" font-weight="700" fill="#0f172a">
+Learn More
+</text>
+
+<rect x="800" y="160" width="520" height="620" rx="38" fill="#153c8c"/>
+<circle cx="1190" cy="275" r="140" fill="#fff" opacity=".08"/>
+<rect x="865" y="260" width="390" height="360" rx="28" fill="#fff" opacity=".10"/>
+<rect x="910" y="330" width="230" height="24" rx="12" fill="#fff" opacity=".82"/>
+<rect x="910" y="385" width="300" height="16" rx="8" fill="#fff" opacity=".34"/>
+<rect x="910" y="420" width="250" height="16" rx="8" fill="#fff" opacity=".24"/>
+
+
+<!-- Features -->
+<text x="90" y="1030" font-family="Arial" font-size="18" font-weight="700" fill="#2563eb">
+WHAT WE OFFER
+</text>
+
+<text x="90" y="1110" font-family="Arial" font-size="48" font-weight="800" fill="#0f172a">
+Everything starts with understanding what matters.
+</text>
+
+<text x="90" y="1160" font-family="Arial" font-size="20" fill="#64748b">
+Clear thinking, practical execution and consistent support from beginning to end.
+</text>
+
+<rect x="90" y="1240" width="390" height="520" rx="30" fill="#ffffff" stroke="#e2e8f0"/>
+<rect x="525" y="1240" width="390" height="520" rx="30" fill="#ffffff" stroke="#e2e8f0"/>
+<rect x="960" y="1240" width="390" height="520" rx="30" fill="#ffffff" stroke="#e2e8f0"/>
+
+<rect x="120" y="1270" width="330" height="245" rx="22" fill="#eff6ff"/>
+<rect x="555" y="1270" width="330" height="245" rx="22" fill="#eff6ff"/>
+<rect x="990" y="1270" width="330" height="245" rx="22" fill="#eff6ff"/>
+
+<text x="285" y="1415" text-anchor="middle" font-family="Arial" font-size="56" font-weight="800" fill="#2563eb">
+01
+</text>
+
+<text x="720" y="1415" text-anchor="middle" font-family="Arial" font-size="56" font-weight="800" fill="#2563eb">
+02
+</text>
+
+<text x="1155" y="1415" text-anchor="middle" font-family="Arial" font-size="56" font-weight="800" fill="#2563eb">
+03
+</text>
+
+<text x="125" y="1580" font-family="Arial" font-size="25" font-weight="700" fill="#0f172a">
+Professional Service
+</text>
+
+<text x="560" y="1580" font-family="Arial" font-size="25" font-weight="700" fill="#0f172a">
+Customer Focus
+</text>
+
+<text x="995" y="1580" font-family="Arial" font-size="25" font-weight="700" fill="#0f172a">
+Long-term Value
+</text>
+
+<text x="125" y="1630" font-family="Arial" font-size="17" fill="#64748b">
+Reliable solutions delivered
+</text>
+<text x="125" y="1660" font-family="Arial" font-size="17" fill="#64748b">
+with care and attention.
+</text>
+
+<text x="560" y="1630" font-family="Arial" font-size="17" fill="#64748b">
+We listen first and shape
+</text>
+<text x="560" y="1660" font-family="Arial" font-size="17" fill="#64748b">
+the experience around you.
+</text>
+
+<text x="995" y="1630" font-family="Arial" font-size="17" fill="#64748b">
+Creating meaningful value
+</text>
+<text x="995" y="1660" font-family="Arial" font-size="17" fill="#64748b">
+designed to last.
+</text>
+
+
+<!-- Statistics -->
+<rect y="1900" width="1440" height="430" fill="#f8fafc"/>
+
+<text x="250" y="2070" text-anchor="middle" font-family="Arial" font-size="54" font-weight="800" fill="#2563eb">
+100%
+</text>
+<text x="250" y="2120" text-anchor="middle" font-family="Arial" font-size="18" fill="#64748b">
+Customer Focus
+</text>
+
+<text x="720" y="2070" text-anchor="middle" font-family="Arial" font-size="54" font-weight="800" fill="#2563eb">
+24/7
+</text>
+<text x="720" y="2120" text-anchor="middle" font-family="Arial" font-size="18" fill="#64748b">
+Digital Access
+</text>
+
+<text x="1190" y="2070" text-anchor="middle" font-family="Arial" font-size="54" font-weight="800" fill="#2563eb">
+01
+</text>
+<text x="1190" y="2120" text-anchor="middle" font-family="Arial" font-size="18" fill="#64748b">
+Clear Standard
+</text>
+
+
+<!-- About -->
+<rect x="90" y="2460" width="575" height="575" rx="34" fill="#0f172a"/>
+<circle cx="220" cy="2880" r="170" fill="#2563eb" opacity=".7"/>
+<rect x="255" y="2580" width="330" height="300" rx="26" fill="#fff" opacity=".10"/>
+
+<text x="760" y="2530" font-family="Arial" font-size="18" font-weight="700" fill="#2563eb">
+ABOUT US
+</text>
+
+<text x="760" y="2625" font-family="Arial" font-size="50" font-weight="800" fill="#0f172a">
+Built on clarity,
+</text>
+
+<text x="760" y="2690" font-family="Arial" font-size="50" font-weight="800" fill="#0f172a">
+consistency and trust.
+</text>
+
+<text x="760" y="2770" font-family="Arial" font-size="20" fill="#64748b">
+We believe good business is built by solving
+</text>
+
+<text x="760" y="2805" font-family="Arial" font-size="20" fill="#64748b">
+real problems well and creating experiences
+</text>
+
+<text x="760" y="2840" font-family="Arial" font-size="20" fill="#64748b">
+customers are happy to return to.
+</text>
+
+<rect x="760" y="2915" width="145" height="54" rx="14" fill="#2563eb"/>
+<text x="832" y="2949" text-anchor="middle" font-family="Arial" font-size="17" font-weight="700" fill="#fff">
+Our Story
+</text>
+
+
+<!-- Testimonials -->
+<rect y="3200" width="1440" height="860" fill="#f8fafc"/>
+
+<text x="90" y="3330" font-family="Arial" font-size="18" font-weight="700" fill="#2563eb">
+TESTIMONIALS
+</text>
+
+<text x="90" y="3410" font-family="Arial" font-size="50" font-weight="800" fill="#0f172a">
+What people say about us.
+</text>
+
+<text x="90" y="3460" font-family="Arial" font-size="20" fill="#64748b">
+Real experiences from customers and clients we have served.
+</text>
+
+<rect x="90" y="3540" width="390" height="330" rx="28" fill="#fff"/>
+<rect x="525" y="3540" width="390" height="330" rx="28" fill="#fff"/>
+<rect x="960" y="3540" width="390" height="330" rx="28" fill="#fff"/>
+
+<circle cx="145" cy="3600" r="30" fill="#2563eb"/>
+<circle cx="580" cy="3600" r="30" fill="#2563eb"/>
+<circle cx="1015" cy="3600" r="30" fill="#2563eb"/>
+
+<text x="130" y="3695" font-family="Arial" font-size="18" fill="#475569">
+“Professional, responsive and
+</text>
+<text x="130" y="3725" font-family="Arial" font-size="18" fill="#475569">
+easy to work with.”
+</text>
+
+<text x="565" y="3695" font-family="Arial" font-size="18" fill="#475569">
+“A smooth experience with clear
+</text>
+<text x="565" y="3725" font-family="Arial" font-size="18" fill="#475569">
+communication throughout.”
+</text>
+
+<text x="1000" y="3695" font-family="Arial" font-size="18" fill="#475569">
+“The quality and attention to
+</text>
+<text x="1000" y="3725" font-family="Arial" font-size="18" fill="#475569">
+detail made a difference.”
+</text>
+
+<text x="130" y="3810" font-family="Arial" font-size="17" font-weight="700" fill="#0f172a">
+Amaka N.
+</text>
+<text x="565" y="3810" font-family="Arial" font-size="17" font-weight="700" fill="#0f172a">
+David O.
+</text>
+<text x="1000" y="3810" font-family="Arial" font-size="17" font-weight="700" fill="#0f172a">
+Sarah K.
+</text>
+
+
+<!-- Final CTA -->
+<rect x="90" y="4230" width="1260" height="350" rx="34" fill="#ffffff" stroke="#e2e8f0"/>
+
+<text x="145" y="4320" font-family="Arial" font-size="17" font-weight="700" fill="#2563eb">
+LET'S TALK
+</text>
+
+<text x="145" y="4405" font-family="Arial" font-size="48" font-weight="800" fill="#0f172a">
+Ready to work with us?
+</text>
+
+<text x="145" y="4460" font-family="Arial" font-size="19" fill="#64748b">
+Tell us what you need and let us start the conversation.
+</text>
+
+<rect x="1080" y="4360" width="175" height="58" rx="14" fill="#2563eb"/>
+<text x="1167" y="4396" text-anchor="middle" font-family="Arial" font-size="17" font-weight="700" fill="#fff">
+Contact Us
+</text>
+
+
+<!-- Footer -->
+<rect y="4750" width="1440" height="450" fill="#0f172a"/>
+
+<text x="90" y="4870" font-family="Arial" font-size="28" font-weight="700" fill="#ffffff">
+Business
+</text>
+
+<text x="90" y="4920" font-family="Arial" font-size="18" fill="#cbd5e1">
+Thoughtful solutions, dependable service and
+</text>
+
+<text x="90" y="4950" font-family="Arial" font-size="18" fill="#cbd5e1">
+a better experience for every customer.
+</text>
+
+<text x="850" y="4870" font-family="Arial" font-size="15" font-weight="700" fill="#fff">
+QUICK LINKS
+</text>
+
+<text x="850" y="4920" font-family="Arial" font-size="17" fill="#cbd5e1">
+About     Contact     FAQs
+</text>
+
+<text x="850" y="4960" font-family="Arial" font-size="17" fill="#cbd5e1">
+Terms     Privacy
+</text>
+
+<line x1="90" y1="5070" x2="1350" y2="5070" stroke="#334155"/>
+
+<text x="90" y="5130" font-family="Arial" font-size="15" fill="#94a3b8">
+© 2026 Business. All rights reserved.
+</text>
+
+<text x="1130" y="5130" font-family="Arial" font-size="15" fill="#cbd5e1">
+Powered by Esubiz
+</text>
+
+</svg>

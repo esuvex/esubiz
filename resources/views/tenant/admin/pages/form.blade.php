@@ -1,26 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
+@extends('tenant.admin.layouts.app')
 
-<head>
+@section('title', 'Page Builder')
 
-    <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <title>
-        {{ $page ? 'Edit Page' : 'Add Page' }}
-        - {{ $website->name }}
-    </title>
-
-    <script src="https://cdn.tailwindcss.com"></script>
-
-</head>
-
-
-<body class="min-h-screen bg-slate-100 text-slate-900">
+@section('content')
 
 <div class="mx-auto max-w-5xl p-5 sm:p-8">
 
@@ -287,5 +269,10 @@
 
 </div>
 
-</body>
-</html>
+@endsection
+
+@push('scripts')
+<script>
+
+</script>
+@endpush

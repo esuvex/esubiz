@@ -99,30 +99,7 @@ Route::get('/build/assets/{file}', function ($file) {
 |
 */
 
-Route::domain('esubiz.com')
-    ->get('/{asset}', function ($asset) {
 
-        abort_if(
-            str_contains($asset, '..')
-            || str_starts_with($asset, '/'),
-            404
-        );
-
-        $path = public_path($asset);
-
-        abort_unless(
-            is_file($path),
-            404
-        );
-
-        return response()->file($path);
-
-    })
-    ->where(
-        'asset',
-        '^(?:build|images|storage|fonts|css|js|assets)/.+$|^(?:favicon\.ico|robots\.txt)$'
-    )
-    ->name('central.public.asset');
 
 
 
@@ -160,23 +137,75 @@ $serveCentralStaticFile = function ($file) {
 
 
 /* esubiz.com */
-Route::domain('esubiz.com')
-    ->get('/{file}', $serveCentralStaticFile)
-    ->where(
-        'file',
-        '.+\.(?:css|js|mjs|map|png|jpe?g|gif|webp|svg|ico|avif|woff2?|ttf|otf|eot|json|xml|txt|pdf)$'
-    )
-    ->name('central.static.file');
+
 
 
 /* www.esubiz.com */
-Route::domain('www.esubiz.com')
-    ->get('/{file}', $serveCentralStaticFile)
-    ->where(
-        'file',
-        '.+\.(?:css|js|mjs|map|png|jpe?g|gif|webp|svg|ico|avif|woff2?|ttf|otf|eot|json|xml|txt|pdf)$'
+
+
+
+
+/*
+|--------------------------------------------------------------------------
+| CENTRAL-VITE-EXPLICIT-MIME
+|--------------------------------------------------------------------------
+|
+| Central Esubiz only.
+| Serve Vite assets through Laravel with browser-correct MIME headers.
+|
+*/
+
+$serveCentralViteAsset = function ($file) {
+
+    abort_if(
+        str_contains($file, '..')
+        || str_contains($file, '/')
+        || str_contains($file, '\\'),
+        404
+    );
+
+    $path = public_path('build/assets/' . $file);
+
+    abort_unless(is_file($path), 404);
+
+    $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+
+    $mime = match ($extension) {
+        'css' => 'text/css; charset=UTF-8',
+        'js', 'mjs' => 'application/javascript; charset=UTF-8',
+        'map', 'json' => 'application/json; charset=UTF-8',
+        default => 'application/octet-stream',
+    };
+
+    return response()->file(
+        $path,
+        [
+            'Content-Type' => $mime,
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'no-cache, must-revalidate',
+        ]
+    );
+};
+
+
+/* Non-WWW central application */
+Route::domain('esubiz.com')
+    ->get(
+        '/build/assets/{file}',
+        $serveCentralViteAsset
     )
-    ->name('central.static.file.www');
+    ->where('file', '[A-Za-z0-9._-]+')
+    ->name('central.vite.asset');
+
+
+/* WWW central homepage */
+Route::domain('www.esubiz.com')
+    ->get(
+        '/build/assets/{file}',
+        $serveCentralViteAsset
+    )
+    ->where('file', '[A-Za-z0-9._-]+')
+    ->name('central.vite.asset.www');
 
 
 Route::view('/', 'frontend.home')->name('home');
@@ -302,6 +331,89 @@ Route::domain('{subdomain}.esubiz.com')
         )->name('tenant.cms.media.image.upload');
 
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | Core CMS - Themes
+        |--------------------------------------------------------------------------
+        */
+
+        Route::get(
+            '/admin/themes',
+            [
+                \App\Http\Controllers\TenantThemeController::class,
+                'index',
+            ]
+        )->name('tenant.cms.themes.index');
+
+        /*
+         * Exact built-in Business Theme routes.
+         * These stay before the generic {theme} routes.
+         */
+
+        Route::get(
+            '/admin/themes/business/configure',
+            [
+                \App\Http\Controllers\TenantThemeController::class,
+                'configureBusiness',
+            ]
+        )->name('tenant.cms.themes.business.configure');
+
+        Route::post(
+            '/admin/themes/business/configure',
+            [
+                \App\Http\Controllers\TenantThemeController::class,
+                'updateBusiness',
+            ]
+        )->name('tenant.cms.themes.business.update');
+
+
+
+        Route::get(
+            '/admin/themes/business/preview-image',
+            [
+                \App\Http\Controllers\TenantThemeController::class,
+                'businessPreview',
+            ]
+        )->name('tenant.cms.themes.business.preview');
+
+
+        Route::get(
+            '/admin/themes/{theme}/configure',
+            [
+                \App\Http\Controllers\TenantThemeController::class,
+                'configure',
+            ]
+        )->name('tenant.cms.themes.configure');
+
+        Route::post(
+            '/admin/themes/{theme}/enable',
+            [
+                \App\Http\Controllers\TenantThemeController::class,
+                'enable',
+            ]
+        )->name('tenant.cms.themes.enable');
+
+        Route::post(
+            '/admin/themes/{theme}/disable',
+            [
+                \App\Http\Controllers\TenantThemeController::class,
+                'disable',
+            ]
+        )
+            ->where('theme', 'business|corporate-default')
+            ->name('tenant.cms.themes.disable');
+
+
+        Route::post(
+            '/admin/themes/{theme}/configure',
+            [
+                \App\Http\Controllers\TenantThemeController::class,
+                'update',
+            ]
+        )->name('tenant.cms.themes.update');
+
+
         /*
         |--------------------------------------------------------------------------
         | Core CMS - Pages
@@ -400,6 +512,18 @@ Route::domain('{subdomain}.esubiz.com')
         )
             ->where('path', '.*')
             ->name('tenant.website.media');
+
+
+
+        Route::get(
+            '/theme-assets/{path}',
+            [
+                \App\Http\Controllers\TenantThemeController::class,
+                'asset',
+            ]
+        )
+            ->where('path', '.*')
+            ->name('tenant.theme.asset');
 
 
         Route::get(

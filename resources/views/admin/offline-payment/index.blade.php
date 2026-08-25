@@ -1302,7 +1302,13 @@
 
                             {{-- Actions --}}
                             <td class="px-5 py-4 text-right">
-                                @if(in_array($payment->status, ['initiated', 'processing'], true))
+                                @if(in_array(strtolower((string) $payment->status), [
+                                    'initiated',
+                                    'processing',
+                                    'pending',
+                                    'pending_review',
+                                    'awaiting_review'
+                                ], true))
                                     <div class="flex min-w-[190px] justify-end gap-2">
 
                                         <form

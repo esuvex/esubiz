@@ -242,7 +242,7 @@
                     Checkout
                 </a>
 
-                <a href="#"
+                <a href="{{ url('/wallet') }}"
                    class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
                     Wallet
                 </a>
@@ -380,7 +380,8 @@
                     Pending Checkouts
                 </a>
 
-<a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Wallet</a>
+<a href="{{ url('/wallet') }}"
+   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Wallet</a>
             </div>
         </div>
 
@@ -586,6 +587,13 @@
                     class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800"
                 >
                     Payment Gateways
+                </a>
+
+                <a
+                    href="{{ url('/admin/site-settings/payout') }}"
+                    class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800"
+                >
+                    Payout Gateways
                 </a>
             </div>
         </div>

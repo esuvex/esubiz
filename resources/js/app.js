@@ -1,10 +1,4 @@
 
-
-import Alpine from 'alpinejs';
-
-window.Alpine = Alpine;
-
-Alpine.start();
 // ==========================================
 // ESUBIZ MOTION SYSTEM
 // ==========================================
@@ -40,3 +34,9 @@ document.addEventListener('DOMContentLoaded', () => {
     ).forEach((el) => observer.observe(el));
 
 });
+
+import Alpine from 'alpinejs';
+
+window.Alpine = Alpine;
+
+Alpine.start();

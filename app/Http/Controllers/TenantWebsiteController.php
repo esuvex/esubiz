@@ -34,132 +34,35 @@ class TenantWebsiteController extends Controller
         $website = Website::query()
             ->findOrFail($tenant->website_id);
 
-        $websiteUrl = $request->getScheme() . '://' . $request->getHost();
+        /*
+        |--------------------------------------------------------------------------
+        | Corporate Default Theme
+        |--------------------------------------------------------------------------
+        |
+        | Every tenant receives this built-in theme when no other theme
+        | renderer has been selected.
+        |
+        | Old saved homepage HTML is deliberately NOT rendered here because
+        | some legacy builder content is currently being displayed as text.
+        |
+        */
 
-        $this->tenantDatabaseService->connect($website);
+        $theme = $this->corporateThemeSettings($website);
 
-        try {
-            $db = $this->tenantDatabaseService->connection();
-
-            /*
-             * --------------------------------------------------------------
-             * Site Settings
-             * --------------------------------------------------------------
-             */
-            $settings = $db->table('site_settings')
-                ->pluck('value', 'key')
-                ->all();
-
-            /*
-             * --------------------------------------------------------------
-             * Published Homepage
-             * --------------------------------------------------------------
-             */
-            $page = $db->table('pages')
-                ->where('is_homepage', true)
-                ->where('status', 'published')
-                ->first();
-
-            if (!$page) {
-                $page = $db->table('pages')
-                    ->where('slug', 'home')
-                    ->where('status', 'published')
-                    ->first();
-            }
-
-            abort_unless(
-                $page,
-                404,
-                'Published homepage not found.'
-            );
-
-            /*
-             * --------------------------------------------------------------
-             * Page Builder Document
-             * --------------------------------------------------------------
-             */
-            $builderDocument = $db->table('page_builder_documents')
-                ->where('page_id', $page->id)
-                ->first();
-
-            $builderContent = [];
-
-            if ($builderDocument && $builderDocument->content) {
-                $decoded = json_decode(
-                    $builderDocument->content,
-                    true
-                );
-
-                if (is_array($decoded)) {
-                    $builderContent = $decoded;
-                }
-            }
-
-
-            /*
-             * Core Basic Page Builder currently stores its
-             * structured document in pages.settings.
-             */
-            if (!empty($page->settings)) {
-
-                $pageSettings = json_decode(
-                    $page->settings,
-                    true
-                );
-
-                if (
-                    is_array($pageSettings)
-                    && isset($pageSettings['basic_builder'])
-                    && is_array($pageSettings['basic_builder'])
-                ) {
-                    $builderContent =
-                        $pageSettings['basic_builder'];
-                }
-            }
-
-            /*
-             * --------------------------------------------------------------
-             * Header Menu
-             * --------------------------------------------------------------
-             */
-            $menu = $db->table('menus')
-                ->where('location', 'header')
-                ->where('is_active', true)
-                ->orderBy('id')
-                ->first();
-
-            $menuItems = collect();
-
-            if ($menu) {
-                $menuItems = $db->table('menu_items')
-                    ->where('menu_id', $menu->id)
-                    ->where('is_active', true)
-                    ->orderBy('sort_order')
-                    ->orderBy('id')
-                    ->get();
-            }
-
-            return view('tenant.website', [
-                'website' => $website,
-                'websiteUrl' => $websiteUrl,
-                'settings' => $settings,
-                'page' => $page,
-                'builderDocument' => $builderDocument,
-                'builderContent' => $builderContent,
-                'menu' => $menu,
-                'menuItems' => $menuItems,
-            ]);
-
-        } finally {
-            $this->tenantDatabaseService->disconnect();
-        }
+        return view(
+            'tenant.themes.corporate-default.home',
+            compact('website', 'theme')
+        );
     }
 
     /**
      * Display a published public CMS page by slug.
      */
-    public function page(Request $request, string $subdomain, string $slug): View
-    {
+    public function page(
+        Request $request,
+        string $subdomain,
+        string $slug
+    ): View {
         /** @var WebsiteTenant|null $tenant */
         $tenant = Tenant::current();
 
@@ -172,21 +75,71 @@ class TenantWebsiteController extends Controller
         $website = Website::query()
             ->findOrFail($tenant->website_id);
 
-        $websiteUrl = $request->getScheme() . '://' . $request->getHost();
+        /*
+        |--------------------------------------------------------------------------
+        | Built-in Corporate Default Pages
+        |--------------------------------------------------------------------------
+        */
 
-        $this->tenantDatabaseService->connect($website);
+        $corporatePages = [
+            'about',
+            'contact',
+            'faqs',
+            'terms',
+            'privacy',
+        ];
+
+        if (
+            in_array(
+                strtolower($slug),
+                $corporatePages,
+                true
+            )
+        ) {
+            $theme = $this->corporateThemeSettings($website);
+
+            return view(
+                'tenant.themes.corporate-default.'
+                . strtolower($slug),
+                compact('website', 'theme')
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Other Published CMS Pages
+        |--------------------------------------------------------------------------
+        |
+        | Normal user-created pages continue through the existing Core CMS
+        | renderer and page builder.
+        |
+        */
+
+        $websiteUrl =
+            $request->getScheme()
+            . '://'
+            . $request->getHost();
+
+        $this->tenantDatabaseService->connect(
+            $website
+        );
 
         try {
-            $db = $this->tenantDatabaseService->connection();
 
-            $settings = $db->table('site_settings')
-                ->pluck('value', 'key')
-                ->all();
+            $db =
+                $this->tenantDatabaseService
+                    ->connection();
 
-            $page = $db->table('pages')
-                ->where('slug', $slug)
-                ->where('status', 'published')
-                ->first();
+            $settings =
+                $db->table('site_settings')
+                    ->pluck('value', 'key')
+                    ->all();
+
+            $page =
+                $db->table('pages')
+                    ->where('slug', $slug)
+                    ->where('status', 'published')
+                    ->first();
 
             abort_unless(
                 $page,
@@ -194,13 +147,23 @@ class TenantWebsiteController extends Controller
                 'Published page not found.'
             );
 
-            $builderDocument = $db->table('page_builder_documents')
-                ->where('page_id', $page->id)
-                ->first();
+            $builderDocument =
+                $db->table(
+                    'page_builder_documents'
+                )
+                    ->where(
+                        'page_id',
+                        $page->id
+                    )
+                    ->first();
 
             $builderContent = [];
 
-            if ($builderDocument && $builderDocument->content) {
+            if (
+                $builderDocument
+                && $builderDocument->content
+            ) {
+
                 $decoded = json_decode(
                     $builderDocument->content,
                     true
@@ -212,11 +175,10 @@ class TenantWebsiteController extends Controller
             }
 
             /*
-             * Backward compatibility:
-             * Current Core pages also store the basic builder document
-             * inside pages.settings.
+             * Backward-compatible Core Basic Builder.
              */
             if (!empty($page->settings)) {
+
                 $pageSettings = json_decode(
                     $page->settings,
                     true
@@ -224,43 +186,117 @@ class TenantWebsiteController extends Controller
 
                 if (
                     is_array($pageSettings)
-                    && isset($pageSettings['basic_builder'])
-                    && is_array($pageSettings['basic_builder'])
+                    && isset(
+                        $pageSettings['basic_builder']
+                    )
+                    && is_array(
+                        $pageSettings['basic_builder']
+                    )
                 ) {
-                    $builderContent = $pageSettings['basic_builder'];
+                    $builderContent =
+                        $pageSettings[
+                            'basic_builder'
+                        ];
                 }
             }
 
-            $menu = $db->table('menus')
-                ->where('location', 'header')
-                ->where('is_active', true)
-                ->orderBy('id')
-                ->first();
+            $menu =
+                $db->table('menus')
+                    ->where(
+                        'location',
+                        'header'
+                    )
+                    ->where(
+                        'is_active',
+                        true
+                    )
+                    ->orderBy('id')
+                    ->first();
 
             $menuItems = collect();
 
             if ($menu) {
-                $menuItems = $db->table('menu_items')
-                    ->where('menu_id', $menu->id)
-                    ->where('is_active', true)
-                    ->orderBy('sort_order')
-                    ->orderBy('id')
-                    ->get();
+
+                $menuItems =
+                    $db->table('menu_items')
+                        ->where(
+                            'menu_id',
+                            $menu->id
+                        )
+                        ->where(
+                            'is_active',
+                            true
+                        )
+                        ->orderBy(
+                            'sort_order'
+                        )
+                        ->orderBy('id')
+                        ->get();
             }
 
-            return view('tenant.website', [
-                'website' => $website,
-                'websiteUrl' => $websiteUrl,
-                'settings' => $settings,
-                'page' => $page,
-                'builderDocument' => $builderDocument,
-                'builderContent' => $builderContent,
-                'menu' => $menu,
-                'menuItems' => $menuItems,
-            ]);
+            return view(
+                'tenant.website',
+                [
+                    'website' =>
+                        $website,
+
+                    'websiteUrl' =>
+                        $websiteUrl,
+
+                    'settings' =>
+                        $settings,
+
+                    'page' =>
+                        $page,
+
+                    'builderDocument' =>
+                        $builderDocument,
+
+                    'builderContent' =>
+                        $builderContent,
+
+                    'menu' =>
+                        $menu,
+
+                    'menuItems' =>
+                        $menuItems,
+                ]
+            );
+
+        } finally {
+
+            $this
+                ->tenantDatabaseService
+                ->disconnect();
+        }
+    }
+
+    protected function corporateThemeSettings(Website $website): array
+    {
+        $defaults =
+            \App\Http\Controllers\TenantThemeController::defaults();
+
+        $this->tenantDatabaseService->connect($website);
+
+        try {
+            $stored = $this->tenantDatabaseService
+                ->connection()
+                ->table('site_settings')
+                ->where('key', 'like', 'theme.corporate.%')
+                ->pluck('value', 'key')
+                ->all();
+
+            foreach ($defaults as $key => $value) {
+                $defaults[$key] =
+                    $stored['theme.corporate.' . $key]
+                    ?? $value;
+            }
+
+            return $defaults;
 
         } finally {
             $this->tenantDatabaseService->disconnect();
         }
     }
+
 }

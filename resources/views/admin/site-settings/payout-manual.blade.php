@@ -1397,9 +1397,16 @@
 
                             <td class="px-5 py-4 text-right">
 
-                                @if(in_array(
-                                    $requestRow->status,
-                                    ['pending', 'approved'],
+                                @if(!in_array(
+                                    strtolower((string) $requestRow->status),
+                                    [
+                                        'completed',
+                                        'paid',
+                                        'rejected',
+                                        'cancelled',
+                                        'canceled',
+                                        'failed'
+                                    ],
                                     true
                                 ))
 
@@ -1412,7 +1419,7 @@
                                                 $requestRow->id
                                             ) }}"
                                             onsubmit="return confirm(
-                                                'Confirm that this payout has actually been paid?'
+                                                'Approve this payout and confirm that it has been paid?'
                                             )"
                                         >
                                             @csrf
@@ -1421,7 +1428,7 @@
                                                 type="submit"
                                                 class="rounded-xl bg-blue-600 px-3 py-2 text-xs font-black text-white hover:bg-blue-700"
                                             >
-                                                Mark Paid
+                                                Approve
                                             </button>
                                         </form>
 
