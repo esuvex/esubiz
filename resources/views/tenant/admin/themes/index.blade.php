@@ -60,7 +60,14 @@
         </div>
 
 
+        
         <div
+            id="themeToggleStatus"
+            class="hidden rounded-2xl border px-4 py-3 text-sm font-bold"
+            role="status"
+        ></div>
+
+<div
             class="grid auto-rows-fr gap-6 lg:grid-cols-3"
         >
 
@@ -141,17 +148,28 @@
                                 <form
                                     method="POST"
                                     action="{{ route(
-                                        'tenant.cms.themes.enable',
+                                        'tenant.cms.themes.toggle',
                                         [
                                             'subdomain' =>
                                                 $website->subdomain,
-
-                                            'theme' =>
-                                                $installedTheme['slug'],
                                         ]
                                     ) }}"
+                                    data-theme-toggle-form
+                                    data-theme-action="enable"
                                 >
                                     @csrf
+
+                                    <input
+                                        type="hidden"
+                                        name="theme"
+                                        value="{{ $installedTheme['slug'] }}"
+                                    >
+
+                                    <input
+                                        type="hidden"
+                                        name="theme_action"
+                                        value="enable"
+                                    >
 
                                     <button
                                         type="submit"
@@ -160,8 +178,9 @@
                                                 ? 'bg-emerald-600 text-white'
                                                 : 'bg-white text-slate-400 hover:bg-emerald-50 hover:text-emerald-700'
                                         }}"
+                                        {{ $installedTheme['active'] ? 'disabled' : '' }}
                                     >
-                                        Enabled
+                                        Enable
                                     </button>
                                 </form>
 
@@ -169,17 +188,28 @@
                                 <form
                                     method="POST"
                                     action="{{ route(
-                                        'tenant.cms.themes.disable',
+                                        'tenant.cms.themes.toggle',
                                         [
                                             'subdomain' =>
                                                 $website->subdomain,
-
-                                            'theme' =>
-                                                $installedTheme['slug'],
                                         ]
                                     ) }}"
+                                    data-theme-toggle-form
+                                    data-theme-action="disable"
                                 >
                                     @csrf
+
+                                    <input
+                                        type="hidden"
+                                        name="theme"
+                                        value="{{ $installedTheme['slug'] }}"
+                                    >
+
+                                    <input
+                                        type="hidden"
+                                        name="theme_action"
+                                        value="disable"
+                                    >
 
                                     <button
                                         type="submit"
@@ -188,8 +218,9 @@
                                                 ? 'bg-red-600 text-white'
                                                 : 'bg-white text-slate-400 hover:bg-red-50 hover:text-red-700'
                                         }}"
+                                        {{ !$installedTheme['active'] ? 'disabled' : '' }}
                                     >
-                                        Disabled
+                                        Disable
                                     </button>
                                 </form>
 
@@ -1444,3 +1475,201 @@
 </div>
 
 @endsection
+
+<script data-theme-ajax-toggle-installed>
+document.addEventListener(
+    'DOMContentLoaded',
+    function () {
+
+        const forms =
+            document.querySelectorAll(
+                '[data-theme-toggle-form]'
+            );
+
+        const status =
+            document.getElementById(
+                'themeToggleStatus'
+            );
+
+
+        function showStatus(
+            message,
+            type
+        ) {
+            if (!status) {
+                return;
+            }
+
+            status.textContent =
+                message;
+
+            status.className =
+                type === 'success'
+                    ? 'rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700'
+                    : 'rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700';
+        }
+
+
+        forms.forEach(
+            function (form) {
+
+                form.addEventListener(
+                    'submit',
+                    async function (event) {
+
+                        event.preventDefault();
+
+
+                        const button =
+                            form.querySelector(
+                                'button[type="submit"]'
+                            );
+
+                        if (!button) {
+                            return;
+                        }
+
+
+                        const action =
+                            form.dataset
+                                .themeAction
+                            || 'update';
+
+
+                        const originalText =
+                            button.textContent;
+
+
+                        /*
+                         * Prevent double-click requests.
+                         */
+                        button.disabled =
+                            true;
+
+                        button.classList.add(
+                            'opacity-60',
+                            'cursor-wait'
+                        );
+
+                        button.textContent =
+                            action === 'enable'
+                                ? 'Enabling...'
+                                : 'Disabling...';
+
+
+                        try {
+
+                            const response =
+                                await fetch(
+                                    form.getAttribute(
+                                        'action'
+                                    ),
+                                    {
+                                        method:
+                                            'POST',
+
+                                        body:
+                                            new FormData(
+                                                form
+                                            ),
+
+                                        credentials:
+                                            'same-origin',
+
+                                        headers: {
+                                            'Accept':
+                                                'application/json',
+
+                                            'X-Requested-With':
+                                                'XMLHttpRequest',
+                                        },
+                                    }
+                                );
+
+
+                            let result = {};
+
+                            try {
+                                result =
+                                    await response.json();
+                            } catch (_) {
+                            }
+
+
+                            if (
+                                !response.ok
+                                || result.success
+                                    !== true
+                            ) {
+
+                                throw new Error(
+                                    result.message
+                                    || (
+                                        'Theme '
+                                        + action
+                                        + ' failed.'
+                                    )
+                                );
+                            }
+
+
+                            showStatus(
+                                result.message
+                                || (
+                                    action === 'enable'
+                                        ? 'Theme enabled.'
+                                        : 'Theme disabled.'
+                                ),
+                                'success'
+                            );
+
+
+                            /*
+                             * Reload the CURRENT /admin/themes page.
+                             *
+                             * We do not follow any response redirect,
+                             * so the browser never navigates to the
+                             * POST-only enable/disable URL.
+                             */
+                            window.setTimeout(
+                                function () {
+                                    window.location.reload();
+                                },
+                                350
+                            );
+
+
+                        } catch (error) {
+
+                            console.error(
+                                'Theme toggle failed:',
+                                error
+                            );
+
+                            showStatus(
+                                error.message
+                                || 'Theme update failed.',
+                                'error'
+                            );
+
+
+                            button.disabled =
+                                false;
+
+                            button.classList.remove(
+                                'opacity-60',
+                                'cursor-wait'
+                            );
+
+                            button.textContent =
+                                originalText;
+                        }
+                    }
+                );
+            }
+        );
+    }
+);
+</script>
+
+

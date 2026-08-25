@@ -368,6 +368,18 @@ Route::domain('{subdomain}.esubiz.com')
         )->name('tenant.cms.themes.business.update');
 
 
+        Route::post(
+            '/admin/pages/business-home/content',
+            [
+                \App\Http\Controllers\TenantThemeController::class,
+                'updateBusinessHomepageContent',
+            ]
+        )->name(
+            'tenant.cms.themes.business.home-content.update'
+        );
+
+
+
 
         Route::get(
             '/admin/themes/business/preview-image',
@@ -376,6 +388,21 @@ Route::domain('{subdomain}.esubiz.com')
                 'businessPreview',
             ]
         )->name('tenant.cms.themes.business.preview');
+
+
+        /*
+         * AJAX Theme Enable / Disable
+         *
+         * Fixed endpoint avoids redirect and dynamic-action URL
+         * issues. Theme slug and requested action are POST data.
+         */
+        Route::post(
+            '/admin/themes/toggle',
+            [
+                \App\Http\Controllers\TenantThemeController::class,
+                'toggle',
+            ]
+        )->name('tenant.cms.themes.toggle');
 
 
         Route::get(
@@ -587,6 +614,50 @@ Route::post('/oauth/token', [SsoController::class, 'token'])
 Route::get('/oauth/user', [SsoController::class, 'user'])
     ->name('sso.user');
 
+
+
+
+/*
+|--------------------------------------------------------------------------
+| Admin Marketplace - Themes
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['auth'])->group(function () {
+
+    Route::get(
+        '/admin/marketplace/themes',
+        [
+            \App\Http\Controllers\Admin\ThemeController::class,
+            'index',
+        ]
+    )->name('admin.themes.index');
+
+    Route::put(
+        '/admin/marketplace/themes/{theme}',
+        [
+            \App\Http\Controllers\Admin\ThemeController::class,
+            'update',
+        ]
+    )->name('admin.themes.update');
+
+    Route::post(
+        '/admin/marketplace/themes/{theme}/versions',
+        [
+            \App\Http\Controllers\Admin\ThemeController::class,
+            'createVersion',
+        ]
+    )->name('admin.themes.versions.store');
+
+    Route::post(
+        '/admin/marketplace/themes/{theme}/publish',
+        [
+            \App\Http\Controllers\Admin\ThemeController::class,
+            'publish',
+        ]
+    )->name('admin.themes.publish');
+
+});
 
 
 Route::middleware(['auth'])->prefix('admin/core-addons')->name('admin.core-addons.')->group(function () {

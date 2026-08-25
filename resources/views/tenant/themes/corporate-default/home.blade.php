@@ -17,17 +17,28 @@
             true
         ) ?: [];
 
-    $assetUrl = function ($path) {
-        return $path
-            ? url(
-                '/theme-assets/'
-                . ltrim($path, '/')
-            )
-            : null;
+    $assetUrl = static function (?string $path): ?string {
+        if (empty($path)) {
+            return null;
+        }
+
+        return request()->getSchemeAndHttpHost()
+            . '/media/'
+            . implode(
+                '/',
+                array_map(
+                    'rawurlencode',
+                    explode(
+                        '/',
+                        ltrim($path, '/')
+                    )
+                )
+            );
     };
 @endphp
 
 
+@if(($theme['show_hero'] ?? '1') === '1')
 {{-- HERO --}}
 <section class="hero">
 
@@ -159,6 +170,8 @@
 </section>
 
 
+@endif
+@if(($theme['show_features'] ?? '1') === '1')
 {{-- FEATURES --}}
 <section class="section">
 
@@ -229,7 +242,9 @@
 </section>
 
 
+@endif
 {{-- STATISTICS --}}
+@if(($theme['show_stats'] ?? '1') === '1')
 <section class="section section-soft">
 
     <div class="container">
@@ -265,8 +280,10 @@
     </div>
 
 </section>
+@endif
 
 
+@if(($theme['show_about'] ?? '1') === '1')
 {{-- ABOUT --}}
 <section class="section">
 
@@ -333,6 +350,8 @@
 </section>
 
 
+@endif
+@if(($theme['show_testimonials'] ?? '1') === '1')
 {{-- TESTIMONIAL SLIDER --}}
 <section class="section section-soft">
 
@@ -457,7 +476,9 @@
 </section>
 
 
+@endif
 {{-- FINAL CTA --}}
+@if(($theme['show_cta'] ?? '1') === '1')
 <section class="section">
 
     <div class="container">
@@ -492,6 +513,7 @@
     </div>
 
 </section>
+@endif
 
 
 <script>

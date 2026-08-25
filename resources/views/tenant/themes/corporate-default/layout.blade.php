@@ -26,13 +26,21 @@
     @if(!empty($theme['favicon_path']))
         <link
             rel="icon"
-            href="{{ url(
-                '/theme-assets/'
-                . ltrim(
-                    $theme['favicon_path'],
-                    '/'
-                )
-            ) }}"
+            href="{{ request()->getSchemeAndHttpHost()
+                . '/theme-assets/'
+                . implode(
+                    '/',
+                    array_map(
+                        'rawurlencode',
+                        explode(
+                            '/',
+                            ltrim(
+                                $theme['favicon_path'],
+                                '/'
+                            )
+                        )
+                    )
+                ) }}"
         >
     @endif
 
@@ -783,8 +791,15 @@
         .footer-grid {
             display:grid;
             grid-template-columns:
-                1.3fr .7fr;
-            gap:50px;
+                repeat(
+                    auto-fit,
+                    minmax(
+                        210px,
+                        1fr
+                    )
+                );
+            gap:42px;
+            align-items:start;
         }
 
         .footer-logo {
@@ -1013,9 +1028,191 @@
             }
 
         }
+    
+        @media(max-width:640px) {
+            .footer-grid {
+                grid-template-columns:1fr !important;
+                gap:32px;
+            }
+        }
+
+
+        /* .footer-grid-mobile-contract */
+        @media(max-width:720px) {
+            .footer-grid {
+                grid-template-columns:
+                    1fr !important;
+                gap:32px;
+            }
+        }
+
+</style>
+
+
+    <style>
+        .esubiz-floating-tools {
+            position: fixed;
+            bottom: 22px;
+            z-index: 90;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .esubiz-floating-tools[data-position="left"] {
+            left: 18px;
+        }
+
+        .esubiz-floating-tools[data-position="right"] {
+            right: 18px;
+        }
+
+        .esubiz-floating-tool {
+            width: 52px;
+            height: 52px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 0;
+            text-decoration: none;
+            font: inherit;
+            cursor: pointer;
+            pointer-events: auto;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, .18);
+            transition:
+                transform .2s ease,
+                opacity .2s ease;
+        }
+
+        .esubiz-floating-tool:hover {
+            transform: translateY(-2px);
+        }
+
+        .esubiz-whatsapp {
+            background: #25D366;
+            color: #fff;
+        }
+
+        .esubiz-live-chat {
+            background: var(--primary, #2563eb);
+            color: #fff;
+        }
+
+        .esubiz-back-top {
+            background: #0f172a;
+            color: #fff;
+        }
+
+        .esubiz-floating-tool svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+        }
+
+        [data-floating-hidden="1"] {
+            display: none !important;
+        }
+
+        @media (min-width: 1025px) {
+            .floating-hide-desktop {
+                display: none !important;
+            }
+        }
+
+        @media (min-width: 768px) and (max-width: 1024px) {
+            .floating-hide-tablet {
+                display: none !important;
+            }
+        }
+
+        @media (max-width: 767px) {
+            .floating-hide-mobile {
+                display: none !important;
+            }
+
+            .esubiz-floating-tools {
+                bottom: 16px;
+                gap: 8px;
+            }
+
+            .esubiz-floating-tools[data-position="left"] {
+                left: 12px;
+            }
+
+            .esubiz-floating-tools[data-position="right"] {
+                right: 12px;
+            }
+
+            .esubiz-floating-tool {
+                width: 48px;
+                height: 48px;
+            }
+        }
     </style>
 
-    @stack('styles')
+    
+    <style>
+        .footer-contact-list {
+            display: grid;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .footer-contact-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            color: inherit;
+            text-decoration: none;
+            line-height: 1.55;
+        }
+
+        .footer-contact-icon,
+        .footer-social-icon {
+            flex: 0 0 auto;
+            min-width: 28px;
+            height: 28px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,.12);
+            color: inherit;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .footer-social-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 18px;
+        }
+
+        .footer-social-link {
+            width: 36px;
+            height: 36px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,.12);
+            color: inherit;
+            text-decoration: none;
+            transition:
+                transform .2s ease,
+                background .2s ease;
+        }
+
+        .footer-social-link:hover {
+            transform: translateY(-2px);
+            background: rgba(255,255,255,.22);
+        }
+    </style>
+
+@stack('styles')
 
 </head>
 
@@ -1023,14 +1220,130 @@
 <body>
 
 @php
-    $assetUrl = function ($path) {
-        return $path
-            ? url(
-                '/theme-assets/'
-                . ltrim($path, '/')
-            )
-            : null;
+    $assetUrl = static function (?string $path): ?string {
+        if (empty($path)) {
+            return null;
+        }
+
+        return request()->getSchemeAndHttpHost()
+            . '/media/'
+            . implode(
+                '/',
+                array_map(
+                    'rawurlencode',
+                    explode(
+                        '/',
+                        ltrim($path, '/')
+                    )
+                )
+            );
     };
+
+
+    $floatingDevices =
+        static function (
+            ?string $value
+        ): array {
+            return array_values(
+                array_filter(
+                    array_map(
+                        'trim',
+                        explode(
+                            ',',
+                            (string) $value
+                        )
+                    )
+                )
+            );
+        };
+
+    $whatsappDevices =
+        $floatingDevices(
+            $theme['whatsapp_devices']
+                ?? 'desktop,tablet,mobile'
+        );
+
+    $liveChatDevices =
+        $floatingDevices(
+            $theme['live_chat_devices']
+                ?? 'desktop,tablet,mobile'
+        );
+
+    $backToTopDevices =
+        $floatingDevices(
+            $theme['back_to_top_devices']
+                ?? 'desktop,tablet,mobile'
+        );
+
+
+
+    $footerSocials =
+        json_decode(
+            $theme['footer_socials_json']
+                ?? '[]',
+            true
+        ) ?: [];
+
+
+    $footerIcon =
+        static function (
+            string $icon
+        ): string {
+
+            return match ($icon) {
+
+                'phone',
+                'call' =>
+                    '☎',
+
+                'mobile' =>
+                    '▣',
+
+                'mail',
+                'inbox' =>
+                    '✉',
+
+                'at' =>
+                    '@',
+
+                'location' =>
+                    '●',
+
+                'map' =>
+                    '⌖',
+
+                'building' =>
+                    '▦',
+
+                'facebook' =>
+                    'f',
+
+                'instagram' =>
+                    '◎',
+
+                'x' =>
+                    '𝕏',
+
+                'linkedin' =>
+                    'in',
+
+                'youtube' =>
+                    '▶',
+
+                'tiktok' =>
+                    '♪',
+
+                'whatsapp' =>
+                    '◉',
+
+                'telegram' =>
+                    '➤',
+
+                default =>
+                    '•',
+            };
+        };
+
 
     $footerLinks =
         json_decode(
@@ -1163,17 +1476,102 @@
 </main>
 
 
+
+@php
+    $footerMenu1 =
+        json_decode(
+            $theme[
+                'footer_menu_1_links_json'
+            ]
+            ?? $theme[
+                'footer_links_json'
+            ]
+            ?? '[]',
+            true
+        ) ?: [];
+
+    $footerMenu2 =
+        json_decode(
+            $theme[
+                'footer_menu_2_links_json'
+            ] ?? '[]',
+            true
+        ) ?: [];
+
+    $footerSocials =
+        json_decode(
+            $theme[
+                'footer_socials_json'
+            ] ?? '[]',
+            true
+        ) ?: [];
+
+    /*
+     * Until Core Menu positions are wired,
+     * Footer Menu 1 can safely inherit the
+     * existing footer links.
+     */
+    if (
+        empty($footerMenu2)
+        && count($footerMenu1) > 3
+    ) {
+        $footerMenu2 =
+            array_slice(
+                $footerMenu1,
+                3
+            );
+
+        $footerMenu1 =
+            array_slice(
+                $footerMenu1,
+                0,
+                3
+            );
+    }
+
+    $footerCopyright =
+        str_replace(
+            [
+                '{year}',
+                '{website}',
+            ],
+            [
+                now()->year,
+                $website->name
+                    ?? 'Website',
+            ],
+            $theme[
+                'footer_copyright'
+            ]
+            ?? '© {year} {website}. All rights reserved.'
+        );
+@endphp
+
+
 <footer class="site-footer">
 
-    @if(!empty($theme['footer_background_path']))
+    @if(
+        !empty(
+            $theme[
+                'footer_background_path'
+            ]
+        )
+    )
+
         <img
-            src="{{ $assetUrl(
-                $theme['footer_background_path']
-            ) }}"
+            src="{{
+                $assetUrl(
+                    $theme[
+                        'footer_background_path'
+                    ]
+                )
+            }}"
             class="footer-bg"
             alt=""
         >
+
     @endif
+
 
     <div class="footer-overlay"></div>
 
@@ -1182,89 +1580,479 @@
 
         <div class="footer-grid">
 
-            <div>
+            {{-- SECTION 1 — BRAND --}}
+            @if(
+                ($theme[
+                    'footer_brand_enabled'
+                ] ?? '1') === '1'
+            )
 
-                @if(!empty($theme['footer_logo_path']))
+                <div data-business-footer-brand>
 
-                    <img
-                        src="{{ $assetUrl(
-                            $theme['footer_logo_path']
-                        ) }}"
-                        class="footer-logo"
-                        alt="{{ $website->name ?? 'Business' }}"
-                    >
+                    @if(
+                        ($theme[
+                            'footer_logo_enabled'
+                        ] ?? '1') === '1'
+                        && !empty(
+                            $theme[
+                                'footer_logo_path'
+                            ]
+                        )
+                    )
 
-                @else
+                        <img
+                            src="{{
+                                $assetUrl(
+                                    $theme[
+                                        'footer_logo_path'
+                                    ]
+                                )
+                            }}"
+                            class="footer-logo"
+                            alt="{{
+                                $website->name
+                                    ?? 'Website'
+                            }}"
+                        >
+
+                    @endif
+
+
+                    @if(
+                        ($theme[
+                            'footer_text_enabled'
+                        ] ?? '1') === '1'
+                        && !empty(
+                            $theme[
+                                'footer_text'
+                            ]
+                        )
+                    )
+
+                        <p
+                            style="
+                                margin-top:14px;
+                                line-height:1.65;
+                                max-width:280px;
+                            "
+                        >
+                            {{
+                                \Illuminate\Support\Str::limit(
+                                    $theme[
+                                        'footer_text'
+                                    ],
+                                    180
+                                )
+                            }}
+                        </p>
+
+                    @endif
+
+                </div>
+
+            @endif
+
+
+{{-- SECTION 2 — CONTACT --}}
+            @if(
+                ($theme[
+                    'footer_contact_enabled'
+                ] ?? '1') === '1'
+            )
+
+                <div data-business-footer-contact>
 
                     <div class="footer-title">
-                        {{ $theme['footer_heading']
-                            ?: ($website->name ?? 'Business') }}
+                        Contact
                     </div>
 
-                @endif
+                    <div class="footer-contact-list">
 
 
-                <p style="max-width:520px;">
-                    {{ $theme['footer_text'] ?? '' }}
-                </p>
+                        @if(
+                            ($theme[
+                                'footer_phone_enabled'
+                            ] ?? '1') === '1'
+                            && !empty(
+                                $theme[
+                                    'footer_phone'
+                                ]
+                            )
+                        )
 
-            </div>
+                            <a
+                                href="tel:{{
+                                    preg_replace(
+                                        '/[^0-9+]/',
+                                        '',
+                                        $theme[
+                                            'footer_phone'
+                                        ]
+                                    )
+                                }}"
+                                class="footer-contact-item"
+                            >
+                                <span class="footer-contact-icon">
+                                    ☎
+                                </span>
+
+                                <span>
+                                    {{
+                                        $theme[
+                                            'footer_phone'
+                                        ]
+                                    }}
+                                </span>
+                            </a>
+
+                        @endif
 
 
-            <div>
+                        @if(
+                            ($theme[
+                                'footer_email_enabled'
+                            ] ?? '1') === '1'
+                            && !empty(
+                                $theme[
+                                    'footer_email'
+                                ]
+                            )
+                        )
 
-                <div
-                    style="
-                        color:#fff;
-                        font-size:.8rem;
-                        font-weight:900;
-                        text-transform:uppercase;
-                        letter-spacing:.08em;
-                        margin-bottom:16px;
-                    "
-                >
-                    Quick Links
-                </div>
+                            <a
+                                href="mailto:{{
+                                    $theme[
+                                        'footer_email'
+                                    ]
+                                }}"
+                                class="footer-contact-item"
+                            >
+                                <span class="footer-contact-icon">
+                                    ✉
+                                </span>
 
-                <div class="footer-links">
+                                <span>
+                                    {{
+                                        $theme[
+                                            'footer_email'
+                                        ]
+                                    }}
+                                </span>
+                            </a>
 
-                    @foreach($footerLinks as $link)
+                        @endif
 
-                        <a
-                            href="{{ $link['url'] ?? '#' }}"
+
+                        @if(
+                            ($theme[
+                                'footer_address_enabled'
+                            ] ?? '1') === '1'
+                            && !empty(
+                                $theme[
+                                    'footer_address'
+                                ]
+                            )
+                        )
+
+                            <div
+                                class="footer-contact-item"
+                            >
+                                <span class="footer-contact-icon">
+                                    ⌖
+                                </span>
+
+                                <span>
+                                    {{
+                                        $theme[
+                                            'footer_address'
+                                        ]
+                                    }}
+                                </span>
+                            </div>
+
+                        @endif
+
+
+@if(
+                        ($theme[
+                            'footer_socials_enabled'
+                        ] ?? '1') === '1'
+                        && count(
+                            $footerSocials
+                        )
+                    )
+
+                        <div
+                            class="footer-social-links"
                         >
-                            {{ $link['label'] ?? '' }}
-                        </a>
 
-                    @endforeach
+                            @foreach(
+                                $footerSocials
+                                as $social
+                            )
+
+                                @php
+                                    $socialUrl =
+                                        trim(
+                                            (string) (
+                                                $social[
+                                                    'url'
+                                                ] ?? ''
+                                            )
+                                        );
+
+                                    $socialLabel =
+                                        trim(
+                                            (string) (
+                                                $social[
+                                                    'label'
+                                                ]
+                                                ?? $social[
+                                                    'platform'
+                                                ]
+                                                ?? 'Social'
+                                            )
+                                        );
+
+                                    $socialIcon =
+                                        trim(
+                                            (string) (
+                                                $social[
+                                                    'icon'
+                                                ]
+                                                ?? $socialLabel
+                                            )
+                                        );
+                                @endphp
+
+
+                                @if(
+                                    $socialUrl !== ''
+                                )
+
+                                    <a
+                                        href="{{
+                                            $socialUrl
+                                        }}"
+                                        class="footer-social-link"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        aria-label="{{
+                                            $socialLabel
+                                        }}"
+                                    >
+                                        <span class="footer-social-icon">
+
+                                            @switch(
+                                                strtolower(
+                                                    $social[
+                                                        'platform'
+                                                    ]
+                                                    ?? $socialLabel
+                                                )
+                                            )
+
+                                                @case('facebook')
+                                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                                        <path fill="currentColor" d="M13.5 22v-9h3l.5-3h-3.5V8.1c0-.9.3-1.6 1.7-1.6H17V3.8c-.8-.1-1.6-.2-2.4-.2-2.4 0-4.1 1.5-4.1 4.2V10H8v3h2.5v9h3z"/>
+                                                    </svg>
+                                                    @break
+
+                                                @case('instagram')
+                                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                                        <path fill="currentColor" d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7zm5 3.5A4.5 4.5 0 1 1 7.5 12 4.5 4.5 0 0 1 12 7.5zm0 2A2.5 2.5 0 1 0 14.5 12 2.5 2.5 0 0 0 12 9.5zM17.8 6.2a1.05 1.05 0 1 1-1.05 1.05A1.05 1.05 0 0 1 17.8 6.2z"/>
+                                                    </svg>
+                                                    @break
+
+                                                @case('x')
+                                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                                        <path fill="currentColor" d="M18.9 2H22l-6.8 7.8L23 22h-6.1l-4.8-6.3L6.6 22H3.5l7.2-8.3L3.2 2h6.3l4.3 5.7L18.9 2zm-1.1 17.8h1.7L8.6 4H6.8l11 15.8z"/>
+                                                    </svg>
+                                                    @break
+
+                                                @case('linkedin')
+                                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                                        <path fill="currentColor" d="M5.3 7.3A2.3 2.3 0 1 1 5.3 2.7a2.3 2.3 0 0 1 0 4.6zM3.3 8.8h4V21h-4V8.8zm6.3 0h3.8v1.7h.1c.5-1 1.8-2.2 3.8-2.2 4 0 4.7 2.6 4.7 6V21h-4v-5.9c0-1.4 0-3.2-2-3.2s-2.3 1.5-2.3 3.1v6h-4V8.8z"/>
+                                                    </svg>
+                                                    @break
+
+                                                @case('youtube')
+                                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                                        <path fill="currentColor" d="M23 12s0-3.7-.5-5.5a2.9 2.9 0 0 0-2-2C18.7 4 12 4 12 4s-6.7 0-8.5.5a2.9 2.9 0 0 0-2 2C1 8.3 1 12 1 12s0 3.7.5 5.5a2.9 2.9 0 0 0 2 2C5.3 20 12 20 12 20s6.7 0 8.5-.5a2.9 2.9 0 0 0 2-2C23 15.7 23 12 23 12zM9.8 15.5v-7l6 3.5-6 3.5z"/>
+                                                    </svg>
+                                                    @break
+
+                                                @case('tiktok')
+                                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                                        <path fill="currentColor" d="M15.5 3c.3 2.1 1.5 3.5 3.5 3.9v3a8.6 8.6 0 0 1-3.5-1v6.2a6.1 6.1 0 1 1-5.3-6V12a3.1 3.1 0 1 0 2.3 3V3h3z"/>
+                                                    </svg>
+                                                    @break
+
+                                                @case('whatsapp')
+                                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                                        <path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18a8 8 0 0 1-4.1-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8 8 0 1 1 12 20zm4.4-6c-.2-.1-1.4-.7-1.6-.8-.2-.1-.4-.1-.6.1-.2.3-.6.8-.8 1-.1.2-.3.2-.5.1a6.5 6.5 0 0 1-1.9-1.2 7.3 7.3 0 0 1-1.3-1.7c-.1-.2 0-.4.1-.5l.4-.5.3-.5c.1-.2 0-.4 0-.5l-.7-1.7c-.2-.4-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.3.3-1 1-1 2.4s1 2.8 1.2 3c.1.2 2 3.1 5 4.3.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.4-.6 1.6-1.1.2-.6.2-1 .2-1.1-.1-.2-.3-.3-.5-.4z"/>
+                                                    </svg>
+                                                    @break
+
+                                                @default
+                                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                                        <circle cx="12" cy="12" r="9" fill="currentColor"/>
+                                                    </svg>
+
+                                            @endswitch
+
+                                        </span>
+                                    </a>
+
+                                @endif
+
+                            @endforeach
+
+                        </div>
+
+                    @endif
+
+
+                    </div>
 
                 </div>
 
-            </div>
+            @endif
+
+
+
+            {{-- SECTION 3 — MENU 1 --}}
+            @if(
+                ($theme[
+                    'footer_menu_1_enabled'
+                ] ?? '1') === '1'
+            )
+
+                <div data-business-footer-menu-1>
+
+                    <div class="footer-title">
+                        {{
+                            $theme[
+                                'footer_menu_1_title'
+                            ]
+                            ?? 'Quick Links'
+                        }}
+                    </div>
+
+                    <div
+                        class="footer-links"
+                        style="
+                            margin-top:20px;
+                            grid-template-columns:1fr;
+                        "
+                    >
+
+                        @foreach(
+                            $footerMenu1
+                            as $link
+                        )
+
+                            <a
+                                href="{{
+                                    $link[
+                                        'url'
+                                    ] ?? '#'
+                                }}"
+                            >
+                                {{
+                                    $link[
+                                        'label'
+                                    ] ?? ''
+                                }}
+                            </a>
+
+                        @endforeach
+
+                    </div>
+
+                </div>
+
+            @endif
+
+
+
+            {{-- SECTION 4 — MENU 2 --}}
+            @if(
+                ($theme[
+                    'footer_menu_2_enabled'
+                ] ?? '1') === '1'
+            )
+
+                <div data-business-footer-menu-2>
+
+                    <div class="footer-title">
+                        {{
+                            $theme[
+                                'footer_menu_2_title'
+                            ]
+                            ?? 'More'
+                        }}
+                    </div>
+
+                    <div
+                        class="footer-links"
+                        style="
+                            margin-top:20px;
+                            grid-template-columns:1fr;
+                        "
+                    >
+
+                        @foreach(
+                            $footerMenu2
+                            as $link
+                        )
+
+                            <a
+                                href="{{
+                                    $link[
+                                        'url'
+                                    ] ?? '#'
+                                }}"
+                            >
+                                {{
+                                    $link[
+                                        'label'
+                                    ] ?? ''
+                                }}
+                            </a>
+
+                        @endforeach
+
+                    </div>
+
+                </div>
+
+            @endif
 
         </div>
 
 
-        <div class="footer-bottom">
+        {{-- ONLY ONE BOTTOM BAR --}}
+        <div
+            class="footer-bottom"
+            data-business-footer-bottom
+        >
 
-            <span>
-                © {{ date('Y') }}
-                {{ $website->name ?? 'Business' }}.
-                {{ $theme['footer_copyright']
-                    ?? 'All rights reserved.' }}
-            </span>
+            <div>
+                {{ $footerCopyright }}
+            </div>
 
-            <span>
+            <div>
                 Powered by
                 <a
                     href="https://esubiz.com"
                     target="_blank"
-                    rel="noopener"
+                    rel="noopener noreferrer"
                     class="powered-link"
                 >
                     Esubiz
                 </a>
-            </span>
+            </div>
 
         </div>
 
@@ -1273,14 +2061,9 @@
 </footer>
 
 
-<button
-    type="button"
-    class="back-to-top"
-    id="corporateBackToTop"
-    aria-label="Back to top"
->
-    ↑
-</button>
+
+
+
 
 
 <script>
@@ -1441,6 +2224,277 @@
 </script>
 
 @stack('scripts')
+
+
+
+{{-- ==========================================================
+     FLOATING WEBSITE TOOLS
+=========================================================== --}}
+
+@php
+    $floatingClass =
+        static function (
+            array $devices
+        ): string {
+
+            $classes = [];
+
+            if (!in_array('desktop', $devices, true)) {
+                $classes[] = 'floating-hide-desktop';
+            }
+
+            if (!in_array('tablet', $devices, true)) {
+                $classes[] = 'floating-hide-tablet';
+            }
+
+            if (!in_array('mobile', $devices, true)) {
+                $classes[] = 'floating-hide-mobile';
+            }
+
+            return implode(' ', $classes);
+        };
+
+    $waNumber =
+        preg_replace(
+            '/\D+/',
+            '',
+            (string) (
+                $theme['whatsapp_number']
+                ?? ''
+            )
+        );
+@endphp
+
+
+@if(
+    ($theme['whatsapp_enabled'] ?? '0') === '1'
+    && $waNumber !== ''
+)
+    <div
+        class="esubiz-floating-tools"
+        data-position="{{ ($theme['whatsapp_position'] ?? 'right') === 'left' ? 'left' : 'right' }}"
+    >
+        <a
+            href="https://wa.me/{{ $waNumber }}"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="esubiz-floating-tool esubiz-whatsapp {{ $floatingClass($whatsappDevices) }}"
+            aria-label="Chat on WhatsApp"
+            title="WhatsApp"
+        >
+            <svg viewBox="0 0 32 32" aria-hidden="true">
+                <path d="M19.11 17.21c-.26-.13-1.53-.75-1.77-.84-.24-.09-.42-.13-.6.13-.18.26-.69.84-.84 1.01-.15.18-.31.2-.57.07-.26-.13-1.1-.41-2.1-1.3-.78-.69-1.3-1.55-1.45-1.81-.15-.26-.02-.4.11-.53.12-.12.26-.31.4-.46.13-.15.18-.26.26-.44.09-.18.04-.33-.02-.46-.07-.13-.6-1.44-.82-1.97-.22-.52-.44-.45-.6-.46h-.51c-.18 0-.46.07-.7.33-.24.26-.92.9-.92 2.19 0 1.29.94 2.54 1.07 2.72.13.18 1.85 2.83 4.48 3.97.63.27 1.11.43 1.49.55.63.2 1.2.17 1.65.1.5-.07 1.53-.63 1.75-1.23.22-.61.22-1.13.15-1.23-.07-.11-.24-.18-.5-.31z"/>
+                <path d="M16.03 3C8.84 3 3 8.83 3 16c0 2.3.6 4.55 1.75 6.53L3 29l6.65-1.74A13 13 0 0 0 16.03 29C23.22 29 29 23.17 29 16S23.22 3 16.03 3zm0 23.64a10.6 10.6 0 0 1-5.4-1.48l-.39-.23-3.94 1.03 1.05-3.84-.25-.4A10.58 10.58 0 0 1 5.38 16c0-5.86 4.77-10.63 10.65-10.63 5.86 0 10.6 4.77 10.6 10.63 0 5.87-4.74 10.64-10.6 10.64z"/>
+            </svg>
+        </a>
+    </div>
+@endif
+
+
+@if(($theme['live_chat_enabled'] ?? '0') === '1')
+    <div
+        class="esubiz-floating-tools"
+        data-position="{{ ($theme['live_chat_position'] ?? 'right') === 'left' ? 'left' : 'right' }}"
+    >
+        <button
+            type="button"
+            class="esubiz-floating-tool esubiz-live-chat {{ $floatingClass($liveChatDevices) }}"
+            data-esubiz-live-chat-trigger
+            aria-label="Open live chat"
+            title="Live Chat"
+        >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 4v-4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 5h12V7H6v2zm0 4h8v-2H6v2z"/>
+            </svg>
+        </button>
+    </div>
+@endif
+
+
+@if(($theme['back_to_top_enabled'] ?? '1') === '1')
+    <div
+        class="esubiz-floating-tools"
+        data-position="{{ ($theme['back_to_top_position'] ?? 'right') === 'left' ? 'left' : 'right' }}"
+    >
+        <button
+            type="button"
+            class="esubiz-floating-tool esubiz-back-top {{ $floatingClass($backToTopDevices) }}"
+            data-esubiz-back-to-top
+            aria-label="Back to top"
+            title="Back to Top"
+        >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5 4 13l1.41 1.41L11 8.83V20h2V8.83l5.59 5.58L20 13z"/>
+            </svg>
+        </button>
+    </div>
+@endif
+
+
+<script>
+document.addEventListener(
+    'DOMContentLoaded',
+    function () {
+
+        const backToTop =
+            document.querySelector(
+                '[data-esubiz-back-to-top]'
+            );
+
+        if (backToTop) {
+
+            const syncBackToTop =
+                function () {
+
+                    backToTop.style.opacity =
+                        window.scrollY > 240
+                            ? '1'
+                            : '0';
+
+                    backToTop.style.pointerEvents =
+                        window.scrollY > 240
+                            ? 'auto'
+                            : 'none';
+                };
+
+            syncBackToTop();
+
+            window.addEventListener(
+                'scroll',
+                syncBackToTop,
+                {
+                    passive: true
+                }
+            );
+
+            backToTop.addEventListener(
+                'click',
+                function () {
+                    window.scrollTo({
+                        top: 0,
+                        behavior: 'smooth'
+                    });
+                }
+            );
+        }
+
+
+        /*
+         * Stack floating tools sharing the same side.
+         *
+         * Each tool keeps its own:
+         * - enabled state
+         * - position
+         * - device visibility
+         *
+         * Visible tools are automatically offset so they
+         * never sit on top of one another.
+         */
+        function stackFloatingTools() {
+
+            ['left', 'right'].forEach(
+                function (position) {
+
+                    const containers =
+                        Array.from(
+                            document.querySelectorAll(
+                                '.esubiz-floating-tools'
+                                + `[data-position="${position}"]`
+                            )
+                        )
+                        .filter(
+                            function (container) {
+
+                                const tool =
+                                    container.querySelector(
+                                        '.esubiz-floating-tool'
+                                    );
+
+                                if (!tool) {
+                                    return false;
+                                }
+
+                                return window
+                                    .getComputedStyle(tool)
+                                    .display
+                                    !== 'none';
+                            }
+                        );
+
+                    containers.forEach(
+                        function (
+                            container,
+                            index
+                        ) {
+
+                            const mobile =
+                                window.innerWidth
+                                <= 767;
+
+                            const base =
+                                mobile
+                                    ? 16
+                                    : 22;
+
+                            const step =
+                                mobile
+                                    ? 56
+                                    : 62;
+
+                            container.style.bottom =
+                                (
+                                    base
+                                    + (
+                                        index
+                                        * step
+                                    )
+                                )
+                                + 'px';
+                        }
+                    );
+                }
+            );
+        }
+
+
+        stackFloatingTools();
+
+        window.addEventListener(
+            'resize',
+            stackFloatingTools
+        );
+
+
+        /*
+         * Live Chat integration boundary.
+         *
+         * The actual Esubiz Live Chat addon/service can listen for
+         * this event and open its chat interface.
+         */
+        document
+            .querySelectorAll(
+                '[data-esubiz-live-chat-trigger]'
+            )
+            .forEach(
+                function (button) {
+
+                    button.addEventListener(
+                        'click',
+                        function () {
+
+                            window.dispatchEvent(
+                                new CustomEvent(
+                                    'esubiz:live-chat:open'
+                                )
+                            );
+                        }
+                    );
+                }
+            );
+    }
+);
+</script>
+
 
 </body>
 </html>

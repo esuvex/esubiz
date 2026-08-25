@@ -7,4 +7,5 @@ return [
     App\Providers\CorePaymentServiceProvider::class,
     App\Providers\AuthorizationServiceProvider::class,
 
+    App\Providers\SiteAiServiceProvider::class,
 ];

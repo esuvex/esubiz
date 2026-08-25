@@ -315,9 +315,33 @@ class TenantWebsiteController extends Controller
                     $settings['basic_builder']
                 )
             ) {
-                return $settings[
-                    'basic_builder'
-                ];
+                $basicBuilder =
+                    $settings['basic_builder'];
+
+                /*
+                 * Only use Basic Builder settings when they
+                 * actually contain page sections.
+                 *
+                 * Theme homepages may have an empty
+                 * settings.basic_builder initializer while their
+                 * real seeded homepage lives in
+                 * page_builder_documents.
+                 */
+                $basicSections =
+                    isset($basicBuilder['sections'])
+                    && is_array(
+                        $basicBuilder['sections']
+                    )
+                        ? $basicBuilder['sections']
+                        : (
+                            array_is_list($basicBuilder)
+                                ? $basicBuilder
+                                : []
+                        );
+
+                if (!empty($basicSections)) {
+                    return $basicSections;
+                }
             }
         }
 

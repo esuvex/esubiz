@@ -136,6 +136,55 @@ class TenantThemeController extends Controller
             'footer_logo_path' => '',
             'footer_background_path' => '',
 
+            /*
+             * Footer four-section layout.
+             */
+            'footer_brand_enabled' => '1',
+            'footer_logo_enabled' => '1',
+            'footer_text_enabled' => '1',
+
+            'footer_contact_enabled' => '1',
+            'footer_menu_1_enabled' => '1',
+            'footer_menu_2_enabled' => '1',
+
+            'footer_menu_1_title' => 'Quick Links',
+            'footer_menu_2_title' => 'More',
+
+            'footer_menu_1_links_json' =>
+                '[{"label":"About","url":"/about"},{"label":"FAQs","url":"/faqs"},{"label":"Privacy","url":"/privacy"}]',
+
+            'footer_menu_2_links_json' =>
+                '[{"label":"Contact","url":"/contact"},{"label":"Terms","url":"/terms"}]',
+
+            /*
+             * Homepage section visibility.
+             */
+            'show_hero' => '1',
+            'show_features' => '1',
+            'show_stats' => '1',
+            'show_about' => '1',
+            'show_testimonials' => '1',
+            'show_cta' => '1',
+
+            /*
+             * Floating website tools.
+             *
+             * Device values:
+             * desktop,tablet,mobile
+             */
+            'whatsapp_enabled' => '0',
+            'whatsapp_number' => '',
+            'whatsapp_position' => 'right',
+            'whatsapp_devices' => 'desktop,tablet,mobile',
+
+            'live_chat_enabled' => '0',
+            'live_chat_position' => 'right',
+            'live_chat_devices' => 'desktop,tablet,mobile',
+
+            'back_to_top_enabled' => '1',
+            'back_to_top_position' => 'right',
+            'back_to_top_devices' => 'desktop,tablet,mobile',
+
             'footer_heading' => '',
             'footer_text' =>
                 'Thoughtful solutions, dependable service and a better experience for every customer.',
@@ -143,7 +192,28 @@ class TenantThemeController extends Controller
             'footer_links_json' => '[{"label": "About", "url": "/about"}, {"label": "Contact", "url": "/contact"}, {"label": "FAQs", "url": "/faqs"}, {"label": "Terms", "url": "/terms"}, {"label": "Privacy", "url": "/privacy"}]',
 
             'footer_copyright' =>
-                'All rights reserved.',
+                '© {year} {website}. All rights reserved.',
+
+            /*
+             * Footer contact information.
+             */
+            'footer_phone_enabled' => '1',
+            'footer_phone' => '',
+            'footer_phone_icon' => 'phone',
+
+            'footer_email_enabled' => '1',
+            'footer_email' => '',
+            'footer_email_icon' => 'mail',
+
+            'footer_address_enabled' => '1',
+            'footer_address' => '',
+            'footer_address_icon' => 'location',
+
+            /*
+             * Footer social links.
+             */
+            'footer_socials_enabled' => '1',
+            'footer_socials_json' => '[]',
         ];
     }
 
@@ -181,13 +251,29 @@ class TenantThemeController extends Controller
         $this->tenantDatabaseService->connect($website);
 
         try {
-            return (string) (
+            $storedTheme =
                 $this->tenantDatabaseService
                     ->connection()
                     ->table('site_settings')
-                    ->where('key', 'theme.active')
-                    ->value('value')
-                ?: 'business'
+                    ->where(
+                        'key',
+                        'theme.active'
+                    )
+                    ->value('value');
+
+            /*
+             * An empty value means there is intentionally
+             * no active theme.
+             *
+             * Do NOT fall back to Business here, otherwise
+             * disabling Business immediately appears active
+             * again in the Themes interface.
+             */
+            return trim(
+                (string) (
+                    $storedTheme
+                    ?? ''
+                )
             );
 
         } finally {
@@ -300,6 +386,116 @@ class TenantThemeController extends Controller
         );
     }
 
+    /**
+     * Save Business homepage CONTENT from Pages > Business Home.
+     *
+     * This endpoint deliberately preserves Theme Configuration
+     * values that are not present in the homepage editor.
+     *
+     * Header, footer, navigation, favicon, floating tools and
+     * global theme settings therefore remain Theme-owned.
+     */
+    public function updateBusinessHomepageContent(
+        Request $request
+    ): RedirectResponse {
+
+        $website =
+            $this->website();
+
+        $current =
+            $this->themeSettings(
+                $website
+            );
+
+        /*
+         * Preserve all ordinary scalar theme settings that are
+         * absent from the Business Home content request.
+         */
+        $preserved = [];
+
+        foreach (
+            $current
+            as $key => $value
+        ) {
+            if (
+                $request->exists(
+                    $key
+                )
+            ) {
+                continue;
+            }
+
+            $preserved[
+                $key
+            ] = $value;
+        }
+
+
+        /*
+         * Existing update() expects repeatable form arrays rather
+         * than their JSON storage representation.
+         */
+        if (
+            !$request->exists(
+                'footer_links'
+            )
+        ) {
+            $preserved[
+                'footer_links'
+            ] =
+                json_decode(
+                    (string) (
+                        $current[
+                            'footer_links_json'
+                        ]
+                        ?? '[]'
+                    ),
+                    true
+                ) ?: [];
+        }
+
+        if (
+            !$request->exists(
+                'footer_socials'
+            )
+        ) {
+            $preserved[
+                'footer_socials'
+            ] =
+                json_decode(
+                    (string) (
+                        $current[
+                            'footer_socials_json'
+                        ]
+                        ?? '[]'
+                    ),
+                    true
+                ) ?: [];
+        }
+
+
+        $request->merge(
+            $preserved
+        );
+
+
+        /*
+         * Mark this as homepage-only so the update method can
+         * return to the referring Business Home edit page.
+         */
+        $request->merge([
+            '_business_home_content' =>
+                '1',
+        ]);
+
+
+        return $this->update(
+            $request,
+            'business'
+        );
+    }
+
+
     public function updateBusiness(
         Request $request
     ): RedirectResponse {
@@ -309,9 +505,163 @@ class TenantThemeController extends Controller
         );
     }
 
+    /**
+     * AJAX theme activation endpoint.
+     *
+     * Theme and action come from the request body rather than
+     * a dynamic URL segment. This is also suitable for future
+     * marketplace-installed themes.
+     */
+    public function toggle(
+        Request $request
+    ) {
+        $data = $request->validate([
+            'theme' => [
+                'required',
+                'string',
+                'max:100',
+            ],
+
+            'theme_action' => [
+                'required',
+                'in:enable,disable',
+            ],
+        ]);
+
+        /*
+         * Installed-theme resolution will become package-driven
+         * as Marketplace themes are introduced.
+         *
+         * Business is the currently installed built-in theme.
+         */
+        abort_unless(
+            in_array(
+                $data['theme'],
+                [
+                    'business',
+                    'corporate-default',
+                ],
+                true
+            ),
+            404,
+            'Theme not found.'
+        );
+
+        $theme =
+            $data['theme'] === 'corporate-default'
+                ? 'business'
+                : $data['theme'];
+
+        $website =
+            $this->website();
+
+        $this->tenantDatabaseService
+            ->connect($website);
+
+        try {
+
+            $db =
+                $this->tenantDatabaseService
+                    ->connection();
+
+            if ($data['theme_action'] === 'enable') {
+
+                /*
+                 * Every theme contributes exactly its own
+                 * editable theme homepage.
+                 */
+                if ($theme === 'business') {
+
+                }
+
+                $db->table('site_settings')
+                    ->updateOrInsert(
+                        [
+                            'key' =>
+                                'theme.active',
+                        ],
+                        [
+                            'value' =>
+                                $theme,
+                        ]
+                    );
+
+                return response()->json([
+                    'success' =>
+                        true,
+
+                    'active' =>
+                        true,
+
+                    'theme' =>
+                        $theme,
+
+                    'message' =>
+                        'Business theme enabled.',
+                ]);
+            }
+
+
+            /*
+             * Disable only when this theme is currently active.
+             */
+            $active =
+                $db->table('site_settings')
+                    ->where(
+                        'key',
+                        'theme.active'
+                    )
+                    ->value('value');
+
+            if (
+                in_array(
+                    $active,
+                    [
+                        'business',
+                        'corporate-default',
+                    ],
+                    true
+                )
+            ) {
+                $db->table('site_settings')
+                    ->updateOrInsert(
+                        [
+                            'key' =>
+                                'theme.active',
+                        ],
+                        [
+                            'value' =>
+                                '',
+                        ]
+                    );
+            }
+
+            return response()->json([
+                'success' =>
+                    true,
+
+                'active' =>
+                    false,
+
+                'theme' =>
+                    $theme,
+
+                'message' =>
+                    'Business theme disabled.',
+            ]);
+
+        } finally {
+
+            $this->tenantDatabaseService
+                ->disconnect();
+        }
+    }
+
+
     public function enable(
+        Request $request,
         string $theme
-    ): RedirectResponse {
+    ) {
         abort_unless(
             in_array(
                 $theme,
@@ -328,6 +678,8 @@ class TenantThemeController extends Controller
         $this->tenantDatabaseService
             ->connect($website);
 
+
+
         try {
             $this->tenantDatabaseService
                 ->connection()
@@ -342,15 +694,34 @@ class TenantThemeController extends Controller
                 ->disconnect();
         }
 
-        return back()->with(
-            'success',
-            'Business theme enabled.'
-        );
+        if (
+            $request->expectsJson()
+            || $request->ajax()
+        ) {
+            return response()->json([
+                'success' => true,
+                'active' => true,
+                'theme' => 'business',
+                'message' =>
+                    'Business theme enabled.',
+            ]);
+        }
+
+        return redirect()
+            ->to(
+                request()->getSchemeAndHttpHost()
+                . '/admin/themes'
+            )
+            ->with(
+                'success',
+                'Business theme enabled.'
+            );
     }
 
     public function disable(
+        Request $request,
         string $theme
-    ): RedirectResponse {
+    ) {
         abort_unless(
             in_array(
                 $theme,
@@ -381,12 +752,43 @@ class TenantThemeController extends Controller
                 ->disconnect();
         }
 
-        return back()->with(
-            'success',
-            'Business theme disabled.'
-        );
+        if (
+            $request->expectsJson()
+            || $request->ajax()
+        ) {
+            return response()->json([
+                'success' => true,
+                'active' => false,
+                'theme' => 'business',
+                'message' =>
+                    'Business theme disabled.',
+            ]);
+        }
+
+        return redirect()
+            ->to(
+                request()->getSchemeAndHttpHost()
+                . '/admin/themes'
+            )
+            ->with(
+                'success',
+                'Business theme disabled.'
+            );
     }
 
+    /**
+     * Store theme media inside the website's canonical media bucket.
+     *
+     * All website-owned media shares:
+     *
+     * tenant-websites/{website_id}/media/...
+     *
+     * Theme files are namespaced below /theme so they remain
+     * organised while consuming the same website storage quota.
+     */
+    /**
+     * Store theme media in the website's canonical Media Library.
+     */
     protected function storeThemeUpload(
         Website $website,
         $file,
@@ -402,21 +804,11 @@ class TenantThemeController extends Controller
                 '/'
             );
 
-        $root =
-            storage_path(
-                'app/public/tenants/'
-                . $website->id
-                . '/theme/'
-                . $folder
-            );
-
-        if (!is_dir($root)) {
-            mkdir(
-                $root,
-                0755,
-                true
-            );
-        }
+        abort_if(
+            $folder === '',
+            422,
+            'Invalid theme media folder.'
+        );
 
         $extension =
             strtolower(
@@ -424,21 +816,118 @@ class TenantThemeController extends Controller
             );
 
         $filename =
-            bin2hex(random_bytes(8))
+            now()->format('YmdHis')
             . '-'
-            . time()
+            . \Illuminate\Support\Str::lower(
+                \Illuminate\Support\Str::random(12)
+            )
             . '.'
             . $extension;
 
-        $file->move(
-            $root,
-            $filename
+        $directory =
+            'tenant-websites/'
+            . $website->id
+            . '/media/theme/'
+            . $folder;
+
+        $stored =
+            \Illuminate\Support\Facades\Storage::disk('local')
+                ->putFileAs(
+                    $directory,
+                    $file,
+                    $filename
+                );
+
+        abort_unless(
+            $stored,
+            500,
+            'Theme image could not be stored.'
         );
 
-        return $folder
-            . '/'
-            . $filename;
+        /*
+         * Register the uploaded theme asset in website_media
+         * when the tenant Media Library table exists.
+         */
+        try {
+
+            $db =
+                $this->tenantDatabaseService
+                    ->connection();
+
+            if (
+                \Illuminate\Support\Facades\Schema::connection(
+                    'tenant'
+                )->hasTable(
+                    'website_media'
+                )
+            ) {
+
+                $db->table(
+                    'website_media'
+                )
+                    ->updateOrInsert(
+                        [
+                            'path' =>
+                                $stored,
+                        ],
+                        [
+                            'uuid' =>
+                                (string)
+                                \Illuminate\Support\Str::uuid(),
+
+                            'filename' =>
+                                $filename,
+
+                            'original_name' =>
+                                $file
+                                    ->getClientOriginalName(),
+
+                            'title' =>
+                                pathinfo(
+                                    $file
+                                        ->getClientOriginalName(),
+                                    PATHINFO_FILENAME
+                                ),
+
+                            'mime_type' =>
+                                $file->getMimeType(),
+
+                            'media_type' =>
+                                'image',
+
+                            'size_bytes' =>
+                                (int)
+                                $file->getSize(),
+
+                            'source' =>
+                                'theme',
+
+                            'source_context' =>
+                                'theme/'
+                                . $folder,
+
+                            'updated_at' =>
+                                now(),
+
+                            'created_at' =>
+                                now(),
+                        ]
+                    );
+            }
+
+        } catch (\Throwable $e) {
+
+            /*
+             * Media registration must never block the theme save.
+             * Physical file storage remains authoritative.
+             */
+            report($e);
+        }
+
+        return $stored;
     }
+
+
 
     public function update(
         Request $request,
@@ -458,6 +947,77 @@ class TenantThemeController extends Controller
             $this->website();
 
         $data = $request->validate([
+
+            /*
+             * ESUBIZ_FOOTER_SOCIAL_AUTHORITATIVE_RULES
+             */
+            'footer_socials_enabled' => [
+                'nullable',
+                'in:0,1',
+            ],
+
+            'footer_socials' => [
+                'nullable',
+                'array',
+            ],
+
+            'footer_socials.*.platform' => [
+                'nullable',
+                'string',
+                'in:facebook,instagram,x,linkedin,youtube,tiktok,whatsapp',
+            ],
+
+            'footer_socials.*.url' => [
+                'nullable',
+                'url',
+                'max:1500',
+            ],
+
+
+
+            'footer_logo_enabled' => [
+                'nullable',
+                'in:0,1',
+            ],
+
+            'footer_text_enabled' => [
+                'nullable',
+                'in:0,1',
+            ],
+
+            'footer_brand_enabled' => [
+                'nullable',
+                'in:0,1',
+            ],
+
+            'footer_contact_enabled' => [
+                'nullable',
+                'in:0,1',
+            ],
+
+            'footer_menu_1_enabled' => [
+                'nullable',
+                'in:0,1',
+            ],
+
+            'footer_menu_2_enabled' => [
+                'nullable',
+                'in:0,1',
+            ],
+
+            'footer_menu_1_title' => [
+                'nullable',
+                'string',
+                'max:120',
+            ],
+
+            'footer_menu_2_title' => [
+                'nullable',
+                'string',
+                'max:120',
+            ],
+
+
             'primary_color' => [
                 'required',
                 'regex:/^#[0-9A-Fa-f]{6}$/',
@@ -588,6 +1148,54 @@ class TenantThemeController extends Controller
             /*
              * Footer links
              */
+            /*
+             * Theme image removal.
+             *
+             * Removing from Theme Configuration only removes the
+             * theme reference. The Media Library file is retained
+             * because another site feature may reuse it.
+             */
+            'remove_logo' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'remove_favicon' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'remove_hero_image' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'remove_about_image' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'remove_footer_logo' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'remove_footer_background' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'features.*.remove_image' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'testimonials.*.remove_photo' => [
+                'nullable',
+                'boolean',
+            ],
+
+
             'footer_links' => [
                 'nullable',
                 'array',
@@ -604,7 +1212,137 @@ class TenantThemeController extends Controller
                 'string',
                 'max:500',
             ],
+
+            'footer_socials' => [
+                'nullable',
+                'array',
+            ],
+
+            'footer_socials.*.icon' => [
+                'nullable',
+                'string',
+                'max:50',
+            ],
+
+            'footer_socials.*.label' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
+
+            'footer_socials.*.url' => [
+                'nullable',
+                'string',
+                'max:500',
+            ],
+
+            'footer_socials.*.enabled' => [
+                'nullable',
+                'in:0,1',
+            ],
         ]);
+
+        /*
+         * ESUBIZ_FOOTER_SOCIAL_AUTHORITATIVE_NORMALIZE
+         *
+         * Section 2 is authoritative.
+         * An empty UI means there are ZERO social links.
+         */
+        $normalizedFooterSocials = [];
+
+        foreach (
+            (array) $request->input(
+                'footer_socials',
+                []
+            )
+            as $footerSocial
+        ) {
+
+            if (
+                !is_array(
+                    $footerSocial
+                )
+            ) {
+                continue;
+            }
+
+            $platform =
+                strtolower(
+                    trim(
+                        (string) (
+                            $footerSocial[
+                                'platform'
+                            ] ?? ''
+                        )
+                    )
+                );
+
+            $url =
+                trim(
+                    (string) (
+                        $footerSocial[
+                            'url'
+                        ] ?? ''
+                    )
+                );
+
+            if (
+                $platform === ''
+                || $url === ''
+            ) {
+                continue;
+            }
+
+            if (
+                !in_array(
+                    $platform,
+                    [
+                        'facebook',
+                        'instagram',
+                        'x',
+                        'linkedin',
+                        'youtube',
+                        'tiktok',
+                        'whatsapp',
+                    ],
+                    true
+                )
+            ) {
+                continue;
+            }
+
+            /*
+             * Preserve compatibility with the earlier footer
+             * renderer/save structure while making platform
+             * the canonical identifier.
+             */
+            $normalizedFooterSocials[] = [
+                'platform' =>
+                    $platform,
+
+                'label' =>
+                    $platform,
+
+                'icon' =>
+                    $platform,
+
+                'url' =>
+                    $url,
+            ];
+        }
+
+        /*
+         * Important:
+         *
+         * Always merge footer_socials, even when empty.
+         * This allows deleting the final/stuck social link.
+         */
+        $request->merge([
+            'footer_socials' =>
+                $normalizedFooterSocials,
+        ]);
+
+
 
         $defaults =
             static::defaults();
@@ -619,10 +1357,60 @@ class TenantThemeController extends Controller
             'features_json',
             'testimonials_json',
             'footer_links_json',
+            'footer_socials_json',
         ];
 
         $this->tenantDatabaseService
             ->connect($website);
+
+        /*
+         * ESUBIZ_FOUR_SECTION_FOOTER_PERSISTENCE
+         *
+         * Theme-owned footer layout settings.
+         */
+        foreach (
+            [
+                'footer_brand_enabled',
+                'footer_logo_enabled',
+                'footer_text_enabled',
+                'footer_contact_enabled',
+                'footer_menu_1_enabled',
+                'footer_menu_2_enabled',
+                'footer_menu_1_title',
+                'footer_menu_2_title',
+            ]
+            as $footerSetting
+        ) {
+            if (
+                !$request->exists(
+                    $footerSetting
+                )
+            ) {
+                continue;
+            }
+
+            $this->tenantDatabaseService
+                ->connection()
+                ->table('site_settings')
+                ->updateOrInsert(
+                    [
+                        'key' =>
+                            'theme.corporate.'
+                            . $footerSetting,
+                    ],
+                    [
+                        'value' =>
+                            (string) (
+                                $request->input(
+                                    $footerSetting
+                                )
+                                ?? ''
+                            ),
+                    ]
+                );
+        }
+
+
 
         try {
             $db =
@@ -665,6 +1453,159 @@ class TenantThemeController extends Controller
             /*
              * Section-level images.
              */
+            /*
+             * Remove current theme image references when requested.
+             *
+             * Physical Media Library files are deliberately retained.
+             */
+            $imageRemovalSettings = [
+                'remove_logo' =>
+                    'logo_path',
+
+                'remove_favicon' =>
+                    'favicon_path',
+
+                'remove_hero_image' =>
+                    'hero_image_path',
+
+                'remove_about_image' =>
+                    'about_image_path',
+
+                'remove_footer_logo' =>
+                    'footer_logo_path',
+
+                'remove_footer_background' =>
+                    'footer_background_path',
+            ];
+
+            foreach (
+                $imageRemovalSettings
+                as $removeInput => $setting
+            ) {
+                if (
+                    !$request->boolean(
+                        $removeInput
+                    )
+                ) {
+                    continue;
+                }
+
+                $db->table('site_settings')
+                    ->updateOrInsert(
+                        [
+                            'key' =>
+                                'theme.corporate.'
+                                . $setting,
+                        ],
+                        [
+                            'value' => '',
+                        ]
+                    );
+            }
+
+
+            /*
+             * Remove current theme image references when requested.
+             *
+             * Physical Media Library files are deliberately retained.
+             */
+            $imageRemovalSettings = [
+                'remove_logo' =>
+                    'logo_path',
+
+                'remove_favicon' =>
+                    'favicon_path',
+
+                'remove_hero_image' =>
+                    'hero_image_path',
+
+                'remove_about_image' =>
+                    'about_image_path',
+
+                'remove_footer_logo' =>
+                    'footer_logo_path',
+
+                'remove_footer_background' =>
+                    'footer_background_path',
+            ];
+
+            foreach (
+                $imageRemovalSettings
+                as $removeInput => $setting
+            ) {
+                if (
+                    !$request->boolean(
+                        $removeInput
+                    )
+                ) {
+                    continue;
+                }
+
+                $db->table('site_settings')
+                    ->updateOrInsert(
+                        [
+                            'key' =>
+                                'theme.corporate.'
+                                . $setting,
+                        ],
+                        [
+                            'value' => '',
+                        ]
+                    );
+            }
+
+
+            /*
+             * Remove current theme image references when requested.
+             *
+             * Physical Media Library files are deliberately retained.
+             */
+            $imageRemovalSettings = [
+                'remove_logo' =>
+                    'logo_path',
+
+                'remove_favicon' =>
+                    'favicon_path',
+
+                'remove_hero_image' =>
+                    'hero_image_path',
+
+                'remove_about_image' =>
+                    'about_image_path',
+
+                'remove_footer_logo' =>
+                    'footer_logo_path',
+
+                'remove_footer_background' =>
+                    'footer_background_path',
+            ];
+
+            foreach (
+                $imageRemovalSettings
+                as $removeInput => $setting
+            ) {
+                if (
+                    !$request->boolean(
+                        $removeInput
+                    )
+                ) {
+                    continue;
+                }
+
+                $db->table('site_settings')
+                    ->updateOrInsert(
+                        [
+                            'key' =>
+                                'theme.corporate.'
+                                . $setting,
+                        ],
+                        [
+                            'value' => '',
+                        ]
+                    );
+            }
+
+
             $uploads = [
                 'logo' => [
                     'setting' => 'logo_path',
@@ -758,6 +1699,30 @@ class TenantThemeController extends Controller
                     );
 
                 if (
+                    !empty(
+                        $feature['remove_image']
+                    )
+                ) {
+                    $imagePath = '';
+                }
+
+                if (
+                    !empty(
+                        $feature['remove_image']
+                    )
+                ) {
+                    $imagePath = '';
+                }
+
+                if (
+                    !empty(
+                        $feature['remove_image']
+                    )
+                ) {
+                    $imagePath = '';
+                }
+
+                if (
                     $request->hasFile(
                         'features.'
                         . $index
@@ -847,6 +1812,14 @@ class TenantThemeController extends Controller
                         $testimonial['existing_photo']
                         ?? ''
                     );
+
+                if (
+                    !empty(
+                        $testimonial['remove_photo']
+                    )
+                ) {
+                    $photoPath = '';
+                }
 
                 if (
                     $request->hasFile(
@@ -955,8 +1928,131 @@ class TenantThemeController extends Controller
                     ]
                 );
 
+
+            /*
+             * Footer social links.
+             */
+            $footerSocials = [];
+
+            foreach (
+                $request->input(
+                    'footer_socials',
+                    []
+                )
+                as $social
+            ) {
+                $icon =
+                    trim(
+                        (string) (
+                            $social['icon']
+                            ?? ''
+                        )
+                    );
+
+                $label =
+                    trim(
+                        (string) (
+                            $social['label']
+                            ?? ''
+                        )
+                    );
+
+                $url =
+                    trim(
+                        (string) (
+                            $social['url']
+                            ?? ''
+                        )
+                    );
+
+                $enabled =
+                    (
+                        (string) (
+                            $social['enabled']
+                            ?? '1'
+                        )
+                    ) === '1';
+
+                if (
+                    $icon === ''
+                    && $label === ''
+                    && $url === ''
+                ) {
+                    continue;
+                }
+
+                $footerSocials[] = [
+                    'icon' => $icon,
+                    'label' => $label,
+                    'url' => $url,
+                    'enabled' => $enabled,
+                ];
+            }
+
+            $db->table('site_settings')
+                ->updateOrInsert(
+                    [
+                        'key' =>
+                            'theme.corporate.footer_socials_json',
+                    ],
+                    [
+                        'value' =>
+                            json_encode(
+                                $footerSocials,
+                                JSON_UNESCAPED_SLASHES
+                            ),
+                    ]
+                );
+
+
         } finally {
+            
+            /*
+             * ESUBIZ_FOOTER_SOCIAL_AUTHORITATIVE_WRITE
+             *
+             * This write intentionally happens last.
+             * Whatever currently exists in Section 2 becomes
+             * the complete stored social-link collection.
+             *
+             * [] therefore deletes all previous links.
+             */
             $this->tenantDatabaseService
+                ->connection()
+                ->table('site_settings')
+                ->updateOrInsert(
+                    [
+                        'key' =>
+                            'theme.corporate.footer_socials_json',
+                    ],
+                    [
+                        'value' =>
+                            json_encode(
+                                $normalizedFooterSocials,
+                                JSON_UNESCAPED_SLASHES
+                                | JSON_UNESCAPED_UNICODE
+                            ),
+                    ]
+                );
+
+            $this->tenantDatabaseService
+                ->connection()
+                ->table('site_settings')
+                ->updateOrInsert(
+                    [
+                        'key' =>
+                            'theme.corporate.footer_socials_enabled',
+                    ],
+                    [
+                        'value' =>
+                            (string) $request->input(
+                                'footer_socials_enabled',
+                                '1'
+                            ),
+                    ]
+                );
+
+
+$this->tenantDatabaseService
                 ->disconnect();
         }
 
@@ -966,65 +2062,113 @@ class TenantThemeController extends Controller
         );
     }
 
+
+    /**
+     * Serve a theme-owned media asset for the current tenant.
+     *
+     * Every configurable Business theme image uses this same
+     * tenant-isolated storage contract:
+     *
+     * storage/app/public/tenants/{website_id}/theme/{path}
+     *
+     * Database values remain relative to the theme root, e.g.
+     * logo/abc.png, hero/abc.jpg, features/abc.webp.
+     */
+
+    /**
+     * Serve configurable theme media for the current tenant.
+     *
+     * Theme images are stored at:
+     *
+     * storage/app/public/tenants/{website_id}/theme/{path}
+     *
+     * Examples:
+     * logo/file.png
+     * favicon/file.png
+     * hero/file.jpg
+     * about/file.jpg
+     * footer/file.jpg
+     * features/file.jpg
+     * testimonials/file.jpg
+     */
     public function asset(
         string $path
     ) {
         $website =
             $this->website();
 
+
+        $path =
+            ltrim(
+                rawurldecode(
+                    $path
+                ),
+                '/'
+            );
+
+
+        /*
+         * Allow nested theme folders but reject traversal,
+         * Windows separators and null bytes.
+         */
         abort_if(
-            str_contains($path, '..'),
+            $path === ''
+            || str_contains(
+                $path,
+                '..'
+            )
+            || str_contains(
+                $path,
+                chr(0)
+            )
+            || str_contains(
+                $path,
+                chr(92)
+            ),
             404
         );
 
-        $base =
+
+        $file =
             storage_path(
                 'app/public/tenants/'
                 . $website->id
-                . '/theme'
+                . '/theme/'
+                . $path
             );
 
-        $candidate =
-            $base
-            . DIRECTORY_SEPARATOR
-            . ltrim(
-                $path,
-                '/\\'
-            );
-
-        $realBase =
-            realpath($base);
-
-        $realFile =
-            realpath($candidate);
 
         abort_unless(
-            $realBase
-            && $realFile
-            && str_starts_with(
-                $realFile,
-                $realBase
-                . DIRECTORY_SEPARATOR
-            )
-            && is_file($realFile),
-            404
+            is_file(
+                $file
+            ),
+            404,
+            'Theme asset not found.'
         );
 
-        $mime =
-            mime_content_type($realFile)
-            ?: 'application/octet-stream';
 
+        /*
+         * Laravel determines the correct MIME type from
+         * the actual stored file.
+         */
         return response()->file(
-            $realFile,
+            $file,
             [
-                'Content-Type' => $mime,
-                'X-Content-Type-Options' =>
-                    'nosniff',
                 'Cache-Control' =>
                     'public, max-age=86400',
+
+                'X-Content-Type-Options' =>
+                    'nosniff',
             ]
         );
     }
+
+
+
+    
+
+
+
 
     public function businessPreview()
     {

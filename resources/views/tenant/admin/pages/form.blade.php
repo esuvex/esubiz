@@ -16,6 +16,9 @@
 @section('title', $page ? 'Page Builder' : 'Create Page')
 
 @section('content')
+
+
+
 @php
     $existingBuilder = [];
 
@@ -2593,12 +2596,28 @@ section.columns.forEach(
                             class="mt-3 block w-full rounded-xl border border-slate-200 bg-white p-3 text-xs"
                         >
 
+                        <div
+                            class="mt-2 text-[11px] font-bold leading-5 text-slate-400"
+                        >
+                            Recommended: 1600 × 1000 px · JPG / JPEG / PNG · Max 10 MB.
+                            Removing a photo from this widget does not delete it from Website Media.
+                        </div>
+
+                        <button
+                            type="button"
+                            id="builderImageRemove"
+                            class="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-xs font-black text-red-600"
+                        >
+                            Delete Photo
+                        </button>
+
+
 
                         <div
                             id="builderImageUploadStatus"
                             class="mt-2 text-xs text-slate-400"
                         >
-                            Upload an image from this device. It will be stored in this website's media storage.
+                            No photo selected from this device. It will be stored in this website's media storage.
                         </div>
 
                     </div>
@@ -3920,6 +3939,136 @@ section.columns.forEach(
                     );
                 }
             );
+    
+
+        /*
+         * Basic Page Builder image removal contract.
+         *
+         * Removing an image clears it from this widget only.
+         * The physical Media Library file remains available for
+         * reuse elsewhere on the website.
+         */
+        const builderImageRemove =
+            document.getElementById(
+                'builderImageRemove'
+            );
+
+        if (
+            builderImageRemove
+            && widget.type === 'image'
+        ) {
+
+            builderImageRemove
+                .setAttribute(
+                    'data-page-builder-image-delete-contract',
+                    '1'
+                );
+
+
+            /*
+             * Only show Delete Photo when this widget currently
+             * contains an image.
+             */
+            if (
+                widget.data
+                && widget.data.src
+            ) {
+                builderImageRemove
+                    .classList
+                    .remove(
+                        'hidden'
+                    );
+            } else {
+                builderImageRemove
+                    .classList
+                    .add(
+                        'hidden'
+                    );
+            }
+
+
+            builderImageRemove
+                .addEventListener(
+                    'click',
+                    function () {
+
+                        if (
+                            !widget.data
+                        ) {
+                            widget.data = {};
+                        }
+
+
+                        widget.data.src =
+                            '';
+
+
+                        /*
+                         * Keep alt/caption because the administrator
+                         * may upload/select another image afterwards.
+                         */
+                        sync();
+
+                        renderCanvas();
+
+
+                        const preview =
+                            document.getElementById(
+                                'builderImagePreview'
+                            )
+                            || document.querySelector(
+                                '[data-builder-image-preview]'
+                            );
+
+
+                        if (preview) {
+
+                            preview.innerHTML = `
+                                <div
+                                    class="flex min-h-[150px] items-center justify-center rounded-xl border border-dashed border-slate-300 p-5 text-center"
+                                    style="
+                                        background:
+                                            var(
+                                                --primary,
+                                                #e2e8f0
+                                            );
+                                    "
+                                >
+                                    <div
+                                        class="rounded-lg bg-white/90 px-4 py-2 text-xs font-black text-slate-600"
+                                    >
+                                        No photo selected
+                                    </div>
+                                </div>
+                            `;
+                        }
+
+
+                        const status =
+                            document.getElementById(
+                                'builderImageUploadStatus'
+                            );
+
+                        if (status) {
+
+                            status.textContent =
+                                'Photo removed from this widget.';
+
+                            status.className =
+                                'mt-2 text-xs font-bold text-red-600';
+                        }
+
+
+                        builderImageRemove
+                            .classList
+                            .add(
+                                'hidden'
+                            );
+                    }
+                );
+        }
+
+
     }
 
 
@@ -4679,5 +4828,31 @@ section.columns.forEach(
     document.getElementById('pageBuilderForm')
         .addEventListener('submit', sync);
 })();
+
+
+    /*
+     * Image widget Delete Photo fallback.
+     *
+     * Works with the current selected image widget.
+     * The shared Website Media file remains untouched.
+     */
+    document
+        .getElementById(
+            'builderImageRemove'
+        )
+        ?.setAttribute(
+            'data-builder-image-remove-fallback',
+            '1'
+        );
+
 </script>
+
+
+
+
+
+
+
+
+
 @endsection

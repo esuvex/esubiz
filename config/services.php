@@ -40,4 +40,33 @@ return [
         'demo_api_key' => env('COINGECKO_DEMO_API_KEY'),
     ],
 
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Esubiz Central Site AI
+    |--------------------------------------------------------------------------
+    |
+    | All tenant websites and off-server Core installations route
+    | website AI requests through the central Esubiz AI platform.
+    |
+    */
+    'esubiz_site_ai' => [
+        'url' =>
+            env(
+                'ESUBIZ_SITE_AI_URL'
+            ),
+
+        'token' =>
+            env(
+                'ESUBIZ_SITE_AI_TOKEN'
+            ),
+
+        'timeout' =>
+            env(
+                'ESUBIZ_SITE_AI_TIMEOUT',
+                120
+            ),
+    ],
+
 ];

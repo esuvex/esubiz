@@ -302,13 +302,105 @@ class TenantPagesController extends Controller
 
         abort_unless($page, 404);
 
+        /*
+         * Theme-owned homepage editor.
+         *
+         * Business Home is still a normal CMS page record,
+         * but its visual homepage content is stored through
+         * the Business theme content contract.
+         *
+         * Header/footer/global Theme Configuration stays out
+         * of this editor.
+         */
+        $pageSettings =
+            !empty($page->settings)
+                ? (
+                    json_decode(
+                        $page->settings,
+                        true
+                    ) ?: []
+                )
+                : [];
+
+        $isBusinessHome =
+            ($pageSettings['theme_homepage'] ?? false)
+            && (
+                ($pageSettings['theme_slug'] ?? '')
+                === 'business'
+            );
+
+        $businessTheme = [];
+        $businessFeatures = [];
+        $businessTestimonials = [];
+
+        if ($isBusinessHome) {
+
+            $businessTheme =
+                \App\Http\Controllers\TenantThemeController::defaults();
+
+            $storedTheme =
+                $db->table('site_settings')
+                    ->where(
+                        'key',
+                        'like',
+                        'theme.corporate.%'
+                    )
+                    ->pluck(
+                        'value',
+                        'key'
+                    )
+                    ->all();
+
+            foreach (
+                $storedTheme
+                as $key => $value
+            ) {
+                $shortKey =
+                    str_replace(
+                        'theme.corporate.',
+                        '',
+                        $key
+                    );
+
+                $businessTheme[
+                    $shortKey
+                ] = $value;
+            }
+
+            $businessFeatures =
+                json_decode(
+                    (string) (
+                        $businessTheme[
+                            'features_json'
+                        ]
+                        ?? '[]'
+                    ),
+                    true
+                ) ?: [];
+
+            $businessTestimonials =
+                json_decode(
+                    (string) (
+                        $businessTheme[
+                            'testimonials_json'
+                        ]
+                        ?? '[]'
+                    ),
+                    true
+                ) ?: [];
+        }
+
         return view(
             'tenant.admin.pages.form',
             compact(
                 'website',
                 'settings',
                 'page',
-                'forms'
+                'forms',
+                'isBusinessHome',
+                'businessTheme',
+                'businessFeatures',
+                'businessTestimonials'
             )
         );
     }

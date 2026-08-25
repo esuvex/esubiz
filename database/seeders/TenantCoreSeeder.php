@@ -175,6 +175,138 @@ class TenantCoreSeeder extends Seeder
 
         /*
         |--------------------------------------------------------------------------
+        | Core Standard CMS Pages
+        |--------------------------------------------------------------------------
+        |
+        | These pages belong to Esubiz Core, NOT to individual themes.
+        |
+        | Every website receives one canonical copy of:
+        |
+        | about
+        | contact
+        | faqs
+        | terms
+        | privacy
+        |
+        | Themes may render these pages differently, but activating or
+        | changing a theme must never create duplicate copies.
+        |
+        | Existing tenant content is preserved. We create only pages
+        | whose canonical slug does not already exist.
+        |
+        */
+
+        $corePages = [
+            [
+                'title' => 'About',
+                'slug' => 'about',
+            ],
+            [
+                'title' => 'Contact',
+                'slug' => 'contact',
+            ],
+            [
+                'title' => 'FAQs',
+                'slug' => 'faqs',
+            ],
+            [
+                'title' => 'Terms',
+                'slug' => 'terms',
+            ],
+            [
+                'title' => 'Privacy',
+                'slug' => 'privacy',
+            ],
+        ];
+
+        foreach ($corePages as $corePage) {
+
+            $existingCorePage = DB::table('pages')
+                ->where(
+                    'slug',
+                    $corePage['slug']
+                )
+                ->first();
+
+            if ($existingCorePage) {
+                continue;
+            }
+
+            $corePageId = DB::table('pages')
+                ->insertGetId([
+                    'title' =>
+                        $corePage['title'],
+
+                    'slug' =>
+                        $corePage['slug'],
+
+                    'status' =>
+                        'published',
+
+                    'content' =>
+                        '',
+
+                    'is_homepage' =>
+                        false,
+
+                    'settings' =>
+                        json_encode([
+                            'core_page' => true,
+                            'core_page_type' =>
+                                $corePage['slug'],
+                            'show_page_title' =>
+                                true,
+                        ]),
+
+                    'seo' =>
+                        json_encode([]),
+
+                    'published_at' =>
+                        $now,
+
+                    'created_at' =>
+                        $now,
+
+                    'updated_at' =>
+                        $now,
+                ]);
+
+            /*
+             * Every Core page is immediately compatible with
+             * the standard Page Builder/editor.
+             */
+            DB::table('page_builder_documents')
+                ->updateOrInsert(
+                    [
+                        'page_id' =>
+                            $corePageId,
+                    ],
+                    [
+                        'content' =>
+                            json_encode([
+                                'type' =>
+                                    'core-page',
+                                'version' =>
+                                    '1.0.0',
+                                'sections' =>
+                                    [],
+                            ]),
+
+                        'builder_version' =>
+                            '1.0.0',
+
+                        'updated_at' =>
+                            $now,
+
+                        'created_at' =>
+                            $now,
+                    ]
+                );
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
         | Default Main Menu
         |--------------------------------------------------------------------------
         */
