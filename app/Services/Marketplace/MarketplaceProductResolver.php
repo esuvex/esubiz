@@ -34,11 +34,6 @@ class MarketplaceProductResolver
         'giftcard' => 'catalog_products',
         'gift_card' => 'catalog_products',
 
-        // Future marketplace products
-        'theme' => 'marketplace_themes',
-        'module' => 'marketplace_modules',
-        'website_type' => 'website_types',
-
         // Shared commercial products
         'credit' => 'credit_packages',
         'credit_package' => 'credit_packages',
