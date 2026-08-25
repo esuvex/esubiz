@@ -217,8 +217,17 @@ class TenantCoreInitializer
             'slug' => 'home',
             'status' => 'published',
             'content' => '',
-            'is_homepage' => true,
-            'settings' => json_encode([]),
+            /*
+             * The active theme owns the public landing page by default.
+             *
+             * This Core record exists only as a CMS placeholder and
+             * must NOT override the theme homepage until an admin
+             * explicitly selects a CMS page as homepage.
+             */
+            'is_homepage' => false,
+            'settings' => json_encode([
+                'core_default_home' => true,
+            ]),
             'seo' => json_encode([]),
             'published_at' => now(),
             'created_at' => now(),

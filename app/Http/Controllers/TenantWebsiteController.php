@@ -6,7 +6,6 @@ use App\Models\Website;
 use App\Models\WebsiteTenant;
 use App\Services\Website\WebsiteTenantDatabaseService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Spatie\Multitenancy\Models\Tenant;
 
@@ -18,70 +17,115 @@ class TenantWebsiteController extends Controller
     }
 
     /**
-     * Display the public homepage from the tenant Core CMS.
+     * Public tenant homepage.
+     *
+     * Theme remains the default landing page.
+     *
+     * A CMS page only overrides the theme homepage when it contains
+     * meaningful administrator-created content/builder data.
+     *
+     * This deliberately ignores the empty Core "home" placeholder
+     * created when a tenant is initialized.
      */
     public function home(Request $request): View
     {
-        /** @var WebsiteTenant|null $tenant */
-        $tenant = Tenant::current();
+        $website = $this->currentWebsite();
 
-        abort_unless(
-            $tenant,
-            404,
-            'Website tenant not found.'
+        $theme = $this->corporateThemeSettings(
+            $website
         );
 
-        $website = Website::query()
-            ->findOrFail($tenant->website_id);
+        $payload = $this->homepagePayload(
+            $website
+        );
+
+        if (
+            $payload
+            && $this->hasMeaningfulPageContent(
+                $payload['page'],
+                $payload['builderContent']
+            )
+        ) {
+            return view(
+                'tenant.themes.corporate-default.page',
+                [
+                    'website' => $website,
+                    'theme' => $theme,
+                    'page' => $payload['page'],
+                    'builderContent' =>
+                        $payload['builderContent'],
+                ]
+            );
+        }
 
         /*
-        |--------------------------------------------------------------------------
-        | Corporate Default Theme
-        |--------------------------------------------------------------------------
-        |
-        | Every tenant receives this built-in theme when no other theme
-        | renderer has been selected.
-        |
-        | Old saved homepage HTML is deliberately NOT rendered here because
-        | some legacy builder content is currently being displayed as text.
-        |
-        */
-
-        $theme = $this->corporateThemeSettings($website);
-
+         * No explicit/custom CMS homepage.
+         * Preserve the active theme landing page.
+         */
         return view(
             'tenant.themes.corporate-default.home',
-            compact('website', 'theme')
+            compact(
+                'website',
+                'theme'
+            )
         );
     }
 
     /**
-     * Display a published public CMS page by slug.
+     * Display a published tenant CMS page.
+     *
+     * All custom CMS pages inherit the theme shell.
+     *
+     * Built-in theme pages remain the default for:
+     * About / Contact / FAQs / Terms / Privacy.
+     *
+     * Once a matching CMS page contains saved content, that CMS
+     * version takes precedence while keeping the same theme shell.
      */
     public function page(
         Request $request,
         string $subdomain,
         string $slug
     ): View {
-        /** @var WebsiteTenant|null $tenant */
-        $tenant = Tenant::current();
+        $website = $this->currentWebsite();
 
-        abort_unless(
-            $tenant,
-            404,
-            'Website tenant not found.'
+        $slug = strtolower(
+            trim($slug)
         );
 
-        $website = Website::query()
-            ->findOrFail($tenant->website_id);
+        $theme = $this->corporateThemeSettings(
+            $website
+        );
+
+        $payload = $this->pagePayload(
+            $website,
+            $slug
+        );
+
+        if (
+            $payload
+            && $this->hasMeaningfulPageContent(
+                $payload['page'],
+                $payload['builderContent']
+            )
+        ) {
+            return view(
+                'tenant.themes.corporate-default.page',
+                [
+                    'website' => $website,
+                    'theme' => $theme,
+                    'page' => $payload['page'],
+                    'builderContent' =>
+                        $payload['builderContent'],
+                ]
+            );
+        }
 
         /*
-        |--------------------------------------------------------------------------
-        | Built-in Corporate Default Pages
-        |--------------------------------------------------------------------------
-        */
-
-        $corporatePages = [
+         * Theme-supplied standard pages remain available until
+         * the website administrator customizes their CMS copy.
+         */
+        $themePages = [
             'about',
             'contact',
             'faqs',
@@ -91,212 +135,316 @@ class TenantWebsiteController extends Controller
 
         if (
             in_array(
-                strtolower($slug),
-                $corporatePages,
+                $slug,
+                $themePages,
                 true
             )
         ) {
-            $theme = $this->corporateThemeSettings($website);
-
             return view(
                 'tenant.themes.corporate-default.'
-                . strtolower($slug),
-                compact('website', 'theme')
+                . $slug,
+                compact(
+                    'website',
+                    'theme'
+                )
             );
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | Other Published CMS Pages
-        |--------------------------------------------------------------------------
-        |
-        | Normal user-created pages continue through the existing Core CMS
-        | renderer and page builder.
-        |
-        */
-
-        $websiteUrl =
-            $request->getScheme()
-            . '://'
-            . $request->getHost();
-
-        $this->tenantDatabaseService->connect(
-            $website
-        );
-
-        try {
-
-            $db =
-                $this->tenantDatabaseService
-                    ->connection();
-
-            $settings =
-                $db->table('site_settings')
-                    ->pluck('value', 'key')
-                    ->all();
-
-            $page =
-                $db->table('pages')
-                    ->where('slug', $slug)
-                    ->where('status', 'published')
-                    ->first();
-
-            abort_unless(
-                $page,
-                404,
-                'Published page not found.'
-            );
-
-            $builderDocument =
-                $db->table(
-                    'page_builder_documents'
-                )
-                    ->where(
-                        'page_id',
-                        $page->id
-                    )
-                    ->first();
-
-            $builderContent = [];
-
-            if (
-                $builderDocument
-                && $builderDocument->content
-            ) {
-
-                $decoded = json_decode(
-                    $builderDocument->content,
-                    true
-                );
-
-                if (is_array($decoded)) {
-                    $builderContent = $decoded;
-                }
-            }
-
-            /*
-             * Backward-compatible Core Basic Builder.
-             */
-            if (!empty($page->settings)) {
-
-                $pageSettings = json_decode(
-                    $page->settings,
-                    true
-                );
-
-                if (
-                    is_array($pageSettings)
-                    && isset(
-                        $pageSettings['basic_builder']
-                    )
-                    && is_array(
-                        $pageSettings['basic_builder']
-                    )
-                ) {
-                    $builderContent =
-                        $pageSettings[
-                            'basic_builder'
-                        ];
-                }
-            }
-
-            $menu =
-                $db->table('menus')
-                    ->where(
-                        'location',
-                        'header'
-                    )
-                    ->where(
-                        'is_active',
-                        true
-                    )
-                    ->orderBy('id')
-                    ->first();
-
-            $menuItems = collect();
-
-            if ($menu) {
-
-                $menuItems =
-                    $db->table('menu_items')
-                        ->where(
-                            'menu_id',
-                            $menu->id
-                        )
-                        ->where(
-                            'is_active',
-                            true
-                        )
-                        ->orderBy(
-                            'sort_order'
-                        )
-                        ->orderBy('id')
-                        ->get();
-            }
-
+         * A database page may exist but contain no builder blocks.
+         * In that case we still render its normal content rather than
+         * falling back to the old Esubiz placeholder template.
+         */
+        if ($payload) {
             return view(
-                'tenant.website',
+                'tenant.themes.corporate-default.page',
                 [
-                    'website' =>
-                        $website,
-
-                    'websiteUrl' =>
-                        $websiteUrl,
-
-                    'settings' =>
-                        $settings,
-
-                    'page' =>
-                        $page,
-
-                    'builderDocument' =>
-                        $builderDocument,
-
+                    'website' => $website,
+                    'theme' => $theme,
+                    'page' => $payload['page'],
                     'builderContent' =>
-                        $builderContent,
-
-                    'menu' =>
-                        $menu,
-
-                    'menuItems' =>
-                        $menuItems,
+                        $payload['builderContent'],
                 ]
             );
+        }
+
+        abort(
+            404,
+            'Published page not found.'
+        );
+    }
+
+    protected function currentWebsite(): Website
+    {
+        /** @var WebsiteTenant|null $tenant */
+        $tenant = Tenant::current();
+
+        abort_unless(
+            $tenant,
+            404,
+            'Website tenant not found.'
+        );
+
+        return Website::query()
+            ->findOrFail(
+                $tenant->website_id
+            );
+    }
+
+    /**
+     * Retrieve the published CMS homepage.
+     */
+    protected function homepagePayload(
+        Website $website
+    ): ?array {
+        $this->tenantDatabaseService
+            ->connect($website);
+
+        try {
+            $db = $this
+                ->tenantDatabaseService
+                ->connection();
+
+            $page = $db
+                ->table('pages')
+                ->where(
+                    'is_homepage',
+                    true
+                )
+                ->where(
+                    'status',
+                    'published'
+                )
+                ->orderByDesc(
+                    'updated_at'
+                )
+                ->first();
+
+            if (!$page) {
+                return null;
+            }
+
+            return [
+                'page' => $page,
+                'builderContent' =>
+                    $this->builderContent(
+                        $db,
+                        $page
+                    ),
+            ];
 
         } finally {
-
-            $this
-                ->tenantDatabaseService
+            $this->tenantDatabaseService
                 ->disconnect();
         }
     }
 
-    protected function corporateThemeSettings(Website $website): array
-    {
-        $defaults =
-            \App\Http\Controllers\TenantThemeController::defaults();
-
-        $this->tenantDatabaseService->connect($website);
+    /**
+     * Retrieve a published CMS page by slug.
+     */
+    protected function pagePayload(
+        Website $website,
+        string $slug
+    ): ?array {
+        $this->tenantDatabaseService
+            ->connect($website);
 
         try {
-            $stored = $this->tenantDatabaseService
+            $db = $this
+                ->tenantDatabaseService
+                ->connection();
+
+            $page = $db
+                ->table('pages')
+                ->where(
+                    'slug',
+                    $slug
+                )
+                ->where(
+                    'status',
+                    'published'
+                )
+                ->first();
+
+            if (!$page) {
+                return null;
+            }
+
+            return [
+                'page' => $page,
+                'builderContent' =>
+                    $this->builderContent(
+                        $db,
+                        $page
+                    ),
+            ];
+
+        } finally {
+            $this->tenantDatabaseService
+                ->disconnect();
+        }
+    }
+
+    /**
+     * Resolve Basic Page Builder data.
+     *
+     * pages.settings.basic_builder is authoritative for the current
+     * Basic Page Builder.
+     *
+     * page_builder_documents remains supported for compatibility.
+     */
+    protected function builderContent(
+        $db,
+        object $page
+    ): array {
+        /*
+         * Current Basic Page Builder.
+         */
+        if (!empty($page->settings)) {
+            $settings = json_decode(
+                $page->settings,
+                true
+            );
+
+            if (
+                is_array($settings)
+                && isset(
+                    $settings['basic_builder']
+                )
+                && is_array(
+                    $settings['basic_builder']
+                )
+            ) {
+                return $settings[
+                    'basic_builder'
+                ];
+            }
+        }
+
+        /*
+         * Legacy / future builder document compatibility.
+         */
+        $document = $db
+            ->table(
+                'page_builder_documents'
+            )
+            ->where(
+                'page_id',
+                $page->id
+            )
+            ->first();
+
+        if (
+            !$document
+            || empty($document->content)
+        ) {
+            return [];
+        }
+
+        $decoded = json_decode(
+            $document->content,
+            true
+        );
+
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        /*
+         * Core initializer stores:
+         *
+         * {
+         *   type: core-default,
+         *   version: ...,
+         *   sections: []
+         * }
+         *
+         * Do not treat that empty initializer document as a
+         * customized homepage.
+         */
+        if (
+            isset($decoded['sections'])
+            && is_array(
+                $decoded['sections']
+            )
+        ) {
+            return $decoded['sections'];
+        }
+
+        /*
+         * Current builder is a direct array of sections.
+         */
+        if (array_is_list($decoded)) {
+            return $decoded;
+        }
+
+        return [];
+    }
+
+    /**
+     * Determine whether the administrator has actually customized
+     * this page.
+     */
+    protected function hasMeaningfulPageContent(
+        object $page,
+        array $builderContent
+    ): bool {
+        if (!empty($builderContent)) {
+            return true;
+        }
+
+        return trim(
+            (string) (
+                $page->content
+                ?? ''
+            )
+        ) !== '';
+    }
+
+    /**
+     * Business / Corporate Default theme settings.
+     */
+    protected function corporateThemeSettings(
+        Website $website
+    ): array {
+        $defaults =
+            TenantThemeController::defaults();
+
+        $this->tenantDatabaseService
+            ->connect($website);
+
+        try {
+            $stored = $this
+                ->tenantDatabaseService
                 ->connection()
                 ->table('site_settings')
-                ->where('key', 'like', 'theme.corporate.%')
-                ->pluck('value', 'key')
+                ->where(
+                    'key',
+                    'like',
+                    'theme.corporate.%'
+                )
+                ->pluck(
+                    'value',
+                    'key'
+                )
                 ->all();
 
-            foreach ($defaults as $key => $value) {
+            foreach (
+                $defaults as $key => $value
+            ) {
                 $defaults[$key] =
-                    $stored['theme.corporate.' . $key]
+                    $stored[
+                        'theme.corporate.'
+                        . $key
+                    ]
                     ?? $value;
             }
 
             return $defaults;
 
         } finally {
-            $this->tenantDatabaseService->disconnect();
+            $this->tenantDatabaseService
+                ->disconnect();
         }
     }
-
 }

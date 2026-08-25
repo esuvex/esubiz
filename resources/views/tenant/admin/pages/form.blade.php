@@ -778,7 +778,7 @@
     const widgetDefinitions = {
         hero: { label:'Hero', icon:'▣' },
         heading: { label:'Heading', icon:'H' },
-        text: { label:'Rich Text', icon:'¶' },
+        text: { label:'Text', icon:'¶' },
         image: { label:'Image', icon:'▧' },
         gallery: { label:'Gallery', icon:'▦' },
         button: { label:'Button', icon:'●' },
@@ -880,6 +880,7 @@
 
         return {
             id: uid(),
+            collapsed: false,
             type: 'section',
             ratios: ratios,
 
@@ -1037,6 +1038,256 @@
 
         return null;
     }
+
+    /*
+     * Create a clean, neutral Core widget document.
+     *
+     * IMPORTANT:
+     * These are CONTENT defaults only.
+     * Themes remain responsible for presentation.
+     */
+    function defaults(type) {
+
+        const widget = {
+            id: uid(),
+
+            type: type,
+
+            settings: {
+                background: '#ffffff',
+                textColor: '#0f172a',
+                align: 'left',
+
+                paddingTop: 24,
+                paddingBottom: 24,
+
+                hideDesktop: false,
+                hideTablet: false,
+                hideMobile: false
+            },
+
+            data: {}
+        };
+
+
+        const widgetData = {
+
+            hero: {
+                eyebrow: 'Welcome',
+                heading: 'Build something remarkable',
+                text:
+                    'Tell visitors what makes your business different.',
+
+                buttonText: 'Get Started',
+                buttonUrl: '/contact',
+
+                image: ''
+            },
+
+
+            heading: {
+                text: 'Your heading',
+                level: 'h2'
+            },
+
+
+            text: {
+                text:
+                    'Add your content here.'
+            },
+
+
+            image: {
+                src: '',
+                alt: '',
+                caption: ''
+            },
+
+
+            gallery: {
+                images: []
+            },
+
+
+            button: {
+                text: 'Learn More',
+                url: '#'
+            },
+
+
+            cta: {
+                heading:
+                    'Ready to get started?',
+
+                text:
+                    'Let’s build something great together.',
+
+                buttonText:
+                    'Contact Us',
+
+                buttonUrl:
+                    '/contact'
+            },
+
+
+            features: {
+                heading:
+                    'Why choose us',
+
+                items: [
+                    {
+                        title: 'Quality',
+                        text:
+                            'Thoughtful service and attention to detail.',
+                        image: ''
+                    },
+
+                    {
+                        title: 'Experience',
+                        text:
+                            'Built around the needs of our customers.',
+                        image: ''
+                    },
+
+                    {
+                        title: 'Support',
+                        text:
+                            'Here when you need us.',
+                        image: ''
+                    }
+                ]
+            },
+
+
+            cards: {
+                heading: 'Explore',
+
+                items: [
+                    {
+                        title: 'Card One',
+                        text:
+                            'Add information here.',
+                        image: '',
+                        buttonText: '',
+                        buttonUrl: ''
+                    }
+                ]
+            },
+
+
+            testimonials: {
+                heading:
+                    'What our customers say',
+
+                items: [
+                    {
+                        name: 'Customer Name',
+                        role: 'Customer',
+                        text:
+                            'Add the customer testimonial here.',
+                        image: ''
+                    }
+                ]
+            },
+
+
+            faq: {
+                heading:
+                    'Frequently Asked Questions',
+
+                items: [
+                    {
+                        question:
+                            'Add a question',
+                        answer:
+                            'Add the answer here.'
+                    }
+                ]
+            },
+
+
+            stats: {
+                items: [
+                    {
+                        value: '100+',
+                        label: 'Customers'
+                    },
+
+                    {
+                        value: '5+',
+                        label: 'Years Experience'
+                    },
+
+                    {
+                        value: '98%',
+                        label: 'Satisfaction'
+                    }
+                ]
+            },
+
+
+            columns: {
+                columns: 2
+            },
+
+
+            divider: {
+                thickness: 1
+            },
+
+
+            spacer: {
+                height: 48
+            },
+
+
+            video: {
+                url: ''
+            },
+
+
+            map: {
+                embed: ''
+            },
+
+
+            form: {
+                formId: ''
+            },
+
+
+            social: {
+                links: []
+            },
+
+
+            panorama: {
+                panoramaId: '',
+                heading: '',
+                height: 480,
+                autoRotate: false
+            },
+
+
+            html: {
+                html: ''
+            }
+
+        };
+
+
+        widget.data =
+            JSON.parse(
+                JSON.stringify(
+                    widgetData[type]
+                    || {}
+                )
+            );
+
+
+        return widget;
+    }
+
 
     function escapeHtml(value) {
         return String(value ?? '')
@@ -1372,6 +1623,15 @@
 
                             <button
                                 type="button"
+                                class="eb-toggle-section rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-black text-slate-600 hover:bg-slate-50"
+                                aria-expanded="${section.collapsed ? 'false' : 'true'}"
+                                title="${section.collapsed ? 'Expand section' : 'Collapse section'}"
+                            >
+                                ${section.collapsed ? 'Open' : 'Collapse'}
+                            </button>
+
+                            <button
+                                type="button"
                                 data-section-action="delete"
                                 class="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-600"
                             >
@@ -1405,7 +1665,28 @@
                 columnsEl.style.minWidth = '0';
 
 
-                section.columns.forEach(
+                                    const sectionToggle =
+                        sectionEl.querySelector(
+                            '.eb-toggle-section'
+                        );
+
+                    if (sectionToggle) {
+                        sectionToggle.addEventListener(
+                            'click',
+                            event => {
+                                event.preventDefault();
+                                event.stopPropagation();
+
+                                section.collapsed =
+                                    !section.collapsed;
+
+                                sync();
+                                renderCanvas();
+                            }
+                        );
+                    }
+
+section.columns.forEach(
                     (
                         column,
                         columnIndex
@@ -1418,6 +1699,11 @@
 
                         columnEl.className =
                             'eb-column min-w-0 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3';
+
+                        if (section.collapsed) {
+                            columnEl.style.display =
+                                'none';
+                        }
 
                         columnEl.dataset.sectionId =
                             section.id;
@@ -2232,13 +2518,65 @@
                 break;
 
 
+            case 'faq':
+
+                content +=
+                    textField(
+                        'Section Heading',
+                        'heading',
+                        widget.data.heading
+                            || 'Frequently Asked Questions'
+                    );
+
+                content += `
+                    <div>
+
+                        <div
+                            class="flex items-center justify-between gap-3"
+                        >
+                            <div>
+                                <label
+                                    class="text-xs font-black uppercase tracking-wide text-slate-500"
+                                >
+                                    FAQ Accordion
+                                </label>
+
+                                <p
+                                    class="mt-1 text-xs leading-5 text-slate-400"
+                                >
+                                    Add, edit, remove and reorder questions.
+                                </p>
+                            </div>
+
+                            <button
+                                type="button"
+                                id="addFaqItem"
+                                class="rounded-xl bg-blue-600 px-3 py-2 text-xs font-black text-white"
+                            >
+                                + Add FAQ
+                            </button>
+
+                        </div>
+
+
+                        <div
+                            id="faqAccordionEditor"
+                            class="mt-4 space-y-3"
+                        ></div>
+
+                    </div>
+                `;
+
+                break;
+
+
             case 'features':
             case 'cards':
             case 'testimonials':
-            case 'faq':
             case 'stats':
             case 'gallery':
             case 'social':
+
                 if (
                     Object.prototype
                         .hasOwnProperty
@@ -2266,7 +2604,7 @@
                         <p
                             class="mt-1 text-xs leading-5 text-slate-400"
                         >
-                            Temporary structured editor. A visual repeatable item editor will replace this next.
+                            This structured editor will also be upgraded to visual repeatable controls.
                         </p>
 
                         <textarea
@@ -2282,6 +2620,7 @@
                         )}</textarea>
                     </div>
                 `;
+
                 break;
 
 
@@ -2790,6 +3129,479 @@
                     }
                 }
             );
+        }
+
+
+        /*
+         * Visual FAQ accordion editor.
+         */
+        if (widget.type === 'faq') {
+
+            if (
+                !Array.isArray(
+                    widget.data.items
+                )
+            ) {
+                widget.data.items = [];
+            }
+
+
+            const faqEditor =
+                document.getElementById(
+                    'faqAccordionEditor'
+                );
+
+
+            function renderFaqEditor() {
+
+                if (!faqEditor) {
+                    return;
+                }
+
+
+                faqEditor.innerHTML = '';
+
+
+                if (
+                    !widget.data.items.length
+                ) {
+                    faqEditor.innerHTML = `
+                        <div
+                            class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-xs text-slate-400"
+                        >
+                            No FAQs yet. Click Add FAQ.
+                        </div>
+                    `;
+
+                    return;
+                }
+
+
+                widget.data.items.forEach(
+                    (
+                        item,
+                        index
+                    ) => {
+
+                        const wrapper =
+                            document.createElement(
+                                'div'
+                            );
+
+                        wrapper.className =
+                            'rounded-2xl border border-slate-200 bg-white';
+
+
+                        wrapper.innerHTML = `
+                            <button
+                                type="button"
+                                class="faq-editor-toggle flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                            >
+
+                                <div class="min-w-0">
+
+                                    <div
+                                        class="text-[10px] font-black uppercase tracking-wide text-blue-600"
+                                    >
+                                        FAQ ${index + 1}
+                                    </div>
+
+                                    <div
+                                        class="mt-1 truncate text-sm font-black text-slate-900"
+                                    >
+                                        ${escapeHtml(
+                                            item.question
+                                            || 'Untitled question'
+                                        )}
+                                    </div>
+
+                                </div>
+
+                                <span
+                                    class="faq-editor-icon text-lg font-black text-slate-400"
+                                >
+                                    +
+                                </span>
+
+                            </button>
+
+
+                            <div
+                                class="faq-editor-body hidden border-t border-slate-100 p-4"
+                            >
+
+                                <div>
+
+                                    <label
+                                        class="text-xs font-black uppercase tracking-wide text-slate-500"
+                                    >
+                                        Question
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        class="faq-question-input mt-2 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
+                                        value="${escapeHtml(
+                                            item.question
+                                            || ''
+                                        )}"
+                                    >
+
+                                </div>
+
+
+                                <div class="mt-4">
+
+                                    <label
+                                        class="text-xs font-black uppercase tracking-wide text-slate-500"
+                                    >
+                                        Answer
+                                    </label>
+
+                                    <textarea
+                                        rows="5"
+                                        class="faq-answer-input mt-2 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
+                                    >${escapeHtml(
+                                        item.answer
+                                        || ''
+                                    )}</textarea>
+
+                                </div>
+
+
+                                <div
+                                    class="mt-4 flex flex-wrap items-center justify-between gap-2"
+                                >
+
+                                    <div class="flex gap-2">
+
+                                        <button
+                                            type="button"
+                                            class="faq-move-up rounded-lg border border-slate-200 px-3 py-2 text-xs font-black"
+                                            ${index === 0 ? 'disabled' : ''}
+                                        >
+                                            ↑ Up
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            class="faq-move-down rounded-lg border border-slate-200 px-3 py-2 text-xs font-black"
+                                            ${
+                                                index
+                                                === widget.data.items.length - 1
+                                                    ? 'disabled'
+                                                    : ''
+                                            }
+                                        >
+                                            ↓ Down
+                                        </button>
+
+                                    </div>
+
+
+                                    <button
+                                        type="button"
+                                        class="faq-delete rounded-lg border border-red-200 px-3 py-2 text-xs font-black text-red-600"
+                                    >
+                                        Delete FAQ
+                                    </button>
+
+                                </div>
+
+                            </div>
+                        `;
+
+
+                        const toggle =
+                            wrapper.querySelector(
+                                '.faq-editor-toggle'
+                            );
+
+                        const body =
+                            wrapper.querySelector(
+                                '.faq-editor-body'
+                            );
+
+                        const icon =
+                            wrapper.querySelector(
+                                '.faq-editor-icon'
+                            );
+
+
+                        toggle.addEventListener(
+                            'click',
+                            () => {
+
+                                const closed =
+                                    body.classList
+                                        .contains(
+                                            'hidden'
+                                        );
+
+
+                                faqEditor
+                                    .querySelectorAll(
+                                        '.faq-editor-body'
+                                    )
+                                    .forEach(
+                                        panel => {
+                                            panel.classList
+                                                .add(
+                                                    'hidden'
+                                                );
+                                        }
+                                    );
+
+
+                                faqEditor
+                                    .querySelectorAll(
+                                        '.faq-editor-icon'
+                                    )
+                                    .forEach(
+                                        target => {
+                                            target.textContent =
+                                                '+';
+                                        }
+                                    );
+
+
+                                if (closed) {
+
+                                    body.classList
+                                        .remove(
+                                            'hidden'
+                                        );
+
+                                    icon.textContent =
+                                        '−';
+                                }
+                            }
+                        );
+
+
+                        wrapper
+                            .querySelector(
+                                '.faq-question-input'
+                            )
+                            .addEventListener(
+                                'input',
+                                event => {
+
+                                    item.question =
+                                        event.target.value;
+
+                                    sync();
+
+
+                                    wrapper
+                                        .querySelector(
+                                            '.faq-editor-toggle div div:last-child'
+                                        )
+                                        .textContent =
+                                            item.question
+                                            || 'Untitled question';
+                                }
+                            );
+
+
+                        wrapper
+                            .querySelector(
+                                '.faq-answer-input'
+                            )
+                            .addEventListener(
+                                'input',
+                                event => {
+
+                                    item.answer =
+                                        event.target.value;
+
+                                    sync();
+                                }
+                            );
+
+
+                        wrapper
+                            .querySelector(
+                                '.faq-delete'
+                            )
+                            .addEventListener(
+                                'click',
+                                () => {
+
+                                    if (
+                                        !confirm(
+                                            'Delete this FAQ?'
+                                        )
+                                    ) {
+                                        return;
+                                    }
+
+                                    widget.data.items
+                                        .splice(
+                                            index,
+                                            1
+                                        );
+
+                                    sync();
+                                    renderFaqEditor();
+                                    renderCanvas();
+                                }
+                            );
+
+
+                        wrapper
+                            .querySelector(
+                                '.faq-move-up'
+                            )
+                            .addEventListener(
+                                'click',
+                                () => {
+
+                                    if (
+                                        index <= 0
+                                    ) {
+                                        return;
+                                    }
+
+
+                                    [
+                                        widget.data.items[
+                                            index - 1
+                                        ],
+                                        widget.data.items[
+                                            index
+                                        ]
+                                    ] = [
+                                        widget.data.items[
+                                            index
+                                        ],
+                                        widget.data.items[
+                                            index - 1
+                                        ]
+                                    ];
+
+
+                                    sync();
+                                    renderFaqEditor();
+                                    renderCanvas();
+                                }
+                            );
+
+
+                        wrapper
+                            .querySelector(
+                                '.faq-move-down'
+                            )
+                            .addEventListener(
+                                'click',
+                                () => {
+
+                                    if (
+                                        index
+                                        >= widget.data.items.length - 1
+                                    ) {
+                                        return;
+                                    }
+
+
+                                    [
+                                        widget.data.items[
+                                            index + 1
+                                        ],
+                                        widget.data.items[
+                                            index
+                                        ]
+                                    ] = [
+                                        widget.data.items[
+                                            index
+                                        ],
+                                        widget.data.items[
+                                            index + 1
+                                        ]
+                                    ];
+
+
+                                    sync();
+                                    renderFaqEditor();
+                                    renderCanvas();
+                                }
+                            );
+
+
+                        faqEditor.appendChild(
+                            wrapper
+                        );
+                    }
+                );
+            }
+
+
+            document
+                .getElementById(
+                    'addFaqItem'
+                )
+                ?.addEventListener(
+                    'click',
+                    () => {
+
+                        widget.data.items.push({
+                            question:
+                                'New question',
+
+                            answer:
+                                'Add the answer here.'
+                        });
+
+
+                        sync();
+                        renderFaqEditor();
+                        renderCanvas();
+
+
+                        requestAnimationFrame(
+                            () => {
+
+                                const panels =
+                                    faqEditor
+                                        ?.querySelectorAll(
+                                            '.faq-editor-body'
+                                        );
+
+                                const icons =
+                                    faqEditor
+                                        ?.querySelectorAll(
+                                            '.faq-editor-icon'
+                                        );
+
+
+                                const lastPanel =
+                                    panels?.[
+                                        panels.length - 1
+                                    ];
+
+                                const lastIcon =
+                                    icons?.[
+                                        icons.length - 1
+                                    ];
+
+
+                                lastPanel
+                                    ?.classList
+                                    .remove(
+                                        'hidden'
+                                    );
+
+                                if (lastIcon) {
+                                    lastIcon.textContent =
+                                        '−';
+                                }
+                            }
+                        );
+                    }
+                );
+
+
+            renderFaqEditor();
         }
 
 
