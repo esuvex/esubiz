@@ -29,7 +29,315 @@
     @endif
 
 
-    <div class="grid gap-7 lg:grid-cols-2 xl:grid-cols-3">
+    {{-- =====================================================
+         Theme Discovery / Creation
+         ===================================================== --}}
+
+    <section>
+
+        <div
+            class="mb-5 flex flex-wrap items-end justify-between gap-4"
+        >
+            <div>
+
+                <div
+                    class="text-xs font-black uppercase tracking-[.16em] text-blue-600"
+                >
+                    Get More Themes
+                </div>
+
+                <h2
+                    class="mt-2 text-2xl font-black tracking-tight text-slate-900"
+                >
+                    Expand your website design
+                </h2>
+
+                <p
+                    class="mt-2 max-w-3xl text-sm leading-6 text-slate-500"
+                >
+                    Browse professionally built Esubiz themes or create
+                    a custom theme using Esubiz AI.
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <div
+            class="grid gap-6 lg:grid-cols-2"
+        >
+
+            {{-- Theme Marketplace --}}
+            <article
+                class="relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-950 p-7 text-white shadow-sm"
+            >
+
+                <div
+                    class="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-blue-500/20 blur-3xl"
+                ></div>
+
+
+                <div
+                    class="relative"
+                >
+
+                    <div
+                        class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-2xl"
+                    >
+                        ◈
+                    </div>
+
+
+                    <div
+                        class="mt-6 text-xs font-black uppercase tracking-[.18em] text-blue-300"
+                    >
+                        Esubiz Marketplace
+                    </div>
+
+
+                    <h3
+                        class="mt-2 text-2xl font-black"
+                    >
+                        Theme Marketplace
+                    </h3>
+
+
+                    <p
+                        class="mt-3 max-w-xl text-sm leading-6 text-slate-300"
+                    >
+                        Discover free and paid themes designed for the
+                        Esubiz website structure. Purchased themes can
+                        be installed and managed from this Themes area.
+                    </p>
+
+
+                    <div
+                        class="mt-5 flex flex-wrap gap-2"
+                    >
+
+                        <span
+                            class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-bold text-slate-300"
+                        >
+                            Business
+                        </span>
+
+                        <span
+                            class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-bold text-slate-300"
+                        >
+                            Ecommerce
+                        </span>
+
+                        <span
+                            class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-bold text-slate-300"
+                        >
+                            Hotel
+                        </span>
+
+                        <span
+                            class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-bold text-slate-300"
+                        >
+                            More
+                        </span>
+
+                    </div>
+
+
+                    <div
+                        class="mt-7"
+                    >
+
+                        <a
+                            href="https://marketplace.esubiz.com/themes"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-950/20 transition hover:bg-blue-500"
+                        >
+                            Browse Themes
+                            <span aria-hidden="true">↗</span>
+                        </a>
+
+                    </div>
+
+
+                    <p
+                        class="mt-4 text-[11px] leading-5 text-slate-400"
+                    >
+                        Availability, pricing and installation will respect
+                        the website's SaaS or off-server deployment settings.
+                    </p>
+
+                </div>
+
+            </article>
+
+
+
+            {{-- Build Theme with AI --}}
+            <article
+                class="relative overflow-hidden rounded-3xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-blue-50 p-7 shadow-sm"
+            >
+
+                <div
+                    class="pointer-events-none absolute -bottom-20 -right-14 h-56 w-56 rounded-full bg-violet-300/30 blur-3xl"
+                ></div>
+
+
+                <div
+                    class="relative"
+                >
+
+                    <div
+                        class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-600 text-xl font-black text-white shadow-sm"
+                    >
+                        ✦
+                    </div>
+
+
+                    <div
+                        class="mt-6 text-xs font-black uppercase tracking-[.18em] text-violet-600"
+                    >
+                        Esubiz AI
+                    </div>
+
+
+                    <h3
+                        class="mt-2 text-2xl font-black text-slate-950"
+                    >
+                        Build Theme with AI
+                    </h3>
+
+
+                    <p
+                        class="mt-3 max-w-xl text-sm leading-6 text-slate-600"
+                    >
+                        Create a customizable website theme from your
+                        business description, preferred style and website
+                        type using the approved Esubiz theme structure.
+                    </p>
+
+
+                    <div
+                        class="mt-5 grid gap-3 sm:grid-cols-3"
+                    >
+
+                        <div
+                            class="rounded-2xl border border-violet-100 bg-white/80 p-3"
+                        >
+                            <div
+                                class="text-xs font-black text-slate-900"
+                            >
+                                1. Describe
+                            </div>
+
+                            <div
+                                class="mt-1 text-[11px] leading-5 text-slate-500"
+                            >
+                                Tell AI about the brand.
+                            </div>
+                        </div>
+
+
+                        <div
+                            class="rounded-2xl border border-violet-100 bg-white/80 p-3"
+                        >
+                            <div
+                                class="text-xs font-black text-slate-900"
+                            >
+                                2. Generate
+                            </div>
+
+                            <div
+                                class="mt-1 text-[11px] leading-5 text-slate-500"
+                            >
+                                Esubiz builds the theme.
+                            </div>
+                        </div>
+
+
+                        <div
+                            class="rounded-2xl border border-violet-100 bg-white/80 p-3"
+                        >
+                            <div
+                                class="text-xs font-black text-slate-900"
+                            >
+                                3. Customize
+                            </div>
+
+                            <div
+                                class="mt-1 text-[11px] leading-5 text-slate-500"
+                            >
+                                Fine-tune before activation.
+                            </div>
+                        </div>
+
+                    </div>
+
+
+                    <div
+                        class="mt-7"
+                    >
+
+                        <button
+                            type="button"
+                            id="buildThemeWithAi"
+                            class="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:bg-violet-700"
+                        >
+                            ✦ Build with AI
+                        </button>
+
+                    </div>
+
+
+                    <p
+                        class="mt-4 text-[11px] leading-5 text-slate-500"
+                    >
+                        Uses Esubiz AI Credits. Generated themes will follow
+                        the same installable theme package standard used by
+                        Marketplace themes.
+                    </p>
+
+                </div>
+
+            </article>
+
+        </div>
+
+    </section>
+
+
+
+    {{-- =====================================================
+         Installed Themes
+         ===================================================== --}}
+
+    <section>
+
+        <div class="mb-5">
+
+            <div
+                class="text-xs font-black uppercase tracking-[.16em] text-blue-600"
+            >
+                Installed Themes
+            </div>
+
+            <h2
+                class="mt-2 text-2xl font-black tracking-tight text-slate-900"
+            >
+                Your website themes
+            </h2>
+
+            <p
+                class="mt-2 max-w-3xl text-sm leading-6 text-slate-500"
+            >
+                Enable, disable, preview and configure themes already
+                installed on this website.
+            </p>
+
+        </div>
+
+
+        <div class="grid gap-7 lg:grid-cols-2 xl:grid-cols-3">
 
         @foreach($themes as $installedTheme)
 
@@ -195,7 +503,9 @@
 
         @endforeach
 
-    </div>
+        </div>
+
+    </section>
 
 
     <style>
@@ -271,6 +581,24 @@
         document.addEventListener(
             'DOMContentLoaded',
             function () {
+
+                const buildThemeWithAi =
+                    document.getElementById(
+                        'buildThemeWithAi'
+                    );
+
+
+                buildThemeWithAi?.addEventListener(
+                    'click',
+                    function () {
+
+                        alert(
+                            'Build Theme with AI is ready for the next integration step. It will use Esubiz AI Credits and the approved Esubiz theme package structure.'
+                        );
+                    }
+                );
+
+
 
                 const modal =
                     document.getElementById(

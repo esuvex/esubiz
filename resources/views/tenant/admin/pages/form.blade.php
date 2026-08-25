@@ -351,29 +351,30 @@
                     </div>
                 </div>
 
-                <div id="widgetSettingsPanel" data-builder-hidden>
-                    <button
-                        type="button"
-                        id="closeWidgetSettings"
-                        class="mb-4 text-xs font-black text-blue-600"
-                    >
-                        ← Page Settings
-                    </button>
-
-                    <h2 id="settingsTitle" class="font-black">
-                        Widget Settings
-                    </h2>
-
-                    <div id="settingsFields" class="mt-5 space-y-4"></div>
-                </div>
 
                 <div class="mt-6 border-t border-slate-100 pt-5">
-                    <button
-                        type="submit"
-                        class="w-full rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-sm"
-                    >
-                        {{ $page ? 'Save Page' : 'Create Page' }}
-                    </button>
+
+                    <div class="grid gap-3">
+
+                        <button
+                            type="button"
+                            id="previewPageButton"
+                            data-page-exists="{{ $page ? '1' : '0' }}"
+                            class="w-full rounded-xl border border-blue-200 bg-blue-50 px-5 py-3 text-sm font-black text-blue-700 transition hover:bg-blue-100"
+                        >
+                            Preview Page ↗
+                        </button>
+
+
+                        <button
+                            type="submit"
+                            class="w-full rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-sm"
+                        >
+                            Save Page
+                        </button>
+
+                    </div>
+
                 </div>
 
             </aside>
@@ -384,6 +385,96 @@
 
 </div>
 
+
+
+{{-- Widget Settings Popup --}}
+<div
+    id="widgetSettingsPanel"
+    data-builder-hidden
+    class="eb-scroll-overlay fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/60 p-4"
+>
+    <div
+        id="widgetSettingsDialog"
+        class="eb-scroll-panel w-full max-w-3xl rounded-3xl bg-white shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settingsTitle"
+    >
+
+        <div
+            class="sticky top-0 z-20 flex items-start justify-between gap-4 border-b border-slate-200 bg-white/95 p-5 backdrop-blur sm:p-6"
+        >
+            <div class="min-w-0">
+
+                <div
+                    class="text-xs font-black uppercase tracking-[.16em] text-blue-600"
+                >
+                    Basic Page Builder
+                </div>
+
+                <h2
+                    id="settingsTitle"
+                    class="mt-1 truncate text-xl font-black text-slate-950"
+                >
+                    Widget Settings
+                </h2>
+
+                <p
+                    class="mt-1 text-sm text-slate-500"
+                >
+                    Customize this widget. Changes are reflected in the builder.
+                </p>
+
+            </div>
+
+
+            <button
+                type="button"
+                id="closeWidgetSettings"
+                class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-xl font-black text-slate-700 hover:bg-slate-200"
+                aria-label="Close widget settings"
+            >
+                ×
+            </button>
+
+        </div>
+
+
+        <div
+            class="eb-scroll-panel-inner p-5 pb-24 sm:p-6 sm:pb-24"
+        >
+            <div
+                id="settingsFields"
+                class="space-y-4"
+            ></div>
+        </div>
+
+
+        <div
+            class="sticky bottom-0 z-20 flex items-center justify-end gap-3 border-t border-slate-200 bg-white/95 p-4 backdrop-blur sm:p-5"
+        >
+
+            <button
+                type="button"
+                id="cancelWidgetSettings"
+                class="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700 hover:bg-slate-50"
+            >
+                Cancel
+            </button>
+
+
+            <button
+                type="button"
+                id="okayWidgetSettings"
+                class="rounded-xl bg-blue-600 px-6 py-3 text-sm font-black text-white shadow-sm hover:bg-blue-700"
+            >
+                Okay
+            </button>
+
+        </div>
+
+    </div>
+</div>
 
 
 {{-- Add Section Layout --}}
@@ -824,6 +915,21 @@
     let selectedId = null;
     let selectedSectionId = null;
     let selectedColumnId = null;
+
+    /*
+     * Widget editor transaction state.
+     *
+     * Existing widget:
+     *   Cancel restores its original data/settings.
+     *
+     * Newly added widget:
+     *   Cancel removes it completely.
+     *
+     * Okay confirms the current state.
+     */
+    let widgetEditSnapshot = null;
+    let widgetEditLocation = null;
+    let pendingWidgetId = null;
 
     let draggedId = null;
 
@@ -1391,6 +1497,13 @@
         column.widgets.push(
             widget
         );
+
+        /*
+         * This widget is not considered confirmed until
+         * the administrator clicks Okay.
+         */
+        pendingWidgetId =
+            widget.id;
 
 
         selectedSectionId =
@@ -2173,6 +2286,53 @@ section.columns.forEach(
         }
 
 
+        /*
+         * Begin an edit transaction.
+         *
+         * For a newly-added widget we deliberately do not create
+         * a restore snapshot; Cancel removes the new widget.
+         *
+         * Existing widgets receive a deep snapshot so Cancel can
+         * restore exactly what existed before the popup opened.
+         */
+        if (
+            pendingWidgetId
+            !== widget.id
+        ) {
+            widgetEditSnapshot =
+                JSON.parse(
+                    JSON.stringify(
+                        widget
+                    )
+                );
+
+            widgetEditLocation = {
+                sectionId:
+                    result.section.id,
+
+                columnId:
+                    result.column.id,
+
+                widgetId:
+                    widget.id
+            };
+        } else {
+            widgetEditSnapshot =
+                null;
+
+            widgetEditLocation = {
+                sectionId:
+                    result.section.id,
+
+                columnId:
+                    result.column.id,
+
+                widgetId:
+                    widget.id
+            };
+        }
+
+
         selectedSectionId =
             result.section.id;
 
@@ -2182,21 +2342,14 @@ section.columns.forEach(
 
         document
             .getElementById(
-                'pageSettingsPanel'
-            )
-            .setAttribute(
-                'data-builder-hidden',
-                ''
-            );
-
-
-        document
-            .getElementById(
                 'widgetSettingsPanel'
             )
             .removeAttribute(
                 'data-builder-hidden'
             );
+
+        document.body.style.overflow =
+            'hidden';
 
 
         document
@@ -3770,10 +3923,288 @@ section.columns.forEach(
     }
 
 
-    function showPageSettings() {
-        document.getElementById('widgetSettingsPanel').setAttribute('data-builder-hidden','');
-        document.getElementById('pageSettingsPanel').removeAttribute('data-builder-hidden');
+    /*
+     * Confirm widget changes.
+     *
+     * The widget is already located in its intended section/column.
+     * Okay makes that state authoritative and closes the popup.
+     */
+    function confirmWidgetSettings() {
+
+        if (!selectedId) {
+            showPageSettings();
+            return;
+        }
+
+
+        sync();
+        renderCanvas();
+
+
+        pendingWidgetId =
+            null;
+
+        widgetEditSnapshot =
+            null;
+
+        widgetEditLocation =
+            null;
+
+        selectedId =
+            null;
+
+
+        showPageSettings();
     }
+
+
+    /*
+     * Cancel widget changes.
+     *
+     * Newly added:
+     *   remove the pending widget.
+     *
+     * Existing:
+     *   restore exact original widget snapshot.
+     */
+    function cancelWidgetSettings() {
+
+        if (
+            selectedId
+            && pendingWidgetId
+            === selectedId
+        ) {
+
+            const result =
+                findWidget(
+                    selectedId
+                );
+
+
+            if (result?.column) {
+
+                const index =
+                    result.column.widgets
+                        .findIndex(
+                            item =>
+                                item.id
+                                === selectedId
+                        );
+
+
+                if (index !== -1) {
+
+                    result.column.widgets
+                        .splice(
+                            index,
+                            1
+                        );
+                }
+            }
+
+        } else if (
+            selectedId
+            && widgetEditSnapshot
+            && widgetEditLocation
+        ) {
+
+            const section =
+                findSection(
+                    widgetEditLocation
+                        .sectionId
+                );
+
+
+            const column =
+                section?.columns
+                    ?.find(
+                        item =>
+                            item.id
+                            === widgetEditLocation
+                                .columnId
+                    );
+
+
+            if (column) {
+
+                const index =
+                    column.widgets
+                        .findIndex(
+                            item =>
+                                item.id
+                                === widgetEditLocation
+                                    .widgetId
+                        );
+
+
+                if (index !== -1) {
+
+                    column.widgets[index] =
+                        JSON.parse(
+                            JSON.stringify(
+                                widgetEditSnapshot
+                            )
+                        );
+                }
+            }
+        }
+
+
+        pendingWidgetId =
+            null;
+
+        widgetEditSnapshot =
+            null;
+
+        widgetEditLocation =
+            null;
+
+        selectedId =
+            null;
+
+
+        sync();
+        renderCanvas();
+        showPageSettings();
+    }
+
+
+    function showPageSettings() {
+
+        const popup =
+            document.getElementById(
+                'widgetSettingsPanel'
+            );
+
+        if (popup) {
+            popup.setAttribute(
+                'data-builder-hidden',
+                ''
+            );
+        }
+
+        document.body.style.overflow =
+            '';
+
+        const pageSettings =
+            document.getElementById(
+                'pageSettingsPanel'
+            );
+
+        if (pageSettings) {
+            pageSettings.removeAttribute(
+                'data-builder-hidden'
+            );
+        }
+    }
+
+    /*
+     * Widget Settings popup behavior.
+     *
+     * Scroll is handled by the existing eb-scroll-panel system:
+     * desktop, tablet and mobile touch scrolling.
+     */
+    const closeWidgetSettingsButton =
+        document.getElementById(
+            'closeWidgetSettings'
+        );
+
+
+    closeWidgetSettingsButton?.addEventListener(
+        'click',
+        event => {
+
+            event.preventDefault();
+            event.stopImmediatePropagation();
+
+            cancelWidgetSettings();
+        },
+        true
+    );
+
+
+    const okayWidgetSettings =
+        document.getElementById(
+            'okayWidgetSettings'
+        );
+
+    const cancelWidgetSettingsButton =
+        document.getElementById(
+            'cancelWidgetSettings'
+        );
+
+
+    okayWidgetSettings?.addEventListener(
+        'click',
+        () => {
+            confirmWidgetSettings();
+        }
+    );
+
+
+    cancelWidgetSettingsButton?.addEventListener(
+        'click',
+        () => {
+            cancelWidgetSettings();
+        }
+    );
+
+
+    const widgetSettingsPopup =
+        document.getElementById(
+            'widgetSettingsPanel'
+        );
+
+    const widgetSettingsDialog =
+        document.getElementById(
+            'widgetSettingsDialog'
+        );
+
+
+    if (widgetSettingsPopup) {
+
+        widgetSettingsPopup.addEventListener(
+            'click',
+            event => {
+
+                if (
+                    event.target
+                    === widgetSettingsPopup
+                ) {
+                    cancelWidgetSettings();
+                }
+            }
+        );
+    }
+
+
+    if (widgetSettingsDialog) {
+
+        widgetSettingsDialog.addEventListener(
+            'click',
+            event => {
+                event.stopPropagation();
+            }
+        );
+    }
+
+
+    document.addEventListener(
+        'keydown',
+        event => {
+
+            if (
+                event.key === 'Escape'
+                && widgetSettingsPopup
+                && !widgetSettingsPopup.hasAttribute(
+                    'data-builder-hidden'
+                )
+            ) {
+                cancelWidgetSettings();
+            }
+        }
+    );
+
 
     function sync() {
         jsonInput.value = JSON.stringify(documentState);
@@ -3875,6 +4306,85 @@ section.columns.forEach(
                 );
         }
     );
+
+    /*
+     * Preview Page
+     *
+     * Opens the public tenant page in a new tab.
+     *
+     * No central Esubiz route is required because tenant public
+     * pages already resolve through /{slug}.
+     */
+    const previewPageButton =
+        document.getElementById(
+            'previewPageButton'
+        );
+
+
+    previewPageButton?.addEventListener(
+        'click',
+        () => {
+
+            const slug =
+                makeSlug(
+                    pageSlug?.value
+                    || ''
+                );
+
+
+            if (!slug) {
+
+                alert(
+                    'Enter a page title or slug before previewing.'
+                );
+
+                pageSlug?.focus();
+
+                return;
+            }
+
+
+            /*
+             * A brand-new page does not exist publicly until its
+             * first save, so prevent a misleading 404 preview.
+             */
+            if (
+                previewPageButton
+                    .dataset
+                    .pageExists
+                !== '1'
+            ) {
+
+                alert(
+                    'Save this new page once before previewing it.'
+                );
+
+                return;
+            }
+
+
+            /*
+             * Open the tenant public URL, not the admin URL.
+             *
+             * Example:
+             * https://ogaga.esubiz.com/about
+             */
+            const previewUrl =
+                window.location.origin
+                + '/'
+                + encodeURIComponent(
+                    slug
+                );
+
+
+            window.open(
+                previewUrl,
+                '_blank',
+                'noopener,noreferrer'
+            );
+        }
+    );
+
 
 
     renderLibrary();
