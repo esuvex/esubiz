@@ -14,6 +14,7 @@ class AiModel extends Model
         'capabilities',
         'is_active',
         'input_cost_per_million',
+        'cached_input_cost_per_million',
         'output_cost_per_million',
         'metadata',
     ];
@@ -23,6 +24,7 @@ class AiModel extends Model
         'metadata' => 'array',
         'is_active' => 'boolean',
         'input_cost_per_million' => 'decimal:6',
+        'cached_input_cost_per_million' => 'decimal:6',
         'output_cost_per_million' => 'decimal:6',
     ];
 
