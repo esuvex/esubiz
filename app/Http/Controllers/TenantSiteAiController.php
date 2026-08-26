@@ -691,4 +691,230 @@ class TenantSiteAiController extends Controller
         ]);
     }
 
+
+
+    /**
+     * Autosave the official Esubiz AI avatar selected
+     * by this tenant website.
+     */
+    public function updateAvatarSetting(
+        Request $request,
+        string $subdomain
+    ): JsonResponse {
+
+        $website =
+            Website::query()
+                ->where(
+                    'subdomain',
+                    $subdomain
+                )
+                ->firstOrFail();
+
+
+        $data =
+            $request->validate([
+                'persona_id' => [
+                    'required',
+                    'integer',
+                    
+                ],
+            ]);
+
+
+        $persona =
+            \App\Models\Ai\AiPersona::query()
+                ->where(
+                    'is_active',
+                    true
+                )
+                ->findOrFail(
+                    $data[
+                        'persona_id'
+                    ]
+                );
+
+
+        /*
+         * Use the same real tenant DB service already used
+         * by this controller elsewhere.
+         */
+        $tenantDatabaseService =
+            app(
+                \App\Services\TenantDatabaseManager::class
+            );
+
+
+        $tenantDatabaseService
+            ->connect(
+                $website
+            );
+
+
+        try {
+
+            $tenantDatabaseService
+                ->connection()
+                ->table(
+                    'site_settings'
+                )
+                ->updateOrInsert(
+                    [
+                        'key' =>
+                            'ai.persona_id',
+                    ],
+                    [
+                        'value' =>
+                            (string) $persona->id,
+                    ]
+                );
+
+        } finally {
+
+            $tenantDatabaseService
+                ->disconnect();
+        }
+
+
+        return response()->json([
+            'success' =>
+                true,
+
+            'persona_id' =>
+                $persona->id,
+
+            'name' =>
+                $persona->name,
+
+            'avatar_url' =>
+                $persona->avatarUrl(),
+
+            'message' =>
+                'AI avatar saved.',
+        ]);
+    }
+
+
+
+    /**
+     * Generic tenant Website AI settings autosave.
+     */
+    public function autosaveSetting(
+        Request $request,
+        string $subdomain
+    ): \Illuminate\Http\JsonResponse {
+
+        $data =
+            $request->validate([
+                'field' => [
+                    'required',
+                    'string',
+                    \Illuminate\Validation\Rule::in([
+                        'site_ai_enabled',
+                        'live_chat_ai_enabled',
+                        'whatsapp_ai_enabled',
+                        'email_ai_enabled',
+                        'sms_ai_enabled',
+                        'social_media_ai_enabled',
+                        'ads_ai_enabled',
+                        'persona_id',
+                    ]),
+                ],
+
+                'value' => [
+                    'nullable',
+                ],
+            ]);
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | AI AVATAR
+        |--------------------------------------------------------------------------
+        |
+        | Do not duplicate tenant DB logic here.
+        |
+        | Delegate directly to the already-authoritative
+        | updateAvatarSetting() method.
+        |
+        */
+
+        if (
+            $data['field']
+            === 'persona_id'
+        ) {
+
+            $request->merge([
+                'persona_id' =>
+                    (int) $data['value'],
+            ]);
+
+
+            return $this
+                ->updateAvatarSetting(
+                    $request,
+                    $subdomain
+                );
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | AI SERVICE SWITCHES
+        |--------------------------------------------------------------------------
+        |
+        | Convert the UI field into the generic service key used by
+        | updateServiceSetting(), then let that method perform the
+        | tenant DB persistence.
+        |
+        */
+
+        $serviceMap = [
+            'site_ai_enabled' =>
+                'site',
+
+            'live_chat_ai_enabled' =>
+                'live_chat',
+
+            'whatsapp_ai_enabled' =>
+                'whatsapp',
+
+            'email_ai_enabled' =>
+                'email',
+
+            'sms_ai_enabled' =>
+                'sms',
+
+            'social_media_ai_enabled' =>
+                'social_media',
+
+            'ads_ai_enabled' =>
+                'ads',
+        ];
+
+
+        $enabled =
+            filter_var(
+                $data['value'],
+                FILTER_VALIDATE_BOOLEAN
+            );
+
+
+        $request->merge([
+            'service' =>
+                $serviceMap[
+                    $data['field']
+                ],
+
+            'enabled' =>
+                $enabled,
+        ]);
+
+
+        return $this
+            ->updateServiceSetting(
+                $request,
+                $subdomain
+            );
+    }
+
 }

@@ -6,166 +6,1147 @@
 
 <div class="mx-auto max-w-7xl space-y-8">
 
-    <div
-        class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
-    >
-
-        <div>
-
-            <div
-                class="text-xs font-black uppercase tracking-[.16em] text-blue-600"
-            >
-                Central AI Control
-            </div>
-
-            <h1
-                class="mt-2 text-3xl font-black text-slate-900"
-            >
-                Esubiz AI
-            </h1>
-
-            <p
-                class="mt-2 max-w-4xl text-sm leading-6 text-slate-500"
-            >
-                Manage the central AI system used by Esubiz Admin,
-                Developers, tenant websites and future off-server
-                Esubiz products.
-            </p>
-
+    {{-- HEADER --}}
+    <div>
+        <div class="text-xs font-black uppercase tracking-[.16em] text-blue-600">
+            Central AI Control
         </div>
 
+        <h1 class="mt-2 text-3xl font-black text-slate-900">
+            Esubiz AI
+        </h1>
+
+        <p class="mt-2 max-w-4xl text-sm leading-6 text-slate-500">
+            Manage the central AI engine used by Esubiz, Developers,
+            tenant websites and future connected Esubiz products.
+        </p>
     </div>
 
 
-    {{-- SUMMARY --}}
-    <div
-        class="grid gap-5 md:grid-cols-2 xl:grid-cols-4"
-    >
+    @if(session('success'))
+        <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-bold text-emerald-700">
+            {{ session('success') }}
+        </div>
+    @endif
 
-        <div
-            class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-        >
-            <div
-                class="text-xs font-black uppercase tracking-wide text-slate-400"
-            >
-                Official AI Avatars
+
+    @if($errors->any())
+        <div class="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+            <div class="font-black">
+                Please correct the following:
             </div>
 
-            <div
-                class="mt-3 text-3xl font-black text-slate-900"
-            >
+            <ul class="mt-2 list-disc space-y-1 pl-5">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
+
+    {{-- SUMMARY --}}
+    <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+
+        <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div class="text-xs font-black uppercase text-slate-400">
+                Official Avatars
+            </div>
+            <div class="mt-3 text-3xl font-black text-slate-900">
                 {{ $personas->count() }}
             </div>
         </div>
 
-
-        <div
-            class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-        >
-            <div
-                class="text-xs font-black uppercase tracking-wide text-slate-400"
-            >
-                AI Services
+        <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div class="text-xs font-black uppercase text-slate-400">
+                AI Providers
             </div>
-
-            <div
-                class="mt-3 text-3xl font-black text-slate-900"
-            >
-                {{ count($services) }}
+            <div class="mt-3 text-3xl font-black text-slate-900">
+                {{ $providers->count() }}
             </div>
         </div>
 
-
-        <div
-            class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-        >
-            <div
-                class="text-xs font-black uppercase tracking-wide text-slate-400"
-            >
-                Registered Capabilities
+        <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div class="text-xs font-black uppercase text-slate-400">
+                AI Models
             </div>
+            <div class="mt-3 text-3xl font-black text-slate-900">
+                {{ $models->count() }}
+            </div>
+        </div>
 
-            <div
-                class="mt-3 text-3xl font-black text-slate-900"
-            >
+        <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div class="text-xs font-black uppercase text-slate-400">
+                Capabilities
+            </div>
+            <div class="mt-3 text-3xl font-black text-slate-900">
                 {{ $capabilities->count() }}
             </div>
-        </div>
-
-
-        <div
-            class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-        >
-            <div
-                class="text-xs font-black uppercase tracking-wide text-slate-400"
-            >
-                AI Engine
-            </div>
-
-            <div
-                class="mt-3 text-xl font-black text-emerald-700"
-            >
-                Central
-            </div>
-
-            <p
-                class="mt-2 text-xs leading-5 text-slate-500"
-            >
-                One AI engine for central, developers and tenant websites.
-            </p>
         </div>
 
     </div>
 
 
-    {{-- AI SERVICES --}}
-    <section>
+    {{-- =====================================================
+         OFFICIAL AI AVATARS
+    ====================================================== --}}
+    <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
 
-        <div
-            class="text-xs font-black uppercase tracking-[.16em] text-blue-600"
-        >
-            AI Services
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+                <div class="text-xs font-black uppercase tracking-[.16em] text-blue-600">
+                    Official AI Avatars
+                </div>
+
+                <h2 class="mt-2 text-2xl font-black text-slate-900">
+                    Avatar Manager
+                </h2>
+
+                <p class="mt-2 text-sm text-slate-500">
+                    Create the official human-facing Esubiz AI avatars
+                    users and developers can choose from.
+                </p>
+            </div>
         </div>
 
-        <h2
-            class="mt-2 text-2xl font-black text-slate-900"
+
+        <form
+            action="{{ route('admin.ai.avatars.store') }}"
+            method="POST"
+            enctype="multipart/form-data"
+            class="mt-6 grid gap-4 rounded-2xl bg-slate-50 p-5 md:grid-cols-2 xl:grid-cols-4"
         >
-            Central Service Library
+            @csrf
+
+            <div>
+                <label class="text-xs font-black text-slate-600">
+                    Avatar Name
+                </label>
+                <input
+                    name="name"
+                    required
+                    placeholder="Yemi"
+                    class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                >
+            </div>
+
+            <div>
+                <label class="text-xs font-black text-slate-600">
+                    Human Face Photo
+                </label>
+
+                <p class="mt-1 text-xs text-slate-500">
+                    Recommended: 512 × 512 px · Square JPG, PNG or WebP · Max 10 MB
+                </p>
+                <input
+                    type="file"
+                    name="avatar"
+                    required
+                    accept=".jpg,.jpeg,.png,.webp"
+                    data-ai-avatar-input
+                    data-ai-avatar-preview-target="new-avatar-preview"
+                    class="mt-2 block w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm"
+                >
+
+                <div
+                    id="new-avatar-preview"
+                    class="mt-3 hidden"
+                    data-ai-avatar-preview-box
+                >
+                    <img
+                        src=""
+                        alt="Avatar preview"
+                        class="h-24 w-24 rounded-full border border-slate-200 object-cover"
+                    >
+                </div>
+
+                @error('avatar')
+                    <p class="mt-2 text-xs font-bold text-red-600">
+                        {{ $message }}
+                    </p>
+                @enderror
+
+            </div>
+
+            <div>
+                <label class="text-xs font-black text-slate-600">
+                    Display Gender
+                </label>
+                <select
+                    name="gender"
+                    class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                >
+                    <option value="">Not specified</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="text-xs font-black text-slate-600">
+                    Order
+                </label>
+                <input
+                    type="number"
+                    min="0"
+                    name="sort_order"
+                    value="0"
+                    class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                >
+            </div>
+
+            <div class="md:col-span-2">
+                <label class="text-xs font-black text-slate-600">
+                    Description
+                </label>
+                <textarea
+                    name="description"
+                    rows="3"
+                    placeholder="Short description shown when users choose this avatar."
+                    class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                ></textarea>
+            </div>
+
+            <div class="md:col-span-2">
+                <label class="text-xs font-black text-slate-600">
+                    Avatar Behaviour / Personality Instructions
+                </label>
+                <textarea
+                    name="persona_prompt"
+                    rows="3"
+                    placeholder="Communication style and behaviour for this avatar."
+                    class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                ></textarea>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-5 md:col-span-2 xl:col-span-3">
+
+                <label class="flex items-center gap-2 text-sm font-bold text-slate-600">
+                    <input
+                        type="checkbox"
+                        name="is_active"
+                        value="1"
+                        checked
+                    >
+                    Active
+                </label>
+
+                <label class="flex items-center gap-2 text-sm font-bold text-slate-600">
+                    <input
+                        type="checkbox"
+                        name="is_default"
+                        value="1"
+                    >
+                    Default Avatar
+                </label>
+
+            </div>
+
+            <div class="flex justify-end">
+                <button
+                    class="rounded-xl bg-blue-600 px-6 py-3 text-sm font-black text-white hover:bg-blue-700"
+                >
+                    Create Avatar
+                </button>
+            </div>
+
+        </form>
+
+
+        <div class="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+
+            @forelse($personas as $persona)
+
+                <article class="rounded-2xl border border-slate-200 p-5">
+
+                    <div class="flex items-center gap-4">
+
+                        <div class="h-16 w-16 overflow-hidden rounded-full bg-blue-50">
+
+                            @if($persona->avatarUrl())
+                                <img
+                                    src="{{ $persona->avatarUrl() }}"
+                                    alt="{{ $persona->name }}"
+                                    class="h-full w-full object-cover"
+                                >
+                            @else
+                                <div class="flex h-full w-full items-center justify-center font-black text-blue-600">
+                                    AI
+                                </div>
+                            @endif
+
+                        </div>
+
+                        <div>
+                            <div class="font-black text-slate-900">
+                                {{ $persona->name }}
+                            </div>
+
+                            <div class="mt-1 text-xs text-slate-500">
+                                {{ $persona->is_active ? 'Active' : 'Inactive' }}
+                                @if($persona->is_default)
+                                    · Default
+                                @endif
+                            </div>
+                        </div>
+
+                    </div>
+
+                    @if($persona->description)
+                        <p class="mt-4 text-sm leading-6 text-slate-500">
+                            {{ $persona->description }}
+                        </p>
+                    @endif
+
+                    <details class="mt-5">
+                        <summary class="cursor-pointer text-sm font-black text-blue-600">
+                            Edit Avatar
+                        </summary>
+
+                        <form
+                            action="{{ route('admin.ai.avatars.update', $persona) }}"
+                            method="POST"
+                            enctype="multipart/form-data"
+                            class="mt-4 space-y-3"
+                        >
+                            @csrf
+
+                            <input
+                                name="name"
+                                value="{{ $persona->name }}"
+                                required
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                            >
+
+                            <input
+                                type="file"
+                                name="avatar"
+                                accept=".jpg,.jpeg,.png,.webp"
+                                data-ai-avatar-input
+                                data-ai-avatar-preview-target="avatar-preview-{{ $persona->id }}"
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                            >
+
+                            <div
+                                id="avatar-preview-{{ $persona->id }}"
+                                class="mt-2 hidden"
+                                data-ai-avatar-preview-box
+                            >
+                                <img
+                                    src=""
+                                    alt="Avatar preview"
+                                    class="h-20 w-20 rounded-full border border-slate-200 object-cover"
+                                >
+                            </div>
+
+                            <textarea
+                                name="description"
+                                rows="2"
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                            >{{ $persona->description }}</textarea>
+
+                            <textarea
+                                name="persona_prompt"
+                                rows="3"
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                            >{{ $persona->persona_prompt }}</textarea>
+
+                            <select
+                                name="gender"
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                            >
+                                <option value="">Not specified</option>
+                                <option value="male" @selected($persona->gender === 'male')>
+                                    Male
+                                </option>
+                                <option value="female" @selected($persona->gender === 'female')>
+                                    Female
+                                </option>
+                            </select>
+
+                            <input
+                                type="number"
+                                min="0"
+                                name="sort_order"
+                                data-autosave-url="{{ route('admin.ai.autosave') }}"
+                                data-autosave-field="sort_order"
+                                data-autosave-type="avatar"
+                                data-autosave-id="{{ $persona->id }}"
+                                value="{{ $persona->sort_order }}"
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                            >
+
+                            <div class="flex flex-wrap gap-4">
+
+                                <label class="text-xs font-bold">
+                                    <input
+                                        type="checkbox"
+                                        name="is_active"
+                                data-autosave-url="{{ route('admin.ai.autosave') }}"
+                                data-autosave-field="is_active"
+                                data-autosave-type="avatar"
+                                data-autosave-id="{{ $persona->id }}"
+                                        value="1"
+                                        @checked($persona->is_active)
+                                    >
+                                    Active
+                                </label>
+
+                                <label class="text-xs font-bold">
+                                    <input
+                                        type="checkbox"
+                                        name="is_default"
+                                data-autosave-url="{{ route('admin.ai.autosave') }}"
+                                data-autosave-field="is_default"
+                                data-autosave-type="avatar"
+                                data-autosave-id="{{ $persona->id }}"
+                                        value="1"
+                                        @checked($persona->is_default)
+                                    >
+                                    Default
+                                </label>
+
+                            </div>
+
+                            <button class="w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-black text-white">
+                                Update Avatar
+                            </button>
+
+                        </form>
+                    </details>
+
+                    @unless($persona->is_default)
+                        <form
+                            action="{{ route('admin.ai.avatars.destroy', $persona) }}"
+                            method="POST"
+                            class="mt-3"
+                            onsubmit="return confirm('Delete this AI avatar?')"
+                        >
+                            @csrf
+                            @method('DELETE')
+
+                            <button class="text-xs font-black text-red-600">
+                                Delete Avatar
+                            </button>
+                        </form>
+                    @endunless
+
+                </article>
+
+            @empty
+
+                <div class="col-span-full rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
+                    No official AI avatars have been created yet.
+                </div>
+
+            @endforelse
+
+        </div>
+
+    </section>
+
+
+    {{-- =====================================================
+         PROVIDERS / API CREDENTIALS
+    ====================================================== --}}
+    <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+
+        <div class="text-xs font-black uppercase tracking-[.16em] text-blue-600">
+            API Credentials
+        </div>
+
+        <h2 class="mt-2 text-2xl font-black text-slate-900">
+            AI Providers
         </h2>
 
-        <p
-            class="mt-2 max-w-4xl text-sm leading-6 text-slate-500"
-        >
-            These services plug into the same Esubiz AI engine.
-            Individual products only register what AI can do.
+        <p class="mt-2 max-w-4xl text-sm leading-6 text-slate-500">
+            Provider credentials stay in Esubiz Central and are encrypted
+            at rest. Tenants and developers never receive these API keys.
         </p>
 
 
-        <div
-            class="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-4"
+        <form
+            action="{{ route('admin.ai.providers.store') }}"
+            method="POST"
+            class="mt-6 grid gap-4 rounded-2xl bg-slate-50 p-5 md:grid-cols-2 xl:grid-cols-4"
         >
+            @csrf
+
+            <input
+                name="name"
+                required
+                placeholder="Provider name"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <input
+                name="driver"
+                required
+                placeholder="Driver e.g. openai"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <input
+                name="base_url"
+                placeholder="API base URL (optional)"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <input
+                type="password"
+                name="api_key"
+                placeholder="API secret key"
+                autocomplete="new-password"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <input
+                name="organization"
+                placeholder="Organization / Project ID (optional)"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <input
+                type="number"
+                min="0"
+                name="priority"
+                value="100"
+                placeholder="Priority"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <div class="flex items-center gap-5">
+
+                <label class="text-sm font-bold">
+                    <input
+                        type="checkbox"
+                        name="is_active"
+                        value="1"
+                        checked
+                    >
+                    Active
+                </label>
+
+                <label class="text-sm font-bold">
+                    <input
+                        type="checkbox"
+                        name="is_default"
+                        value="1"
+                    >
+                    Default
+                </label>
+
+            </div>
+
+            <button class="rounded-xl bg-blue-600 px-6 py-3 text-sm font-black text-white">
+                Add Provider
+            </button>
+
+        </form>
+
+
+        <div class="mt-6 grid gap-5 lg:grid-cols-2">
+
+            @forelse($providers as $provider)
+
+                <article class="rounded-2xl border border-slate-200 p-5">
+
+                    <div class="flex items-start justify-between gap-4">
+
+                        <div>
+                            <h3 class="text-lg font-black text-slate-900">
+                                {{ $provider->name }}
+                            </h3>
+
+                            <div class="mt-1 text-xs font-bold text-slate-400">
+                                {{ $provider->driver }}
+
+                                @if($provider->is_default)
+                                    · Default Provider
+                                @endif
+                            </div>
+                        </div>
+
+                        <span class="rounded-full px-3 py-1 text-xs font-black {{ $provider->is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500' }}">
+                            {{ $provider->is_active ? 'Active' : 'Inactive' }}
+                        </span>
+
+                    </div>
+
+                    <div class="mt-4 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
+                        API credential:
+                        <strong class="text-slate-700">
+                            {{ !empty($provider->secret_payload['api_key'] ?? null) ? 'Configured' : 'Not configured' }}
+                        </strong>
+                    </div>
+
+                    <details class="mt-4">
+                        <summary class="cursor-pointer text-sm font-black text-blue-600">
+                            Edit Provider
+                        </summary>
+
+                        <form
+                            action="{{ route('admin.ai.providers.update', $provider) }}"
+                            method="POST"
+                            class="mt-4 space-y-3"
+                        >
+                            @csrf
+
+                            <input
+                                name="name"
+                                value="{{ $provider->name }}"
+                                required
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                            >
+
+                            <input
+                                name="driver"
+                                value="{{ $provider->driver }}"
+                                required
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                            >
+
+                            <input
+                                name="base_url"
+                                value="{{ $provider->base_url }}"
+                                placeholder="Base URL"
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                            >
+
+                            <input
+                                type="password"
+                                name="api_key"
+                                placeholder="Leave blank to keep existing key"
+                                autocomplete="new-password"
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                            >
+
+                            <input
+                                name="organization"
+                                value="{{ $provider->secret_payload['organization'] ?? '' }}"
+                                placeholder="Organization / Project ID"
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                            >
+
+                            <input
+                                type="number"
+                                min="0"
+                                name="priority"
+                                data-autosave-url="{{ route('admin.ai.autosave') }}"
+                                data-autosave-field="priority"
+                                data-autosave-type="provider"
+                                data-autosave-id="{{ $provider->id }}"
+                                value="{{ $provider->priority }}"
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                            >
+
+                            <div class="flex gap-5">
+                                <label class="text-xs font-bold">
+                                    <input
+                                        type="checkbox"
+                                        name="is_active"
+                                data-autosave-url="{{ route('admin.ai.autosave') }}"
+                                data-autosave-field="is_active"
+                                data-autosave-type="provider"
+                                data-autosave-id="{{ $provider->id }}"
+                                        value="1"
+                                        @checked($provider->is_active)
+                                    >
+                                    Active
+                                </label>
+
+                                <label class="text-xs font-bold">
+                                    <input
+                                        type="checkbox"
+                                        name="is_default"
+                                data-autosave-url="{{ route('admin.ai.autosave') }}"
+                                data-autosave-field="is_default"
+                                data-autosave-type="provider"
+                                data-autosave-id="{{ $provider->id }}"
+                                        value="1"
+                                        @checked($provider->is_default)
+                                    >
+                                    Default
+                                </label>
+                            </div>
+
+                            <button class="w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-black text-white">
+                                Update Provider
+                            </button>
+
+                        </form>
+                    </details>
+
+                    @unless($provider->is_default)
+                        <form
+                            action="{{ route('admin.ai.providers.destroy', $provider) }}"
+                            method="POST"
+                            class="mt-3"
+                            onsubmit="return confirm('Delete this provider and its registered models?')"
+                        >
+                            @csrf
+                            @method('DELETE')
+
+                            <button class="text-xs font-black text-red-600">
+                                Delete Provider
+                            </button>
+                        </form>
+                    @endunless
+
+                </article>
+
+            @empty
+
+                <div class="col-span-full rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
+                    No AI provider has been configured yet.
+                </div>
+
+            @endforelse
+
+        </div>
+
+    </section>
+
+
+    {{-- =====================================================
+         MODELS
+    ====================================================== --}}
+    <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+
+        <div class="text-xs font-black uppercase tracking-[.16em] text-blue-600">
+            Model Registry
+        </div>
+
+        <h2 class="mt-2 text-2xl font-black text-slate-900">
+            Provider Models
+        </h2>
+
+
+        <form
+            action="{{ route('admin.ai.models.store') }}"
+            method="POST"
+            class="mt-6 grid gap-4 rounded-2xl bg-slate-50 p-5 md:grid-cols-2 xl:grid-cols-4"
+        >
+            @csrf
+
+            <select
+                name="ai_provider_id"
+                required
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+                <option value="">Select provider</option>
+
+                @foreach($providers as $provider)
+                    <option value="{{ $provider->id }}">
+                        {{ $provider->name }}
+                    </option>
+                @endforeach
+            </select>
+
+            <input
+                name="name"
+                required
+                placeholder="Display name"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <input
+                name="model_key"
+                required
+                placeholder="Provider model ID"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <div class="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+
+                @foreach(['text', 'image', 'vision', 'code'] as $capability)
+                    <label class="text-xs font-bold">
+                        <input
+                            type="checkbox"
+                            name="capabilities[]"
+                            value="{{ $capability }}"
+                        >
+                        {{ ucfirst($capability) }}
+                    </label>
+                @endforeach
+
+            </div>
+
+            <input
+                type="number"
+                step="0.000001"
+                min="0"
+                name="input_cost_per_million"
+                placeholder="Input cost / 1M"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <input
+                type="number"
+                step="0.000001"
+                min="0"
+                name="output_cost_per_million"
+                placeholder="Output cost / 1M"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <label class="flex items-center gap-2 text-sm font-bold">
+                <input
+                    type="checkbox"
+                    name="is_active"
+                    value="1"
+                    checked
+                >
+                Active
+            </label>
+
+            <button class="rounded-xl bg-blue-600 px-6 py-3 text-sm font-black text-white">
+                Register Model
+            </button>
+
+        </form>
+
+
+        <div class="mt-6 overflow-x-auto">
+
+            <table class="w-full min-w-[800px] text-left text-sm">
+
+                <thead class="border-b border-slate-200 text-xs uppercase text-slate-400">
+                    <tr>
+                        <th class="px-3 py-3">Model</th>
+                        <th class="px-3 py-3">Provider</th>
+                        <th class="px-3 py-3">Model Key</th>
+                        <th class="px-3 py-3">Capabilities</th>
+                        <th class="px-3 py-3">Status</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    @forelse($models as $model)
+                        <tr class="border-b border-slate-100">
+                            <td class="px-3 py-4 font-black">
+                                {{ $model->name }}
+                            </td>
+
+                            <td class="px-3 py-4">
+                                {{ $model->provider?->name }}
+                            </td>
+
+                            <td class="px-3 py-4 font-mono text-xs">
+                                {{ $model->model_key }}
+                            </td>
+
+                            <td class="px-3 py-4">
+                                {{ implode(', ', $model->capabilities ?? []) ?: '—' }}
+                            </td>
+
+                            <td class="px-3 py-4">
+                                {{ $model->is_active ? 'Active' : 'Inactive' }}
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="5" class="px-3 py-8 text-center text-slate-500">
+                                No AI models registered.
+                            </td>
+                        </tr>
+                    @endforelse
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+
+    {{-- =====================================================
+         ROUTING
+    ====================================================== --}}
+    <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+
+        <div class="text-xs font-black uppercase tracking-[.16em] text-blue-600">
+            Central Routing
+        </div>
+
+        <h2 class="mt-2 text-2xl font-black text-slate-900">
+            Model Routing
+        </h2>
+
+        <p class="mt-2 text-sm text-slate-500">
+            Route each registered AI job to the appropriate primary
+            and fallback model.
+        </p>
+
+
+        <form
+            action="{{ route('admin.ai.routing.store') }}"
+            method="POST"
+            class="mt-6 grid gap-4 rounded-2xl bg-slate-50 p-5 md:grid-cols-2 xl:grid-cols-4"
+        >
+            @csrf
+
+            <input
+                name="route_key"
+                required
+                placeholder="e.g. theme.homepage.text"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <input
+                name="label"
+                required
+                placeholder="Route label"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <select
+                name="ai_model_id"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+                <option value="">Primary model</option>
+
+                @foreach($models as $model)
+                    <option value="{{ $model->id }}">
+                        {{ $model->provider?->name }} — {{ $model->name }}
+                    </option>
+                @endforeach
+            </select>
+
+            <select
+                name="fallback_model_id"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+                <option value="">Fallback model</option>
+
+                @foreach($models as $model)
+                    <option value="{{ $model->id }}">
+                        {{ $model->provider?->name }} — {{ $model->name }}
+                    </option>
+                @endforeach
+            </select>
+
+            <input
+                type="number"
+                name="priority"
+                min="0"
+                value="100"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <label class="flex items-center gap-2 text-sm font-bold">
+                <input
+                    type="checkbox"
+                    name="is_active"
+                    value="1"
+                    checked
+                >
+                Active
+            </label>
+
+            <button class="rounded-xl bg-blue-600 px-6 py-3 text-sm font-black text-white">
+                Add Routing Rule
+            </button>
+
+        </form>
+
+
+        <div class="mt-6 space-y-3">
+
+            @forelse($routingRules as $rule)
+
+                <div class="rounded-2xl border border-slate-200 p-4">
+
+                    <div class="font-black text-slate-900">
+                        {{ $rule->label }}
+                    </div>
+
+                    <div class="mt-1 font-mono text-xs text-slate-500">
+                        {{ $rule->route_key }}
+                    </div>
+
+                    <div class="mt-3 text-sm text-slate-600">
+                        Primary:
+                        <strong>
+                            {{ $rule->model?->name ?? 'Not assigned' }}
+                        </strong>
+
+                        · Fallback:
+                        <strong>
+                            {{ $rule->fallbackModel?->name ?? 'None' }}
+                        </strong>
+                    </div>
+
+                </div>
+
+            @empty
+
+                <div class="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
+                    No model routing rules configured.
+                </div>
+
+            @endforelse
+
+        </div>
+
+    </section>
+
+
+    {{-- =====================================================
+         CREDIT RULES
+    ====================================================== --}}
+    <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+
+        <div class="text-xs font-black uppercase tracking-[.16em] text-blue-600">
+            AI Credits
+        </div>
+
+        <h2 class="mt-2 text-2xl font-black text-slate-900">
+            Usage & Charging Rules
+        </h2>
+
+        <p class="mt-2 max-w-4xl text-sm leading-6 text-slate-500">
+            Provider cost and Esubiz AI Credits remain separate.
+            These rules determine how central AI activity consumes
+            Esubiz AI Credits.
+        </p>
+
+
+        <form
+            action="{{ route('admin.ai.credits.store') }}"
+            method="POST"
+            class="mt-6 grid gap-4 rounded-2xl bg-slate-50 p-5 md:grid-cols-2 xl:grid-cols-4"
+        >
+            @csrf
+
+            <input
+                name="key"
+                required
+                placeholder="e.g. text.standard"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <input
+                name="label"
+                required
+                placeholder="Rule label"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <input
+                name="unit"
+                required
+                value="request"
+                placeholder="request / image / token"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <input
+                type="number"
+                step="0.000001"
+                min="0"
+                name="credits_per_unit"
+                required
+                value="1"
+                placeholder="Credits per unit"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <input
+                type="number"
+                step="0.000001"
+                min="0"
+                name="minimum_credits"
+                required
+                value="1"
+                placeholder="Minimum charge"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <label class="flex items-center gap-2 text-sm font-bold">
+                <input
+                    type="checkbox"
+                    name="is_active"
+                    value="1"
+                    checked
+                >
+                Active
+            </label>
+
+            <button class="rounded-xl bg-blue-600 px-6 py-3 text-sm font-black text-white">
+                Add Credit Rule
+            </button>
+
+        </form>
+
+
+        <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+
+            @forelse($creditRules as $rule)
+
+                <article class="rounded-2xl border border-slate-200 p-5">
+
+                    <div class="text-xs font-black uppercase text-blue-600">
+                        {{ $rule->key }}
+                    </div>
+
+                    <h3 class="mt-2 font-black text-slate-900">
+                        {{ $rule->label }}
+                    </h3>
+
+                    <div class="mt-4 text-2xl font-black text-slate-900">
+                        {{ rtrim(rtrim($rule->credits_per_unit, '0'), '.') }}
+                    </div>
+
+                    <div class="mt-1 text-xs text-slate-500">
+                        credits / {{ $rule->unit }}
+                    </div>
+
+                </article>
+
+            @empty
+
+                <div class="col-span-full rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
+                    No AI credit charging rules configured.
+                </div>
+
+            @endforelse
+
+        </div>
+
+    </section>
+
+
+    {{-- =====================================================
+         CENTRAL SERVICE LIBRARY
+    ====================================================== --}}
+    <section>
+
+        <div class="text-xs font-black uppercase tracking-[.16em] text-blue-600">
+            AI Service Library
+        </div>
+
+        <h2 class="mt-2 text-2xl font-black text-slate-900">
+            Central Services
+        </h2>
+
+        <div class="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
 
             @foreach($services as $service)
 
-                <article
-                    class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-                >
+                <article class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
 
-                    <div
-                        class="text-xs font-black uppercase tracking-wide text-blue-600"
-                    >
-                        Registered Service
+                    <div class="text-xs font-black uppercase text-blue-600">
+                        Registered
                     </div>
 
-                    <h3
-                        class="mt-3 text-lg font-black text-slate-900"
-                    >
+                    <h3 class="mt-3 text-lg font-black text-slate-900">
                         {{ $service['label'] }}
                     </h3>
 
-                    <p
-                        class="mt-2 text-sm leading-6 text-slate-500"
-                    >
+                    <p class="mt-2 text-sm leading-6 text-slate-500">
                         {{ $service['description'] }}
                     </p>
 
@@ -181,266 +1162,152 @@
     {{-- CAPABILITY LIBRARY --}}
     <section>
 
-        <div
-            class="text-xs font-black uppercase tracking-[.16em] text-blue-600"
-        >
+        <div class="text-xs font-black uppercase tracking-[.16em] text-blue-600">
             Capability Library
         </div>
 
-        <h2
-            class="mt-2 text-2xl font-black text-slate-900"
-        >
+        <h2 class="mt-2 text-2xl font-black text-slate-900">
             Registered AI Functions
         </h2>
 
-
-        <div
-            class="mt-6 grid gap-5 lg:grid-cols-2"
-        >
+        <div class="mt-6 grid gap-5 lg:grid-cols-2">
 
             @forelse($capabilities as $capability)
 
-                <article
-                    class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-                >
+                <article class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
 
-                    <div
-                        class="flex items-start justify-between gap-4"
-                    >
-
-                        <div>
-
-                            <div
-                                class="text-xs font-black uppercase tracking-wide text-slate-400"
-                            >
-                                {{ $capability['key'] }}
-                            </div>
-
-                            <h3
-                                class="mt-2 text-lg font-black text-slate-900"
-                            >
-                                {{ $capability['label'] }}
-                            </h3>
-
-                        </div>
-
-
-                        @if($capability['version'])
-
-                            <span
-                                class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black text-slate-500"
-                            >
-                                v{{ $capability['version'] }}
-                            </span>
-
-                        @endif
-
+                    <div class="text-xs font-black uppercase text-slate-400">
+                        {{ $capability['key'] }}
                     </div>
 
+                    <h3 class="mt-2 text-lg font-black text-slate-900">
+                        {{ $capability['label'] }}
+                    </h3>
 
                     @if(!empty($capability['functions']))
+                        <div class="mt-5 flex flex-wrap gap-2">
 
-                        <div
-                            class="mt-5 flex flex-wrap gap-2"
-                        >
-
-                            @foreach(
-                                $capability['functions']
-                                as $function
-                            )
-
-                                <span
-                                    class="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700"
-                                >
+                            @foreach($capability['functions'] as $function)
+                                <span class="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700">
                                     {{ $function }}
                                 </span>
-
                             @endforeach
 
                         </div>
-
                     @endif
 
                 </article>
 
             @empty
 
-                <div
-                    class="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-sm text-slate-500"
-                >
-                    No AI capabilities are registered yet.
+                <div class="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-sm text-slate-500">
+                    No AI capabilities registered.
                 </div>
 
             @endforelse
 
         </div>
-
-    </section>
-
-
-    {{-- OFFICIAL AI AVATARS --}}
-    <section>
-
-        <div
-            class="text-xs font-black uppercase tracking-[.16em] text-blue-600"
-        >
-            Official AI Avatars
-        </div>
-
-        <h2
-            class="mt-2 text-2xl font-black text-slate-900"
-        >
-            Esubiz AI Avatars
-        </h2>
-
-        <p
-            class="mt-2 max-w-4xl text-sm leading-6 text-slate-500"
-        >
-            These are the official Esubiz AI identities users and
-            developers can choose from. They all use the same
-            central AI engine.
-        </p>
-
-
-        <div
-            class="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-4"
-        >
-
-            @forelse($personas as $persona)
-
-                <article
-                    class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
-                >
-
-                    <div
-                        class="flex items-center gap-4"
-                    >
-
-                        <div
-                            class="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-blue-50"
-                        >
-
-                            @if($persona->avatarUrl())
-
-                                <img
-                                    src="{{ $persona->avatarUrl() }}"
-                                    alt="{{ $persona->name }}"
-                                    class="h-full w-full object-cover"
-                                >
-
-                            @else
-
-                                <div
-                                    class="flex h-full w-full items-center justify-center font-black text-blue-600"
-                                >
-                                    AI
-                                </div>
-
-                            @endif
-
-                        </div>
-
-
-                        <div>
-
-                            <h3
-                                class="text-lg font-black text-slate-900"
-                            >
-                                {{ $persona->name }}
-                            </h3>
-
-                            <div
-                                class="mt-1 text-xs font-bold text-slate-400"
-                            >
-                                {{
-                                    $persona->is_active
-                                        ? 'Active'
-                                        : 'Inactive'
-                                }}
-                            </div>
-
-                        </div>
-
-                    </div>
-
-
-                    @if($persona->description)
-
-                        <p
-                            class="mt-4 text-sm leading-6 text-slate-500"
-                        >
-                            {{ $persona->description }}
-                        </p>
-
-                    @endif
-
-
-                    @if($persona->is_default)
-
-                        <span
-                            class="mt-4 inline-flex rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black uppercase text-blue-600"
-                        >
-                            Default Avatar
-                        </span>
-
-                    @endif
-
-                </article>
-
-            @empty
-
-                <div
-                    class="col-span-full rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center"
-                >
-
-                    <strong
-                        class="text-slate-900"
-                    >
-                        No official AI avatars yet.
-                    </strong>
-
-                    <p
-                        class="mt-2 text-sm text-slate-500"
-                    >
-                        Avatar creation controls will be added next.
-                    </p>
-
-                </div>
-
-            @endforelse
-
-        </div>
-
-    </section>
-
-
-    {{-- CENTRAL ENGINE --}}
-    <section
-        class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-    >
-
-        <div
-            class="text-xs font-black uppercase tracking-[.16em] text-blue-600"
-        >
-            Central Engine
-        </div>
-
-        <h2
-            class="mt-2 text-xl font-black text-slate-900"
-        >
-            Provider, Credits & Routing
-        </h2>
-
-        <p
-            class="mt-2 max-w-4xl text-sm leading-6 text-slate-500"
-        >
-            Model routing, AI credit pricing, provider credentials
-            and usage accounting remain centralized here. Generated
-            user/developer media stays in the requesting workspace.
-        </p>
 
     </section>
 
 </div>
+
+
+
+<script data-ai-avatar-preview-script>
+document.addEventListener(
+    'DOMContentLoaded',
+    function () {
+
+        document.querySelectorAll(
+            '[data-ai-avatar-input]'
+        ).forEach(
+            function (input) {
+
+                input.addEventListener(
+                    'change',
+                    function () {
+
+                        const file =
+                            input.files
+                            && input.files[0];
+
+                        const targetId =
+                            input.getAttribute(
+                                'data-ai-avatar-preview-target'
+                            );
+
+                        const box =
+                            targetId
+                                ? document.getElementById(
+                                    targetId
+                                )
+                                : null;
+
+                        const image =
+                            box
+                                ? box.querySelector(
+                                    'img'
+                                )
+                                : null;
+
+
+                        if (
+                            !file
+                            || !box
+                            || !image
+                        ) {
+
+                            if (box) {
+                                box.classList.add(
+                                    'hidden'
+                                );
+                            }
+
+                            return;
+                        }
+
+
+                        if (
+                            !file.type
+                                .startsWith(
+                                    'image/'
+                                )
+                        ) {
+                            return;
+                        }
+
+
+                        const url =
+                            URL.createObjectURL(
+                                file
+                            );
+
+
+                        image.src =
+                            url;
+
+
+                        box.classList.remove(
+                            'hidden'
+                        );
+
+
+                        image.onload =
+                            function () {
+
+                                URL.revokeObjectURL(
+                                    url
+                                );
+                            };
+                    }
+                );
+            }
+        );
+
+    }
+);
+</script>
+
 
 @endsection

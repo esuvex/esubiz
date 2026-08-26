@@ -69,33 +69,18 @@
 
             <div class="esubiz-ai-avatar">
 
-                @if(
-                    !empty(
-                        $aiPersona[
-                            'avatar_url'
-                        ]
-                    )
-                )
+                @if(!empty($aiPersona['avatar_url']))
 
-                    <img
-                        src="{{
-                            $aiPersona[
-                                'avatar_url'
-                            ]
-                        }}"
-                        alt="{{
-                            $aiPersona[
-                                'name'
-                            ]
-                            ?? 'Esubiz AI'
-                        }}"
-                    >
+                                <img
+                                    src="{{ $aiPersona['avatar_url'] }}"
+                                    alt="{{ $aiPersona['name'] ?? 'Esubiz AI' }}"
+                                >
 
-                @else
+                            @else
 
-                    <span>AI</span>
+                                AI
 
-                @endif
+                            @endif
 
             </div>
 

@@ -20,6 +20,58 @@ use App\Http\Controllers\Admin\FinancialReportController;
 
 use Illuminate\Support\Facades\Route;
 
+
+
+/*
+|--------------------------------------------------------------------------
+| Public Central Esubiz AI Avatar Media
+|--------------------------------------------------------------------------
+|
+| Official avatars are landlord-owned media stored in Central storage.
+| This route is intentionally public because tenant websites must
+| display the selected official Esubiz AI avatar.
+|
+*/
+
+
+
+/*
+|--------------------------------------------------------------------------
+| PUBLIC ESUBIZ CENTRAL MEDIA
+|--------------------------------------------------------------------------
+|
+| Landlord-owned media only.
+| Tenant media must not use this route.
+|
+*/
+
+Route::get(
+    '/media/central/{path}',
+    [
+        \App\Http\Controllers\Media\CentralMediaController::class,
+        'show',
+    ]
+)
+->where(
+    'path',
+    '.*'
+)
+->name(
+    'esubiz.central-media.show'
+);
+
+
+Route::get(
+    '/media/esubiz-ai/avatar/{persona}',
+    [
+        \App\Http\Controllers\Admin\AiController::class,
+        'avatarImage',
+    ]
+)->name(
+    'esubiz.ai.avatar.image'
+);
+
+
 Route::get('/gift-card/validate', [
     \App\Http\Controllers\GiftCardValidatorController::class,
     'index',
@@ -403,6 +455,30 @@ Route::domain('{subdomain}.esubiz.com')
             'tenant.cms.site-ai.service.update'
         );
 
+        Route::post(
+            '/admin/esubiz-ai/avatar',
+            [
+                \App\Http\Controllers\TenantSiteAiController::class,
+                'updateAvatarSetting',
+            ]
+        )->name(
+            'tenant.cms.site-ai.avatar.update'
+        );
+
+        Route::post(
+            '/admin/esubiz-ai/autosave',
+            [
+                \App\Http\Controllers\TenantSiteAiController::class,
+                'autosaveSetting',
+            ]
+        )->name(
+            'tenant.cms.site-ai.autosave'
+        );
+
+
+
+
+
 
 
         /*
@@ -759,6 +835,124 @@ Route::middleware(['auth'])->group(function () {
     )->name(
         'admin.ai.index'
     );
+
+    Route::post(
+        '/admin/ai/autosave',
+        [
+            \App\Http\Controllers\Admin\AiController::class,
+            'autosaveSetting',
+        ]
+    )->name(
+        'admin.ai.autosave'
+    );
+
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Central Admin - Esubiz AI Management
+    |--------------------------------------------------------------------------
+    */
+
+    Route::post(
+        '/admin/ai/avatars',
+        [
+            \App\Http\Controllers\Admin\AiController::class,
+            'storeAvatar',
+        ]
+    )->name(
+        'admin.ai.avatars.store'
+    );
+
+
+    Route::post(
+        '/admin/ai/avatars/{persona}',
+        [
+            \App\Http\Controllers\Admin\AiController::class,
+            'updateAvatar',
+        ]
+    )->name(
+        'admin.ai.avatars.update'
+    );
+
+
+    Route::delete(
+        '/admin/ai/avatars/{persona}',
+        [
+            \App\Http\Controllers\Admin\AiController::class,
+            'destroyAvatar',
+        ]
+    )->name(
+        'admin.ai.avatars.destroy'
+    );
+
+
+    Route::post(
+        '/admin/ai/providers',
+        [
+            \App\Http\Controllers\Admin\AiController::class,
+            'storeProvider',
+        ]
+    )->name(
+        'admin.ai.providers.store'
+    );
+
+
+    Route::post(
+        '/admin/ai/providers/{provider}',
+        [
+            \App\Http\Controllers\Admin\AiController::class,
+            'updateProvider',
+        ]
+    )->name(
+        'admin.ai.providers.update'
+    );
+
+
+    Route::delete(
+        '/admin/ai/providers/{provider}',
+        [
+            \App\Http\Controllers\Admin\AiController::class,
+            'destroyProvider',
+        ]
+    )->name(
+        'admin.ai.providers.destroy'
+    );
+
+
+    Route::post(
+        '/admin/ai/models',
+        [
+            \App\Http\Controllers\Admin\AiController::class,
+            'storeModel',
+        ]
+    )->name(
+        'admin.ai.models.store'
+    );
+
+
+    Route::post(
+        '/admin/ai/routing',
+        [
+            \App\Http\Controllers\Admin\AiController::class,
+            'storeRoutingRule',
+        ]
+    )->name(
+        'admin.ai.routing.store'
+    );
+
+
+    Route::post(
+        '/admin/ai/credits',
+        [
+            \App\Http\Controllers\Admin\AiController::class,
+            'storeCreditRule',
+        ]
+    )->name(
+        'admin.ai.credits.store'
+    );
+
+
 
 
 

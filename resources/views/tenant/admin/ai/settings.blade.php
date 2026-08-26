@@ -234,7 +234,11 @@
                         <input
                             type="checkbox"
                             name="site_ai_enabled"
-                            data-ai-service-toggle="site"
+                            data-autosave-url="{{ route(
+                                'tenant.cms.site-ai.autosave',
+                                ['subdomain' => $website->subdomain]
+                            ) }}"
+                            data-autosave-field="site_ai_enabled"
                             value="1"
                             form="esubizAiSettingsForm"
                             class="h-5 w-5"
@@ -302,7 +306,11 @@
                         <input
                             type="checkbox"
                             name="live_chat_ai_enabled"
-                            data-ai-service-toggle="live_chat"
+                            data-autosave-url="{{ route(
+                                'tenant.cms.site-ai.autosave',
+                                ['subdomain' => $website->subdomain]
+                            ) }}"
+                            data-autosave-field="live_chat_ai_enabled"
                             value="1"
                             form="esubizAiSettingsForm"
                             class="h-5 w-5"
@@ -373,7 +381,11 @@
                         <input
                             type="checkbox"
                             name="whatsapp_ai_enabled"
-                            data-ai-service-toggle="whatsapp"
+                            data-autosave-url="{{ route(
+                                'tenant.cms.site-ai.autosave',
+                                ['subdomain' => $website->subdomain]
+                            ) }}"
+                            data-autosave-field="whatsapp_ai_enabled"
                             value="1"
                             form="esubizAiSettingsForm"
                             class="h-5 w-5"
@@ -440,7 +452,11 @@
                         <input
                             type="checkbox"
                             name="email_ai_enabled"
-                            data-ai-service-toggle="email"
+                            data-autosave-url="{{ route(
+                                'tenant.cms.site-ai.autosave',
+                                ['subdomain' => $website->subdomain]
+                            ) }}"
+                            data-autosave-field="email_ai_enabled"
                             value="1"
                             form="esubizAiSettingsForm"
                             class="h-5 w-5"
@@ -507,7 +523,11 @@
                         <input
                             type="checkbox"
                             name="sms_ai_enabled"
-                            data-ai-service-toggle="sms"
+                            data-autosave-url="{{ route(
+                                'tenant.cms.site-ai.autosave',
+                                ['subdomain' => $website->subdomain]
+                            ) }}"
+                            data-autosave-field="sms_ai_enabled"
                             value="1"
                             form="esubizAiSettingsForm"
                             class="h-5 w-5"
@@ -574,7 +594,11 @@
                         <input
                             type="checkbox"
                             name="social_media_ai_enabled"
-                            data-ai-service-toggle="social_media"
+                            data-autosave-url="{{ route(
+                                'tenant.cms.site-ai.autosave',
+                                ['subdomain' => $website->subdomain]
+                            ) }}"
+                            data-autosave-field="social_media_ai_enabled"
                             value="1"
                             form="esubizAiSettingsForm"
                             class="h-5 w-5"
@@ -642,7 +666,11 @@
                         <input
                             type="checkbox"
                             name="ads_ai_enabled"
-                            data-ai-service-toggle="ads"
+                            data-autosave-url="{{ route(
+                                'tenant.cms.site-ai.autosave',
+                                ['subdomain' => $website->subdomain]
+                            ) }}"
+                            data-autosave-field="ads_ai_enabled"
                             value="1"
                             form="esubizAiSettingsForm"
                             class="h-5 w-5"
@@ -789,7 +817,13 @@
                                 <input
                                     type="radio"
                                     name="persona_id"
+                                    data-autosave-url="{{ route(
+                                'tenant.cms.site-ai.autosave',
+                                ['subdomain' => $website->subdomain]
+                            ) }}"
+                                    data-autosave-field="persona_id"
                                     value="{{ $persona->id }}"
+                                    data-ai-avatar-choice
                                     {{
                                         (int) old(
                                             'persona_id',
@@ -875,270 +909,12 @@
 
 
 
-<script data-ai-service-autosave-installed>
-document.addEventListener(
-    'DOMContentLoaded',
-    function () {
 
-        const toggles =
-            document.querySelectorAll(
-                '[data-ai-service-toggle]'
-            );
 
-        const status =
-            document.querySelector(
-                '[data-ai-autosave-status]'
-            );
 
-        const endpoint =
-            @json(
-                route(
-                    'tenant.cms.site-ai.service.update',
-                    [
-                        'subdomain' =>
-                            $website->subdomain,
-                    ]
-                )
-            );
 
 
-        const csrf =
-            document.querySelector(
-                'meta[name="csrf-token"]'
-            )?.getAttribute(
-                'content'
-            )
-            || document.querySelector(
-                'input[name="_token"]'
-            )?.value
-            || '';
 
-
-        let statusTimer = null;
-
-
-        function showStatus(
-            text,
-            type = 'saving'
-        ) {
-
-            if (!status) {
-                return;
-            }
-
-
-            if (statusTimer) {
-                clearTimeout(
-                    statusTimer
-                );
-            }
-
-
-            status.textContent =
-                text;
-
-
-            status.classList.remove(
-                'text-slate-700',
-                'text-blue-600',
-                'text-emerald-600',
-                'text-red-600',
-                'border-blue-200',
-                'border-emerald-200',
-                'border-red-200'
-            );
-
-
-            if (type === 'saving') {
-
-                status.classList.add(
-                    'text-blue-600',
-                    'border-blue-200'
-                );
-
-            } else if (
-                type === 'saved'
-            ) {
-
-                status.classList.add(
-                    'text-emerald-600',
-                    'border-emerald-200'
-                );
-
-            } else {
-
-                status.classList.add(
-                    'text-red-600',
-                    'border-red-200'
-                );
-            }
-
-
-            status.hidden =
-                false;
-        }
-
-
-        function hideStatus() {
-
-            statusTimer =
-                setTimeout(
-                    function () {
-
-                        if (status) {
-                            status.hidden =
-                                true;
-                        }
-
-                    },
-                    1800
-                );
-        }
-
-
-        toggles.forEach(
-            function (toggle) {
-
-                toggle.addEventListener(
-                    'change',
-                    async function () {
-
-                        /*
-                         * Because this runs AFTER the browser
-                         * changed the checkbox, previous state
-                         * is the opposite of current state.
-                         */
-                        const previousState =
-                            !toggle.checked;
-
-                        const service =
-                            toggle.getAttribute(
-                                'data-ai-service-toggle'
-                            );
-
-
-                        /*
-                         * Prevent repeated clicks while saving.
-                         */
-                        toggle.disabled =
-                            true;
-
-
-                        showStatus(
-                            'Saving...',
-                            'saving'
-                        );
-
-
-                        try {
-
-                            const response =
-                                await fetch(
-                                    endpoint,
-                                    {
-                                        method:
-                                            'POST',
-
-                                        credentials:
-                                            'same-origin',
-
-                                        headers: {
-                                            'Content-Type':
-                                                'application/json',
-
-                                            'Accept':
-                                                'application/json',
-
-                                            'X-CSRF-TOKEN':
-                                                csrf,
-
-                                            'X-Requested-With':
-                                                'XMLHttpRequest',
-                                        },
-
-                                        body:
-                                            JSON.stringify({
-                                                service:
-                                                    service,
-
-                                                enabled:
-                                                    toggle.checked,
-                                            }),
-                                    }
-                                );
-
-
-                            let data = {};
-
-                            try {
-                                data =
-                                    await response.json();
-                            } catch (_) {
-                                data = {};
-                            }
-
-
-                            if (
-                                !response.ok
-                                || !data.success
-                            ) {
-
-                                throw new Error(
-                                    data.message
-                                    || 'Could not save AI setting.'
-                                );
-                            }
-
-
-                            /*
-                             * Respect authoritative value
-                             * returned by the server.
-                             */
-                            toggle.checked =
-                                !!data.enabled;
-
-
-                            showStatus(
-                                'Saved',
-                                'saved'
-                            );
-
-
-                            hideStatus();
-
-
-                        } catch (error) {
-
-                            /*
-                             * Restore old state if AJAX failed.
-                             */
-                            toggle.checked =
-                                previousState;
-
-
-                            showStatus(
-                                'Could not save',
-                                'error'
-                            );
-
-
-                            hideStatus();
-
-
-                        } finally {
-
-                            toggle.disabled =
-                                false;
-                        }
-
-                    }
-                );
-            }
-        );
-
-    }
-);
-</script>
 
 
 @endsection

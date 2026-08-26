@@ -877,5 +877,7 @@
         <x-site-ai.assistant />
     @endonce
 
+
+    <x-settings.ajax-autosave />
 </body>
 </html>
