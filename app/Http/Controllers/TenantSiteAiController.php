@@ -700,7 +700,7 @@ class TenantSiteAiController extends Controller
     public function updateAvatarSetting(
         Request $request,
         string $subdomain
-    ): JsonResponse {
+    ): \Illuminate\Http\JsonResponse {
 
         $website =
             Website::query()
@@ -716,31 +716,42 @@ class TenantSiteAiController extends Controller
                 'persona_id' => [
                     'required',
                     'integer',
-                    
+                    'min:1',
                 ],
             ]);
 
 
+        /*
+         * Official avatars always come from the Central DB.
+         */
         $persona =
             \App\Models\Ai\AiPersona::query()
                 ->where(
                     'is_active',
                     true
                 )
-                ->findOrFail(
-                    $data[
-                        'persona_id'
-                    ]
+                ->find(
+                    (int) $data['persona_id']
                 );
 
 
+        if (!$persona) {
+
+            return response()->json([
+                'success' => false,
+                'message' =>
+                    'The selected AI avatar is unavailable.',
+            ], 422);
+        }
+
+
         /*
-         * Use the same real tenant DB service already used
-         * by this controller elsewhere.
+         * Use the exact tenant DB service already proven by
+         * updateServiceSetting().
          */
         $tenantDatabaseService =
             app(
-                \App\Services\TenantDatabaseManager::class
+                \App\Services\Website\WebsiteTenantDatabaseService::class
             );
 
 
@@ -752,21 +763,57 @@ class TenantSiteAiController extends Controller
 
         try {
 
-            $tenantDatabaseService
-                ->connection()
-                ->table(
-                    'site_settings'
-                )
-                ->updateOrInsert(
-                    [
-                        'key' =>
-                            'ai.persona_id',
-                    ],
-                    [
-                        'value' =>
-                            (string) $persona->id,
-                    ]
+            $db =
+                $tenantDatabaseService
+                    ->connection();
+
+
+            $db->table(
+                'site_settings'
+            )
+            ->updateOrInsert(
+                [
+                    'key' =>
+                        'ai.persona_id',
+                ],
+                [
+                    'value' =>
+                        (string) $persona->id,
+                ]
+            );
+
+
+            /*
+             * Read it back before declaring the AJAX save successful.
+             */
+            $saved =
+                (string) (
+                    $db->table(
+                        'site_settings'
+                    )
+                    ->where(
+                        'key',
+                        'ai.persona_id'
+                    )
+                    ->value(
+                        'value'
+                    )
+                    ?? ''
                 );
+
+
+            if (
+                $saved
+                !== (string) $persona->id
+            ) {
+
+                return response()->json([
+                    'success' => false,
+                    'message' =>
+                        'The AI avatar setting could not be verified.',
+                ], 500);
+            }
+
 
         } finally {
 
@@ -776,8 +823,10 @@ class TenantSiteAiController extends Controller
 
 
         return response()->json([
-            'success' =>
-                true,
+            'success' => true,
+
+            'message' =>
+                'Avatar saved',
 
             'persona_id' =>
                 $persona->id,
@@ -787,9 +836,6 @@ class TenantSiteAiController extends Controller
 
             'avatar_url' =>
                 $persona->avatarUrl(),
-
-            'message' =>
-                'AI avatar saved.',
         ]);
     }
 

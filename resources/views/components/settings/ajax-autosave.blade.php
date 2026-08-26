@@ -291,7 +291,9 @@ document.addEventListener(
 
 
                 showStatus(
-                    'Could not save',
+                    error.message
+                        ? 'Could not save: ' + error.message
+                        : 'Could not save',
                     'error'
                 );
 
