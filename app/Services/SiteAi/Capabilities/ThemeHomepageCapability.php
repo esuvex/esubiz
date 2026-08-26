@@ -5,41 +5,10 @@ namespace App\Services\SiteAi\Capabilities;
 use App\Services\SiteAi\Contracts\SiteAiCapability;
 
 /**
- * Generic Theme Homepage capability.
+ * Theme Homepage capability.
  *
- * IMPORTANT:
- *
- * This is NOT Business-theme-specific.
- *
- * Every theme supplies its own homepage manifest containing
- * the homepage sections and fields it exposes to AI.
- *
- * Business might expose:
- *
- * hero
- * features
- * stats
- * about
- * testimonials
- * cta
- *
- * Ecommerce may expose:
- *
- * hero
- * categories
- * featured_products
- * promotions
- * testimonials
- * cta
- *
- * Hotel may expose:
- *
- * hero
- * rooms
- * amenities
- * gallery
- * testimonials
- * booking_cta
+ * Central Esubiz owns the capability definition.
+ * Generated content/media belongs to the requesting workspace.
  */
 class ThemeHomepageCapability implements SiteAiCapability
 {
@@ -49,177 +18,268 @@ class ThemeHomepageCapability implements SiteAiCapability
     }
 
 
-    public function manifest(
-        array $context = []
-    ): array {
-
-        $themeManifest =
-            $context[
-                'theme_ai_manifest'
-            ] ?? [];
-
-
-        return [
-            /*
-             * Text and image generation are supported from
-             * the same capability.
-             */
-            'actions' => [
-                'generate-text',
-                'rewrite',
-                'improve',
-                'shorten',
-                'expand',
-                'generate-image',
-                'generate-section',
-                'generate-homepage',
-            ],
-
-            /*
-             * Only the theme's declared homepage sections
-             * are made available.
-             */
-            'sections' =>
-                $themeManifest[
-                    'sections'
-                ] ?? [],
-
-            'supports' => [
-                'text' => true,
-                'images' => true,
-                'mixed' => true,
-            ],
-
-            /*
-             * Explicit security boundary.
-             *
-             * Theme AI cannot alter these areas through the
-             * homepage capability.
-             */
-            'forbidden' => [
-                'header',
-                'navigation',
-                'menus',
-                'footer',
-                'favicon',
-                'global_theme_settings',
-                'floating_tools',
-            ],
-        ];
+    public function manifest(array $context = []): array
+    {
+        return $this->definition();
     }
 
 
-    public function prepare(
-        array $payload,
-        array $context = []
-    ): array {
-
-        $manifest =
-            $this->manifest(
-                $context
-            );
-
-
-        $allowedSections =
-            array_keys(
-                $manifest[
-                    'sections'
-                ] ?? []
-            );
-
-
+    public function prepare(array $payload,
+        array $context = []): array
+    {
         /*
-         * Only declared homepage sections survive.
+         * Keep the caller payload intact.
+         * The central engine/provider performs generation.
          */
-        $sections = [];
-
-        foreach (
-            (array) (
-                $payload[
-                    'sections'
-                ] ?? []
-            )
-            as $section => $data
-        ) {
-            if (
-                in_array(
-                    $section,
-                    $allowedSections,
-                    true
-                )
-            ) {
-                $sections[$section] =
-                    $data;
-            }
-        }
-
-
-        return [
-            'prompt' =>
-                trim(
-                    (string) (
-                        $payload[
-                            'prompt'
-                        ] ?? ''
-                    )
-                ),
-
-            'sections' =>
-                $sections,
-
-            'target_section' =>
-                $payload[
-                    'target_section'
-                ] ?? null,
-        ];
+        return $context;
     }
 
 
-    public function normalizeResult(
-        array $result,
-        array $context = []
-    ): array {
-
-        $manifest =
-            $this->manifest(
-                $context
-            );
-
-
-        $allowedSections =
-            array_keys(
-                $manifest[
-                    'sections'
-                ] ?? []
-            );
+    public function normalizeResult(array $result,
+        array $context = []): array
+    {
+        /*
+         * Generated output is returned to the requesting
+         * workspace for persistence in its own storage.
+         */
+        return $context;
+    }
 
 
-        if (
-            isset(
-                $result[
-                    'sections'
-                ]
-            )
-            && is_array(
-                $result[
-                    'sections'
-                ]
-            )
-        ) {
-            $result[
-                'sections'
-            ] =
-                array_intersect_key(
-                    $result[
-                        'sections'
+    public function definition(): array
+    {
+        return [
+            'key' => $this->key(),
+
+            'version' => '1.0.0',
+
+            'label' => 'Theme Homepage',
+
+            'storage' => [
+                'output_owner' =>
+                    'requesting_workspace',
+
+                'central_asset_storage' =>
+                    false,
+
+                'persist_generated_text_centrally' =>
+                    false,
+
+                'persist_generated_media_centrally' =>
+                    false,
+
+                'persistence' =>
+                    'caller',
+
+                'media_destination' =>
+                    'workspace_media_library',
+            ],
+
+            'functions' => [
+
+                [
+                    'key' =>
+                        'header_logo',
+
+                    'label' =>
+                        'Header Logo',
+
+                    'description' =>
+                        'Generate a website header logo using the recommended 180 × 60 px layout.',
+
+                    'outputs' => [
+                        'image',
                     ],
-                    array_flip(
-                        $allowedSections
-                    )
-                );
-        }
 
+                    'targets' => [
+                        'header_logo',
+                    ],
 
-        return $result;
+                    'meta' => [
+                        'asset_type' =>
+                            'logo',
+
+                        'recommended_width' =>
+                            180,
+
+                        'recommended_height' =>
+                            60,
+
+                        'recommended_format' =>
+                            'PNG',
+
+                        'storage_owner' =>
+                            'requesting_workspace',
+                    ],
+                ],
+
+                [
+                    'key' =>
+                        'footer_logo',
+
+                    'label' =>
+                        'Footer Logo',
+
+                    'description' =>
+                        'Generate a footer logo using the recommended 180 × 60 px layout.',
+
+                    'outputs' => [
+                        'image',
+                    ],
+
+                    'targets' => [
+                        'footer_logo',
+                    ],
+
+                    'meta' => [
+                        'asset_type' =>
+                            'logo',
+
+                        'recommended_width' =>
+                            180,
+
+                        'recommended_height' =>
+                            60,
+
+                        'recommended_format' =>
+                            'PNG',
+
+                        'storage_owner' =>
+                            'requesting_workspace',
+                    ],
+                ],
+
+                [
+                    'key' =>
+                        'favicon',
+
+                    'label' =>
+                        'Favicon',
+
+                    'description' =>
+                        'Generate a favicon using the recommended 64 × 64 px square format.',
+
+                    'outputs' => [
+                        'image',
+                    ],
+
+                    'targets' => [
+                        'favicon',
+                    ],
+
+                    'meta' => [
+                        'asset_type' =>
+                            'favicon',
+
+                        'recommended_width' =>
+                            64,
+
+                        'recommended_height' =>
+                            64,
+
+                        'recommended_format' =>
+                            'PNG',
+
+                        'storage_owner' =>
+                            'requesting_workspace',
+                    ],
+                ],
+
+                [
+                    'key' => 'hero',
+                    'label' => 'Hero',
+                    'description' =>
+                        'Generate or improve homepage hero content and imagery.',
+                    'outputs' => [
+                        'text',
+                        'image',
+                    ],
+                    'targets' => [
+                        'hero_badge',
+                        'hero_title',
+                        'hero_text',
+                        'hero_primary_button',
+                        'hero_secondary_button',
+                        'hero_image',
+                    ],
+                ],
+
+                [
+                    'key' => 'features',
+                    'label' => 'Features',
+                    'description' =>
+                        'Generate or improve homepage feature content.',
+                    'outputs' => [
+                        'text',
+                        'structured-data',
+                    ],
+                    'targets' => [
+                        'features_heading',
+                        'features_text',
+                        'features',
+                    ],
+                ],
+
+                [
+                    'key' => 'stats',
+                    'label' => 'Statistics',
+                    'description' =>
+                        'Generate or improve homepage statistics.',
+                    'outputs' => [
+                        'text',
+                        'structured-data',
+                    ],
+                    'targets' => [
+                        'stats',
+                    ],
+                ],
+
+                [
+                    'key' => 'about',
+                    'label' => 'About Us',
+                    'description' =>
+                        'Generate or improve About Us content and imagery.',
+                    'outputs' => [
+                        'text',
+                        'image',
+                    ],
+                    'targets' => [
+                        'about_heading',
+                        'about_text',
+                        'about_image',
+                    ],
+                ],
+
+                [
+                    'key' => 'testimonials',
+                    'label' => 'Testimonials',
+                    'description' =>
+                        'Generate or improve testimonial content.',
+                    'outputs' => [
+                        'text',
+                        'structured-data',
+                    ],
+                    'targets' => [
+                        'testimonials_heading',
+                        'testimonials',
+                    ],
+                ],
+
+                [
+                    'key' => 'cta',
+                    'label' => 'Final Call to Action',
+                    'description' =>
+                        'Generate or improve the homepage final call to action.',
+                    'outputs' => [
+                        'text',
+                    ],
+                    'targets' => [
+                        'cta_heading',
+                        'cta_text',
+                        'cta_button',
+                    ],
+                ],
+            ],
+        ];
     }
 }

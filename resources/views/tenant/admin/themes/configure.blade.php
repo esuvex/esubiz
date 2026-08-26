@@ -1,3 +1,90 @@
+
+{{-- ============================================================
+     ESUBIZ_THEME_HOMEPAGE_AI_CONTRIBUTION
+============================================================ --}}
+@php
+    /*
+     * Theme Config contributes functions only.
+     *
+     * The global AI Assistant itself already exists in the
+     * Tenant Admin base layout.
+     *
+     * Failure here must NEVER break Theme Config.
+     */
+    try {
+
+        $siteAiCapability =
+            app(
+                \App\Services\SiteAi\Capabilities\ThemeHomepageCapability::class
+            )->definition();
+
+
+        app(
+            \App\Services\SiteAi\Support\SiteAiContext::class
+        )->contribute([
+            'source' =>
+                $siteAiCapability['key']
+                ?? 'theme.homepage',
+
+            'label' =>
+                $siteAiCapability['label']
+                ?? 'Theme Homepage',
+
+            'description' =>
+                'Select the homepage areas you want AI to build or customize.',
+
+            'functions' =>
+                $siteAiCapability['functions']
+                ?? [],
+
+            'context' => [
+                /*
+                 * Generated assets belong to this website,
+                 * never Esubiz Central asset storage.
+                 */
+                'workspace_type' =>
+                    'tenant',
+
+                'output_owner' =>
+                    'requesting_workspace',
+
+                'central_asset_storage' =>
+                    false,
+
+                'theme' =>
+                    $themeSlug
+                    ?? (
+                        is_object($theme ?? null)
+                            ? (
+                                $theme->slug
+                                ?? $theme->key
+                                ?? null
+                            )
+                            : (
+                                is_string($theme ?? null)
+                                    ? $theme
+                                    : null
+                            )
+                    ),
+
+                'website_id' =>
+                    $website->id
+                    ?? null,
+            ],
+        ]);
+
+    } catch (\Throwable $siteAiException) {
+
+        /*
+         * AI is optional assistance.
+         * Never allow it to damage the existing editor.
+         */
+        report(
+            $siteAiException
+        );
+    }
+@endphp
+
 @extends('tenant.admin.layouts.app')
 
 @section('title', 'Configure Business Theme')

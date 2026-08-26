@@ -7,6 +7,8 @@ use App\Services\SiteAi\Contracts\SiteAiProvider;
 use App\Services\SiteAi\Providers\EsubizCentralSiteAiProvider;
 use App\Services\SiteAi\SiteAiEngine;
 use App\Services\SiteAi\SiteAiRegistry;
+use App\Services\SiteAi\Support\SiteAiContext;
+use App\Services\SiteAi\Support\SiteAiPersona;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -17,6 +19,23 @@ class SiteAiServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+
+        /*
+         * ESUBIZ_GLOBAL_AI_ASSISTANT_SERVICES
+         *
+         * One context registry and one persona resolver are
+         * available throughout the current application request.
+         */
+        $this->app->singleton(
+            SiteAiContext::class,
+            fn () => new SiteAiContext()
+        );
+
+        $this->app->singleton(
+            SiteAiPersona::class,
+            fn () => new SiteAiPersona()
+        );
+
         $this->app->singleton(
             SiteAiRegistry::class,
             function () {

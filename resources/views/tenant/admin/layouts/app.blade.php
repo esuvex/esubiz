@@ -365,5 +365,11 @@ document.addEventListener(
 
 @stack('scripts')
 
+
+    {{-- ESUBIZ_GLOBAL_AI_ASSISTANT --}}
+    @once
+        <x-site-ai.assistant />
+    @endonce
+
 </body>
 </html>

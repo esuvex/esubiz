@@ -1,3 +1,20 @@
+{{-- 
+    ESUBIZ_CENTRAL_CANONICAL_LAYOUT
+
+    Shared Central Esubiz application layout.
+
+    Account modes:
+    - User
+    - Developer
+    - Platform Admin
+
+    All new Central Esubiz pages should inherit this layout with:
+
+        @extends('admin.layouts.app')
+
+    Do not create page-specific replacement sidebars.
+--}}
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -192,7 +209,9 @@
                     New Plan
                 </a>
 
-                <a href="#"
+
+
+<a href="#"
                    class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
                     My Plans
                 </a>
@@ -575,7 +594,6 @@
            class="block rounded-xl px-5 py-3 hover:bg-slate-800">
             Financial Reports
         </a>
-        </a>
 
         <div>
             <button
@@ -587,6 +605,20 @@
             </button>
 
             <div x-show="siteSettingsMenu" x-cloak class="ml-4 mt-1 space-y-1">
+
+                {{-- ESUBIZ_AI_SITE_SETTINGS_FIRST --}}
+                <a
+                    href="{{ route('admin.ai.index') }}"
+                    class="block rounded-xl px-5 py-2 text-sm
+                        {{
+                            request()->routeIs('admin.ai.*')
+                                ? 'bg-blue-600 text-white'
+                                : 'hover:bg-slate-800'
+                        }}"
+                >
+                    Esubiz AI
+                </a>
+
                 <a
                     href="{{ url('/admin/site-settings/payment-gateways') }}"
                     class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800"
@@ -838,6 +870,12 @@
     display:none!important;
 }
 </style>
+
+
+    {{-- ESUBIZ_GLOBAL_AI_ASSISTANT --}}
+    @once
+        <x-site-ai.assistant />
+    @endonce
 
 </body>
 </html>

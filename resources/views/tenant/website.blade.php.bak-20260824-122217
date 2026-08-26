@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        {{ $page->title ?? $website->name }}
+    </title>
+
+    <meta
+        name="description"
+        content="{{ $settings['site_description']
+            ?? $settings['description']
+            ?? $website->name }}"
+    >
+
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: #ffffff;
+            color: #0f172a;
+            font-family:
+                Inter,
+                ui-sans-serif,
+                system-ui,
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                sans-serif;
+        }
+
+        a {
+            color: inherit;
+        }
+
+
+        /* ================================================
+           SITE HEADER
+        ================================================= */
+
+        .site-header {
+            border-bottom: 1px solid #e2e8f0;
+            background: #fff;
+        }
+
+        .site-header-inner {
+            width: min(100% - 40px, 1440px);
+            min-height: 88px;
+            margin: 0 auto;
+
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 30px;
+        }
+
+        .site-brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+
+            text-decoration: none;
+            font-size: 20px;
+            font-weight: 800;
+        }
+
+        .site-brand-mark {
+            width: 46px;
+            height: 46px;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            border-radius: 12px;
+
+            background: #0f172a;
+            color: #fff;
+
+            font-weight: 900;
+        }
+
+        .site-nav {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .site-nav a {
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 700;
+            color: #475569;
+        }
+
+
+        /* ================================================
+           PAGE BUILDER
+        ================================================= */
+
+        .esubiz-builder-page {
+            width: 100%;
+        }
+
+        .esubiz-builder-section {
+            width: 100%;
+            padding: 48px 0;
+        }
+
+        .esubiz-builder-section-inner {
+            width: min(100% - 40px, 1440px);
+            margin: 0 auto;
+        }
+
+        .esubiz-section-heading {
+            margin: 0 0 24px;
+            font-size: 32px;
+            line-height: 1.2;
+            font-weight: 800;
+        }
+
+        .esubiz-section-grid {
+            display: grid;
+            align-items: start;
+            gap: 24px;
+        }
+
+        .esubiz-section-column {
+            min-width: 0;
+        }
+
+
+        /* ================================================
+           WIDGETS
+        ================================================= */
+
+
+        .esubiz-hero-slider {
+            position: relative;
+            width: 100%;
+            overflow: hidden;
+            border-radius: 18px;
+            background: #0f172a;
+        }
+
+        .esubiz-hero-slide {
+            position: absolute;
+            inset: 0;
+
+            display: flex;
+            align-items: center;
+
+            padding: 48px;
+
+            background-size: cover;
+            background-position: center;
+
+            opacity: 0;
+            visibility: hidden;
+
+            transition:
+                opacity .45s ease,
+                visibility .45s ease;
+        }
+
+        .esubiz-hero-slide.is-active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .esubiz-hero-content {
+            width: min(720px, 100%);
+            color: #fff;
+        }
+
+        .esubiz-hero-content h1 {
+            margin: 0;
+            font-size: clamp(38px, 5vw, 68px);
+            line-height: 1.05;
+            font-weight: 900;
+        }
+
+        .esubiz-hero-content p {
+            margin: 20px 0 0;
+            font-size: 18px;
+            line-height: 1.7;
+            color: rgba(255,255,255,.9);
+        }
+
+        .esubiz-hero-content .esubiz-widget-button {
+            margin-top: 26px;
+        }
+
+
+        .esubiz-widget-heading {
+            margin: 0 0 18px;
+            font-weight: 800;
+            line-height: 1.15;
+        }
+
+        h1.esubiz-widget-heading {
+            font-size: clamp(38px, 5vw, 68px);
+        }
+
+        h2.esubiz-widget-heading {
+            font-size: clamp(30px, 4vw, 48px);
+        }
+
+        h3.esubiz-widget-heading {
+            font-size: clamp(24px, 3vw, 34px);
+        }
+
+        .esubiz-widget-text {
+            margin: 0 0 20px;
+            font-size: 16px;
+            line-height: 1.75;
+            color: #475569;
+        }
+
+        .esubiz-widget-button-wrap {
+            margin: 20px 0;
+        }
+
+        .esubiz-widget-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+
+            padding: 13px 22px;
+
+            border-radius: 10px;
+
+            background: #2563eb;
+            color: #ffffff;
+
+            font-size: 14px;
+            font-weight: 800;
+
+            text-decoration: none;
+        }
+
+        .esubiz-widget-image {
+            display: block;
+
+            max-width: 100%;
+            height: auto;
+
+            object-fit: contain;
+        }
+
+        .esubiz-widget-divider {
+            margin: 28px 0;
+
+            border: 0;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .esubiz-form-placeholder {
+            padding: 24px;
+
+            border: 2px dashed #bfdbfe;
+            border-radius: 14px;
+
+            background: #eff6ff;
+            color: #1d4ed8;
+
+            text-align: center;
+            font-weight: 700;
+        }
+
+
+        /* ================================================
+           LEGACY HTML PAGES
+        ================================================= */
+
+        .esubiz-legacy-page {
+            width: min(100% - 40px, 1440px);
+            margin: 0 auto;
+            padding: 48px 0;
+        }
+
+
+        /* ================================================
+           MOBILE
+        ================================================= */
+
+        @media (max-width: 767px) {
+
+            .site-header-inner {
+                width: min(100% - 28px, 1440px);
+                min-height: 72px;
+            }
+
+            .site-nav {
+                gap: 14px;
+            }
+
+            .esubiz-builder-section {
+                padding: 32px 0;
+            }
+
+            .esubiz-builder-section-inner {
+                width: min(100% - 28px, 1440px);
+            }
+
+            .esubiz-section-grid {
+                grid-template-columns: 1fr !important;
+            }
+
+            .esubiz-legacy-page {
+                width: min(100% - 28px, 1440px);
+            }
+
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+@php
+
+    /*
+     * =========================================================
+     * CORE PAGE BUILDER RENDERER
+     * =========================================================
+     */
+
+    $coreBuilderBlocks =
+        is_array($builderContent ?? null)
+            ? $builderContent
+            : [];
+
+
+    $imageWidths = [
+        'thumbnail' => '150px',
+        'small' => '320px',
+        'medium' => '640px',
+        'large' => '960px',
+        'very_large' => '1280px',
+    ];
+
+
+    $renderWidget = function ($widget) use (
+        &$renderWidget,
+        $imageWidths
+    ) {
+
+        $widget =
+            is_array($widget)
+                ? $widget
+                : [];
+
+        $type =
+            $widget['type'] ?? '';
+
+
+        /*
+         * HERO / SLIDER
+         */
+        if ($type === 'hero') {
+
+            $slides =
+                is_array(
+                    $widget['slides']
+                    ?? null
+                )
+                    ? $widget['slides']
+                    : [];
+
+            if (!$slides) {
+                return '';
+            }
+
+            $autoplay =
+                ($widget['autoplay'] ?? true)
+                    ? '1'
+                    : '0';
+
+            $interval =
+                max(
+                    2000,
+                    min(
+                        15000,
+                        (int) (
+                            $widget['interval']
+                            ?? 5000
+                        )
+                    )
+                );
+
+            $height =
+                max(
+                    300,
+                    min(
+                        900,
+                        (int) (
+                            $widget['height']
+                            ?? 520
+                        )
+                    )
+                );
+
+            $html =
+                '<div class="esubiz-hero-slider"'
+                . ' data-autoplay="'
+                . $autoplay
+                . '"'
+                . ' data-interval="'
+                . $interval
+                . '"'
+                . ' style="min-height:'
+                . $height
+                . 'px">';
+
+
+            foreach (
+                $slides
+                as $index => $slide
+            ) {
+
+                $slide =
+                    is_array($slide)
+                        ? $slide
+                        : [];
+
+                $background =
+                    '';
+
+                $slideImage = '';
+
+                if (!empty($slide['uploaded_path'])) {
+
+                    $slideImage = asset(
+                        'storage/'
+                        . ltrim(
+                            $slide['uploaded_path'],
+                            '/'
+                        )
+                    );
+
+                } elseif (!empty($slide['image'])) {
+
+                    $slideImage =
+                        $slide['image'];
+                }
+
+
+                if ($slideImage !== '') {
+
+                    $background =
+                        ' style="background-image:'
+                        . 'linear-gradient('
+                        . 'rgba(15,23,42,.48),'
+                        . 'rgba(15,23,42,.48)'
+                        . '),url(\''
+                        . e($slideImage)
+                        . '\')"';
+                }
+
+
+                $html .=
+                    '<div class="esubiz-hero-slide'
+                    . (
+                        $index === 0
+                            ? ' is-active'
+                            : ''
+                    )
+                    . '"'
+                    . $background
+                    . '>';
+
+
+                $html .=
+                    '<div class="esubiz-hero-content">';
+
+
+                if (
+                    !empty(
+                        $slide['heading']
+                    )
+                ) {
+
+                    $html .=
+                        '<h1>'
+                        . e(
+                            $slide['heading']
+                        )
+                        . '</h1>';
+                }
+
+
+                if (
+                    !empty(
+                        $slide['text']
+                    )
+                ) {
+
+                    $html .=
+                        '<p>'
+                        . nl2br(
+                            e(
+                                $slide['text']
+                            )
+                        )
+                        . '</p>';
+                }
+
+
+                if (
+                    !empty(
+                        $slide['button_text']
+                    )
+                ) {
+
+                    $html .=
+                        '<a class="esubiz-widget-button" href="'
+                        . e(
+                            $slide['button_url']
+                            ?? '#'
+                        )
+                        . '">'
+                        . e(
+                            $slide['button_text']
+                        )
+                        . '</a>';
+                }
+
+
+                $html .=
+                    '</div></div>';
+            }
+
+
+            $html .= '</div>';
+
+            return $html;
+        }
+
+
+        /*
+         * HEADING
+         */
+        if ($type === 'heading') {
+
+            $level =
+                in_array(
+                    $widget['level'] ?? 'h2',
+                    ['h1', 'h2', 'h3'],
+                    true
+                )
+                    ? $widget['level']
+                    : 'h2';
+
+            return '<'
+                . $level
+                . ' class="esubiz-widget-heading">'
+                . e($widget['text'] ?? '')
+                . '</'
+                . $level
+                . '>';
+        }
+
+
+        /*
+         * TEXT
+         */
+        if ($type === 'text') {
+
+            return '<div class="esubiz-widget-text">'
+                . nl2br(
+                    e(
+                        $widget['text'] ?? ''
+                    )
+                )
+                . '</div>';
+        }
+
+
+        /*
+         * BUTTON
+         */
+        if ($type === 'button') {
+
+            return '<div class="esubiz-widget-button-wrap">'
+                . '<a class="esubiz-widget-button" href="'
+                . e($widget['url'] ?? '#')
+                . '">'
+                . e($widget['text'] ?? 'Learn More')
+                . '</a>'
+                . '</div>';
+        }
+
+
+        /*
+         * IMAGE
+         */
+        if ($type === 'image') {
+
+            /*
+             * Tenant-uploaded media is stored against the website's
+             * Core storage allocation. Prefer the stored public path
+             * so public rendering does not depend on a temporary URL.
+             */
+            if (!empty($widget['uploaded_path'])) {
+
+                $url = asset(
+                    'storage/'
+                    . ltrim(
+                        $widget['uploaded_path'],
+                        '/'
+                    )
+                );
+
+            } else {
+
+                $url =
+                    $widget['url']
+                    ?? '';
+            }
+
+            if ($url === '') {
+                return '';
+            }
+
+            $size =
+                $widget['size'] ?? 'large';
+
+            if ($size === 'custom') {
+
+                $custom =
+                    max(
+                        1,
+                        (int) (
+                            $widget['custom_width']
+                            ?? 800
+                        )
+                    );
+
+                $width =
+                    $custom . 'px';
+
+            } else {
+
+                $width =
+                    $imageWidths[$size]
+                    ?? $imageWidths['large'];
+            }
+
+            return '<img'
+                . ' class="esubiz-widget-image"'
+                . ' src="' . e($url) . '"'
+                . ' alt="' . e($widget['alt'] ?? '') . '"'
+                . ' style="width:min(100%,'
+                . e($width)
+                . ');"'
+                . '>';
+        }
+
+
+        /*
+         * DIVIDER
+         */
+        if ($type === 'divider') {
+
+            return '<hr class="esubiz-widget-divider">';
+        }
+
+
+        /*
+         * SPACER
+         */
+        if ($type === 'spacer') {
+
+            $height =
+                max(
+                    10,
+                    min(
+                        200,
+                        (int) (
+                            $widget['height']
+                            ?? 40
+                        )
+                    )
+                );
+
+            return '<div style="height:'
+                . $height
+                . 'px"></div>';
+        }
+
+
+        /*
+         * FORM
+         *
+         * Real form rendering will replace this when Core Forms
+         * is connected.
+         */
+        if ($type === 'form') {
+
+            if (empty($widget['form_id'])) {
+                return '';
+            }
+
+            return '<div'
+                . ' class="esubiz-form-placeholder"'
+                . ' data-esubiz-form-id="'
+                . e($widget['form_id'])
+                . '"'
+                . '>Website Form</div>';
+        }
+
+
+        return '';
+    };
+
+
+    $renderBlock = function ($block) use (
+        &$renderBlock,
+        &$renderWidget
+    ) {
+
+        $block =
+            is_array($block)
+                ? $block
+                : [];
+
+
+        /*
+         * Old standalone Core widgets.
+         */
+        if (
+            ($block['type'] ?? '')
+            !== 'section'
+        ) {
+            return $renderWidget(
+                $block
+            );
+        }
+
+
+        /*
+         * SECTION COLUMN RATIO
+         */
+        $ratio =
+            $block['ratio'] ?? '1';
+
+        $ratioParts =
+            array_values(
+                array_filter(
+                    array_map(
+                        function ($part) {
+
+                            return max(
+                                1,
+                                (int) $part
+                            );
+
+                        },
+                        explode(
+                            ':',
+                            $ratio
+                        )
+                    )
+                )
+            );
+
+        if (!$ratioParts) {
+            $ratioParts = [1];
+        }
+
+        $grid =
+            implode(
+                ' ',
+                array_map(
+                    fn ($part) =>
+                        $part . 'fr',
+                    $ratioParts
+                )
+            );
+
+
+        $html =
+            '<section class="esubiz-builder-section">'
+            . '<div class="esubiz-builder-section-inner">';
+
+
+        /*
+         * Optional section heading.
+         */
+        if (
+            !empty(
+                $block['heading']
+            )
+        ) {
+
+            $html .=
+                '<h2 class="esubiz-section-heading">'
+                . e($block['heading'])
+                . '</h2>';
+        }
+
+
+        $html .=
+            '<div'
+            . ' class="esubiz-section-grid"'
+            . ' style="grid-template-columns:'
+            . e($grid)
+            . ';">';
+
+
+        foreach (
+            ($block['columns'] ?? [])
+            as $column
+        ) {
+
+            $html .=
+                '<div class="esubiz-section-column">';
+
+
+            foreach (
+                ($column['widgets'] ?? [])
+                as $widget
+            ) {
+
+                $html .=
+                    $renderWidget(
+                        $widget
+                    );
+            }
+
+
+            $html .= '</div>';
+        }
+
+
+        $html .=
+            '</div>'
+            . '</div>'
+            . '</section>';
+
+
+        return $html;
+    };
+
+@endphp
+
+
+{{-- =========================================================
+     WEBSITE HEADER
+========================================================= --}}
+
+<header class="site-header">
+
+    <div class="site-header-inner">
+
+        <a
+            href="/"
+            class="site-brand"
+        >
+
+            <span class="site-brand-mark">
+
+                {{ strtoupper(
+                    substr(
+                        $settings['website_name']
+                            ?? $website->name,
+                        0,
+                        1
+                    )
+                ) }}
+
+            </span>
+
+
+            <span>
+
+                {{ $settings['website_name']
+                    ?? $website->name }}
+
+            </span>
+
+        </a>
+
+
+        <nav class="site-nav">
+
+            <a href="/">
+                Home
+            </a>
+
+
+            @foreach($menuItems ?? [] as $menuItem)
+
+                @php
+
+                    $itemUrl =
+                        $menuItem->url
+                        ?? '#';
+
+                    if (
+                        isset($menuItem->page_id)
+                        && $menuItem->page_id
+                    ) {
+
+                        $linkedPage =
+                            DB::connection('tenant')
+                                ->table('pages')
+                                ->where(
+                                    'id',
+                                    $menuItem->page_id
+                                )
+                                ->first();
+
+                        if ($linkedPage) {
+
+                            $itemUrl =
+                                $linkedPage->is_homepage
+                                    ? '/'
+                                    : '/'
+                                        . $linkedPage->slug;
+                        }
+                    }
+
+                @endphp
+
+
+                <a href="{{ $itemUrl }}">
+
+                    {{ $menuItem->label
+                        ?? $menuItem->title
+                        ?? 'Menu' }}
+
+                </a>
+
+            @endforeach
+
+        </nav>
+
+    </div>
+
+</header>
+
+
+{{-- =========================================================
+     PAGE CONTENT
+========================================================= --}}
+
+@if(!empty($coreBuilderBlocks))
+
+    <main class="esubiz-builder-page">
+
+        @foreach(
+            $coreBuilderBlocks
+            as $coreBuilderBlock
+        )
+
+            {!! $renderBlock(
+                $coreBuilderBlock
+            ) !!}
+
+        @endforeach
+
+    </main>
+
+
+@elseif(
+    isset($page)
+    && !empty(
+        trim(
+            (string) $page->content
+        )
+    )
+)
+
+    <main class="esubiz-legacy-page">
+
+        {!! $page->content !!}
+
+    </main>
+
+
+@endif
+
+
+
+<script>
+
+function initEsubizHeroSliders() {
+
+    document
+        .querySelectorAll(
+            '.esubiz-hero-slider'
+        )
+        .forEach(
+            function (slider) {
+
+                const slides =
+                    Array.from(
+                        slider.querySelectorAll(
+                            '.esubiz-hero-slide'
+                        )
+                    );
+
+                if (slides.length <= 1) {
+                    return;
+                }
+
+                if (
+                    slider.dataset.autoplay
+                    !== '1'
+                ) {
+                    return;
+                }
+
+                let current = 0;
+
+                const interval =
+                    Math.max(
+                        2000,
+                        Number(
+                            slider.dataset.interval
+                            || 5000
+                        )
+                    );
+
+
+                window.setInterval(
+                    function () {
+
+                        slides[current]
+                            .classList.remove(
+                                'is-active'
+                            );
+
+                        current =
+                            (
+                                current + 1
+                            )
+                            % slides.length;
+
+                        slides[current]
+                            .classList.add(
+                                'is-active'
+                            );
+
+                    },
+                    interval
+                );
+
+            }
+        );
+
+}
+
+
+document.addEventListener(
+    'DOMContentLoaded',
+    initEsubizHeroSliders
+);
+
+</script>
+
+</body>
+</html>

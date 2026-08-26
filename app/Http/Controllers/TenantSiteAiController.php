@@ -169,4 +169,526 @@ class TenantSiteAiController extends Controller
             );
         }
     }
+
+
+    /**
+     * Tenant Esubiz AI settings.
+     */
+    public function settings(
+        string $subdomain
+    ) {
+        $website =
+            Website::query()
+                ->where(
+                    'subdomain',
+                    $subdomain
+                )
+                ->firstOrFail();
+
+
+        $personas =
+            \App\Models\Ai\AiPersona::query()
+                ->where(
+                    'is_active',
+                    true
+                )
+                ->orderByDesc(
+                    'is_default'
+                )
+                ->orderBy(
+                    'sort_order'
+                )
+                ->orderBy(
+                    'id'
+                )
+                ->get();
+
+
+        $selectedPersonaId =
+            null;
+
+
+        $tenantDatabaseService =
+            app(
+                \App\Services\Website\WebsiteTenantDatabaseService::class
+            );
+
+
+        $tenantDatabaseService
+            ->connect(
+                $website
+            );
+
+
+        try {
+
+            $value =
+                $tenantDatabaseService
+                    ->connection()
+                    ->table(
+                        'site_settings'
+                    )
+                    ->where(
+                        'key',
+                        'ai.persona_id'
+                    )
+                    ->value(
+                        'value'
+                    );
+
+
+            $selectedPersonaId =
+                is_numeric(
+                    $value
+                )
+                    ? (int) $value
+                    : null;
+
+
+            $siteAiEnabled =
+                (
+                    $tenantDatabaseService
+                        ->connection()
+                        ->table('site_settings')
+                        ->where(
+                            'key',
+                            'ai.site_enabled'
+                        )
+                        ->value('value')
+                    ?? '1'
+                ) === '1';
+
+
+            $liveChatAiEnabled =
+                (
+                    $tenantDatabaseService
+                        ->connection()
+                        ->table('site_settings')
+                        ->where(
+                            'key',
+                            'ai.live_chat_enabled'
+                        )
+                        ->value('value')
+                    ?? '1'
+                ) === '1';
+
+
+            $whatsappAiEnabled =
+                (
+                    $tenantDatabaseService
+                        ->connection()
+                        ->table('site_settings')
+                        ->where(
+                            'key',
+                            'ai.whatsapp_enabled'
+                        )
+                        ->value('value')
+                    ?? '1'
+                ) === '1';
+
+
+            $emailAiEnabled =
+                (
+                    $tenantDatabaseService
+                        ->connection()
+                        ->table('site_settings')
+                        ->where(
+                            'key',
+                            'ai.email_enabled'
+                        )
+                        ->value('value')
+                    ?? '1'
+                ) === '1';
+
+
+            $smsAiEnabled =
+                (
+                    $tenantDatabaseService
+                        ->connection()
+                        ->table('site_settings')
+                        ->where(
+                            'key',
+                            'ai.sms_enabled'
+                        )
+                        ->value('value')
+                    ?? '1'
+                ) === '1';
+
+
+            $socialMediaAiEnabled =
+                (
+                    $tenantDatabaseService
+                        ->connection()
+                        ->table('site_settings')
+                        ->where(
+                            'key',
+                            'ai.social_media_enabled'
+                        )
+                        ->value('value')
+                    ?? '1'
+                ) === '1';
+
+
+            $adsAiEnabled =
+                (
+                    $tenantDatabaseService
+                        ->connection()
+                        ->table('site_settings')
+                        ->where(
+                            'key',
+                            'ai.ads_enabled'
+                        )
+                        ->value('value')
+                    ?? '1'
+                ) === '1';
+
+
+        } finally {
+
+            $tenantDatabaseService
+                ->disconnect();
+        }
+
+
+        return view(
+            'tenant.admin.ai.settings',
+            compact(
+                'website',
+                'personas',
+                'selectedPersonaId',
+                'siteAiEnabled',
+                'liveChatAiEnabled',
+                'whatsappAiEnabled',
+                'emailAiEnabled',
+                'smsAiEnabled',
+                'socialMediaAiEnabled',
+                'adsAiEnabled'
+            )
+        );
+    }
+
+
+    /**
+     * Save workspace choice of official Esubiz AI persona.
+     */
+    public function updateSettings(
+        Request $request,
+        string $subdomain
+    ) {
+
+        $website =
+            Website::query()
+                ->where(
+                    'subdomain',
+                    $subdomain
+                )
+                ->firstOrFail();
+
+
+        $data =
+            $request->validate([
+                'persona_id' => [
+                    'nullable',
+                    'integer',
+                    'exists:ai_personas,id',
+                ],
+
+                'site_ai_enabled' => [
+                    'nullable',
+                    'boolean',
+                ],
+
+                'live_chat_ai_enabled' => [
+                    'nullable',
+                    'boolean',
+                ],
+
+                'whatsapp_ai_enabled' => [
+                    'nullable',
+                    'boolean',
+                ],
+
+                'email_ai_enabled' => [
+                    'nullable',
+                    'boolean',
+                ],
+
+                'sms_ai_enabled' => [
+                    'nullable',
+                    'boolean',
+                ],
+
+                'social_media_ai_enabled' => [
+                    'nullable',
+                    'boolean',
+                ],
+
+                'ads_ai_enabled' => [
+                    'nullable',
+                    'boolean',
+                ],
+            ]);
+
+
+        $persona =
+            !empty(
+                $data[
+                    'persona_id'
+                ]
+            )
+                ? \App\Models\Ai\AiPersona::query()
+                    ->where(
+                        'is_active',
+                        true
+                    )
+                    ->findOrFail(
+                        $data[
+                            'persona_id'
+                        ]
+                    )
+                : null;
+
+
+        $tenantDatabaseService =
+            app(
+                \App\Services\Website\WebsiteTenantDatabaseService::class
+            );
+
+
+        $tenantDatabaseService
+            ->connect(
+                $website
+            );
+
+
+        try {
+
+            if ($persona) {
+
+                $tenantDatabaseService
+                    ->connection()
+                    ->table(
+                        'site_settings'
+                    )
+                    ->updateOrInsert(
+                        [
+                            'key' =>
+                                'ai.persona_id',
+                        ],
+                        [
+                            'value' =>
+                                (string) $persona->id,
+                        ]
+                    );
+            }
+
+
+            $aiSettings = [
+                'ai.site_enabled' =>
+                    $request->boolean(
+                        'site_ai_enabled'
+                    )
+                        ? '1'
+                        : '0',
+
+                'ai.live_chat_enabled' =>
+                    $request->boolean(
+                        'live_chat_ai_enabled'
+                    )
+                        ? '1'
+                        : '0',
+
+                'ai.whatsapp_enabled' =>
+                    $request->boolean(
+                        'whatsapp_ai_enabled'
+                    )
+                        ? '1'
+                        : '0',
+
+                'ai.email_enabled' =>
+                    $request->boolean(
+                        'email_ai_enabled'
+                    )
+                        ? '1'
+                        : '0',
+
+                'ai.sms_enabled' =>
+                    $request->boolean(
+                        'sms_ai_enabled'
+                    )
+                        ? '1'
+                        : '0',
+
+                'ai.social_media_enabled' =>
+                    $request->boolean(
+                        'social_media_ai_enabled'
+                    )
+                        ? '1'
+                        : '0',
+
+                'ai.ads_enabled' =>
+                    $request->boolean(
+                        'ads_ai_enabled'
+                    )
+                        ? '1'
+                        : '0',
+            ];
+
+
+            foreach (
+                $aiSettings
+                as $settingKey => $settingValue
+            ) {
+
+                $tenantDatabaseService
+                    ->connection()
+                    ->table(
+                        'site_settings'
+                    )
+                    ->updateOrInsert(
+                        [
+                            'key' =>
+                                $settingKey,
+                        ],
+                        [
+                            'value' =>
+                                $settingValue,
+                        ]
+                    );
+            }
+
+
+        } finally {
+
+            $tenantDatabaseService
+                ->disconnect();
+        }
+
+
+        return redirect()
+            ->back()
+            ->with(
+                'success',
+                'Esubiz AI persona updated.'
+            );
+    }
+
+
+
+    /**
+     * Autosave one website AI service.
+     *
+     * One reusable endpoint serves every AI service.
+     */
+    public function updateServiceSetting(
+        Request $request,
+        string $subdomain
+    ): JsonResponse {
+
+        $website =
+            Website::query()
+                ->where(
+                    'subdomain',
+                    $subdomain
+                )
+                ->firstOrFail();
+
+
+        $allowedServices = [
+            'site',
+            'live_chat',
+            'whatsapp',
+            'email',
+            'sms',
+            'social_media',
+            'ads',
+        ];
+
+
+        $data =
+            $request->validate([
+                'service' => [
+                    'required',
+                    'string',
+                    Rule::in(
+                        $allowedServices
+                    ),
+                ],
+
+                'enabled' => [
+                    'required',
+                    'boolean',
+                ],
+            ]);
+
+
+        $tenantDatabaseService =
+            app(
+                \App\Services\Website\WebsiteTenantDatabaseService::class
+            );
+
+
+        $tenantDatabaseService
+            ->connect(
+                $website
+            );
+
+
+        try {
+
+            $tenantDatabaseService
+                ->connection()
+                ->table(
+                    'site_settings'
+                )
+                ->updateOrInsert(
+                    [
+                        'key' =>
+                            'ai.'
+                            . $data[
+                                'service'
+                            ]
+                            . '_enabled',
+                    ],
+                    [
+                        'value' =>
+                            $data[
+                                'enabled'
+                            ]
+                                ? '1'
+                                : '0',
+                    ]
+                );
+
+
+        } finally {
+
+            $tenantDatabaseService
+                ->disconnect();
+        }
+
+
+        return response()->json([
+            'success' =>
+                true,
+
+            'service' =>
+                $data[
+                    'service'
+                ],
+
+            'enabled' =>
+                (bool) $data[
+                    'enabled'
+                ],
+
+            'message' =>
+                $data[
+                    'enabled'
+                ]
+                    ? 'AI service enabled.'
+                    : 'AI service disabled.',
+        ]);
+    }
+
 }

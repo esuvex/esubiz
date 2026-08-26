@@ -612,7 +612,13 @@
                     Earnings
                 </a>
 
-                <a href="{{ url('/admin/referrals/payouts') }}"
+                <a href="{{ route(
+                        'tenant.cms.site-ai.settings',
+                        [
+                            'subdomain' =>
+                                $website->subdomain,
+                        ]
+                    ) }}"
                    class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white">
                     Payouts
                 </a>

@@ -1,0 +1,4802 @@
+@extends('tenant.admin.layouts.app')
+
+
+@section(
+    'title',
+    $page ? 'Edit Page' : 'Add Page'
+)
+
+@section(
+    'header_title',
+    $page ? 'Edit Page' : 'Add Page'
+)
+
+
+@php
+
+    $pageSettings = [];
+
+    if (
+        $page
+        && !empty($page->settings)
+    ) {
+        $pageSettings =
+            json_decode(
+                $page->settings,
+                true
+            ) ?: [];
+    }
+
+    $savedBuilder =
+        $pageSettings['basic_builder']
+        ?? [];
+
+@endphp
+
+
+@section('content')
+
+
+<div
+    class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+>
+
+    <div>
+
+        <a
+            href="{{ route(
+                'tenant.cms.pages.index',
+                ['subdomain' => $website->subdomain]
+            ) }}"
+            class="text-sm font-bold text-blue-600"
+        >
+            ← Pages
+        </a>
+
+        <h1
+            class="mt-3 text-3xl font-black"
+        >
+            {{ $page
+                ? 'Edit Page'
+                : 'Add Page' }}
+        </h1>
+
+        <p class="mt-2 text-slate-500">
+            Build your page using the Esubiz Core Basic Page Builder.
+        </p>
+
+    </div>
+
+
+    <div
+        class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs font-bold text-blue-700"
+    >
+        Basic Page Builder
+    </div>
+
+</div>
+
+
+<form
+    id="pageForm"
+    method="POST"
+    action="{{ $page
+        ? route(
+            'tenant.cms.pages.update',
+            [
+                'subdomain' =>
+                    $website->subdomain,
+
+                'page' =>
+                    $page->id,
+            ]
+        )
+        : route(
+            'tenant.cms.pages.store',
+            [
+                'subdomain' =>
+                    $website->subdomain,
+            ]
+        ) }}"
+>
+
+    @csrf
+
+    @if($page)
+        @method('PUT')
+    @endif
+
+
+    <input
+        type="hidden"
+        id="pageContent"
+        name="content"
+        value=""
+    >
+
+    <input
+        type="hidden"
+        id="builderJson"
+        name="builder_json"
+        value=""
+    >
+
+
+    <div
+        class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_330px]"
+    >
+
+
+        {{-- =================================================
+             MAIN BUILDER
+        ================================================== --}}
+
+        <div class="space-y-6">
+
+
+            {{-- Page details --}}
+
+            <section
+                class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
+            >
+
+                <h2 class="text-lg font-black">
+                    Page Details
+                </h2>
+
+
+                <div
+                    class="mt-5 grid gap-5 md:grid-cols-2"
+                >
+
+                    <div>
+
+                        <label
+                            class="text-sm font-black"
+                        >
+                            Page Title
+                        </label>
+
+                        <input
+                            type="text"
+                            name="title"
+                            id="pageTitleInput"
+                            required
+                            value="{{ old(
+                                'title',
+                                $page->title ?? ''
+                            ) }}"
+                            class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+                        >
+
+                    </div>
+
+
+                    <div>
+
+                        <label
+                            class="text-sm font-black"
+                        >
+                            URL Slug
+                        </label>
+
+                        <input
+                            type="text"
+                            name="slug"
+                            id="pageSlugInput"
+                            value="{{ old(
+                                'slug',
+                                $page->slug ?? ''
+                            ) }}"
+                            placeholder="about-us"
+                            class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+                        >
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            {{-- Builder toolbar --}}
+
+            <section
+                class="rounded-3xl border border-slate-200 bg-white shadow-sm"
+            >
+
+                <div
+                    class="border-b border-slate-100 p-5 sm:p-6"
+                >
+
+                    <div
+                        class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+                    >
+
+                        <div>
+
+                            <h2
+                                class="text-lg font-black"
+                            >
+                                Page Builder
+                            </h2>
+
+                            <p
+                                class="mt-1 text-sm text-slate-500"
+                            >
+                                Add blocks and arrange them in the order they should appear.
+                            </p>
+
+                        </div>
+
+
+                        <div class="flex flex-wrap gap-2">
+
+                            <button
+                                type="button"
+                                id="aiAssistButton"
+                                class="rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm font-black text-violet-700 hover:bg-violet-100"
+                            >
+                                ✨ AI Assist
+                            </button>
+
+                            <button
+                                type="button"
+                                id="previewButton"
+                                class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-bold text-blue-700"
+                            >
+                                Preview Page
+                            </button>
+
+                        </div>
+
+                    </div>
+
+
+                    {{-- Widget toolbar --}}
+
+                    <div
+                        class="mt-5 flex flex-wrap gap-2"
+                    >
+
+                        <button
+                            type="button"
+                            data-add-block="heading"
+                            class="builder-add rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold hover:bg-slate-50"
+                        >
+                            + Heading
+                        </button>
+
+                        <button
+                            type="button"
+                            data-add-block="text"
+                            class="builder-add rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold hover:bg-slate-50"
+                        >
+                            + Text
+                        </button>
+
+                        <button
+                            type="button"
+                            data-add-block="button"
+                            class="builder-add rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold hover:bg-slate-50"
+                        >
+                            + Button
+                        </button>
+
+                        <button
+                            type="button"
+                            data-add-block="image"
+                            class="builder-add rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold hover:bg-slate-50"
+                        >
+                            + Image
+                        </button>
+
+                        <button
+                            type="button"
+                            data-add-block="section"
+                            class="builder-add rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold hover:bg-slate-50"
+                        >
+                            + Section
+                        </button>
+
+                        <button
+                            type="button"
+                            data-add-block="columns2"
+                            class="builder-add rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold hover:bg-slate-50"
+                        >
+                            + 2 Columns
+                        </button>
+
+                        <button
+                            type="button"
+                            data-add-block="columns3"
+                            class="builder-add rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold hover:bg-slate-50"
+                        >
+                            + 3 Columns
+                        </button>
+
+                        <button
+                            type="button"
+                            data-add-block="divider"
+                            class="builder-add rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold hover:bg-slate-50"
+                        >
+                            + Divider
+                        </button>
+
+                        <button
+                            type="button"
+                            data-add-block="form"
+                            class="builder-add rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold hover:bg-slate-50"
+                        >
+                            + Form
+                        </button>
+
+                        <button
+                            type="button"
+                            data-add-block="spacer"
+                            class="builder-add rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold hover:bg-slate-50"
+                        >
+                            + Spacer
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                {{-- Builder canvas --}}
+
+                <div
+                    id="builderCanvas"
+                    class="min-h-[320px] space-y-3 bg-slate-50 p-4 sm:p-6"
+                >
+
+                    <div
+                        id="builderEmpty"
+                        class="rounded-2xl border-2 border-dashed border-slate-200 bg-white p-10 text-center"
+                    >
+
+                        <div
+                            class="text-lg font-black text-slate-400"
+                        >
+                            Your page is empty
+                        </div>
+
+                        <p
+                            class="mt-2 text-sm text-slate-400"
+                        >
+                            Choose a widget above to start building.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            {{-- Existing HTML fallback --}}
+
+            @if(
+                $page
+                && empty($savedBuilder)
+                && !empty(trim((string) $page->content))
+            )
+
+                <section
+                    class="rounded-3xl border border-amber-200 bg-amber-50 p-5"
+                >
+
+                    <div
+                        class="text-sm font-black text-amber-800"
+                    >
+                        Existing page content detected
+                    </div>
+
+                    <p
+                        class="mt-2 text-sm leading-6 text-amber-700"
+                    >
+                        This page was created before the Basic Page Builder.
+                        Its existing content has been loaded as a text block
+                        so it can now be managed with the builder.
+                    </p>
+
+                </section>
+
+            @endif
+
+
+        </div>
+
+
+        {{-- =================================================
+             RIGHT SETTINGS PANEL
+        ================================================== --}}
+
+        <aside class="space-y-5">
+
+
+            <section
+                class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+            >
+
+                <h2 class="font-black">
+                    Publish
+                </h2>
+
+
+                <div class="mt-5">
+
+                    <label class="text-sm font-black">
+                        Status
+                    </label>
+
+                    <select
+                        name="status"
+                        class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
+                    >
+
+                        <option
+                            value="published"
+                            @selected(
+                                old(
+                                    'status',
+                                    $page->status
+                                        ?? 'published'
+                                ) === 'published'
+                            )
+                        >
+                            Published
+                        </option>
+
+                        <option
+                            value="draft"
+                            @selected(
+                                old(
+                                    'status',
+                                    $page->status
+                                        ?? ''
+                                ) === 'draft'
+                            )
+                        >
+                            Draft
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <label
+                    class="mt-5 flex items-center gap-3 rounded-xl border border-slate-200 p-4"
+                >
+
+                    <input
+                        type="checkbox"
+                        name="is_homepage"
+                        value="1"
+                        @checked(
+                            old(
+                                'is_homepage',
+                                $page->is_homepage
+                                    ?? false
+                            )
+                        )
+                    >
+
+                    <span class="text-sm font-bold">
+                        Set as homepage
+                    </span>
+
+                </label>
+
+
+                <div
+                    class="mt-5 grid gap-2"
+                >
+
+                    <button
+                        type="submit"
+                        class="rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white"
+                    >
+                        {{ $page
+                            ? 'Save Page'
+                            : 'Create Page' }}
+                    </button>
+
+
+                    <a
+                        href="{{ route(
+                            'tenant.cms.pages.index',
+                            ['subdomain' => $website->subdomain]
+                        ) }}"
+                        class="rounded-xl border border-slate-300 px-5 py-3 text-center text-sm font-bold"
+                    >
+                        Cancel
+                    </a>
+
+                </div>
+
+            </section>
+
+
+            <section
+                class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+            >
+
+                <div
+                    class="text-xs font-black uppercase tracking-wide text-blue-600"
+                >
+                    Core Builder
+                </div>
+
+                <p
+                    class="mt-3 text-sm leading-6 text-slate-500"
+                >
+                    This Basic Page Builder is included with Esubiz Core.
+                    Premium Page Builder Add-ons will add advanced widgets,
+                    templates and design controls later.
+                </p>
+
+            </section>
+
+        </aside>
+
+    </div>
+
+</form>
+
+
+{{-- =========================================================
+     PREVIEW MODAL
+========================================================= --}}
+
+<div
+    id="previewModal"
+    class="fixed inset-0 z-[100] hidden bg-slate-950/60 p-4"
+>
+
+    <div
+        class="mx-auto flex h-full max-w-6xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
+    >
+
+        <div
+            class="flex items-center justify-between border-b border-slate-200 px-5 py-4"
+        >
+
+            <div>
+
+                <div class="font-black">
+                    Page Preview
+                </div>
+
+                <div
+                    class="text-xs text-slate-400"
+                >
+                    Basic Page Builder preview
+                </div>
+
+            </div>
+
+
+            <button
+                type="button"
+                id="closePreview"
+                class="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-xl"
+            >
+                ×
+            </button>
+
+        </div>
+
+
+        <div
+            id="previewContent"
+            class="flex-1 overflow-y-auto bg-white p-6 sm:p-10"
+        >
+        </div>
+
+    </div>
+
+</div>
+
+
+
+
+{{-- =========================================================
+     AI ASSIST SIDE PANEL
+========================================================= --}}
+
+<div
+    id="aiAssistPanel"
+    class="fixed bottom-4 right-4 top-[88px] z-[96] hidden w-[360px] max-w-[calc(100vw-32px)] overflow-hidden rounded-2xl border border-violet-200 bg-white shadow-2xl"
+>
+
+    <div
+        class="flex items-center justify-between border-b border-slate-100 px-4 py-3"
+    >
+
+        <div>
+
+            <div class="font-black text-violet-700">
+                ✨ AI Assist
+            </div>
+
+            <div class="text-xs text-slate-400">
+                Uses only Esubiz features available to this website.
+            </div>
+
+        </div>
+
+
+        <button
+            type="button"
+            id="closeAiAssist"
+            class="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-lg"
+        >
+            ×
+        </button>
+
+    </div>
+
+
+    <div class="h-[calc(100%-65px)] overflow-y-auto p-4">
+
+        <div
+            class="rounded-xl border border-violet-100 bg-violet-50 p-3 text-xs leading-5 text-violet-700"
+        >
+            AI-generated layouts must follow the current Esubiz
+            Sections → Columns → Widgets structure and can only
+            use functions installed on this website.
+        </div>
+
+
+        <div class="mt-4 space-y-2">
+
+            <button
+                type="button"
+                data-ai-page-action="full-page"
+                class="flex w-full items-start gap-3 rounded-xl border border-slate-200 p-3 text-left hover:border-violet-300 hover:bg-violet-50"
+            >
+                <span>▦</span>
+
+                <span>
+                    <span class="block text-sm font-black">
+                        Generate Full Page
+                    </span>
+
+                    <span class="block text-xs text-slate-400">
+                        Sections, grids, text, images, sliders, buttons and available forms.
+                    </span>
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                data-ai-page-action="section"
+                class="flex w-full items-start gap-3 rounded-xl border border-slate-200 p-3 text-left hover:border-violet-300 hover:bg-violet-50"
+            >
+                <span>□</span>
+
+                <span>
+                    <span class="block text-sm font-black">
+                        Generate Section
+                    </span>
+
+                    <span class="block text-xs text-slate-400">
+                        Build a new section using available Core widgets.
+                    </span>
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                data-ai-page-action="hero"
+                class="flex w-full items-start gap-3 rounded-xl border border-slate-200 p-3 text-left hover:border-violet-300 hover:bg-violet-50"
+            >
+                <span>▣</span>
+
+                <span>
+                    <span class="block text-sm font-black">
+                        Generate Hero / Slider
+                    </span>
+
+                    <span class="block text-xs text-slate-400">
+                        Generate slides, copy, CTAs and image instructions.
+                    </span>
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                data-ai-page-action="content"
+                class="flex w-full items-start gap-3 rounded-xl border border-slate-200 p-3 text-left hover:border-violet-300 hover:bg-violet-50"
+            >
+                <span>¶</span>
+
+                <span>
+                    <span class="block text-sm font-black">
+                        Generate Content
+                    </span>
+
+                    <span class="block text-xs text-slate-400">
+                        Add page-specific headings and body content.
+                    </span>
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                data-ai-page-action="images"
+                class="flex w-full items-start gap-3 rounded-xl border border-slate-200 p-3 text-left hover:border-violet-300 hover:bg-violet-50"
+            >
+                <span>▧</span>
+
+                <span>
+                    <span class="block text-sm font-black">
+                        Generate Images
+                    </span>
+
+                    <span class="block text-xs text-slate-400">
+                        Generate appropriate page imagery using AI credits.
+                    </span>
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                data-ai-page-action="improve"
+                class="flex w-full items-start gap-3 rounded-xl border border-slate-200 p-3 text-left hover:border-violet-300 hover:bg-violet-50"
+            >
+                <span>✦</span>
+
+                <span>
+                    <span class="block text-sm font-black">
+                        Improve Current Page
+                    </span>
+
+                    <span class="block text-xs text-slate-400">
+                        Improve existing structure and copy without breaking the layout.
+                    </span>
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                data-ai-page-action="seo"
+                class="flex w-full items-start gap-3 rounded-xl border border-slate-200 p-3 text-left hover:border-violet-300 hover:bg-violet-50"
+            >
+                <span>⌕</span>
+
+                <span>
+                    <span class="block text-sm font-black">
+                        SEO Assist
+                    </span>
+
+                    <span class="block text-xs text-slate-400">
+                        Generate page title, description and SEO-friendly copy.
+                    </span>
+                </span>
+            </button>
+
+        </div>
+
+
+        <div
+            class="mt-5 border-t border-slate-100 pt-4"
+        >
+
+            <div
+                class="mb-2 text-xs font-black uppercase tracking-wide text-violet-700"
+            >
+                AI Chat
+            </div>
+
+
+            <div
+                id="aiChatMessages"
+                class="max-h-56 min-h-[100px] space-y-2 overflow-y-auto rounded-xl bg-slate-50 p-3"
+            >
+
+                <div
+                    class="rounded-lg bg-violet-50 p-3 text-xs leading-5 text-violet-700"
+                >
+                    Tell Esubiz AI what you want to build.
+                    AI will only use Sections, grids, widgets,
+                    forms and other functions currently available
+                    on this website.
+                </div>
+
+            </div>
+
+
+            <textarea
+                id="aiChatPrompt"
+                rows="4"
+                placeholder="Example: Create a modern About Us page with a hero, company story, 3-column values section and contact CTA."
+                class="mt-3 w-full resize-none rounded-xl border border-slate-300 px-3 py-3 text-sm outline-none focus:border-violet-500"
+            ></textarea>
+
+
+            <button
+                type="button"
+                id="aiChatSend"
+                class="mt-2 w-full rounded-xl bg-violet-600 px-4 py-3 text-sm font-black text-white hover:bg-violet-700"
+            >
+                ✨ Generate with AI
+            </button>
+
+        </div>
+
+
+        <div
+            class="mt-4 rounded-xl bg-slate-50 p-3 text-[11px] leading-5 text-slate-500"
+        >
+            AI execution will use the website owner's central
+            Esubiz AI credit balance.
+        </div>
+
+    </div>
+
+</div>
+
+
+{{-- =========================================================
+     WIDGET LIBRARY SIDE PANEL
+========================================================= --}}
+
+<div
+    id="widgetLibraryPanel"
+    class="fixed right-4 top-[88px] z-[95] hidden w-[320px] max-w-[calc(100vw-32px)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+>
+
+    <div
+        class="flex items-center justify-between border-b border-slate-100 px-4 py-3"
+    >
+
+        <div>
+
+            <div class="font-black">
+                Add Widget
+            </div>
+
+            <div class="text-xs text-slate-400">
+                Choose a widget for this column.
+            </div>
+
+        </div>
+
+
+        <button
+            type="button"
+            id="closeWidgetLibrary"
+            class="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-lg"
+        >
+            ×
+        </button>
+
+    </div>
+
+
+    <div class="p-4">
+
+        <input
+            type="search"
+            id="widgetLibrarySearch"
+            placeholder="Search widgets..."
+            class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-500"
+        >
+
+
+        <div
+            id="widgetLibraryItems"
+            class="mt-4 max-h-[480px] space-y-2 overflow-y-auto"
+        >
+
+            <button
+                type="button"
+                data-library-widget="hero"
+                data-widget-search="hero slider banner"
+                class="widget-library-item flex w-full items-center gap-3 rounded-xl border border-slate-200 p-3 text-left hover:border-blue-300 hover:bg-blue-50"
+            >
+                <span class="text-xl">▣</span>
+
+                <span>
+                    <span class="block text-sm font-black">
+                        Hero / Slider
+                    </span>
+
+                    <span class="block text-xs text-slate-400">
+                        Hero banners, images, text and CTA slides.
+                    </span>
+                </span>
+            </button>
+
+
+            <button
+                type="button"
+                data-library-widget="heading"
+                data-widget-search="heading title"
+                class="widget-library-item flex w-full items-center gap-3 rounded-xl border border-slate-200 p-3 text-left hover:border-blue-300 hover:bg-blue-50"
+            >
+                <span class="text-xl">H</span>
+                <span class="text-sm font-black">Heading</span>
+            </button>
+
+
+            <button
+                type="button"
+                data-library-widget="text"
+                data-widget-search="text paragraph content"
+                class="widget-library-item flex w-full items-center gap-3 rounded-xl border border-slate-200 p-3 text-left hover:border-blue-300 hover:bg-blue-50"
+            >
+                <span class="text-xl">¶</span>
+                <span class="text-sm font-black">Text</span>
+            </button>
+
+
+            <button
+                type="button"
+                data-library-widget="image"
+                data-widget-search="image photo picture media"
+                class="widget-library-item flex w-full items-center gap-3 rounded-xl border border-slate-200 p-3 text-left hover:border-blue-300 hover:bg-blue-50"
+            >
+                <span class="text-xl">▧</span>
+                <span class="text-sm font-black">Image</span>
+            </button>
+
+
+            <button
+                type="button"
+                data-library-widget="button"
+                data-widget-search="button link cta"
+                class="widget-library-item flex w-full items-center gap-3 rounded-xl border border-slate-200 p-3 text-left hover:border-blue-300 hover:bg-blue-50"
+            >
+                <span class="text-xl">→</span>
+                <span class="text-sm font-black">Button</span>
+            </button>
+
+
+            <button
+                type="button"
+                data-library-widget="form"
+                data-widget-search="form contact lead"
+                class="widget-library-item flex w-full items-center gap-3 rounded-xl border border-slate-200 p-3 text-left hover:border-blue-300 hover:bg-blue-50"
+            >
+                <span class="text-xl">☷</span>
+                <span class="text-sm font-black">Form</span>
+            </button>
+
+
+            <button
+                type="button"
+                data-library-widget="divider"
+                data-widget-search="divider line separator"
+                class="widget-library-item flex w-full items-center gap-3 rounded-xl border border-slate-200 p-3 text-left hover:border-blue-300 hover:bg-blue-50"
+            >
+                <span class="text-xl">―</span>
+                <span class="text-sm font-black">Divider</span>
+            </button>
+
+
+            <button
+                type="button"
+                data-library-widget="spacer"
+                data-widget-search="spacer space gap"
+                class="widget-library-item flex w-full items-center gap-3 rounded-xl border border-slate-200 p-3 text-left hover:border-blue-300 hover:bg-blue-50"
+            >
+                <span class="text-xl">↕</span>
+                <span class="text-sm font-black">Spacer</span>
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+@endsection
+
+
+@push('scripts')
+
+<script>
+
+document.addEventListener(
+    'DOMContentLoaded',
+    function () {
+
+        const canvas =
+            document.getElementById(
+                'builderCanvas'
+            );
+
+        const empty =
+            document.getElementById(
+                'builderEmpty'
+            );
+
+        const pageForm =
+            document.getElementById(
+                'pageForm'
+            );
+
+        const contentField =
+            document.getElementById(
+                'pageContent'
+            );
+
+        const jsonField =
+            document.getElementById(
+                'builderJson'
+            );
+
+        const previewModal =
+            document.getElementById(
+                'previewModal'
+            );
+
+        const previewContent =
+            document.getElementById(
+                'previewContent'
+            );
+
+
+        let blocks =
+            @json($savedBuilder);
+
+
+        const tenantCoreImageUploadUrl =
+            @json(
+                route(
+                    'tenant.cms.media.image.upload',
+                    [
+                        'subdomain' => $website->subdomain
+                    ]
+                )
+            );
+
+        const csrfToken =
+            @json(csrf_token());
+
+
+        const availableForms =
+            @json(
+                $forms->map(
+                    fn ($form) => [
+                        'id' => $form->id,
+                        'name' => $form->name
+                            ?? $form->title
+                            ?? ('Form #' . $form->id),
+                    ]
+                )->values()
+            );
+
+
+        @if(
+            $page
+            && empty($savedBuilder)
+            && !empty(trim((string) $page->content))
+        )
+
+            blocks = [
+                {
+                    type: 'text',
+                    text: @json(strip_tags($page->content))
+                }
+            ];
+
+        @endif
+
+
+
+
+        const aiAssistPanel =
+            document.getElementById(
+                'aiAssistPanel'
+            );
+
+        const aiAssistButton =
+            document.getElementById(
+                'aiAssistButton'
+            );
+
+        const closeAiAssistButton =
+            document.getElementById(
+                'closeAiAssist'
+            );
+
+
+        const openAiAssist = function () {
+
+            widgetLibraryPanel
+                ?.classList.add(
+                    'hidden'
+                );
+
+            aiAssistPanel
+                ?.classList.remove(
+                    'hidden'
+                );
+        };
+
+
+        const closeAiAssist = function () {
+
+            aiAssistPanel
+                ?.classList.add(
+                    'hidden'
+                );
+        };
+
+
+        aiAssistButton
+            ?.addEventListener(
+                'click',
+                openAiAssist
+            );
+
+
+        closeAiAssistButton
+            ?.addEventListener(
+                'click',
+                closeAiAssist
+            );
+
+
+        document
+            .querySelectorAll(
+                '[data-ai-page-action]'
+            )
+            .forEach(
+                function (button) {
+
+                    button.addEventListener(
+                        'click',
+                        function () {
+
+                            /*
+                             * UI foundation only.
+                             *
+                             * The central Esubiz AI execution endpoint
+                             * will consume AI credits and return valid
+                             * Esubiz builder JSON for this preset.
+                             */
+                            const action =
+                                button.dataset.aiPageAction;
+
+                            const presetPrompts = {
+                                'full-page':
+                                    'Generate a complete page using the available Esubiz page builder structure. Include appropriate sections, column ratios, headings, text, images, Hero/Slider, buttons and available forms where relevant.',
+
+                                'section':
+                                    'Generate a new section for this page using available Esubiz widgets and an appropriate column ratio.',
+
+                                'hero':
+                                    'Generate a Hero/Slider for this page with appropriate slides, headings, supporting text, images and CTA buttons.',
+
+                                'content':
+                                    'Generate suitable content for this page using the existing Esubiz page structure.',
+
+                                'images':
+                                    'Generate suitable images for this page and place them only in available image or Hero/Slider widgets.',
+
+                                'improve':
+                                    'Improve the current page while preserving its existing Esubiz Sections, grids, widgets and structure.',
+
+                                'seo':
+                                    'Improve this page for SEO using its existing Esubiz structure and content.'
+                            };
+
+                            const prompt =
+                                document.getElementById(
+                                    'aiChatPrompt'
+                                );
+
+                            if (prompt) {
+
+                                prompt.value =
+                                    presetPrompts[action]
+                                    || '';
+
+                                prompt.focus();
+                            }
+                        }
+                    );
+                }
+            );
+
+
+
+        /*
+         * ai-chat-send-handler
+         *
+         * Central Esubiz AI execution endpoint will be connected
+         * to this chat while preserving the same UI.
+         */
+        const aiChatPrompt =
+            document.getElementById(
+                'aiChatPrompt'
+            );
+
+        const aiChatSend =
+            document.getElementById(
+                'aiChatSend'
+            );
+
+        const aiChatMessages =
+            document.getElementById(
+                'aiChatMessages'
+            );
+
+
+        aiChatSend
+            ?.addEventListener(
+                'click',
+                function () {
+
+                    const text =
+                        aiChatPrompt
+                            ?.value
+                            .trim();
+
+                    if (!text) {
+                        return;
+                    }
+
+                    const message =
+                        document.createElement(
+                            'div'
+                        );
+
+                    message.className =
+                        'ml-6 rounded-lg bg-violet-600 p-3 text-xs leading-5 text-white';
+
+                    message.textContent =
+                        text;
+
+                    aiChatMessages
+                        ?.appendChild(
+                            message
+                        );
+
+
+                    const waiting =
+                        document.createElement(
+                            'div'
+                        );
+
+                    waiting.className =
+                        'mr-6 rounded-lg bg-white p-3 text-xs leading-5 text-slate-500 shadow-sm';
+
+                    waiting.textContent =
+                        'Ready for central Esubiz AI execution.';
+
+                    aiChatMessages
+                        ?.appendChild(
+                            waiting
+                        );
+
+
+                    aiChatPrompt.value =
+                        '';
+
+                    if (aiChatMessages) {
+                        aiChatMessages.scrollTop =
+                            aiChatMessages.scrollHeight;
+                    }
+
+                }
+            );
+
+
+        const widgetLibraryPanel =
+            document.getElementById(
+                'widgetLibraryPanel'
+            );
+
+        const widgetLibrarySearch =
+            document.getElementById(
+                'widgetLibrarySearch'
+            );
+
+        const closeWidgetLibraryButton =
+            document.getElementById(
+                'closeWidgetLibrary'
+            );
+
+        let widgetTarget = null;
+
+
+        const openWidgetLibrary = function (
+            sectionIndex,
+            columnIndex
+        ) {
+
+            widgetTarget = {
+                sectionIndex,
+                columnIndex
+            };
+
+            widgetLibraryPanel
+                ?.classList.remove(
+                    'hidden'
+                );
+
+            if (widgetLibrarySearch) {
+
+                widgetLibrarySearch.value =
+                    '';
+
+                widgetLibrarySearch.dispatchEvent(
+                    new Event('input')
+                );
+
+                setTimeout(
+                    () =>
+                        widgetLibrarySearch.focus(),
+                    50
+                );
+            }
+
+        };
+
+
+        const closeWidgetLibrary = function () {
+
+            widgetLibraryPanel
+                ?.classList.add(
+                    'hidden'
+                );
+
+            widgetTarget = null;
+        };
+
+
+        closeWidgetLibraryButton
+            ?.addEventListener(
+                'click',
+                closeWidgetLibrary
+            );
+
+
+        widgetLibrarySearch
+            ?.addEventListener(
+                'input',
+                function () {
+
+                    const query =
+                        widgetLibrarySearch.value
+                            .trim()
+                            .toLowerCase();
+
+                    document
+                        .querySelectorAll(
+                            '.widget-library-item'
+                        )
+                        .forEach(
+                            function (item) {
+
+                                const text =
+                                    (
+                                        item.dataset.widgetSearch
+                                        || item.textContent
+                                    )
+                                        .toLowerCase();
+
+                                item.classList.toggle(
+                                    'hidden',
+                                    query
+                                    && !text.includes(query)
+                                );
+
+                            }
+                        );
+
+                }
+            );
+
+
+        document
+            .querySelectorAll(
+                '[data-library-widget]'
+            )
+            .forEach(
+                function (button) {
+
+                    button.addEventListener(
+                        'click',
+                        function () {
+
+                            if (!widgetTarget) {
+                                return;
+                            }
+
+                            blocks[
+                                widgetTarget.sectionIndex
+                            ].columns[
+                                widgetTarget.columnIndex
+                            ].widgets.push(
+                                defaultBlock(
+                                    button.dataset.libraryWidget
+                                )
+                            );
+
+                            closeWidgetLibrary();
+
+                            renderBuilder();
+
+                        }
+                    );
+
+                }
+            );
+
+
+        const escapeHtml = function (value) {
+
+            const div =
+                document.createElement('div');
+
+            div.textContent =
+                value ?? '';
+
+            return div.innerHTML;
+
+        };
+
+
+        const blockTitle = function (type) {
+
+            const titles = {
+                heading: 'Heading',
+                text: 'Text',
+                button: 'Button',
+                image: 'Image',
+                section: 'Section',
+                columns2: '2 Column Grid',
+                columns3: '3 Column Grid',
+                divider: 'Divider',
+                spacer: 'Spacer',
+                form: 'Form',
+                hero: 'Hero / Slider'
+            };
+
+            return titles[type]
+                || 'Block';
+
+        };
+
+
+        const defaultBlock = function (type) {
+
+            switch (type) {
+
+                case 'heading':
+                    return {
+                        type,
+                        text: 'Your heading',
+                        level: 'h2'
+                    };
+
+                case 'text':
+                    return {
+                        type,
+                        text: 'Add your text here.'
+                    };
+
+                case 'button':
+                    return {
+                        type,
+                        text: 'Learn More',
+                        url: '#'
+                    };
+
+                case 'image':
+                    return {
+                        type,
+                        url: '',
+                        alt: '',
+                        size: 'large',
+                        custom_width: 800
+                    };
+
+                case 'section':
+                    return {
+                        type,
+                        heading: '',
+                        ratio: '1',
+                        columns: [
+                            {
+                                widgets: []
+                            }
+                        ]
+                    };
+
+                case 'columns2':
+                    return {
+                        type,
+                        col1: 'Column one',
+                        col2: 'Column two'
+                    };
+
+                case 'columns3':
+                    return {
+                        type,
+                        col1: 'Column one',
+                        col2: 'Column two',
+                        col3: 'Column three'
+                    };
+
+                case 'spacer':
+                    return {
+                        type,
+                        height: 40
+                    };
+
+                case 'form':
+                    return {
+                        type,
+                        form_id:
+                            availableForms.length
+                                ? String(
+                                    availableForms[0].id
+                                )
+                                : ''
+                    };
+
+                case 'hero':
+                    return {
+                        type,
+                        autoplay: true,
+                        interval: 5000,
+                        height: 520,
+                        slides: [
+                            {
+                                heading: 'Your headline',
+                                text: 'Add supporting text for this slide.',
+                                image: '',
+                                button_text: 'Learn More',
+                                button_url: '#'
+                            }
+                        ]
+                    };
+
+                default:
+                    return {
+                        type
+                    };
+
+            }
+
+        };
+
+
+        const input = function (
+            index,
+            key,
+            value,
+            label,
+            textarea = false
+        ) {
+
+            const safe =
+                escapeHtml(value);
+
+            return `
+                <label class="block">
+                    <span class="text-xs font-bold text-slate-500">
+                        ${label}
+                    </span>
+
+                    ${
+                        textarea
+                            ? `
+                                <textarea
+                                    data-index="${index}"
+                                    data-key="${key}"
+                                    rows="4"
+                                    class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                                >${safe}</textarea>
+                            `
+                            : `
+                                <input
+                                    type="text"
+                                    data-index="${index}"
+                                    data-key="${key}"
+                                    value="${safe}"
+                                    class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                                >
+                            `
+                    }
+                </label>
+            `;
+
+        };
+
+
+
+        const ratioParts = function (ratio) {
+
+            return String(ratio || '1')
+                .split(':')
+                .map(
+                    value =>
+                        Math.max(
+                            1,
+                            Number(value) || 1
+                        )
+                );
+
+        };
+
+
+        const ratioToGrid = function (ratio) {
+
+            return ratioParts(ratio)
+                .map(
+                    value =>
+                        `${value}fr`
+                )
+                .join(' ');
+
+        };
+
+
+        const applySectionRatio = function (
+            block,
+            ratio
+        ) {
+
+            const count =
+                ratioParts(ratio).length;
+
+            block.ratio =
+                ratio;
+
+            block.columns =
+                block.columns || [];
+
+            while (
+                block.columns.length < count
+            ) {
+                block.columns.push({
+                    widgets: []
+                });
+            }
+
+            if (
+                block.columns.length > count
+            ) {
+
+                const removed =
+                    block.columns.splice(count);
+
+                if (
+                    removed.length
+                    && block.columns.length
+                ) {
+
+                    removed.forEach(
+                        column => {
+
+                            block.columns[
+                                block.columns.length - 1
+                            ].widgets.push(
+                                ...(column.widgets || [])
+                            );
+
+                        }
+                    );
+
+                }
+
+            }
+
+        };
+
+
+        const nestedWidgetFields = function (
+            widget,
+            sectionIndex,
+            columnIndex,
+            widgetIndex
+        ) {
+
+            const attrs = function (key) {
+
+                return `
+                    data-nested-key="${key}"
+                    data-section-index="${sectionIndex}"
+                    data-column-index="${columnIndex}"
+                    data-widget-index="${widgetIndex}"
+                `;
+            };
+
+
+            /*
+             * HEADING
+             */
+            if (widget.type === 'heading') {
+
+                return `
+                    <input
+                        type="text"
+                        value="${escapeHtml(widget.text || '')}"
+                        ${attrs('text')}
+                        placeholder="Heading"
+                        class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    >
+
+                    <select
+                        ${attrs('level')}
+                        class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    >
+                        <option value="h1" ${widget.level === 'h1' ? 'selected' : ''}>
+                            Heading 1
+                        </option>
+
+                        <option value="h2" ${!widget.level || widget.level === 'h2' ? 'selected' : ''}>
+                            Heading 2
+                        </option>
+
+                        <option value="h3" ${widget.level === 'h3' ? 'selected' : ''}>
+                            Heading 3
+                        </option>
+                    </select>
+                `;
+            }
+
+
+            /*
+             * TEXT
+             */
+            if (widget.type === 'text') {
+
+                return `
+                    <textarea
+                        rows="4"
+                        ${attrs('text')}
+                        class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    >${escapeHtml(widget.text || '')}</textarea>
+                `;
+            }
+
+
+            /*
+             * BUTTON
+             */
+            if (widget.type === 'button') {
+
+                return `
+                    <input
+                        type="text"
+                        value="${escapeHtml(widget.text || '')}"
+                        ${attrs('text')}
+                        placeholder="Button text"
+                        class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    >
+
+                    <input
+                        type="text"
+                        value="${escapeHtml(widget.url || '')}"
+                        ${attrs('url')}
+                        placeholder="Button URL"
+                        class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    >
+                `;
+            }
+
+
+            /*
+             * IMAGE
+             */
+            if (widget.type === 'image') {
+
+                return `
+                    <div class="space-y-3">
+
+                        ${
+                            widget.url
+                                ? `
+                                    <div
+                                        class="rounded-xl border border-slate-200 bg-slate-50 p-3"
+                                    >
+                                        <img
+                                            src="${escapeHtml(widget.url)}"
+                                            class="max-h-52 max-w-full rounded-lg object-contain"
+                                            alt=""
+                                        >
+                                    </div>
+                                `
+                                : ''
+                        }
+
+
+                        <label
+                            class="block rounded-xl border border-blue-200 bg-blue-50 p-3"
+                        >
+
+                            <span
+                                class="block text-xs font-black text-blue-700"
+                            >
+                                Upload Image
+                            </span>
+
+                            <input
+                                type="file"
+                                accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                                data-core-image-upload
+                                data-section-index="${sectionIndex}"
+                                data-column-index="${columnIndex}"
+                                data-widget-index="${widgetIndex}"
+                                class="mt-2 block w-full text-xs"
+                            >
+
+                            <span
+                                class="mt-2 block text-[11px] text-blue-600"
+                            >
+                                JPG, JPEG or PNG · Maximum 10 MB
+                            </span>
+
+                        </label>
+
+
+                        <label class="block">
+
+                            <span
+                                class="text-xs font-bold text-slate-500"
+                            >
+                                Or Image URL
+                            </span>
+
+                            <input
+                                type="text"
+                                value="${escapeHtml(widget.url || '')}"
+                                ${attrs('url')}
+                                placeholder="https://..."
+                                class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                            >
+
+                        </label>
+
+
+                        <label class="block">
+
+                            <span
+                                class="text-xs font-bold text-slate-500"
+                            >
+                                Alt Text
+                            </span>
+
+                            <input
+                                type="text"
+                                value="${escapeHtml(widget.alt || '')}"
+                                ${attrs('alt')}
+                                placeholder="Describe this image"
+                                class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                            >
+
+                        </label>
+
+
+                        <label class="block">
+
+                            <span
+                                class="text-xs font-bold text-slate-500"
+                            >
+                                Display Size
+                            </span>
+
+                            <select
+                                ${attrs('size')}
+                                class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                            >
+
+                                <option value="thumbnail" ${widget.size === 'thumbnail' ? 'selected' : ''}>
+                                    Thumbnail
+                                </option>
+
+                                <option value="small" ${widget.size === 'small' ? 'selected' : ''}>
+                                    Small
+                                </option>
+
+                                <option value="medium" ${widget.size === 'medium' ? 'selected' : ''}>
+                                    Medium
+                                </option>
+
+                                <option value="large" ${!widget.size || widget.size === 'large' ? 'selected' : ''}>
+                                    Large
+                                </option>
+
+                                <option value="very_large" ${widget.size === 'very_large' ? 'selected' : ''}>
+                                    Very Large
+                                </option>
+
+                                <option value="custom" ${widget.size === 'custom' ? 'selected' : ''}>
+                                    Custom
+                                </option>
+
+                            </select>
+
+                        </label>
+
+
+                        ${
+                            widget.size === 'custom'
+                                ? `
+                                    <label class="block">
+
+                                        <span
+                                            class="text-xs font-bold text-slate-500"
+                                        >
+                                            Custom Width (px)
+                                        </span>
+
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="4000"
+                                            value="${Number(widget.custom_width || 800)}"
+                                            ${attrs('custom_width')}
+                                            class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                                        >
+
+                                    </label>
+                                `
+                                : ''
+                        }
+
+                    </div>
+                `;
+            }
+
+
+            /*
+             * HERO / SLIDER
+             */
+            if (widget.type === 'hero') {
+
+                const slides =
+                    Array.isArray(widget.slides)
+                        ? widget.slides
+                        : [];
+
+                return `
+                    <div class="space-y-4">
+
+                        <div
+                            class="grid gap-3 sm:grid-cols-3"
+                        >
+
+                            <label>
+
+                                <span
+                                    class="text-xs font-bold text-slate-500"
+                                >
+                                    Autoplay
+                                </span>
+
+                                <select
+                                    data-hero-setting="autoplay"
+                                    data-section-index="${sectionIndex}"
+                                    data-column-index="${columnIndex}"
+                                    data-widget-index="${widgetIndex}"
+                                    class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                                >
+
+                                    <option
+                                        value="1"
+                                        ${widget.autoplay !== false ? 'selected' : ''}
+                                    >
+                                        Yes
+                                    </option>
+
+                                    <option
+                                        value="0"
+                                        ${widget.autoplay === false ? 'selected' : ''}
+                                    >
+                                        No
+                                    </option>
+
+                                </select>
+
+                            </label>
+
+
+                            <label>
+
+                                <span
+                                    class="text-xs font-bold text-slate-500"
+                                >
+                                    Interval
+                                </span>
+
+                                <select
+                                    data-hero-setting="interval"
+                                    data-section-index="${sectionIndex}"
+                                    data-column-index="${columnIndex}"
+                                    data-widget-index="${widgetIndex}"
+                                    class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                                >
+
+                                    <option value="3000">
+                                        3 sec
+                                    </option>
+
+                                    <option
+                                        value="5000"
+                                        ${Number(widget.interval || 5000) === 5000 ? 'selected' : ''}
+                                    >
+                                        5 sec
+                                    </option>
+
+                                    <option value="7000">
+                                        7 sec
+                                    </option>
+
+                                    <option value="10000">
+                                        10 sec
+                                    </option>
+
+                                </select>
+
+                            </label>
+
+
+                            <label>
+
+                                <span
+                                    class="text-xs font-bold text-slate-500"
+                                >
+                                    Height
+                                </span>
+
+                                <input
+                                    type="number"
+                                    min="300"
+                                    max="900"
+                                    value="${Number(widget.height || 520)}"
+                                    data-hero-setting="height"
+                                    data-section-index="${sectionIndex}"
+                                    data-column-index="${columnIndex}"
+                                    data-widget-index="${widgetIndex}"
+                                    class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                                >
+
+                            </label>
+
+                        </div>
+
+
+                        <div class="space-y-4">
+
+                            ${
+                                slides.map(
+                                    function (
+                                        slide,
+                                        slideIndex
+                                    ) {
+
+                                        return `
+                                            <div
+                                                class="rounded-xl border border-slate-200 bg-white p-4"
+                                            >
+
+                                                <div
+                                                    class="mb-3 flex items-center justify-between"
+                                                >
+
+                                                    <span
+                                                        class="text-xs font-black"
+                                                    >
+                                                        Slide ${slideIndex + 1}
+                                                    </span>
+
+                                                    ${
+                                                        slides.length > 1
+                                                            ? `
+                                                                <button
+                                                                    type="button"
+                                                                    data-hero-remove-slide
+                                                                    data-section-index="${sectionIndex}"
+                                                                    data-column-index="${columnIndex}"
+                                                                    data-widget-index="${widgetIndex}"
+                                                                    data-slide-index="${slideIndex}"
+                                                                    class="text-xs font-bold text-red-600"
+                                                                >
+                                                                    Remove
+                                                                </button>
+                                                            `
+                                                            : ''
+                                                    }
+
+                                                </div>
+
+
+                                                <div
+                                                    class="grid gap-3"
+                                                >
+
+                                                    ${
+                                                        slide.image
+                                                            ? `
+                                                                <img
+                                                                    src="${escapeHtml(slide.image)}"
+                                                                    class="max-h-44 max-w-full rounded-lg border border-slate-200 object-contain"
+                                                                    alt=""
+                                                                >
+                                                            `
+                                                            : ''
+                                                    }
+
+
+                                                    <label
+                                                        class="rounded-xl border border-blue-200 bg-blue-50 p-3"
+                                                    >
+
+                                                        <span
+                                                            class="block text-xs font-black text-blue-700"
+                                                        >
+                                                            Upload Slide Image
+                                                        </span>
+
+                                                        <input
+                                                            type="file"
+                                                            accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                                                            data-core-hero-upload
+                                                            data-section-index="${sectionIndex}"
+                                                            data-column-index="${columnIndex}"
+                                                            data-widget-index="${widgetIndex}"
+                                                            data-slide-index="${slideIndex}"
+                                                            class="mt-2 block w-full text-xs"
+                                                        >
+
+                                                        <span
+                                                            class="mt-2 block text-[11px] text-blue-600"
+                                                        >
+                                                            JPG, JPEG or PNG · Maximum 10 MB
+                                                        </span>
+
+                                                    </label>
+
+
+                                                    <input
+                                                        type="text"
+                                                        value="${escapeHtml(slide.image || '')}"
+                                                        placeholder="Or background image URL"
+                                                        data-hero-slide-key="image"
+                                                        data-section-index="${sectionIndex}"
+                                                        data-column-index="${columnIndex}"
+                                                        data-widget-index="${widgetIndex}"
+                                                        data-slide-index="${slideIndex}"
+                                                        class="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                                                    >
+
+
+                                                    <input
+                                                        type="text"
+                                                        value="${escapeHtml(slide.heading || '')}"
+                                                        placeholder="Slide heading"
+                                                        data-hero-slide-key="heading"
+                                                        data-section-index="${sectionIndex}"
+                                                        data-column-index="${columnIndex}"
+                                                        data-widget-index="${widgetIndex}"
+                                                        data-slide-index="${slideIndex}"
+                                                        class="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                                                    >
+
+
+                                                    <textarea
+                                                        rows="3"
+                                                        placeholder="Slide text"
+                                                        data-hero-slide-key="text"
+                                                        data-section-index="${sectionIndex}"
+                                                        data-column-index="${columnIndex}"
+                                                        data-widget-index="${widgetIndex}"
+                                                        data-slide-index="${slideIndex}"
+                                                        class="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                                                    >${escapeHtml(slide.text || '')}</textarea>
+
+
+                                                    <div
+                                                        class="grid gap-3 sm:grid-cols-2"
+                                                    >
+
+                                                        <input
+                                                            type="text"
+                                                            value="${escapeHtml(slide.button_text || '')}"
+                                                            placeholder="Button text"
+                                                            data-hero-slide-key="button_text"
+                                                            data-section-index="${sectionIndex}"
+                                                            data-column-index="${columnIndex}"
+                                                            data-widget-index="${widgetIndex}"
+                                                            data-slide-index="${slideIndex}"
+                                                            class="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                                                        >
+
+
+                                                        <input
+                                                            type="text"
+                                                            value="${escapeHtml(slide.button_url || '')}"
+                                                            placeholder="Button URL"
+                                                            data-hero-slide-key="button_url"
+                                                            data-section-index="${sectionIndex}"
+                                                            data-column-index="${columnIndex}"
+                                                            data-widget-index="${widgetIndex}"
+                                                            data-slide-index="${slideIndex}"
+                                                            class="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                                                        >
+
+                                                    </div>
+
+                                                </div>
+
+                                            </div>
+                                        `;
+                                    }
+                                ).join('')
+                            }
+
+                        </div>
+
+
+                        <button
+                            type="button"
+                            data-hero-add-slide
+                            data-section-index="${sectionIndex}"
+                            data-column-index="${columnIndex}"
+                            data-widget-index="${widgetIndex}"
+                            class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700"
+                        >
+                            + Add Slide
+                        </button>
+
+                    </div>
+                `;
+            }
+
+
+            /*
+             * FORM
+             */
+            if (widget.type === 'form') {
+
+                return `
+                    <select
+                        ${attrs('form_id')}
+                        class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    >
+
+                        ${
+                            availableForms.length
+                                ? availableForms
+                                    .map(
+                                        form => `
+                                            <option
+                                                value="${form.id}"
+                                                ${
+                                                    String(widget.form_id)
+                                                    === String(form.id)
+                                                        ? 'selected'
+                                                        : ''
+                                                }
+                                            >
+                                                ${escapeHtml(form.name)}
+                                            </option>
+                                        `
+                                    )
+                                    .join('')
+                                : `
+                                    <option value="">
+                                        No forms created yet
+                                    </option>
+                                `
+                        }
+
+                    </select>
+                `;
+            }
+
+
+            /*
+             * SPACER
+             */
+            if (widget.type === 'spacer') {
+
+                return `
+                    <input
+                        type="number"
+                        min="10"
+                        max="200"
+                        value="${Number(widget.height || 40)}"
+                        ${attrs('height')}
+                        class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    >
+                `;
+            }
+
+
+            /*
+             * DIVIDER
+             */
+            if (widget.type === 'divider') {
+
+                return `
+                    <div
+                        class="rounded-lg bg-slate-50 p-3 text-xs text-slate-400"
+                    >
+                        Divider
+                    </div>
+                `;
+            }
+
+
+            return `
+                <div class="text-xs text-slate-400">
+                    Widget settings unavailable.
+                </div>
+            `;
+
+        };
+
+
+        const fields = function (
+            block,
+            index
+        ) {
+
+            switch (block.type) {
+
+                case 'heading':
+
+                    return (
+                        input(
+                            index,
+                            'text',
+                            block.text,
+                            'Heading'
+                        )
+                        +
+                        `
+                        <label class="block">
+                            <span class="text-xs font-bold text-slate-500">
+                                Size
+                            </span>
+
+                            <select
+                                data-index="${index}"
+                                data-key="level"
+                                class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                            >
+                                <option value="h1" ${block.level === 'h1' ? 'selected' : ''}>
+                                    H1
+                                </option>
+
+                                <option value="h2" ${block.level === 'h2' ? 'selected' : ''}>
+                                    H2
+                                </option>
+
+                                <option value="h3" ${block.level === 'h3' ? 'selected' : ''}>
+                                    H3
+                                </option>
+                            </select>
+                        </label>
+                        `
+                    );
+
+
+                case 'text':
+
+                    return input(
+                        index,
+                        'text',
+                        block.text,
+                        'Text',
+                        true
+                    );
+
+
+                case 'button':
+
+                    return (
+                        input(
+                            index,
+                            'text',
+                            block.text,
+                            'Button Text'
+                        )
+                        +
+                        input(
+                            index,
+                            'url',
+                            block.url,
+                            'Button URL'
+                        )
+                    );
+
+
+                case 'image':
+
+                    return (
+                        input(
+                            index,
+                            'url',
+                            block.url,
+                            'Image URL'
+                        )
+                        +
+                        input(
+                            index,
+                            'alt',
+                            block.alt,
+                            'Alt Text'
+                        )
+                    );
+
+
+                case 'section':
+
+                    const ratioOptions = [
+                        '1',
+                        '1:1',
+                        '1:2',
+                        '2:1',
+                        '1:3',
+                        '3:1',
+                        '1:1:1',
+                        '1:1:1:1'
+                    ];
+
+                    const columns =
+                        block.columns || [];
+
+                    const columnHtml =
+                        columns
+                            .map(
+                                function (
+                                    column,
+                                    columnIndex
+                                ) {
+
+                                    const widgets =
+                                        column.widgets || [];
+
+                                    return `
+                                        <div
+                                            class="builder-column rounded-xl border border-blue-100 bg-white p-3"
+                                            data-section-index="${index}"
+                                            data-column-index="${columnIndex}"
+                                        >
+
+                                            <div
+                                                class="mb-3 flex items-center justify-between gap-2"
+                                            >
+
+                                                <span
+                                                    class="text-xs font-black text-slate-500"
+                                                >
+                                                    Column ${columnIndex + 1}
+                                                </span>
+
+                                                <button
+                                                    type="button"
+                                                    data-add-widget
+                                                    data-section-index="${index}"
+                                                    data-column-index="${columnIndex}"
+                                                    class="rounded-lg bg-blue-50 px-2.5 py-1.5 text-xs font-bold text-blue-700"
+                                                >
+                                                    + Add Widget
+                                                </button>
+
+                                            </div>
+
+
+                                            <div
+                                                class="column-widget-list space-y-2"
+                                                data-widget-dropzone
+                                                data-section-index="${index}"
+                                                data-column-index="${columnIndex}"
+                                            >
+
+                                                ${
+                                                    widgets.length
+                                                        ? widgets
+                                                            .map(
+                                                                function (
+                                                                    widget,
+                                                                    widgetIndex
+                                                                ) {
+
+                                                                    return `
+                                                                        <div
+                                                                            class="builder-widget cursor-move rounded-lg border border-slate-200 bg-slate-50 p-3"
+                                                                            draggable="true"
+                                                                            data-widget-index="${widgetIndex}"
+                                                                            data-section-index="${index}"
+                                                                            data-column-index="${columnIndex}"
+                                                                        >
+
+                                                                            <div
+                                                                                class="flex items-center justify-between gap-2"
+                                                                            >
+
+                                                                                <span
+                                                                                    class="text-xs font-black"
+                                                                                >
+                                                                                    ${blockTitle(widget.type)}
+                                                                                </span>
+
+                                                                                <button
+                                                                                    type="button"
+                                                                                    data-remove-widget
+                                                                                    data-section-index="${index}"
+                                                                                    data-column-index="${columnIndex}"
+                                                                                    data-widget-index="${widgetIndex}"
+                                                                                    class="text-xs font-bold text-red-600"
+                                                                                >
+                                                                                    Delete
+                                                                                </button>
+
+                                                                            </div>
+
+                                                                            <div class="mt-3 grid gap-3">
+                                                                                ${nestedWidgetFields(
+                                                                                    widget,
+                                                                                    index,
+                                                                                    columnIndex,
+                                                                                    widgetIndex
+                                                                                )}
+                                                                            </div>
+
+                                                                        </div>
+                                                                    `;
+                                                                }
+                                                            )
+                                                            .join('')
+                                                        : `
+                                                            <div
+                                                                class="rounded-lg border border-dashed border-slate-200 p-4 text-center text-xs text-slate-400"
+                                                            >
+                                                                No widgets in this column.
+                                                            </div>
+                                                        `
+                                                }
+
+                                            </div>
+
+                                        </div>
+                                    `;
+                                }
+                            )
+                            .join('');
+
+
+                    return `
+                        ${input(
+                            index,
+                            'heading',
+                            block.heading,
+                            'Section Label / Heading'
+                        )}
+
+                        <label class="block">
+
+                            <span
+                                class="text-xs font-bold text-slate-500"
+                            >
+                                Column Ratio
+                            </span>
+
+                            <select
+                                data-index="${index}"
+                                data-key="ratio"
+                                data-section-ratio
+                                class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                            >
+
+                                ${
+                                    ratioOptions
+                                        .map(
+                                            ratio => `
+                                                <option
+                                                    value="${ratio}"
+                                                    ${
+                                                        block.ratio === ratio
+                                                            ? 'selected'
+                                                            : ''
+                                                    }
+                                                >
+                                                    ${ratio}
+                                                </option>
+                                            `
+                                        )
+                                        .join('')
+                                }
+
+                            </select>
+
+                        </label>
+
+
+                        <div
+                            class="mt-4 grid gap-3"
+                            style="grid-template-columns:${ratioToGrid(
+                                block.ratio
+                            )}"
+                        >
+
+                            ${columnHtml}
+
+                        </div>
+                    `;
+
+                case 'columns2':
+
+                    return (
+                        input(
+                            index,
+                            'col1',
+                            block.col1,
+                            'Column 1',
+                            true
+                        )
+                        +
+                        input(
+                            index,
+                            'col2',
+                            block.col2,
+                            'Column 2',
+                            true
+                        )
+                    );
+
+
+                case 'columns3':
+
+                    return (
+                        input(
+                            index,
+                            'col1',
+                            block.col1,
+                            'Column 1',
+                            true
+                        )
+                        +
+                        input(
+                            index,
+                            'col2',
+                            block.col2,
+                            'Column 2',
+                            true
+                        )
+                        +
+                        input(
+                            index,
+                            'col3',
+                            block.col3,
+                            'Column 3',
+                            true
+                        )
+                    );
+
+
+                case 'form':
+
+                    return `
+                        <label class="block">
+
+                            <span
+                                class="text-xs font-bold text-slate-500"
+                            >
+                                Select Form
+                            </span>
+
+                            <select
+                                data-index="${index}"
+                                data-key="form_id"
+                                class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                            >
+
+                                ${
+                                    availableForms.length
+                                        ? availableForms
+                                            .map(
+                                                form => `
+                                                    <option
+                                                        value="${form.id}"
+                                                        ${
+                                                            String(block.form_id)
+                                                            === String(form.id)
+                                                                ? 'selected'
+                                                                : ''
+                                                        }
+                                                    >
+                                                        ${escapeHtml(form.name)}
+                                                    </option>
+                                                `
+                                            )
+                                            .join('')
+                                        : `
+                                            <option value="">
+                                                No forms created yet
+                                            </option>
+                                        `
+                                }
+
+                            </select>
+
+                        </label>
+                    `;
+
+
+                case 'spacer':
+
+                    return `
+                        <label class="block">
+                            <span class="text-xs font-bold text-slate-500">
+                                Height
+                            </span>
+
+                            <input
+                                type="number"
+                                min="10"
+                                max="200"
+                                data-index="${index}"
+                                data-key="height"
+                                value="${block.height ?? 40}"
+                                class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                            >
+                        </label>
+                    `;
+
+
+                default:
+                    return `
+                        <div class="text-xs text-slate-400">
+                            No settings required.
+                        </div>
+                    `;
+
+            }
+
+        };
+
+
+
+        blocks.forEach(
+            function (block) {
+
+                if (block.type !== 'section') {
+                    return;
+                }
+
+                if (!block.ratio) {
+                    block.ratio = '1';
+                }
+
+                if (!Array.isArray(block.columns)) {
+
+                    block.columns = [
+                        {
+                            widgets:
+                                Array.isArray(block.children)
+                                    ? block.children
+                                    : []
+                        }
+                    ];
+
+                    delete block.children;
+
+                }
+
+                applySectionRatio(
+                    block,
+                    block.ratio
+                );
+
+            }
+        );
+
+
+        const renderBuilder = function () {
+
+            canvas
+                .querySelectorAll(
+                    '.builder-block'
+                )
+                .forEach(
+                    element =>
+                        element.remove()
+                );
+
+
+            empty.classList.toggle(
+                'hidden',
+                blocks.length > 0
+            );
+
+
+            blocks.forEach(
+                function (
+                    block,
+                    index
+                ) {
+
+                    const element =
+                        document.createElement(
+                            'div'
+                        );
+
+                    element.className =
+                        'builder-block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm';
+
+                    element.innerHTML = `
+                        <div class="flex items-center justify-between gap-3">
+
+                            <div class="flex items-center gap-3">
+
+                                <div
+                                    class="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-xs font-black text-blue-600"
+                                >
+                                    ${index + 1}
+                                </div>
+
+                                <div class="font-black">
+                                    ${blockTitle(block.type)}
+                                </div>
+
+                            </div>
+
+
+                            <div class="flex gap-1">
+
+                                <button
+                                    type="button"
+                                    data-action="up"
+                                    data-index="${index}"
+                                    class="rounded-lg border border-slate-200 px-2 py-1 text-xs"
+                                >
+                                    ↑
+                                </button>
+
+                                <button
+                                    type="button"
+                                    data-action="down"
+                                    data-index="${index}"
+                                    class="rounded-lg border border-slate-200 px-2 py-1 text-xs"
+                                >
+                                    ↓
+                                </button>
+
+                                <button
+                                    type="button"
+                                    data-action="remove"
+                                    data-index="${index}"
+                                    class="rounded-lg bg-red-50 px-2 py-1 text-xs font-bold text-red-600"
+                                >
+                                    Delete
+                                </button>
+
+                            </div>
+
+                        </div>
+
+
+                        <div
+                            class="mt-4 grid gap-3"
+                        >
+                            ${fields(block, index)}
+                        </div>
+                    `;
+
+
+                    canvas.appendChild(
+                        element
+                    );
+
+                }
+            );
+
+        };
+
+
+        const renderPublicBlock = function (block) {
+
+            switch (block.type) {
+
+                case 'hero':
+
+                    const heroSlides =
+                        Array.isArray(block.slides)
+                            ? block.slides
+                            : [];
+
+                    if (!heroSlides.length) {
+                        return '';
+                    }
+
+                    return `
+                        <div
+                            class="esubiz-hero-slider"
+                            data-autoplay="${block.autoplay !== false ? '1' : '0'}"
+                            data-interval="${Number(block.interval || 5000)}"
+                            style="min-height:${Number(block.height || 520)}px"
+                        >
+
+                            ${
+                                heroSlides
+                                    .map(
+                                        function (
+                                            slide,
+                                            index
+                                        ) {
+
+                                            return `
+                                                <div
+                                                    class="esubiz-hero-slide ${index === 0 ? 'is-active' : ''}"
+                                                    ${
+                                                        slide.image
+                                                            ? `style="background-image:linear-gradient(rgba(15,23,42,.45),rgba(15,23,42,.45)),url('${escapeHtml(slide.image)}')"`
+                                                            : ''
+                                                    }
+                                                >
+
+                                                    <div class="esubiz-hero-content">
+
+                                                        <h1>
+                                                            ${escapeHtml(slide.heading || '')}
+                                                        </h1>
+
+                                                        <p>
+                                                            ${escapeHtml(slide.text || '')}
+                                                        </p>
+
+                                                        ${
+                                                            slide.button_text
+                                                                ? `
+                                                                    <a
+                                                                        href="${escapeHtml(slide.button_url || '#')}"
+                                                                        class="esubiz-widget-button"
+                                                                    >
+                                                                        ${escapeHtml(slide.button_text)}
+                                                                    </a>
+                                                                `
+                                                                : ''
+                                                        }
+
+                                                    </div>
+
+                                                </div>
+                                            `;
+                                        }
+                                    )
+                                    .join('')
+                            }
+
+                        </div>
+                    `;
+
+
+                case 'heading':
+
+                    const level =
+                        ['h1','h2','h3']
+                            .includes(block.level)
+                            ? block.level
+                            : 'h2';
+
+                    return `
+                        <${level} class="esubiz-heading">
+                            ${escapeHtml(block.text)}
+                        </${level}>
+                    `;
+
+
+                case 'text':
+
+                    return `
+                        <p class="esubiz-text">
+                            ${escapeHtml(block.text)}
+                        </p>
+                    `;
+
+
+                case 'button':
+
+                    return `
+                        <p class="esubiz-button-wrap">
+                            <a
+                                class="esubiz-button"
+                                href="${escapeHtml(block.url || '#')}"
+                            >
+                                ${escapeHtml(block.text)}
+                            </a>
+                        </p>
+                    `;
+
+
+                case 'image':
+
+                    if (!block.url) {
+                        return '';
+                    }
+
+                    return `
+                        <figure class="esubiz-image">
+                            <img
+                                src="${escapeHtml(block.url)}"
+                                alt="${escapeHtml(block.alt)}"
+                            >
+                        </figure>
+                    `;
+
+
+                case 'section':
+
+                    const ratio =
+                        block.ratio || '1';
+
+                    const publicColumns =
+                        (block.columns || [])
+                            .map(
+                                function (column) {
+
+                                    return `
+                                        <div class="esubiz-section-column">
+                                            ${
+                                                (column.widgets || [])
+                                                    .map(renderPublicBlock)
+                                                    .join('')
+                                            }
+                                        </div>
+                                    `;
+
+                                }
+                            )
+                            .join('');
+
+
+                    return `
+                        <section class="esubiz-section">
+
+                            ${
+                                block.heading
+                                    ? `
+                                        <h2>
+                                            ${escapeHtml(block.heading)}
+                                        </h2>
+                                    `
+                                    : ''
+                            }
+
+                            <div
+                                class="esubiz-section-grid"
+                                style="grid-template-columns:${ratioToGrid(ratio)}"
+                            >
+                                ${publicColumns}
+                            </div>
+
+                        </section>
+                    `;
+
+
+                case 'columns2':
+
+                    return `
+                        <div class="esubiz-grid esubiz-grid-2">
+
+                            <div>
+                                ${escapeHtml(block.col1)}
+                            </div>
+
+                            <div>
+                                ${escapeHtml(block.col2)}
+                            </div>
+
+                        </div>
+                    `;
+
+
+                case 'columns3':
+
+                    return `
+                        <div class="esubiz-grid esubiz-grid-3">
+
+                            <div>
+                                ${escapeHtml(block.col1)}
+                            </div>
+
+                            <div>
+                                ${escapeHtml(block.col2)}
+                            </div>
+
+                            <div>
+                                ${escapeHtml(block.col3)}
+                            </div>
+
+                        </div>
+                    `;
+
+
+                case 'form':
+
+                    if (!block.form_id) {
+
+                        return `
+                            <div class="esubiz-form-placeholder">
+                                No form selected.
+                            </div>
+                        `;
+
+                    }
+
+                    const selected =
+                        availableForms.find(
+                            form =>
+                                String(form.id)
+                                === String(block.form_id)
+                        );
+
+                    return `
+                        <div
+                            class="esubiz-form-widget"
+                            data-esubiz-form-id="${escapeHtml(block.form_id)}"
+                        >
+                            <div class="esubiz-form-placeholder">
+                                ${
+                                    selected
+                                        ? escapeHtml(selected.name)
+                                        : 'Website Form'
+                                }
+                            </div>
+                        </div>
+                    `;
+
+
+                case 'divider':
+
+                    return `
+                        <hr class="esubiz-divider">
+                    `;
+
+
+                case 'spacer':
+
+                    const height =
+                        Math.min(
+                            200,
+                            Math.max(
+                                10,
+                                Number(block.height) || 40
+                            )
+                        );
+
+                    return `
+                        <div
+                            class="esubiz-spacer"
+                            style="height:${height}px"
+                        ></div>
+                    `;
+
+
+                default:
+                    return '';
+
+            }
+
+        };
+
+
+        const generateHtml = function () {
+
+            return blocks
+                .map(renderPublicBlock)
+                .join('\n');
+
+        };
+
+
+        document
+            .querySelectorAll(
+                '.builder-add'
+            )
+            .forEach(
+                function (button) {
+
+                    button.addEventListener(
+                        'click',
+                        function () {
+
+                            blocks.push(
+                                defaultBlock(
+                                    button.dataset.addBlock
+                                )
+                            );
+
+                            renderBuilder();
+
+                        }
+                    );
+
+                }
+            );
+
+
+
+        canvas.addEventListener(
+            'click',
+            function (event) {
+
+                const add =
+                    event.target.closest(
+                        '[data-add-widget]'
+                    );
+
+                if (add) {
+
+                    const sectionIndex =
+                        Number(
+                            add.dataset.sectionIndex
+                        );
+
+                    const columnIndex =
+                        Number(
+                            add.dataset.columnIndex
+                        );
+
+                    openWidgetLibrary(
+                        sectionIndex,
+                        columnIndex
+                    );
+
+                    return;
+                }
+
+
+                const remove =
+                    event.target.closest(
+                        '[data-remove-widget]'
+                    );
+
+                if (remove) {
+
+                    blocks[
+                        Number(
+                            remove.dataset.sectionIndex
+                        )
+                    ].columns[
+                        Number(
+                            remove.dataset.columnIndex
+                        )
+                    ].widgets.splice(
+                        Number(
+                            remove.dataset.widgetIndex
+                        ),
+                        1
+                    );
+
+                    renderBuilder();
+
+                    return;
+                }
+
+            }
+        );
+
+
+        canvas.addEventListener(
+            'change',
+            function (event) {
+
+                if (event.target.matches(
+                    '[data-section-ratio]'
+                )) {
+
+                    const index =
+                        Number(
+                            event.target.dataset.index
+                        );
+
+                    applySectionRatio(
+                        blocks[index],
+                        event.target.value
+                    );
+
+                    renderBuilder();
+
+                    return;
+                }
+
+
+                if (
+                    event.target.dataset.nestedKey
+                ) {
+
+                    const section =
+                        Number(
+                            event.target.dataset.sectionIndex
+                        );
+
+                    const column =
+                        Number(
+                            event.target.dataset.columnIndex
+                        );
+
+                    const widget =
+                        Number(
+                            event.target.dataset.widgetIndex
+                        );
+
+                    const key =
+                        event.target.dataset.nestedKey;
+
+                    blocks[
+                        section
+                    ].columns[
+                        column
+                    ].widgets[
+                        widget
+                    ][key] =
+                        event.target.value;
+
+                }
+
+            }
+        );
+
+
+        canvas.addEventListener(
+            'input',
+            function (event) {
+
+                if (
+                    event.target.dataset.nestedKey
+                ) {
+
+                    const section =
+                        Number(
+                            event.target.dataset.sectionIndex
+                        );
+
+                    const column =
+                        Number(
+                            event.target.dataset.columnIndex
+                        );
+
+                    const widget =
+                        Number(
+                            event.target.dataset.widgetIndex
+                        );
+
+                    blocks[
+                        section
+                    ].columns[
+                        column
+                    ].widgets[
+                        widget
+                    ][
+                        event.target.dataset.nestedKey
+                    ] = event.target.value;
+
+                    return;
+                }
+
+
+                const target =
+                    event.target;
+
+                if (
+                    !target.dataset.index
+                    && target.dataset.index !== '0'
+                ) {
+                    return;
+                }
+
+                const index =
+                    Number(
+                        target.dataset.index
+                    );
+
+                const key =
+                    target.dataset.key;
+
+                if (
+                    !blocks[index]
+                    || !key
+                ) {
+                    return;
+                }
+
+                blocks[index][key] =
+                    target.value;
+
+            }
+        );
+
+
+        canvas.addEventListener(
+            'change',
+            function (event) {
+
+                const target =
+                    event.target;
+
+                if (
+                    target.dataset.index === undefined
+                ) {
+                    return;
+                }
+
+                const index =
+                    Number(
+                        target.dataset.index
+                    );
+
+                if (
+                    blocks[index]
+                    && target.dataset.key
+                ) {
+                    blocks[index][
+                        target.dataset.key
+                    ] = target.value;
+                }
+
+            }
+        );
+
+
+        canvas.addEventListener(
+            'click',
+            function (event) {
+
+                const sectionButton =
+                    event.target.closest(
+                        '[data-section-add]'
+                    );
+
+                if (sectionButton) {
+
+                    const sectionIndex =
+                        Number(
+                            sectionButton.dataset.index
+                        );
+
+                    const section =
+                        blocks[sectionIndex];
+
+                    if (
+                        section
+                        && section.type === 'section'
+                    ) {
+
+                        section.children =
+                            section.children || [];
+
+                        section.children.push(
+                            defaultBlock(
+                                sectionButton.dataset.sectionAdd
+                            )
+                        );
+
+                        /*
+                         * Basic Core implementation:
+                         * child widgets are stored inside the
+                         * section container. Premium builder can
+                         * later provide drag/drop nested editing.
+                         */
+                        renderBuilder();
+
+                    }
+
+                    return;
+                }
+
+                const button =
+                    event.target.closest(
+                        '[data-action]'
+                    );
+
+                if (!button) {
+                    return;
+                }
+
+                const index =
+                    Number(
+                        button.dataset.index
+                    );
+
+                switch (
+                    button.dataset.action
+                ) {
+
+                    case 'remove':
+
+                        blocks.splice(
+                            index,
+                            1
+                        );
+
+                        break;
+
+
+                    case 'up':
+
+                        if (index > 0) {
+
+                            [
+                                blocks[index - 1],
+                                blocks[index]
+                            ] = [
+                                blocks[index],
+                                blocks[index - 1]
+                            ];
+
+                        }
+
+                        break;
+
+
+                    case 'down':
+
+                        if (
+                            index
+                            < blocks.length - 1
+                        ) {
+
+                            [
+                                blocks[index + 1],
+                                blocks[index]
+                            ] = [
+                                blocks[index],
+                                blocks[index + 1]
+                            ];
+
+                        }
+
+                        break;
+
+                }
+
+                renderBuilder();
+
+            }
+        );
+
+
+
+        let draggedWidget = null;
+
+
+        canvas.addEventListener(
+            'dragstart',
+            function (event) {
+
+                const widget =
+                    event.target.closest(
+                        '.builder-widget'
+                    );
+
+                if (!widget) {
+                    return;
+                }
+
+                draggedWidget = {
+                    section:
+                        Number(
+                            widget.dataset.sectionIndex
+                        ),
+
+                    column:
+                        Number(
+                            widget.dataset.columnIndex
+                        ),
+
+                    widget:
+                        Number(
+                            widget.dataset.widgetIndex
+                        )
+                };
+
+            }
+        );
+
+
+        canvas.addEventListener(
+            'dragover',
+            function (event) {
+
+                if (
+                    event.target.closest(
+                        '[data-widget-dropzone]'
+                    )
+                ) {
+                    event.preventDefault();
+                }
+
+            }
+        );
+
+
+        canvas.addEventListener(
+            'drop',
+            function (event) {
+
+                const zone =
+                    event.target.closest(
+                        '[data-widget-dropzone]'
+                    );
+
+                if (
+                    !zone
+                    || !draggedWidget
+                ) {
+                    return;
+                }
+
+                event.preventDefault();
+
+                const source =
+                    blocks[
+                        draggedWidget.section
+                    ].columns[
+                        draggedWidget.column
+                    ].widgets;
+
+                const [
+                    widget
+                ] = source.splice(
+                    draggedWidget.widget,
+                    1
+                );
+
+                const targetSection =
+                    Number(
+                        zone.dataset.sectionIndex
+                    );
+
+                const targetColumn =
+                    Number(
+                        zone.dataset.columnIndex
+                    );
+
+                blocks[
+                    targetSection
+                ].columns[
+                    targetColumn
+                ].widgets.push(
+                    widget
+                );
+
+                draggedWidget = null;
+
+                renderBuilder();
+
+            }
+        );
+
+
+
+        /*
+         * hero-remove-slide-handler
+         */
+        canvas.addEventListener(
+            'click',
+            function (event) {
+
+                const addSlide =
+                    event.target.closest(
+                        '[data-hero-add-slide]'
+                    );
+
+                if (addSlide) {
+
+                    const widget =
+                        blocks[
+                            Number(addSlide.dataset.sectionIndex)
+                        ].columns[
+                            Number(addSlide.dataset.columnIndex)
+                        ].widgets[
+                            Number(addSlide.dataset.widgetIndex)
+                        ];
+
+                    widget.slides =
+                        Array.isArray(widget.slides)
+                            ? widget.slides
+                            : [];
+
+                    widget.slides.push({
+                        heading: 'New slide',
+                        text: '',
+                        image: '',
+                        button_text: 'Learn More',
+                        button_url: '#'
+                    });
+
+                    renderBuilder();
+
+                    return;
+                }
+
+
+                const removeSlide =
+                    event.target.closest(
+                        '[data-hero-remove-slide]'
+                    );
+
+                if (removeSlide) {
+
+                    const widget =
+                        blocks[
+                            Number(removeSlide.dataset.sectionIndex)
+                        ].columns[
+                            Number(removeSlide.dataset.columnIndex)
+                        ].widgets[
+                            Number(removeSlide.dataset.widgetIndex)
+                        ];
+
+                    if (
+                        Array.isArray(widget.slides)
+                        && widget.slides.length > 1
+                    ) {
+
+                        widget.slides.splice(
+                            Number(
+                                removeSlide.dataset.slideIndex
+                            ),
+                            1
+                        );
+
+                        renderBuilder();
+                    }
+
+                }
+
+            }
+        );
+
+
+        canvas.addEventListener(
+            'input',
+            function (event) {
+
+                if (
+                    event.target.dataset.heroSlideKey
+                ) {
+
+                    const widget =
+                        blocks[
+                            Number(event.target.dataset.sectionIndex)
+                        ].columns[
+                            Number(event.target.dataset.columnIndex)
+                        ].widgets[
+                            Number(event.target.dataset.widgetIndex)
+                        ];
+
+                    const slide =
+                        widget.slides[
+                            Number(event.target.dataset.slideIndex)
+                        ];
+
+                    if (slide) {
+
+                        slide[
+                            event.target.dataset.heroSlideKey
+                        ] = event.target.value;
+                    }
+
+                    return;
+                }
+
+
+                if (
+                    event.target.dataset.heroSetting
+                ) {
+
+                    const widget =
+                        blocks[
+                            Number(event.target.dataset.sectionIndex)
+                        ].columns[
+                            Number(event.target.dataset.columnIndex)
+                        ].widgets[
+                            Number(event.target.dataset.widgetIndex)
+                        ];
+
+                    const key =
+                        event.target.dataset.heroSetting;
+
+                    if (key === 'autoplay') {
+
+                        widget[key] =
+                            event.target.value === '1';
+
+                    } else {
+
+                        widget[key] =
+                            Number(
+                                event.target.value
+                            );
+                    }
+
+                }
+
+            }
+        );
+
+
+        canvas.addEventListener(
+            'change',
+            function (event) {
+
+                if (
+                    event.target.dataset.heroSetting
+                ) {
+
+                    const widget =
+                        blocks[
+                            Number(event.target.dataset.sectionIndex)
+                        ].columns[
+                            Number(event.target.dataset.columnIndex)
+                        ].widgets[
+                            Number(event.target.dataset.widgetIndex)
+                        ];
+
+                    const key =
+                        event.target.dataset.heroSetting;
+
+                    widget[key] =
+                        key === 'autoplay'
+                            ? event.target.value === '1'
+                            : Number(
+                                event.target.value
+                            );
+                }
+
+            }
+        );
+
+
+
+
+        async function uploadHeroImage(input) {
+
+            const file =
+                input.files
+                && input.files[0];
+
+            if (!file) {
+                return;
+            }
+
+
+            if (
+                ![
+                    'image/jpeg',
+                    'image/png'
+                ].includes(file.type)
+            ) {
+
+                alert(
+                    'Only PNG and JPG images are allowed.'
+                );
+
+                input.value = '';
+
+                return;
+            }
+
+
+            if (
+                file.size
+                > 10 * 1024 * 1024
+            ) {
+
+                alert(
+                    'Image must not exceed 10 MB.'
+                );
+
+                input.value = '';
+
+                return;
+            }
+
+
+            const sectionIndex =
+                Number(
+                    input.dataset.sectionIndex
+                );
+
+            const columnIndex =
+                Number(
+                    input.dataset.columnIndex
+                );
+
+            const widgetIndex =
+                Number(
+                    input.dataset.widgetIndex
+                );
+
+            const slideIndex =
+                Number(
+                    input.dataset.slideIndex
+                );
+
+
+            const widget =
+                blocks[
+                    sectionIndex
+                ].columns[
+                    columnIndex
+                ].widgets[
+                    widgetIndex
+                ];
+
+
+            const slide =
+                widget.slides[
+                    slideIndex
+                ];
+
+
+            if (!slide) {
+                return;
+            }
+
+
+            const data =
+                new FormData();
+
+            data.append(
+                'image',
+                file
+            );
+
+
+            input.disabled = true;
+
+
+            try {
+
+                const response =
+                    await fetch(
+                        tenantCoreImageUploadUrl,
+                        {
+                            method: 'POST',
+
+                            headers: {
+                                'X-CSRF-TOKEN':
+                                    csrfToken,
+
+                                'Accept':
+                                    'application/json'
+                            },
+
+                            body: data
+                        }
+                    );
+
+
+                const payload =
+                    await response.json();
+
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        payload.message
+                        || 'Hero image upload failed.'
+                    );
+                }
+
+
+                slide.image =
+                    payload.url;
+
+                slide.uploaded_path =
+                    payload.path;
+
+
+                renderBuilder();
+
+            } catch (error) {
+
+                alert(
+                    error.message
+                    || 'Hero image upload failed.'
+                );
+
+            } finally {
+
+                input.disabled = false;
+            }
+
+        }
+
+
+        async function uploadTenantImage(input) {
+
+            const file =
+                input.files
+                && input.files[0];
+
+            if (!file) {
+                return;
+            }
+
+            if (!['image/jpeg', 'image/png'].includes(file.type)) {
+                alert('Only PNG and JPG images are allowed.');
+                input.value = '';
+                return;
+            }
+
+            if (file.size > 10 * 1024 * 1024) {
+                alert('Image must not exceed 10 MB.');
+                input.value = '';
+                return;
+            }
+
+            const sectionIndex =
+                Number(input.dataset.sectionIndex);
+
+            const columnIndex =
+                Number(input.dataset.columnIndex);
+
+            const widgetIndex =
+                Number(input.dataset.widgetIndex);
+
+            const widget =
+                blocks[
+                    sectionIndex
+                ].columns[
+                    columnIndex
+                ].widgets[
+                    widgetIndex
+                ];
+
+            const data =
+                new FormData();
+
+            data.append(
+                'image',
+                file
+            );
+
+            input.disabled = true;
+
+            try {
+
+                const response =
+                    await fetch(
+                        tenantCoreImageUploadUrl,
+                        {
+                            method: 'POST',
+
+                            headers: {
+                                'X-CSRF-TOKEN':
+                                    csrfToken,
+
+                                'Accept':
+                                    'application/json'
+                            },
+
+                            body: data
+                        }
+                    );
+
+                const payload =
+                    await response.json();
+
+                if (!response.ok) {
+                    throw new Error(
+                        payload.message
+                        || 'Image upload failed.'
+                    );
+                }
+
+                widget.url =
+                    payload.url;
+
+                widget.uploaded_path =
+                    payload.path;
+
+                renderBuilder();
+
+            } catch (error) {
+
+                alert(
+                    error.message
+                    || 'Image upload failed.'
+                );
+
+            } finally {
+
+                input.disabled = false;
+            }
+
+        }
+
+
+        canvas.addEventListener(
+            'change',
+            function (event) {
+
+                if (
+                    event.target.matches(
+                        '[data-hero-image-upload]'
+                    )
+                ) {
+
+                    uploadHeroImage(
+                        event.target
+                    );
+
+                    return;
+                }
+
+
+                if (
+                    event.target.matches(
+                        '[data-hero-image-upload]'
+                    )
+                ) {
+
+                    uploadHeroImage(
+                        event.target
+                    );
+
+                    return;
+                }
+
+
+                if (
+                    event.target.matches(
+                        '[data-image-upload]'
+                    )
+                ) {
+                    uploadTenantImage(
+                        event.target
+                    );
+
+                    return;
+                }
+            }
+        );
+
+
+        canvas.addEventListener(
+            'click',
+            function (event) {
+
+                const addSlide =
+                    event.target.closest(
+                        '[data-hero-add-slide]'
+                    );
+
+                if (addSlide) {
+
+                    const widget =
+                        blocks[
+                            Number(addSlide.dataset.sectionIndex)
+                        ].columns[
+                            Number(addSlide.dataset.columnIndex)
+                        ].widgets[
+                            Number(addSlide.dataset.widgetIndex)
+                        ];
+
+                    widget.slides =
+                        Array.isArray(widget.slides)
+                            ? widget.slides
+                            : [];
+
+                    widget.slides.push({
+                        heading: 'New slide',
+                        text: '',
+                        image: '',
+                        button_text: 'Learn More',
+                        button_url: '#'
+                    });
+
+                    renderBuilder();
+                    return;
+                }
+
+                const removeSlide =
+                    event.target.closest(
+                        '[data-hero-remove-slide]'
+                    );
+
+                if (removeSlide) {
+
+                    const widget =
+                        blocks[
+                            Number(removeSlide.dataset.sectionIndex)
+                        ].columns[
+                            Number(removeSlide.dataset.columnIndex)
+                        ].widgets[
+                            Number(removeSlide.dataset.widgetIndex)
+                        ];
+
+                    if (
+                        Array.isArray(widget.slides)
+                        && widget.slides.length > 1
+                    ) {
+                        widget.slides.splice(
+                            Number(removeSlide.dataset.slideIndex),
+                            1
+                        );
+
+                        renderBuilder();
+                    }
+                }
+
+            }
+        );
+
+
+        canvas.addEventListener(
+            'input',
+            function (event) {
+
+                if (
+                    event.target.dataset.heroSlideKey
+                ) {
+
+                    const widget =
+                        blocks[
+                            Number(event.target.dataset.sectionIndex)
+                        ].columns[
+                            Number(event.target.dataset.columnIndex)
+                        ].widgets[
+                            Number(event.target.dataset.widgetIndex)
+                        ];
+
+                    const slide =
+                        widget.slides[
+                            Number(event.target.dataset.slideIndex)
+                        ];
+
+                    if (slide) {
+                        slide[
+                            event.target.dataset.heroSlideKey
+                        ] = event.target.value;
+                    }
+
+                    return;
+                }
+
+                if (
+                    event.target.dataset.heroSetting
+                ) {
+
+                    const widget =
+                        blocks[
+                            Number(event.target.dataset.sectionIndex)
+                        ].columns[
+                            Number(event.target.dataset.columnIndex)
+                        ].widgets[
+                            Number(event.target.dataset.widgetIndex)
+                        ];
+
+                    const key =
+                        event.target.dataset.heroSetting;
+
+                    widget[key] =
+                        key === 'autoplay'
+                            ? event.target.value === '1'
+                            : Number(event.target.value);
+                }
+
+            }
+        );
+
+
+
+        /*
+         * core-storage-upload-v4
+         *
+         * Image and Hero media use one upload path and therefore
+         * consume the same tenant website storage allocation.
+         */
+        async function coreUploadImage(file) {
+
+            if (
+                !file
+                || ![
+                    'image/jpeg',
+                    'image/png'
+                ].includes(file.type)
+            ) {
+                throw new Error(
+                    'Only JPG, JPEG and PNG images are allowed.'
+                );
+            }
+
+
+            if (
+                file.size
+                > 10 * 1024 * 1024
+            ) {
+                throw new Error(
+                    'Image must not exceed 10 MB.'
+                );
+            }
+
+
+            const body =
+                new FormData();
+
+            body.append(
+                'image',
+                file
+            );
+
+
+            const response =
+                await fetch(
+                    tenantCoreImageUploadUrl,
+                    {
+                        method: 'POST',
+
+                        headers: {
+                            'X-CSRF-TOKEN':
+                                csrfToken,
+
+                            'Accept':
+                                'application/json'
+                        },
+
+                        body
+                    }
+                );
+
+
+            let payload = {};
+
+            try {
+                payload =
+                    await response.json();
+            } catch (_) {
+                //
+            }
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    payload.message
+                    || 'Image upload failed.'
+                );
+            }
+
+
+            return payload;
+        }
+
+
+        canvas.addEventListener(
+            'change',
+            async function (event) {
+
+                /*
+                 * NORMAL IMAGE
+                 */
+                if (
+                    event.target.matches(
+                        '[data-core-image-upload]'
+                    )
+                ) {
+
+                    const input =
+                        event.target;
+
+                    const file =
+                        input.files?.[0];
+
+                    if (!file) {
+                        return;
+                    }
+
+
+                    const widget =
+                        blocks[
+                            Number(
+                                input.dataset.sectionIndex
+                            )
+                        ].columns[
+                            Number(
+                                input.dataset.columnIndex
+                            )
+                        ].widgets[
+                            Number(
+                                input.dataset.widgetIndex
+                            )
+                        ];
+
+
+                    input.disabled = true;
+
+
+                    try {
+
+                        const uploaded =
+                            await coreUploadImage(
+                                file
+                            );
+
+
+                        widget.url =
+                            uploaded.url;
+
+                        widget.uploaded_path =
+                            uploaded.path;
+
+
+                        renderBuilder();
+
+                    } catch (error) {
+
+                        alert(
+                            error.message
+                        );
+
+                    } finally {
+
+                        input.disabled = false;
+                    }
+
+
+                    return;
+                }
+
+
+                /*
+                 * HERO / SLIDER IMAGE
+                 */
+                if (
+                    event.target.matches(
+                        '[data-core-hero-upload]'
+                    )
+                ) {
+
+                    const input =
+                        event.target;
+
+                    const file =
+                        input.files?.[0];
+
+                    if (!file) {
+                        return;
+                    }
+
+
+                    const widget =
+                        blocks[
+                            Number(
+                                input.dataset.sectionIndex
+                            )
+                        ].columns[
+                            Number(
+                                input.dataset.columnIndex
+                            )
+                        ].widgets[
+                            Number(
+                                input.dataset.widgetIndex
+                            )
+                        ];
+
+
+                    const slide =
+                        widget.slides[
+                            Number(
+                                input.dataset.slideIndex
+                            )
+                        ];
+
+
+                    input.disabled = true;
+
+
+                    try {
+
+                        const uploaded =
+                            await coreUploadImage(
+                                file
+                            );
+
+
+                        slide.image =
+                            uploaded.url;
+
+                        slide.uploaded_path =
+                            uploaded.path;
+
+
+                        renderBuilder();
+
+                    } catch (error) {
+
+                        alert(
+                            error.message
+                        );
+
+                    } finally {
+
+                        input.disabled = false;
+                    }
+
+
+                    return;
+                }
+
+            }
+        );
+
+
+        pageForm.addEventListener(
+            'submit',
+            function () {
+
+                contentField.value =
+                    generateHtml();
+
+                jsonField.value =
+                    JSON.stringify(
+                        blocks
+                    );
+
+            }
+        );
+
+
+        document
+            .getElementById(
+                'previewButton'
+            )
+            .addEventListener(
+                'click',
+                function () {
+
+                    previewContent.innerHTML =
+                        generateHtml();
+
+                    previewModal.classList.remove(
+                        'hidden'
+                    );
+
+                    document.body.classList.add(
+                        'overflow-hidden'
+                    );
+
+                }
+            );
+
+
+        document
+            .getElementById(
+                'closePreview'
+            )
+            .addEventListener(
+                'click',
+                function () {
+
+                    previewModal.classList.add(
+                        'hidden'
+                    );
+
+                    document.body.classList.remove(
+                        'overflow-hidden'
+                    );
+
+                }
+            );
+
+
+
+        const titleInput =
+            document.getElementById(
+                'pageTitleInput'
+            );
+
+        const slugInput =
+            document.getElementById(
+                'pageSlugInput'
+            );
+
+        let slugManuallyEdited =
+            slugInput
+            && slugInput.value.trim() !== '';
+
+
+        const makeSlug = function (value) {
+
+            return String(value || '')
+                .toLowerCase()
+                .trim()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+
+        };
+
+
+        if (
+            titleInput
+            && slugInput
+        ) {
+
+            titleInput.addEventListener(
+                'input',
+                function () {
+
+                    if (
+                        slugManuallyEdited
+                    ) {
+                        return;
+                    }
+
+                    slugInput.value =
+                        makeSlug(
+                            titleInput.value
+                        );
+
+                }
+            );
+
+
+            slugInput.addEventListener(
+                'input',
+                function () {
+
+                    slugManuallyEdited =
+                        slugInput.value.trim()
+                        !== makeSlug(
+                            titleInput.value
+                        );
+
+                }
+            );
+
+        }
+
+
+        renderBuilder();
+
+    }
+);
+
+</script>
+
+
+<style>
+
+#previewContent .esubiz-heading {
+    margin: 0 0 18px;
+    font-weight: 800;
+    line-height: 1.15;
+}
+
+#previewContent h1.esubiz-heading {
+    font-size: 42px;
+}
+
+#previewContent h2.esubiz-heading {
+    font-size: 32px;
+}
+
+#previewContent h3.esubiz-heading {
+    font-size: 24px;
+}
+
+#previewContent .esubiz-text,
+#previewContent .esubiz-section p {
+    margin: 0 0 20px;
+    font-size: 16px;
+    line-height: 1.75;
+}
+
+#previewContent .esubiz-button {
+    display: inline-block;
+    padding: 12px 20px;
+    border-radius: 10px;
+    background: #2563eb;
+    color: white;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+#previewContent .esubiz-button-wrap {
+    margin: 20px 0;
+}
+
+#previewContent .esubiz-image img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 14px;
+}
+
+#previewContent .esubiz-section {
+    padding: 40px 0;
+}
+
+
+#previewContent .esubiz-section-grid {
+    display: grid;
+    gap: 24px;
+}
+
+#previewContent .esubiz-section-column {
+    min-width: 0;
+}
+
+#previewContent .esubiz-section h2 {
+    margin: 0 0 12px;
+    font-size: 30px;
+    font-weight: 800;
+}
+
+#previewContent .esubiz-grid {
+    display: grid;
+    gap: 24px;
+    margin: 28px 0;
+}
+
+#previewContent .esubiz-grid-2 {
+    grid-template-columns: repeat(2, minmax(0,1fr));
+}
+
+#previewContent .esubiz-grid-3 {
+    grid-template-columns: repeat(3, minmax(0,1fr));
+}
+
+#previewContent .esubiz-grid > div {
+    padding: 20px;
+    border-radius: 12px;
+    background: #f8fafc;
+}
+
+
+#previewContent .esubiz-form-widget,
+#previewContent .esubiz-form-placeholder {
+    margin: 24px 0;
+}
+
+#previewContent .esubiz-form-placeholder {
+    padding: 24px;
+    border: 2px dashed #bfdbfe;
+    border-radius: 14px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-weight: 700;
+    text-align: center;
+}
+
+#previewContent .esubiz-divider {
+    margin: 30px 0;
+    border: 0;
+    border-top: 1px solid #e2e8f0;
+}
+
+@media (max-width: 700px) {
+
+    #previewContent .esubiz-section-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+
+    #previewContent .esubiz-grid-2,
+    #previewContent .esubiz-grid-3 {
+        grid-template-columns: 1fr;
+    }
+
+}
+
+</style>
+
+@endpush
