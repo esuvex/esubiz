@@ -4,6 +4,281 @@
 
 @section('content')
 
+{{-- =========================================================
+     ESUBIZ_AI_CREDIT_PURCHASE_PANEL
+
+     SaaS AI Credits are centrally owned by Esubiz.
+
+     Purchase:
+     Tenant -> Central Marketplace checkout -> payment
+     -> generic credit fulfilment -> website AI balance.
+
+     Usage:
+     Tenant AI -> CentralAiEngine -> exact debit.
+     ========================================================= --}}
+
+@php
+    $aiCreditWebsite =
+        \App\Models\Website::query()
+            ->where(
+                'subdomain',
+                request()->route(
+                    'subdomain'
+                )
+            )
+            ->first();
+
+    $aiCreditBalance =
+        $aiCreditWebsite
+            ? app(
+                \App\Services\Ai\AiCreditService::class
+            )->balance(
+                $aiCreditWebsite
+            )
+            : 0;
+
+    $aiCreditPackages =
+        \Illuminate\Support\Facades\DB::table(
+            'credit_packages'
+        )
+            ->where(
+                'credit_type',
+                'ai_credits'
+            )
+            ->where(
+                'is_active',
+                true
+            )
+            ->orderBy(
+                'sort_order'
+            )
+            ->orderBy(
+                'credit_quantity'
+            )
+            ->get();
+
+    $aiReturnUrl =
+        $aiCreditWebsite
+            ? request()->fullUrl()
+            : null;
+@endphp
+
+
+@if($aiCreditWebsite)
+
+    <section
+        style="
+            margin-bottom:24px;
+            padding:22px;
+            background:#ffffff;
+            border:1px solid #e5e7eb;
+            border-radius:18px;
+            box-shadow:0 8px 28px rgba(15,23,42,.05);
+        "
+    >
+
+        <div
+            style="
+                display:flex;
+                align-items:flex-start;
+                justify-content:space-between;
+                gap:20px;
+                flex-wrap:wrap;
+                margin-bottom:20px;
+            "
+        >
+
+            <div>
+
+                <div
+                    style="
+                        font-size:12px;
+                        font-weight:800;
+                        letter-spacing:.08em;
+                        text-transform:uppercase;
+                        color:#2563eb;
+                        margin-bottom:6px;
+                    "
+                >
+                    AI Credits
+                </div>
+
+                <h3
+                    style="
+                        margin:0;
+                        color:#0f172a;
+                        font-size:22px;
+                        font-weight:800;
+                    "
+                >
+                    {{ number_format(
+                        (float) $aiCreditBalance,
+                        0
+                    ) }}
+                    Credits
+                </h3>
+
+                <p
+                    style="
+                        margin:6px 0 0;
+                        color:#64748b;
+                        font-size:14px;
+                    "
+                >
+                    Your website's Central Esubiz AI balance.
+                    Credits are deducted automatically when AI is used.
+                </p>
+
+            </div>
+
+
+            <div
+                style="
+                    padding:10px 14px;
+                    background:#eff6ff;
+                    border-radius:12px;
+                    color:#1d4ed8;
+                    font-size:13px;
+                    font-weight:700;
+                "
+            >
+                ₦10 = 1 AI Credit
+            </div>
+
+        </div>
+
+
+        @if($aiCreditPackages->isEmpty())
+
+            <div
+                style="
+                    padding:15px;
+                    border-radius:12px;
+                    background:#fff7ed;
+                    color:#9a3412;
+                    font-size:14px;
+                "
+            >
+                No AI Credit packages are currently available.
+            </div>
+
+        @else
+
+            <div
+                style="
+                    display:grid;
+                    grid-template-columns:
+                        repeat(
+                            auto-fit,
+                            minmax(190px,1fr)
+                        );
+                    gap:14px;
+                "
+            >
+
+                @foreach($aiCreditPackages as $aiPackage)
+
+                    <div
+                        style="
+                            padding:17px;
+                            border:1px solid #e2e8f0;
+                            border-radius:15px;
+                            background:#f8fafc;
+                        "
+                    >
+
+                        <strong
+                            style="
+                                display:block;
+                                color:#0f172a;
+                                font-size:15px;
+                                margin-bottom:5px;
+                            "
+                        >
+                            {{ $aiPackage->name }}
+                        </strong>
+
+
+                        <div
+                            style="
+                                color:#2563eb;
+                                font-size:22px;
+                                font-weight:800;
+                                margin-bottom:3px;
+                            "
+                        >
+                            {{ number_format(
+                                (float)
+                                $aiPackage->credit_quantity,
+                                0
+                            ) }}
+                            Credits
+                        </div>
+
+
+                        <div
+                            style="
+                                color:#475569;
+                                font-size:14px;
+                                margin-bottom:14px;
+                            "
+                        >
+                            ₦{{ number_format(
+                                (float)
+                                $aiPackage->price,
+                                2
+                            ) }}
+                        </div>
+
+
+                        @php
+                            $aiCheckoutUrl =
+                                app(
+                                    \App\Services\Marketplace\SaasCheckoutLinkService::class
+                                )->create(
+                                    $aiCreditWebsite,
+                                    'credit_package',
+                                    (int) $aiPackage->id,
+                                    $aiReturnUrl,
+                                    'ai'
+                                );
+                        @endphp
+
+
+                        <a
+                            href="{{ $aiCheckoutUrl }}"
+                            style="
+                                display:block;
+                                width:100%;
+                                box-sizing:border-box;
+                                border-radius:10px;
+                                background:#2563eb;
+                                color:#ffffff;
+                                padding:11px 14px;
+                                font:inherit;
+                                font-size:13px;
+                                font-weight:800;
+                                text-align:center;
+                                text-decoration:none;
+                            "
+                        >
+                            Buy AI Credits
+                        </a>
+
+                    </div>
+
+                @endforeach
+
+            </div>
+
+        @endif
+
+    </section>
+
+@endif
+
+
+
 <div class="mx-auto max-w-7xl space-y-8">
 
     {{-- ======================================================

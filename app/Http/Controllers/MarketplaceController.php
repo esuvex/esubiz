@@ -2555,6 +2555,118 @@ class MarketplaceController extends Controller
         ]);
     }
 
+    /**
+     * ESUBIZ_SAAS_MARKETPLACE_CHECKOUT_HANDOFF
+     *
+     * Secure bridge from a SaaS tenant website into the
+     * existing Central Esubiz Marketplace checkout.
+     *
+     * This does not create another checkout implementation.
+     * After validating the signed handoff, the request is
+     * normalized and passed directly into checkout().
+     */
+    public function saasCheckoutHandoff(
+        Request $request
+    ) {
+        abort_unless(
+            $request->hasValidRelativeSignature(),
+            403,
+            'This marketplace checkout link is invalid or has expired.'
+        );
+
+        abort_unless(
+            auth()->check(),
+            401,
+            'Please sign in to your Esubiz account to continue.'
+        );
+
+
+        $website =
+            \App\Models\Website::query()
+                ->where(
+                    'id',
+                    (int) $request->query(
+                        'website_id'
+                    )
+                )
+                ->firstOrFail();
+
+
+        /*
+         * A SaaS handoff may only purchase for a website
+         * belonging to the currently authenticated Esubiz user.
+         */
+        abort_unless(
+            (int) $website->owner_id ===
+                (int) auth()->id(),
+            403,
+            'You cannot purchase Marketplace products for this website.'
+        );
+
+
+        $deploymentType =
+            strtolower(
+                trim(
+                    (string) (
+                        $website->deployment_type
+                        ?? 'saas'
+                    )
+                )
+            );
+
+
+        abort_unless(
+            $deploymentType === ''
+            || $deploymentType === 'saas',
+            422,
+            'This checkout handoff is only available to SaaS websites.'
+        );
+
+
+        /*
+         * Convert the trusted signed GET handoff into the same
+         * request contract consumed by the existing checkout().
+         */
+        $request->merge([
+            'product_type' =>
+                (string) $request->query(
+                    'product_type'
+                ),
+
+            'product_id' =>
+                (int) $request->query(
+                    'product_id'
+                ),
+
+            'deployment_type' =>
+                'saas',
+
+            'website_id' =>
+                (int) $website->id,
+
+            'checkout_origin' =>
+                'saas_website',
+
+            'return_area' =>
+                (string) $request->query(
+                    'return_area',
+                    ''
+                ),
+
+            'return_url' =>
+                (string) $request->query(
+                    'return_url',
+                    ''
+                ),
+        ]);
+
+
+        return $this->checkout(
+            $request
+        );
+    }
+
+
     public function checkout(Request $request)
     {
         $data = $request->validate([
@@ -2562,6 +2674,35 @@ class MarketplaceController extends Controller
             'product_id' => ['required', 'integer'],
             'deployment_type' => ['required', 'in:saas,off_server'],
             'website_id' => ['nullable', 'integer'],
+
+            /*
+             * Unified marketplace entry context.
+             *
+             * central_account:
+             *   Esubiz User / Developer marketplace
+             *
+             * saas_website:
+             *   purchase initiated from a SaaS tenant admin
+             *
+             * off_server_website is deliberately not accepted
+             * here yet; it will enter through a signed link.
+             */
+            'checkout_origin' => [
+                'nullable',
+                'in:central_account,saas_website',
+            ],
+
+            'return_area' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
+
+            'return_url' => [
+                'nullable',
+                'string',
+                'max:2000',
+            ],
         ]);
 
         $website = DB::table('websites')
@@ -2574,6 +2715,146 @@ class MarketplaceController extends Controller
             ->first();
 
         abort_unless($website, 403);
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | NORMALIZE CHECKOUT ORIGIN
+        |--------------------------------------------------------------------------
+        */
+
+        $checkoutOrigin =
+            $data['checkout_origin']
+            ?? 'central_account';
+
+
+        /*
+         * A SaaS website-origin checkout must target a SaaS website.
+         * The browser cannot use this flag to turn an off-server
+         * purchase into a trusted SaaS-origin transaction.
+         */
+        if (
+            $checkoutOrigin === 'saas_website'
+            && $data['deployment_type'] !== 'saas'
+        ) {
+            abort(
+                422,
+                'SaaS website checkout can only use the SaaS marketplace context.'
+            );
+        }
+
+
+        /*
+         * Central account and SaaS website sessions are connected
+         * directly to Esubiz, so Wallet remains available.
+         *
+         * Off-server website links will explicitly set this false
+         * in the signed-link entry path built separately.
+         */
+        $walletAllowed =
+            true;
+
+
+        /*
+         * Logical destination after fulfilment.
+         */
+        $returnArea =
+            trim(
+                (string) (
+                    $data['return_area']
+                    ?? ''
+                )
+            );
+
+
+        if ($returnArea === '') {
+
+            $returnArea =
+                match (
+                    $data['product_type']
+                ) {
+                    'addon',
+                    'core_addon',
+                    'bundle',
+                    'core_bundle'
+                        => 'addons',
+
+                    'theme'
+                        => 'themes',
+
+                    'module'
+                        => 'modules',
+
+                    'ai_credits',
+                    'credit',
+                    'credit_package'
+                        => 'credits',
+
+                    'sms_credits'
+                        => 'sms',
+
+                    'email_credits'
+                        => 'email',
+
+                    'whatsapp_credits'
+                        => 'whatsapp',
+
+                    default
+                        => 'marketplace',
+                };
+        }
+
+
+        /*
+         * SaaS website return URLs may only point back into the
+         * same Esubiz-hosted website.
+         *
+         * For central-account purchases, arbitrary return_url is
+         * ignored and the normal central success destination applies.
+         */
+        $returnUrl =
+            null;
+
+
+        if (
+            $checkoutOrigin === 'saas_website'
+            && !empty(
+                $data['return_url']
+            )
+        ) {
+
+            $candidateUrl =
+                trim(
+                    (string)
+                    $data['return_url']
+                );
+
+
+            $candidateHost =
+                parse_url(
+                    $candidateUrl,
+                    PHP_URL_HOST
+                );
+
+
+            $expectedHost =
+                $website->subdomain
+                    ? $website->subdomain
+                        . '.esubiz.com'
+                    : null;
+
+
+            if (
+                $candidateHost
+                && $expectedHost
+                && strtolower($candidateHost)
+                    === strtolower($expectedHost)
+            ) {
+                $returnUrl =
+                    $candidateUrl;
+            }
+        }
+
 
         $listing = $this->resolveMarketplaceListing(
             $data['product_type'],
@@ -2626,6 +2907,22 @@ class MarketplaceController extends Controller
         $checkoutSessionId = DB::table('marketplace_checkout_sessions')->insertGetId([
             'user_id' => auth()->id(),
             'account_mode' => session('account_mode', 'user'),
+
+            'checkout_origin' =>
+                $checkoutOrigin,
+
+            'return_url' =>
+                $returnUrl,
+
+            'return_area' =>
+                $returnArea,
+
+            'wallet_allowed' =>
+                $walletAllowed,
+
+            'origin_token_id' =>
+                null,
+
             'product_type' => $data['product_type'],
             'product_id' => (int) $data['product_id'],
             'deployment_type' => $data['deployment_type'],
@@ -3246,4 +3543,440 @@ class MarketplaceController extends Controller
                 ->get(),
         ]);
     }
+
+
+    /**
+     * Consume a temporary signed checkout URL generated for a
+     * registered off-server website.
+     *
+     * This is an ENTRY POINT only.
+     *
+     * Payment, order handling and fulfilment remain inside the
+     * same Central Esubiz Marketplace checkout architecture.
+     */
+    public function externalCheckout(
+        \Illuminate\Http\Request $request
+    ) {
+        /*
+         * Route uses Laravel's signed middleware as the first
+         * protection, but retain an explicit check as well.
+         */
+        abort_unless(
+            $request->hasValidSignature(),
+            403,
+            'This marketplace checkout link is invalid or has expired.'
+        );
+
+
+        $data =
+            $request->validate([
+                'website' => [
+                    'required',
+                    'uuid',
+                ],
+
+                'application' => [
+                    'required',
+                    'uuid',
+                ],
+
+                'product_type' => [
+                    'required',
+                    'string',
+                    'max:100',
+                ],
+
+                'product_id' => [
+                    'required',
+                    'integer',
+                ],
+
+                'return_area' => [
+                    'nullable',
+                    'string',
+                    'max:100',
+                ],
+
+                'return_url' => [
+                    'nullable',
+                    'string',
+                    'max:2000',
+                ],
+
+                'token_id' => [
+                    'required',
+                    'uuid',
+                ],
+            ]);
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | WEBSITE + APPLICATION IDENTITY
+        |--------------------------------------------------------------------------
+        */
+
+        $website =
+            \App\Models\Website::query()
+                ->where(
+                    'uuid',
+                    $data['website']
+                )
+                ->firstOrFail();
+
+
+        $application =
+            \App\Models\ApiApplication::query()
+                ->where(
+                    'uuid',
+                    $data['application']
+                )
+                ->where(
+                    'website_id',
+                    $website->id
+                )
+                ->where(
+                    'is_active',
+                    true
+                )
+                ->where(
+                    'is_verified',
+                    true
+                )
+                ->firstOrFail();
+
+
+        /*
+         * External checkout entry is ONLY for developer/off-server
+         * websites.
+         */
+        abort_unless(
+            !empty(
+                $website->developer_id
+            ),
+            403,
+            'This checkout link is not valid for a SaaS website.'
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | PRODUCT
+        |--------------------------------------------------------------------------
+        |
+        | Never trust price or currency from the external website.
+        | Resolve the product centrally and use OFF-SERVER pricing.
+        |
+        */
+
+        $productResolver =
+            app(
+                \App\Services\Marketplace\MarketplaceProductResolver::class
+            );
+
+
+        $product =
+            $productResolver->resolve(
+                $data['product_type'],
+                (int) $data['product_id']
+            );
+
+
+        abort_unless(
+            $product,
+            404
+        );
+
+
+        abort_unless(
+            $productResolver->available(
+                $product,
+                'off_server'
+            ),
+            422,
+            'This product is not available for off-server websites.'
+        );
+
+
+        $price =
+            $productResolver->price(
+                $product,
+                'off_server'
+            );
+
+
+        $currency =
+            $productResolver->currency(
+                $product,
+                'off_server'
+            );
+
+
+        abort_unless(
+            $price !== null
+            && (float) $price >= 0,
+            422,
+            'This product has no valid off-server price.'
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | MARKETPLACE LISTING
+        |--------------------------------------------------------------------------
+        */
+
+        $listing =
+            $this->resolveMarketplaceListing(
+                $data['product_type'],
+                (int) $data['product_id']
+            );
+
+
+        abort_unless(
+            $listing,
+            404
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | RETURN DESTINATION
+        |--------------------------------------------------------------------------
+        |
+        | The URL already passed validation when the signed checkout
+        | link was generated from the application's registered origins.
+        | The signature prevents alteration after generation.
+        |
+        */
+
+        $returnUrl =
+            trim(
+                (string) (
+                    $data['return_url']
+                    ?? ''
+                )
+            );
+
+
+        $returnUrl =
+            $returnUrl !== ''
+                ? $returnUrl
+                : null;
+
+
+        $returnArea =
+            trim(
+                (string) (
+                    $data['return_area']
+                    ?? 'marketplace'
+                )
+            );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | IDEMPOTENT LINK ENTRY
+        |--------------------------------------------------------------------------
+        |
+        | Refreshing the same signed URL must not create multiple
+        | pending marketplace orders.
+        |
+        */
+
+        $existingSession =
+            \Illuminate\Support\Facades\DB::table(
+                'marketplace_checkout_sessions'
+            )
+                ->where(
+                    'origin_token_id',
+                    $data['token_id']
+                )
+                ->where(
+                    'website_id',
+                    $website->id
+                )
+                ->whereNull(
+                    'deleted_at'
+                )
+                ->first();
+
+
+        if (
+            $existingSession
+            && $existingSession->marketplace_order_id
+        ) {
+            return redirect()->route(
+                'marketplace.checkout',
+                [
+                    'order' =>
+                        $existingSession
+                            ->marketplace_order_id,
+                ]
+            );
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | CREATE NORMAL CENTRAL MARKETPLACE ORDER
+        |--------------------------------------------------------------------------
+        */
+
+        $orderReference =
+            'MKT-'
+            . strtoupper(
+                bin2hex(
+                    random_bytes(6)
+                )
+            );
+
+
+        $amount =
+            (float) $price;
+
+
+        $orderId =
+            \Illuminate\Support\Facades\DB::table(
+                'marketplace_orders'
+            )->insertGetId([
+                'marketplace_listing_id' =>
+                    $listing->id,
+
+                'vendor_id' =>
+                    $listing->vendor_id,
+
+                'workspace_id' =>
+                    $website->workspace_id,
+
+                /*
+                 * The purchase belongs to the registered developer
+                 * account in Central Esubiz.
+                 */
+                'buyer_id' =>
+                    $website->developer_id,
+
+                'uuid' =>
+                    (string)
+                    \Illuminate\Support\Str::uuid(),
+
+                'reference' =>
+                    $orderReference,
+
+                'amount' =>
+                    $amount,
+
+                'commission_amount' =>
+                    0,
+
+                'vendor_amount' =>
+                    $amount,
+
+                'currency' =>
+                    strtoupper(
+                        $currency
+                        ?: 'NGN'
+                    ),
+
+                'status' =>
+                    'pending',
+
+                'payment_status' =>
+                    'pending',
+
+                'created_at' =>
+                    now(),
+
+                'updated_at' =>
+                    now(),
+            ]);
+
+
+        \Illuminate\Support\Facades\DB::table(
+            'marketplace_checkout_sessions'
+        )->insert([
+            'user_id' =>
+                $website->developer_id,
+
+            'account_mode' =>
+                'developer',
+
+            'checkout_origin' =>
+                'off_server_website',
+
+            'return_url' =>
+                $returnUrl,
+
+            'return_area' =>
+                $returnArea,
+
+            /*
+             * External website checkout NEVER exposes
+             * Central Wallet.
+             */
+            'wallet_allowed' =>
+                false,
+
+            'origin_token_id' =>
+                $data['token_id'],
+
+            'deployment_type' =>
+                'off_server',
+
+            'product_type' =>
+                $data['product_type'],
+
+            'product_id' =>
+                (int) $data['product_id'],
+
+            'website_id' =>
+                $website->id,
+
+            'workspace_id' =>
+                $website->workspace_id,
+
+            'quantity' =>
+                1,
+
+            'unit_price' =>
+                $amount,
+
+            'total_amount' =>
+                $amount,
+
+            'currency' =>
+                strtoupper(
+                    $currency
+                    ?: 'NGN'
+                ),
+
+            'is_commissionable' =>
+                true,
+
+            'marketplace_order_id' =>
+                $orderId,
+
+            'status' =>
+                'pending_payment',
+
+            'expires_at' =>
+                now()->addHours(24),
+
+            'created_at' =>
+                now(),
+
+            'updated_at' =>
+                now(),
+        ]);
+
+
+        return redirect()->route(
+            'marketplace.checkout',
+            [
+                'order' =>
+                    $orderId,
+            ]
+        );
+    }
+
 }

@@ -834,7 +834,38 @@ Route::middleware(['auth'])->group(function () {
         ]
     )->name(
         'admin.ai.index'
+
+
     );
+
+    /*
+    |--------------------------------------------------------------------------
+    | CENTRAL AI COMMERCIAL CONTROLS
+    |--------------------------------------------------------------------------
+    */
+
+    Route::post(
+        '/admin/ai/commercial/{setting}',
+        [
+            \App\Http\Controllers\Admin\AiController::class,
+            'updateCommercialSetting',
+        ]
+    )->name(
+        'admin.ai.commercial.update'
+    );
+
+
+    Route::post(
+        '/admin/ai/models/{model}/pricing',
+        [
+            \App\Http\Controllers\Admin\AiController::class,
+            'updateModelPricing',
+        ]
+    )->name(
+        'admin.ai.models.pricing.update'
+    );
+
+
 
     Route::post(
         '/admin/ai/autosave',
@@ -1081,6 +1112,22 @@ Route::middleware(['auth'])->group(function () {
 
         });
 
+    /*
+     * ESUBIZ_SAAS_CHECKOUT_HANDOFF_ROUTE
+     *
+     * Signed GET bridge from SaaS tenant websites into the
+     * existing Central Marketplace checkout.
+     */
+    Route::get(
+        '/marketplace/saas-checkout',
+        [
+            \App\Http\Controllers\MarketplaceController::class,
+            'saasCheckoutHandoff'
+        ]
+    )
+        ->name('marketplace.saas-checkout');
+
+
     Route::post('/marketplace/checkout', [\App\Http\Controllers\MarketplaceController::class, 'checkout'])
         ->name('marketplace.checkout.create');
 
@@ -1092,7 +1139,27 @@ Route::middleware(['auth'])->group(function () {
 
 
 
-    Route::get('/marketplace/checkout/{order}', [\App\Http\Controllers\MarketplaceController::class, 'checkoutPage'])
+    
+
+    /*
+     * Signed browser entry for registered off-server websites.
+     *
+     * This route creates a normal Central Marketplace checkout
+     * session and then redirects into marketplace/checkout/{order}.
+     */
+    Route::get(
+        '/marketplace/external-checkout',
+        [
+            \App\Http\Controllers\MarketplaceController::class,
+            'externalCheckout',
+        ]
+    )
+        ->middleware('signed')
+        ->name(
+            'marketplace.external.checkout'
+        );
+
+Route::get('/marketplace/checkout/{order}', [\App\Http\Controllers\MarketplaceController::class, 'checkoutPage'])
         ->name('marketplace.checkout');
 
     Route::get('/marketplace/checkout-product/{productType}/{productId}', [\App\Http\Controllers\MarketplaceController::class, 'developerCheckout'])

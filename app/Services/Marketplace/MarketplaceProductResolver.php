@@ -91,6 +91,32 @@ class MarketplaceProductResolver
             };
         }
 
+        /*
+         * Generic credit packages are shared commercial products.
+         *
+         * The same package can be purchased from:
+         *
+         * - Esubiz SaaS user account
+         * - SaaS website admin
+         * - Esubiz developer/off-server account
+         * - off-server website admin
+         *
+         * The checkout session's deployment_type + website_id
+         * determine where fulfilment goes.
+         */
+        if (
+            property_exists(
+                $product,
+                'credit_type'
+            )
+            && property_exists(
+                $product,
+                'credit_quantity'
+            )
+        ) {
+            return true;
+        }
+
         $field = $deploymentType === 'saas'
             ? 'saas_available'
             : 'off_server_available';
@@ -111,6 +137,29 @@ class MarketplaceProductResolver
     {
         if (!in_array($deploymentType, ['saas', 'off_server'], true)) {
             return null;
+        }
+
+        /*
+         * Credit packages have one central commercial price.
+         *
+         * SaaS and off-server entry points share the same package,
+         * checkout and fulfilment experience.
+         */
+        if (
+            property_exists(
+                $product,
+                'credit_type'
+            )
+            && property_exists(
+                $product,
+                'credit_quantity'
+            )
+            && property_exists(
+                $product,
+                'price'
+            )
+        ) {
+            return (float) $product->price;
         }
 
         /*
@@ -150,6 +199,27 @@ class MarketplaceProductResolver
     {
         if (!in_array($deploymentType, ['saas', 'off_server'], true)) {
             return 'NGN';
+        }
+
+        /*
+         * Credit package currency is centrally configured.
+         */
+        if (
+            property_exists(
+                $product,
+                'credit_type'
+            )
+            && property_exists(
+                $product,
+                'currency'
+            )
+        ) {
+            return strtoupper(
+                (string) (
+                    $product->currency
+                    ?: 'NGN'
+                )
+            );
         }
 
         if (property_exists($product, 'audience')) {
