@@ -1654,6 +1654,460 @@
 
 
             /*
+             * =================================================
+             * ESUBIZ_LIVE_AI_CHAT_HANDLER
+             * =================================================
+             *
+             * The browser never talks to OpenAI directly.
+             *
+             * Request path:
+             *
+             * Site AI form
+             * -> TenantSiteAiController
+             * -> SiteAiEngine
+             * -> Esubiz Central AI
+             * -> CentralAiEngine
+             * -> OpenAI
+             * -> Esubiz AI credit billing
+             */
+
+            const promptInput =
+                root.querySelector(
+                    '[data-site-ai-prompt]'
+                );
+
+            const sendButton =
+                root.querySelector(
+                    '[data-site-ai-send]'
+                );
+
+            const conversation =
+                root.querySelector(
+                    '[data-site-ai-conversation]'
+                );
+
+
+            function appendConversationMessage(
+                role,
+                message
+            ) {
+
+                if (
+                    !conversation
+                    || !message
+                ) {
+                    return;
+                }
+
+
+                const row =
+                    document.createElement(
+                        'div'
+                    );
+
+                row.className =
+                    'esubiz-ai-chat-message '
+                    + (
+                        role === 'user'
+                            ? 'esubiz-ai-chat-message-user'
+                            : 'esubiz-ai-chat-message-assistant'
+                    );
+
+
+                const bubble =
+                    document.createElement(
+                        'div'
+                    );
+
+                bubble.className =
+                    'esubiz-ai-chat-bubble';
+
+
+                /*
+                 * textContent deliberately prevents AI output
+                 * from injecting HTML into the tenant dashboard.
+                 */
+                bubble.textContent =
+                    String(
+                        message
+                    );
+
+
+                row.appendChild(
+                    bubble
+                );
+
+                conversation.appendChild(
+                    row
+                );
+
+
+                conversation.scrollTop =
+                    conversation.scrollHeight;
+            }
+
+
+            function extractAiResponse(
+                response
+            ) {
+
+                const result =
+                    response?.result;
+
+
+                if (
+                    typeof result === 'string'
+                ) {
+                    return result;
+                }
+
+
+                if (
+                    result
+                    && typeof result === 'object'
+                ) {
+
+                    const candidates = [
+                        result.response,
+                        result.text,
+                        result.content,
+                        result.message,
+                        result.output,
+                        result.answer,
+                    ];
+
+
+                    for (
+                        const candidate
+                        of candidates
+                    ) {
+
+                        if (
+                            typeof candidate === 'string'
+                            && candidate.trim() !== ''
+                        ) {
+                            return candidate;
+                        }
+                    }
+
+
+                    if (
+                        result.data
+                        && typeof result.data === 'object'
+                    ) {
+
+                        const nested = [
+                            result.data.response,
+                            result.data.text,
+                            result.data.content,
+                            result.data.message,
+                        ];
+
+
+                        for (
+                            const candidate
+                            of nested
+                        ) {
+
+                            if (
+                                typeof candidate === 'string'
+                                && candidate.trim() !== ''
+                            ) {
+                                return candidate;
+                            }
+                        }
+                    }
+
+
+                    try {
+
+                        return JSON.stringify(
+                            result,
+                            null,
+                            2
+                        );
+
+                    } catch (error) {
+
+                        return 'AI completed the request.';
+                    }
+                }
+
+
+                return 'AI completed the request.';
+            }
+
+
+            async function sendAiRequest() {
+
+                if (
+                    !promptInput
+                    || !sendButton
+                ) {
+                    return;
+                }
+
+
+                const prompt =
+                    promptInput.value
+                        .trim();
+
+
+                if (!prompt) {
+
+                    promptInput.focus();
+
+                    return;
+                }
+
+
+                const selected =
+                    selectedData();
+
+
+                if (
+                    !selected.length
+                ) {
+
+                    alert(
+                        'Select at least one AI function first.'
+                    );
+
+                    showSelection();
+
+                    return;
+                }
+
+
+                /*
+                 * One request is sent for the selected capability.
+                 *
+                 * The backend remains the authority for routing,
+                 * model selection and AI credit billing.
+                 */
+                const primary =
+                    selected[0];
+
+
+                const capability =
+                    primary.key;
+
+
+                /*
+                 * Generic conversational action.
+                 *
+                 * Capability-specific SiteAiEngine adapters may
+                 * normalize this further on the server.
+                 */
+                const action =
+                    'generate';
+
+
+                appendConversationMessage(
+                    'user',
+                    prompt
+                );
+
+
+                /*
+                 * Clear the composer immediately after sending.
+                 *
+                 * The user's submitted message already exists in the
+                 * conversation, so the textarea should be ready for a
+                 * fresh prompt even if the AI request later fails.
+                 */
+                promptInput.value =
+                    '';
+
+
+                const originalButtonText =
+                    sendButton.textContent;
+
+
+                sendButton.disabled =
+                    true;
+
+                sendButton.textContent =
+                    'Generating...';
+
+
+                const requestPayload = {
+
+                    capability:
+                        capability,
+
+                    action:
+                        action,
+
+                    prompt:
+                        prompt,
+
+                    payload: {
+
+                        selected_functions:
+                            selected.map(
+                                item => item.key
+                            ),
+
+                        reference_images_count:
+                            referenceFiles.length,
+                    },
+
+                    context: {
+
+                        page_url:
+                            window.location.href,
+
+                        page_path:
+                            window.location.pathname,
+
+                        selected_functions:
+                            selected,
+                    },
+                };
+
+
+                try {
+
+                    const response =
+                        await fetch(
+                            '/admin/site-ai/generate',
+                            {
+                                method:
+                                    'POST',
+
+                                credentials:
+                                    'same-origin',
+
+                                headers: {
+                                    'Accept':
+                                        'application/json',
+
+                                    'Content-Type':
+                                        'application/json',
+
+                                    'X-CSRF-TOKEN':
+                                        document
+                                            .querySelector(
+                                                'meta[name="csrf-token"]'
+                                            )
+                                            ?.getAttribute(
+                                                'content'
+                                            ) || '',
+                                },
+
+                                body:
+                                    JSON.stringify(
+                                        requestPayload
+                                    ),
+                            }
+                        );
+
+
+                    let data = {};
+
+
+                    try {
+
+                        data =
+                            await response.json();
+
+                    } catch (error) {
+
+                        throw new Error(
+                            'Esubiz AI returned an invalid response.'
+                        );
+                    }
+
+
+                    if (
+                        !response.ok
+                        || data.success !== true
+                    ) {
+
+                        throw new Error(
+                            data.message
+                            || 'AI request could not be completed.'
+                        );
+                    }
+
+
+                    const aiMessage =
+                        extractAiResponse(
+                            data
+                        );
+
+
+                    appendConversationMessage(
+                        'assistant',
+                        aiMessage
+                    );
+
+
+                    /*
+                     * Notify other tenant UI components that an
+                     * AI request completed. The balance widget can
+                     * listen to this without coupling itself to
+                     * this assistant.
+                     */
+                    window.dispatchEvent(
+                        new CustomEvent(
+                            'esubiz:ai:completed',
+                            {
+                                detail:
+                                    data,
+                            }
+                        )
+                    );
+
+
+                } catch (error) {
+
+                    appendConversationMessage(
+                        'assistant',
+                        error?.message
+                        || 'Esubiz AI could not complete this request.'
+                    );
+
+
+                } finally {
+
+                    sendButton.disabled =
+                        false;
+
+                    sendButton.textContent =
+                        originalButtonText;
+
+                    promptInput.focus();
+                }
+            }
+
+
+            sendButton?.addEventListener(
+                'click',
+                sendAiRequest
+            );
+
+
+            promptInput?.addEventListener(
+                'keydown',
+                function (event) {
+
+                    if (
+                        event.key === 'Enter'
+                        && !event.shiftKey
+                    ) {
+
+                        event.preventDefault();
+
+                        sendAiRequest();
+                    }
+                }
+            );
+
+
+
+            /*
              * Browser API for future dynamic builders.
              */
             window.EsubizSiteAI =

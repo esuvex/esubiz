@@ -1446,4 +1446,121 @@ $persona->delete();
         ]);
     }
 
+
+
+    public function updateCommercialSetting(
+        \Illuminate\Http\Request $request,
+        \App\Models\Ai\AiCommercialSetting $setting
+    ): \Illuminate\Http\JsonResponse {
+
+        $data = $request->validate([
+            'field' => [
+                'required',
+                'string',
+                \Illuminate\Validation\Rule::in([
+                    'value',
+                ]),
+            ],
+
+            'value' => [
+                'required',
+                'numeric',
+            ],
+        ]);
+
+
+        $value = (float) $data['value'];
+
+
+        if (
+            $setting->key === 'provider_markup_percent'
+            && (
+                $value < 0
+                || $value > 5000
+            )
+        ) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Markup must be between 0% and 5000%.',
+            ], 422);
+        }
+
+
+        if (
+            in_array(
+                $setting->key,
+                [
+                    'naira_per_ai_credit',
+                    'usd_ngn_rate',
+                ],
+                true
+            )
+            && $value <= 0
+        ) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This value must be greater than zero.',
+            ], 422);
+        }
+
+
+        $setting->update([
+            'value' => $value,
+        ]);
+
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Saved',
+            'key' => $setting->key,
+            'value' => (float) $setting->fresh()->value,
+            'selling_multiplier' =>
+                $setting->key === 'provider_markup_percent'
+                    ? 1 + ($value / 100)
+                    : null,
+        ]);
+    }
+
+
+    public function updateModelPricing(
+        \Illuminate\Http\Request $request,
+        \App\Models\Ai\AiModel $model
+    ): \Illuminate\Http\JsonResponse {
+
+        $data = $request->validate([
+            'field' => [
+                'required',
+                'string',
+                \Illuminate\Validation\Rule::in([
+                    'input_cost_per_million',
+                    'cached_input_cost_per_million',
+                    'output_cost_per_million',
+                ]),
+            ],
+
+            'value' => [
+                'required',
+                'numeric',
+                'min:0',
+                'max:1000000',
+            ],
+        ]);
+
+
+        $field = $data['field'];
+
+        $model->update([
+            $field => (float) $data['value'],
+        ]);
+
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Saved',
+            'model_id' => $model->id,
+            'field' => $field,
+            'value' => (float) $model->fresh()->getAttribute($field),
+        ]);
+    }
+
 }

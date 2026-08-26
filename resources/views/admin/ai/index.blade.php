@@ -997,7 +997,331 @@
     {{-- =====================================================
          CREDIT RULES
     ====================================================== --}}
-    <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    
+{{-- ESUBIZ_AI_COMMERCIAL_CONTROLS --}}
+@php
+    $commercialSettings =
+        \App\Models\Ai\AiCommercialSetting::query()
+            ->where('is_active', true)
+            ->get()
+            ->keyBy('key');
+
+    $markupSetting =
+        $commercialSettings->get('provider_markup_percent');
+
+    $creditValueSetting =
+        $commercialSettings->get('naira_per_ai_credit');
+
+    $fxSetting =
+        $commercialSettings->get('usd_ngn_rate');
+
+    $markupPercent =
+        (float) ($markupSetting?->value ?? 400);
+
+    $sellingMultiplier =
+        1 + ($markupPercent / 100);
+
+    $openAiModels =
+        \App\Models\Ai\AiModel::query()
+            ->with('provider')
+            ->whereHas(
+                'provider',
+                fn ($q) => $q->where('slug', 'openai')
+            )
+            ->orderBy('id')
+            ->get();
+
+    $completedAiRequests =
+        \App\Models\Ai\AiUsageLog::query()
+            ->where('status', 'completed')
+            ->count();
+
+    $failedAiRequests =
+        \App\Models\Ai\AiUsageLog::query()
+            ->whereIn('status', [
+                'failed',
+                'billing_failed',
+            ])
+            ->count();
+
+    $totalProviderCostUsd =
+        (float)
+        \App\Models\Ai\AiUsageLog::query()
+            ->where('status', 'completed')
+            ->sum('provider_cost_usd');
+
+    $totalCreditsCharged =
+        (float)
+        \App\Models\Ai\AiUsageLog::query()
+            ->where('status', 'completed')
+            ->sum('credits_charged');
+
+    $nairaPerCredit =
+        (float) ($creditValueSetting?->value ?? 10);
+
+    $totalUsageValueNgn =
+        $totalCreditsCharged * $nairaPerCredit;
+@endphp
+
+<section
+    class="mb-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+>
+    <div>
+        <div class="text-xs font-black uppercase tracking-[0.18em] text-blue-600">
+            Commercial Controls
+        </div>
+
+        <h2 class="mt-2 text-2xl font-black text-slate-900">
+            AI Pricing & Provider Costs
+        </h2>
+
+        <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+            OpenAI bills Esubiz. Esubiz applies the configured markup
+            and charges websites in Esubiz AI Credits.
+        </p>
+    </div>
+
+    <div class="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+
+        @if($markupSetting)
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                <label class="text-xs font-black text-slate-700">
+                    Provider Markup
+                </label>
+
+                <div class="mt-4 flex items-center gap-2">
+                    <input
+                        type="number"
+                        min="0"
+                        max="5000"
+                        step="1"
+                        value="{{ (float) $markupSetting->value }}"
+                        data-autosave-url="{{ route('admin.ai.commercial.update', $markupSetting) }}"
+                        data-autosave-field="value"
+                        data-ai-markup-input
+                        class="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-black"
+                    >
+
+                    <span class="text-sm font-black text-slate-500">%</span>
+                </div>
+            </div>
+        @endif
+
+        <div class="rounded-2xl border border-blue-200 bg-blue-50 p-5">
+            <div class="text-xs font-black text-blue-700">
+                Selling Multiplier
+            </div>
+
+            <div
+                class="mt-4 text-3xl font-black text-blue-900"
+                data-ai-selling-multiplier
+            >
+                {{ number_format($sellingMultiplier, 2) }}×
+            </div>
+        </div>
+
+        @if($creditValueSetting)
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                <label class="text-xs font-black text-slate-700">
+                    Value of 1 AI Credit
+                </label>
+
+                <div class="mt-4 flex items-center gap-2">
+                    <span class="text-sm font-black text-slate-500">₦</span>
+
+                    <input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value="{{ (float) $creditValueSetting->value }}"
+                        data-autosave-url="{{ route('admin.ai.commercial.update', $creditValueSetting) }}"
+                        data-autosave-field="value"
+                        class="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-black"
+                    >
+                </div>
+            </div>
+        @endif
+
+        @if($fxSetting)
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                <label class="text-xs font-black text-slate-700">
+                    USD / NGN Billing Rate
+                </label>
+
+                <div class="mt-4 flex items-center gap-2">
+                    <span class="text-sm font-black text-slate-500">₦</span>
+
+                    <input
+                        type="number"
+                        min="1"
+                        step="0.01"
+                        value="{{ (float) $fxSetting->value }}"
+                        data-autosave-url="{{ route('admin.ai.commercial.update', $fxSetting) }}"
+                        data-autosave-field="value"
+                        class="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-black"
+                    >
+                </div>
+            </div>
+        @endif
+
+    </div>
+
+    <div class="mt-8">
+        <h3 class="text-lg font-black text-slate-900">
+            OpenAI Model Costs
+        </h3>
+
+        <div class="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-3">
+            @foreach($openAiModels as $model)
+                <div class="rounded-2xl border border-slate-200 p-5">
+                    <div class="text-sm font-black text-slate-900">
+                        {{ $model->name }}
+                    </div>
+
+                    <div class="mt-1 font-mono text-[11px] text-slate-400">
+                        {{ $model->model_key }}
+                    </div>
+
+                    <div class="mt-5 space-y-4">
+
+                        <div>
+                            <label class="text-[11px] font-black text-slate-600">
+                                Input / 1M tokens ($)
+                            </label>
+
+                            <input
+                                type="number"
+                                min="0"
+                                step="0.000001"
+                                value="{{ (float) $model->input_cost_per_million }}"
+                                data-autosave-url="{{ route('admin.ai.models.pricing.update', $model) }}"
+                                data-autosave-field="input_cost_per_million"
+                                class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm"
+                            >
+                        </div>
+
+                        <div>
+                            <label class="text-[11px] font-black text-slate-600">
+                                Cached Input / 1M ($)
+                            </label>
+
+                            <input
+                                type="number"
+                                min="0"
+                                step="0.000001"
+                                value="{{ (float) $model->cached_input_cost_per_million }}"
+                                data-autosave-url="{{ route('admin.ai.models.pricing.update', $model) }}"
+                                data-autosave-field="cached_input_cost_per_million"
+                                class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm"
+                            >
+                        </div>
+
+                        <div>
+                            <label class="text-[11px] font-black text-slate-600">
+                                Output / 1M tokens ($)
+                            </label>
+
+                            <input
+                                type="number"
+                                min="0"
+                                step="0.000001"
+                                value="{{ (float) $model->output_cost_per_million }}"
+                                data-autosave-url="{{ route('admin.ai.models.pricing.update', $model) }}"
+                                data-autosave-field="output_cost_per_million"
+                                class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm"
+                            >
+                        </div>
+
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    </div>
+
+    <div class="mt-8">
+        <h3 class="text-lg font-black text-slate-900">
+            AI Billing Overview
+        </h3>
+
+        <div class="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div class="text-[10px] font-black uppercase text-slate-400">
+                    Completed
+                </div>
+
+                <div class="mt-2 text-2xl font-black text-slate-900">
+                    {{ number_format($completedAiRequests) }}
+                </div>
+            </div>
+
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div class="text-[10px] font-black uppercase text-slate-400">
+                    Failed
+                </div>
+
+                <div class="mt-2 text-2xl font-black text-slate-900">
+                    {{ number_format($failedAiRequests) }}
+                </div>
+            </div>
+
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div class="text-[10px] font-black uppercase text-slate-400">
+                    OpenAI Cost
+                </div>
+
+                <div class="mt-2 text-2xl font-black text-slate-900">
+                    ${{ number_format($totalProviderCostUsd, 6) }}
+                </div>
+            </div>
+
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div class="text-[10px] font-black uppercase text-slate-400">
+                    Usage Value
+                </div>
+
+                <div class="mt-2 text-2xl font-black text-slate-900">
+                    ₦{{ number_format($totalUsageValueNgn, 2) }}
+                </div>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<script data-ai-commercial-preview>
+document.addEventListener('DOMContentLoaded', function () {
+    const markup =
+        document.querySelector('[data-ai-markup-input]');
+
+    const multiplier =
+        document.querySelector('[data-ai-selling-multiplier]');
+
+    function refreshMultiplier() {
+        if (!markup || !multiplier) {
+            return;
+        }
+
+        multiplier.textContent =
+            (
+                1
+                + (
+                    Number(markup.value || 0)
+                    / 100
+                )
+            ).toFixed(2)
+            + '×';
+    }
+
+    markup?.addEventListener(
+        'input',
+        refreshMultiplier
+    );
+});
+</script>
+
+
+<section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
 
         <div class="text-xs font-black uppercase tracking-[.16em] text-blue-600">
             AI Credits

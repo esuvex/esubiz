@@ -14,6 +14,31 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        /*
+         * ESUBIZ_GENERIC_SITE_AI_CAPABILITY
+         *
+         * One generic Site AI capability handles dynamic website
+         * areas such as features, testimonials, hero sections,
+         * services and future module/theme supplied AI functions.
+         *
+         * Specialised capabilities can still override their own
+         * keys later.
+         */
+        $this->app->afterResolving(
+            \App\Services\SiteAi\SiteAiRegistry::class,
+            function (
+                \App\Services\SiteAi\SiteAiRegistry $registry
+            ): void {
+                if (!$registry->has('site')) {
+                    $registry->register(
+                        new \App\Services\SiteAi\Capabilities\GenericSiteCapability(
+                            'site'
+                        )
+                    );
+                }
+            }
+        );
+
         $this->app->singleton(MarketplaceFulfilmentManager::class, function ($app) {
             $manager = new MarketplaceFulfilmentManager();
 

@@ -2,9 +2,8 @@
 
 namespace App\Services\SiteAi\Providers;
 
+use App\Services\Ai\CentralAiEngine;
 use App\Services\SiteAi\Contracts\SiteAiProvider;
-use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
 /**
@@ -12,105 +11,225 @@ use RuntimeException;
  * ESUBIZ CENTRAL SITE AI PROVIDER
  * ============================================================
  *
- * Every SaaS tenant and future off-server website sends AI
- * work through the central Esubiz AI API.
+ * SaaS tenants execute AI directly through the CentralAiEngine
+ * because they already run inside the Esubiz platform.
  *
- * Website features never receive:
+ * The browser and tenant feature never receive:
  *
- * - OpenAI API keys
- * - provider credentials
+ * - OpenAI API credentials
+ * - provider secrets
  * - model credentials
- * - AI credit balances
+ * - billing authority
  *
- * Those remain under central Esubiz control.
+ * CentralAiEngine remains the sole execution + billing authority.
+ *
+ * Off-server websites will use the external authenticated Esubiz
+ * AI API later, but that must still terminate in this same engine.
  */
 class EsubizCentralSiteAiProvider implements SiteAiProvider
 {
+    public function __construct(
+        protected CentralAiEngine $engine
+    ) {
+    }
+
+
     public function generate(
         array $request
     ): array {
 
-        $url =
-            trim(
-                (string) config(
-                    'services.esubiz_site_ai.url'
+        /*
+        |--------------------------------------------------------------------------
+        | WEBSITE IDENTITY
+        |--------------------------------------------------------------------------
+        |
+        | SiteAiEngine should supply the authoritative central website
+        | identity in the request/context. Never accept a provider API
+        | key or model credential from the tenant.
+        |
+        */
+
+        $websiteId =
+            (int) (
+                data_get(
+                    $request,
+                    'website_id'
                 )
+                ?? data_get(
+                    $request,
+                    'context.website_id'
+                )
+                ?? data_get(
+                    $request,
+                    'payload.context.website_id'
+                )
+                ?? 0
             );
 
-        if ($url === '') {
+
+        if ($websiteId <= 0) {
             throw new RuntimeException(
-                'Esubiz Central Site AI endpoint is not configured.'
+                'Site AI website context is missing.'
             );
         }
 
 
-        $token =
+        $userId =
+            (int) (
+                data_get(
+                    $request,
+                    'user_id'
+                )
+                ?? data_get(
+                    $request,
+                    'context.user_id'
+                )
+                ?? 0
+            );
+
+
+        $userId =
+            $userId > 0
+                ? $userId
+                : null;
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | PROMPT
+        |--------------------------------------------------------------------------
+        */
+
+        $prompt =
             trim(
-                (string) config(
-                    'services.esubiz_site_ai.token'
+                (string) (
+                    data_get(
+                        $request,
+                        'prompt'
+                    )
+                    ?? data_get(
+                        $request,
+                        'payload.prompt'
+                    )
+                    ?? data_get(
+                        $request,
+                        'prepared.prompt'
+                    )
+                    ?? ''
                 )
             );
 
 
-        try {
+        if ($prompt === '') {
+            throw new RuntimeException(
+                'AI prompt is required.'
+            );
+        }
 
-            $http =
-                Http::acceptJson()
-                    ->asJson()
-                    ->timeout(
-                        (int) config(
-                            'services.esubiz_site_ai.timeout',
-                            120
+
+        /*
+        |--------------------------------------------------------------------------
+        | CAPABILITY CONTEXT
+        |--------------------------------------------------------------------------
+        |
+        | "features", "about", "testimonials", etc. remain Site AI
+        | editing targets.
+        |
+        | They are not OpenAI models or independent billing routes.
+        | Central routing uses the canonical "site" route.
+        |
+        */
+
+        $capability =
+            (string) (
+                data_get(
+                    $request,
+                    'capability'
+                )
+                ?? data_get(
+                    $request,
+                    'payload.capability'
+                )
+                ?? 'site'
+            );
+
+
+        $action =
+            (string) (
+                data_get(
+                    $request,
+                    'action'
+                )
+                ?? 'generate'
+            );
+
+
+        /*
+         * Preserve useful Site AI context for auditing and future
+         * capability-aware prompt/routing improvements.
+         */
+        $options = [
+            'site_ai' => [
+                'capability' =>
+                    $capability,
+
+                'action' =>
+                    $action,
+
+                'context' =>
+                    (array) (
+                        data_get(
+                            $request,
+                            'context'
                         )
-                    );
+                        ?? []
+                    ),
+
+                'payload' =>
+                    (array) (
+                        data_get(
+                            $request,
+                            'payload'
+                        )
+                        ?? []
+                    ),
+            ],
+        ];
 
 
-            if ($token !== '') {
-                $http =
-                    $http->withToken(
-                        $token
-                    );
-            }
-
-
-            $response =
-                $http->post(
-                    $url,
-                    $request
-                );
-
-
-        } catch (
-            ConnectionException $exception
-        ) {
-
-            throw new RuntimeException(
-                'Could not connect to Esubiz Central AI.',
-                previous: $exception
-            );
-        }
-
-
-        if (!$response->successful()) {
-
-            $message =
-                $response->json(
-                    'message'
-                )
-                ?? 'Esubiz Central AI request failed.';
-
-
-            throw new RuntimeException(
-                $message
-            );
-        }
-
+        /*
+        |--------------------------------------------------------------------------
+        | CENTRAL EXECUTION + BILLING
+        |--------------------------------------------------------------------------
+        |
+        | CentralAiEngine performs:
+        |
+        | 1. AI credit preflight
+        | 2. model routing
+        | 3. provider request
+        | 4. actual token metering
+        | 5. provider-cost calculation
+        | 6. Esubiz markup pricing
+        | 7. exact AI-credit debit
+        | 8. usage/transaction logging
+        |
+        */
 
         $result =
-            $response->json();
+            $this->engine->execute(
+                'site',
+                $prompt,
+                $userId,
+                $websiteId,
+                $options
+            );
 
 
-        if (!is_array($result)) {
+        if (
+            !is_array(
+                $result
+            )
+        ) {
             throw new RuntimeException(
                 'Esubiz Central AI returned an invalid response.'
             );

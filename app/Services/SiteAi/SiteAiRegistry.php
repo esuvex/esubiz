@@ -42,13 +42,40 @@ class SiteAiRegistry
     public function get(
         string $key
     ): SiteAiCapability {
-        if (!$this->has($key)) {
-            throw new InvalidArgumentException(
-                "Unknown Site AI capability [{$key}]."
-            );
+        if ($this->has($key)) {
+            return $this->capabilities[$key];
         }
 
-        return $this->capabilities[$key];
+        /*
+         * Site AI UI capabilities such as:
+         *
+         * features
+         * testimonials
+         * hero
+         * about
+         * services
+         * products
+         *
+         * are dynamic website editing targets, not separate
+         * AI engines.
+         *
+         * When no capability-specific implementation has been
+         * registered, resolve the generic Site AI capability.
+         *
+         * This keeps Site AI plug-and-play: modules, themes and
+         * future website types can expose new AI functions without
+         * requiring a new central registry entry for every function.
+         */
+        if (
+            $key !== 'site'
+            && $this->has('site')
+        ) {
+            return $this->capabilities['site'];
+        }
+
+        throw new InvalidArgumentException(
+            "Unknown Site AI capability [{$key}]."
+        );
     }
 
 
