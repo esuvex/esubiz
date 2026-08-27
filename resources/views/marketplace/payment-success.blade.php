@@ -9,7 +9,7 @@
     >
 
     <title>
-        {{ $paid ? 'Payment Successful' : 'Payment Status' }}
+        {{ $paymentPresentation['title'] ?? 'Payment Status' }}
         · Esubiz
     </title>
 
@@ -112,6 +112,11 @@
             color: #d97706;
         }
 
+        .esubiz-payment-icon-failed {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
         .esubiz-payment-title {
             margin: 0 0 9px;
 
@@ -176,6 +181,10 @@
 
         .esubiz-payment-status-pending {
             color: #d97706 !important;
+        }
+
+        .esubiz-payment-status-failed {
+            color: #dc2626 !important;
         }
 
         .esubiz-payment-entitlement {
@@ -298,7 +307,109 @@
                     )
                 );
         }
-    @endphp
+    
+
+        /*
+         * CHECKPOINT_6_PAYMENT_PRESENTATION
+         *
+         * UI state only.
+         * Central order/payment status remains authoritative.
+         */
+        $rawPaymentStatus =
+            strtolower(
+                trim(
+                    (string) (
+                        $order->payment_status
+                        ?? 'pending'
+                    )
+                )
+            );
+
+        $returnPaymentState =
+            $paid
+                ? 'success'
+                : (
+                    in_array(
+                        $rawPaymentStatus,
+                        [
+                            'failed',
+                            'declined',
+                            'cancelled',
+                            'canceled',
+                            'abandoned',
+                            'error',
+                        ],
+                        true
+                    )
+                        ? 'failed'
+                        : 'pending'
+                );
+
+        $paymentPresentation =
+            match ($returnPaymentState) {
+
+                'success' => [
+                    'title' =>
+                        'Payment Successful',
+
+                    'description' =>
+                        'Your payment was received successfully and your purchase has been processed.',
+
+                    'symbol' =>
+                        '✓',
+
+                    'icon_class' =>
+                        'esubiz-payment-icon-success',
+
+                    'status_class' =>
+                        'esubiz-payment-status-paid',
+
+                    'status_label' =>
+                        'SUCCESS',
+                ],
+
+                'failed' => [
+                    'title' =>
+                        'Payment Failed',
+
+                    'description' =>
+                        'Your payment was not completed. No purchase will be fulfilled for this failed payment.',
+
+                    'symbol' =>
+                        '×',
+
+                    'icon_class' =>
+                        'esubiz-payment-icon-failed',
+
+                    'status_class' =>
+                        'esubiz-payment-status-failed',
+
+                    'status_label' =>
+                        'FAILED',
+                ],
+
+                default => [
+                    'title' =>
+                        'Payment Pending',
+
+                    'description' =>
+                        'Your payment has not been confirmed yet. No fulfilment will occur until Esubiz confirms payment.',
+
+                    'symbol' =>
+                        '!',
+
+                    'icon_class' =>
+                        'esubiz-payment-icon-pending',
+
+                    'status_class' =>
+                        'esubiz-payment-status-pending',
+
+                    'status_label' =>
+                        'PENDING',
+                ],
+            };
+
+@endphp
 
 
     <div
@@ -324,58 +435,27 @@
 
         <div class="esubiz-payment-content">
 
-            @if($paid)
+            <div
+                class="
+                    esubiz-payment-icon
+                    {{ $paymentPresentation['icon_class'] }}
+                "
+            >
+                {{ $paymentPresentation['symbol'] }}
+            </div>
 
-                <div
-                    class="
-                        esubiz-payment-icon
-                        esubiz-payment-icon-success
-                    "
-                >
-                    ✓
-                </div>
+            <h1
+                id="esubiz-payment-title"
+                class="esubiz-payment-title"
+            >
+                {{ $paymentPresentation['title'] }}
+            </h1>
 
-                <h1
-                    id="esubiz-payment-title"
-                    class="esubiz-payment-title"
-                >
-                    Payment Successful
-                </h1>
+            <p class="esubiz-payment-description">
+                {{ $paymentPresentation['description'] }}
+            </p>
 
-                <p class="esubiz-payment-description">
-                    Your payment was received successfully
-                    and your Marketplace purchase has been
-                    processed.
-                </p>
-
-            @else
-
-                <div
-                    class="
-                        esubiz-payment-icon
-                        esubiz-payment-icon-pending
-                    "
-                >
-                    !
-                </div>
-
-                <h1
-                    id="esubiz-payment-title"
-                    class="esubiz-payment-title"
-                >
-                    Payment Pending
-                </h1>
-
-                <p class="esubiz-payment-description">
-                    Your payment has not been confirmed yet.
-                    You can return to your website and check
-                    the purchase again shortly.
-                </p>
-
-            @endif
-
-
-            <div class="esubiz-payment-summary">
+<div class="esubiz-payment-summary">
 
                 <div class="esubiz-payment-row">
 
@@ -398,18 +478,15 @@
 
                     <strong
                         class="{{
-                            $paid
-                                ? 'esubiz-payment-status-paid'
-                                : 'esubiz-payment-status-pending'
+                            $paymentPresentation[
+                                'status_class'
+                            ]
                         }}"
                     >
                         {{
-                            $paid
-                                ? 'PAID'
-                                : strtoupper(
-                                    $order->payment_status
-                                    ?? 'PENDING'
-                                )
+                            $paymentPresentation[
+                                'status_label'
+                            ]
                         }}
                     </strong>
 
@@ -430,18 +507,67 @@
             @endif
 
 
-            <button
-                type="button"
-                class="esubiz-payment-close-button"
-                data-payment-close
-            >
-                Close
-            </button>
+            @if($showCentralUserActions ?? false)
 
+                <div
+                    style="
+                        display:grid;
+                        grid-template-columns:1fr 1fr;
+                        gap:10px;
+                    "
+                >
+                    <a
+                        href="{{
+                            $centralMyWebsitesUrl
+                            ?? url('/websites')
+                        }}"
+                        class="esubiz-payment-close-button"
+                        style="
+                            text-decoration:none;
+                            display:flex;
+                            align-items:center;
+                            justify-content:center;
+                        "
+                    >
+                        My Websites
+                    </a>
 
-            <div class="esubiz-payment-note">
-                You will return to where you started checkout.
-            </div>
+                    <a
+                        href="{{
+                            $centralDashboardUrl
+                            ?? url('/dashboard')
+                        }}"
+                        class="esubiz-payment-close-button"
+                        style="
+                            text-decoration:none;
+                            display:flex;
+                            align-items:center;
+                            justify-content:center;
+                        "
+                    >
+                        Dashboard
+                    </a>
+                </div>
+
+                <div class="esubiz-payment-note">
+                    Continue to My Websites or your Dashboard.
+                </div>
+
+            @else
+
+                <button
+                    type="button"
+                    class="esubiz-payment-close-button"
+                    data-payment-close
+                >
+                    Close
+                </button>
+
+                <div class="esubiz-payment-note">
+                    Close to return to where you started checkout.
+                </div>
+
+            @endif
 
         </div>
 

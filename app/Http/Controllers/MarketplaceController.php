@@ -3546,6 +3546,104 @@ class MarketplaceController extends Controller
             );
 
 
+        /*
+         * ========================================================
+         * CHECKPOINT 6 - UNIFIED PAYMENT RESULT DESTINATION
+         * ========================================================
+         *
+         * WEBSITE ORIGIN
+         * --------------------------------------------------------
+         * SaaS / Off-server:
+         *
+         * success, failed or pending
+         *      -> payment popup
+         *      -> Close
+         *      -> exact originating website page
+         *
+         *
+         * CENTRAL USER
+         * --------------------------------------------------------
+         * paid
+         *      -> payment popup
+         *      -> My Websites | Dashboard
+         *
+         * failed/pending
+         *      -> payment popup
+         *      -> Close
+         *      -> Pending Checkout
+         *
+         *
+         * CENTRAL DEVELOPER
+         * --------------------------------------------------------
+         * paid
+         *      -> payment popup
+         *      -> Close
+         *      -> Developer Library
+         *
+         * failed/pending
+         *      -> payment popup
+         *      -> Close
+         *      -> Pending Checkout
+         */
+
+
+        /*
+         * Defaults are always defined so both paid and unpaid
+         * presentation branches receive a complete view contract.
+         */
+        $showCentralUserActions =
+            false;
+
+
+        $centralDashboardUrl =
+            url(
+                '/dashboard'
+            );
+
+
+        $centralMyWebsitesUrl =
+            url(
+                '/websites'
+            );
+
+
+        $centralAccountMode =
+            strtolower(
+                trim(
+                    (string) (
+                        $returnCheckoutSession->account_mode
+                        ?? $successPayload['account_mode']
+                        ?? session(
+                            'account_mode',
+                            'user'
+                        )
+                    )
+                )
+            );
+
+
+        $paymentIsPaid =
+            strtolower(
+                trim(
+                    (string) (
+                        $record->payment_status
+                        ?? 'pending'
+                    )
+                )
+            )
+            === 'paid';
+
+
+        /*
+         * --------------------------------------------------------
+         * WEBSITE-ORIGIN CHECKOUT
+         * --------------------------------------------------------
+         *
+         * Payment status does not change navigation.
+         *
+         * The buyer always returns to the exact SaaS/off-server
+         * page that initiated checkout.
+         */
         if (
             in_array(
                 $checkoutOrigin,
@@ -3561,57 +3659,158 @@ class MarketplaceController extends Controller
             $successDestination =
                 $originReturnUrl;
 
+
+            $showCentralUserActions =
+                false;
+
+
+        /*
+         * --------------------------------------------------------
+         * CENTRAL FAILED / PENDING
+         * --------------------------------------------------------
+         *
+         * Both User and Developer return to Pending Checkout so
+         * the existing order can be retried rather than creating
+         * another accidental purchase/payment.
+         */
+        } elseif (!$paymentIsPaid) {
+
+            $successDestination =
+                route(
+                    'marketplace.checkout.index'
+                );
+
+
+            $showCentralUserActions =
+                false;
+
+
+        /*
+         * --------------------------------------------------------
+         * CENTRAL DEVELOPER SUCCESS
+         * --------------------------------------------------------
+         */
         } elseif (
-            $deploymentType === 'off_server'
+            $centralAccountMode
+            === 'developer'
         ) {
 
-            /*
-             * Central-account purchase targeting an off-server
-             * website with no originating external return URL.
-             */
             $successDestination =
                 route(
                     'marketplace.developer.library'
                 );
 
+
+            $showCentralUserActions =
+                false;
+
+
+        /*
+         * --------------------------------------------------------
+         * CENTRAL USER SUCCESS
+         * --------------------------------------------------------
+         *
+         * No automatic Marketplace redirect.
+         *
+         * The popup itself presents:
+         *
+         * My Websites
+         * Dashboard
+         */
         } else {
 
-            /*
-             * Central-account/SaaS fallback when checkout did not
-             * originate from a website page.
-             */
             $successDestination =
-                (
-                    $successPayload['website_id']
-                    ?? $record->website_id
-                    ?? null
-                )
-                    ? url('/dashboard')
-                    : route(
-                        'marketplace.index'
-                    );
+                $centralDashboardUrl;
+
+
+            $showCentralUserActions =
+                true;
         }
 
-        if ($record->payment_status === 'paid') {
-            return view('marketplace.payment-success', [
-                'order' => $record,
-                'paid' => true,
+
+        /*
+         * ========================================================
+         * UNIFIED PAYMENT POPUP VIEW
+         * ========================================================
+         *
+         * Paid / failed / pending all use the same Blade popup.
+         *
+         * The Blade derives the visible payment state from the
+         * canonical Marketplace payment_status.
+         */
+        if ($paymentIsPaid) {
+
+            return view(
+                'marketplace.payment-success',
+                [
+                    'order' =>
+                        $record,
+
+                    'paid' =>
+                        true,
+
+                    'entitlementActivated' =>
+                        $record->status
+                            === 'completed'
+                        || $record->status
+                            === 'fulfilled',
+
+                    'deploymentType' =>
+                        $deploymentType,
+
+                    'successDestination' =>
+                        $successDestination,
+
+                    'showCentralUserActions' =>
+                        $showCentralUserActions,
+
+                    'centralMyWebsitesUrl' =>
+                        $centralMyWebsitesUrl,
+
+                    'centralDashboardUrl' =>
+                        $centralDashboardUrl,
+                ]
+            );
+        }
+
+
+        return view(
+            'marketplace.payment-success',
+            [
+                'order' =>
+                    $record,
+
+                'paid' =>
+                    false,
+
                 'entitlementActivated' =>
-                    $record->status === 'completed'
-                    || $record->status === 'fulfilled',
-                'deploymentType' => $deploymentType,
-                'successDestination' => $successDestination,
-            ]);
-        }
+                    false,
 
-        return view('marketplace.payment-success', [
-            'order' => $record,
-            'paid' => false,
-            'entitlementActivated' => false,
-            'deploymentType' => $deploymentType,
-            'successDestination' => $successDestination,
-        ]);
-}
+                'deploymentType' =>
+                    $deploymentType,
+
+                /*
+                 * SaaS/off-server:
+                 * exact originating page.
+                 *
+                 * Central User/Developer:
+                 * Pending Checkout.
+                 */
+                'successDestination' =>
+                    $successDestination,
+
+                'showCentralUserActions' =>
+                    false,
+
+                'centralMyWebsitesUrl' =>
+                    $centralMyWebsitesUrl,
+
+                'centralDashboardUrl' =>
+                    $centralDashboardUrl,
+            ]
+        );
+    }
+
 
     public function userOrders()
     {
