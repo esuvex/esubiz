@@ -225,14 +225,47 @@
                         @forelse($websites as $website)
 
                             @php
+                                /*
+                                 * ADMIN WEBSITE LIST DOMAIN
+                                 *
+                                 * SaaS websites must always show the
+                                 * actual deployed Esubiz subdomain.
+                                 *
+                                 * registered_domain may still contain
+                                 * an old wizard draft-* hostname and
+                                 * must never override the live subdomain.
+                                 */
                                 $registeredDomain =
-                                    $website->registered_domain
-                                    ?: $website->domain
-                                    ?: (
-                                        $website->subdomain
-                                            ? $website->subdomain . '.esubiz.com'
-                                            : null
-                                    );
+                                    (
+                                        $website->deployment_type === 'saas'
+                                        && !empty($website->subdomain)
+                                    )
+                                        ? strtolower(
+                                            trim(
+                                                (string) $website->subdomain
+                                            )
+                                        ) . '.esubiz.com'
+                                        : (
+                                            !empty($website->domain)
+                                                ? preg_replace(
+                                                    '#^https?://#',
+                                                    '',
+                                                    trim(
+                                                        (string) $website->domain
+                                                    )
+                                                )
+                                                : (
+                                                    !empty($website->registered_domain)
+                                                        ? preg_replace(
+                                                            '#^https?://#',
+                                                            '',
+                                                            trim(
+                                                                (string) $website->registered_domain
+                                                            )
+                                                        )
+                                                        : null
+                                                )
+                                        );
 
                                 $deploymentLabel =
                                     $website->deployment_type === 'off_server'
@@ -344,12 +377,70 @@
 
                                 <td class="px-6 py-5 text-right">
 
-                                    <a
-                                        href="{{ route('admin.websites.show', $website->id) }}"
-                                        class="esubiz-admin-secondary whitespace-nowrap"
-                                    >
-                                        View Website
-                                    </a>
+                                    <div class="flex flex-wrap justify-end gap-2">
+
+                                        <a
+                                            href="{{ route('admin.websites.show', $website->id) }}"
+                                            class="esubiz-admin-secondary whitespace-nowrap"
+                                        >
+                                            View Website
+                                        </a>
+
+                                        <form
+                                            method="POST"
+                                            action="{{ route('admin.websites.toggle', $website->id) }}"
+                                        >
+                                            @csrf
+                                            @method('PATCH')
+
+                                            <button
+                                                type="submit"
+                                                class="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black {{
+                                                    $website->user_enabled
+                                                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                                        : 'border-slate-300 bg-slate-100 text-slate-600'
+                                                }}"
+                                            >
+                                                <span
+                                                    class="relative inline-flex h-5 w-9 rounded-full {{
+                                                        $website->user_enabled
+                                                            ? 'bg-emerald-500'
+                                                            : 'bg-slate-300'
+                                                    }}"
+                                                >
+                                                    <span
+                                                        class="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow {{
+                                                            $website->user_enabled
+                                                                ? 'left-[18px]'
+                                                                : 'left-0.5'
+                                                        }}"
+                                                    ></span>
+                                                </span>
+
+                                                {{ $website->user_enabled ? 'Enabled' : 'Disabled' }}
+                                            </button>
+                                        </form>
+
+                                        <form
+                                            method="POST"
+                                            action="{{ route('admin.websites.destroy', $website->id) }}"
+                                            onsubmit="return confirm(
+                                                'PERMANENTLY DELETE {{ addslashes($website->name ?: 'this website') }}?\\n\\n'
+                                                + 'This cannot be undone. The tenant database and all operational website records will be removed immediately.'
+                                            );"
+                                        >
+                                            @csrf
+                                            @method('DELETE')
+
+                                            <button
+                                                type="submit"
+                                                class="inline-flex items-center justify-center rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-black text-red-700 hover:bg-red-100"
+                                            >
+                                                Delete
+                                            </button>
+                                        </form>
+
+                                    </div>
 
                                 </td>
 

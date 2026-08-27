@@ -174,4 +174,88 @@ class WebsiteController extends Controller
     }
 
 
+
+
+    public function info(
+        \App\Models\Website $website,
+        \App\Services\CentralApi\CentralWebsiteDetailService $details
+    ) {
+        abort_unless(
+            (int) $website->owner_id
+            === (int) auth()->id(),
+            403
+        );
+
+        $website->load([
+            'owner',
+            'developer',
+            'plan',
+            'workspace',
+        ]);
+
+        return view(
+            'user.websites.info',
+            [
+                'website' =>
+                    $website,
+
+                'detail' =>
+                    $details->get(
+                        $website
+                    ),
+            ]
+        );
+    }
+
+
+    public function toggle(
+        \App\Models\Website $website
+    ) {
+        abort_unless(
+            (int) $website->owner_id
+            === (int) auth()->id(),
+            403
+        );
+
+        $website->forceFill([
+            'user_enabled' =>
+                !(bool) $website->user_enabled,
+        ])->save();
+
+        return back()->with(
+            'success',
+            $website->user_enabled
+                ? 'Website enabled successfully.'
+                : 'Website disabled successfully.'
+        );
+    }
+
+
+    public function destroy(
+        \App\Models\Website $website,
+        \App\Services\Website\WebsiteDeletionService $deletion
+    ) {
+        abort_unless(
+            (int) $website->owner_id
+            === (int) auth()->id(),
+            403
+        );
+
+        $name =
+            $website->name;
+
+        $deletion->delete(
+            $website
+        );
+
+        return redirect()
+            ->route(
+                'user.websites.index'
+            )
+            ->with(
+                'success',
+                "{$name} was permanently deleted."
+            );
+    }
+
 }

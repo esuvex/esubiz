@@ -211,4 +211,44 @@ class WebsiteController extends Controller
             ]
         );
     }
+
+
+    public function toggle(
+        Website $website
+    ) {
+        $website->forceFill([
+            'user_enabled' =>
+                !(bool) $website->user_enabled,
+        ])->save();
+
+        return back()->with(
+            'success',
+            $website->user_enabled
+                ? 'Website enabled successfully.'
+                : 'Website disabled successfully.'
+        );
+    }
+
+
+    public function destroy(
+        Website $website,
+        \App\Services\Website\WebsiteDeletionService $deletion
+    ) {
+        $name =
+            $website->name;
+
+        $deletion->delete(
+            $website
+        );
+
+        return redirect()
+            ->route(
+                'admin.websites.index'
+            )
+            ->with(
+                'success',
+                "{$name} was permanently deleted."
+            );
+    }
+
 }

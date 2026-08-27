@@ -65,11 +65,36 @@ class CentralWebsiteDetailService
             'deployment_type' =>
                 $website->deployment_type,
 
+            /*
+             * For SaaS websites the deployed subdomain is the live
+             * website address and therefore takes precedence over an
+             * old wizard/draft registered_domain value.
+             */
             'registered_domain' =>
-                $website->registered_domain,
+                (
+                    $website->isSaas()
+                    && !empty($website->subdomain)
+                )
+                    ? strtolower(
+                        trim(
+                            (string) $website->subdomain
+                        )
+                    )
+                        . '.esubiz.com'
+                    : $website->registered_domain,
 
             'registered_host' =>
-                $website->registeredHost(),
+                (
+                    $website->isSaas()
+                    && !empty($website->subdomain)
+                )
+                    ? strtolower(
+                        trim(
+                            (string) $website->subdomain
+                        )
+                    )
+                        . '.esubiz.com'
+                    : $website->registeredHost(),
 
             'registry_status' =>
                 $website->registry_status,

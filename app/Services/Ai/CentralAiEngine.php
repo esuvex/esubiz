@@ -658,7 +658,7 @@ class CentralAiEngine
              */
             'credits_charged' =>
                 $creditTransaction
-                    ? (float) $creditTransaction->credits
+                    ? (float) data_get($creditTransaction, 'credits')
                     : 0,
 
             'metadata' => [
@@ -744,7 +744,7 @@ class CentralAiEngine
 
                 'credits' =>
                     $creditTransaction
-                        ? (float) $creditTransaction->credits
+                        ? (float) data_get($creditTransaction, 'credits')
                         : 0,
 
                 'transaction_id' =>

@@ -1262,6 +1262,34 @@ Route::middleware('auth')->group(function () {
         ->name('admin.websites.show');
 
 
+    Route::patch(
+        '/admin/websites/{website}/toggle',
+        [AdminWebsiteController::class, 'toggle']
+    )
+        ->whereNumber('website')
+        ->middleware([
+            'permission:roles.view',
+            'account-mode:admin',
+        ])
+        ->name(
+            'admin.websites.toggle'
+        );
+
+    Route::delete(
+        '/admin/websites/{website}',
+        [AdminWebsiteController::class, 'destroy']
+    )
+        ->whereNumber('website')
+        ->middleware([
+            'permission:roles.view',
+            'account-mode:admin',
+        ])
+        ->name(
+            'admin.websites.destroy'
+        );
+
+
+
     Route::get('/admin/website-types', [WebsiteTypeController::class, 'index'])
     ->middleware(['permission:roles.view', 'account-mode:admin'])
     ->name('admin.website-types.index');
@@ -1329,6 +1357,56 @@ Route::get('/user/dashboard', [UserDashboardController::class, 'index'])
 
     Route::get('/websites', [UserWebsiteController::class, 'index'])
         ->name('user.websites.index');
+
+
+Route::get(
+    '/websites/{website}/info',
+    [
+        \App\Http\Controllers\User\WebsiteController::class,
+        'info',
+    ]
+)
+    ->whereNumber('website')
+    ->middleware([
+        'auth',
+        'account-mode:user',
+    ])
+    ->name(
+        'user.websites.info'
+    );
+
+Route::patch(
+    '/websites/{website}/toggle',
+    [
+        \App\Http\Controllers\User\WebsiteController::class,
+        'toggle',
+    ]
+)
+    ->whereNumber('website')
+    ->middleware([
+        'auth',
+        'account-mode:user',
+    ])
+    ->name(
+        'user.websites.toggle'
+    );
+
+Route::delete(
+    '/websites/{website}',
+    [
+        \App\Http\Controllers\User\WebsiteController::class,
+        'destroy',
+    ]
+)
+    ->whereNumber('website')
+    ->middleware([
+        'auth',
+        'account-mode:user',
+    ])
+    ->name(
+        'user.websites.destroy'
+    );
+
 
     /*
     |--------------------------------------------------------------------------
@@ -1939,4 +2017,43 @@ Route::middleware([
     );
 
 });
+
+
+/*
+ * ================================================================
+ * CHECKPOINT_10_CENTRAL_WEBSITE_STATE_ROUTES
+ * ================================================================
+ *
+ * Canonical Central website product-state reads.
+ */
+Route::get(
+    '/api/v1/core/website/state',
+    [
+        \App\Http\Controllers\Api\CentralWebsiteStateController::class,
+        'offServer',
+    ]
+)
+    ->middleware([
+        'throttle:60,1',
+    ])
+    ->name(
+        'api.core.website.state'
+    );
+
+
+Route::get(
+    '/api/v1/saas/websites/{website}/state',
+    [
+        \App\Http\Controllers\Api\CentralWebsiteStateController::class,
+        'saas',
+    ]
+)
+    ->whereNumber('website')
+    ->middleware([
+        'auth',
+        'throttle:60,1',
+    ])
+    ->name(
+        'api.saas.website.state'
+    );
 
