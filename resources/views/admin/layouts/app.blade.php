@@ -487,8 +487,9 @@
                     Website Types
                 </a>
 
-                <a href="#"
-                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
+                <a href="{{ route('admin.websites.index') }}"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800
+                   {{ request()->routeIs('admin.websites.*') ? 'bg-blue-600 text-white' : '' }}">
                     User Websites
                 </a>
             </div>

@@ -99,6 +99,7 @@ use App\Http\Controllers\TenantWebsiteController;
 
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\WebsiteTypeController;
+use App\Http\Controllers\Admin\WebsiteController as AdminWebsiteController;
 use App\Http\Controllers\Developer\DashboardController as DeveloperDashboardController;
 use App\Http\Controllers\Developer\BuilderController as DeveloperBuilderController;
 use App\Http\Controllers\User\DashboardController as UserDashboardController;
@@ -1222,6 +1223,44 @@ Route::middleware('auth')->group(function () {
     | Dashboards
     |--------------------------------------------------------------------------
     */
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Central Admin Website Registry
+    |--------------------------------------------------------------------------
+    |
+    | Admin-only registry for all canonical Esubiz websites:
+    |
+    | - SaaS websites
+    | - off-server websites
+    |
+    | This is intentionally separate from /websites, which remains the
+    | User Mode website-management area.
+    |
+    */
+
+    Route::get(
+        '/admin/websites',
+        [AdminWebsiteController::class, 'index']
+    )
+        ->middleware([
+            'permission:roles.view',
+            'account-mode:admin',
+        ])
+        ->name('admin.websites.index');
+
+    Route::get(
+        '/admin/websites/{website}',
+        [AdminWebsiteController::class, 'show']
+    )
+        ->whereNumber('website')
+        ->middleware([
+            'permission:roles.view',
+            'account-mode:admin',
+        ])
+        ->name('admin.websites.show');
+
 
     Route::get('/admin/website-types', [WebsiteTypeController::class, 'index'])
     ->middleware(['permission:roles.view', 'account-mode:admin'])
