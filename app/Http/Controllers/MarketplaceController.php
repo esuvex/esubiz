@@ -2574,13 +2574,18 @@ class MarketplaceController extends Controller
             'This marketplace checkout link is invalid or has expired.'
         );
 
-        abort_unless(
-            auth()->check(),
-            401,
-            'Please sign in to your Esubiz account to continue.'
-        );
-
-
+        /*
+         * CHECKPOINT 5 — TRUSTED SAAS BUYER HANDOFF
+         *
+         * The SaaS user may have authenticated only inside the tenant
+         * website and therefore may not already have a Central Esubiz
+         * browser session.
+         *
+         * The relative signature proves that this checkout request was
+         * issued by the trusted Esubiz SaaS application. The browser
+         * cannot alter website_id, product, return URL or the other
+         * signed parameters without invalidating that signature.
+         */
         $website =
             \App\Models\Website::query()
                 ->where(
@@ -2592,16 +2597,102 @@ class MarketplaceController extends Controller
                 ->firstOrFail();
 
 
-        /*
-         * A SaaS handoff may only purchase for a website
-         * belonging to the currently authenticated Esubiz user.
-         */
         abort_unless(
-            (int) $website->owner_id ===
-                (int) auth()->id(),
+            $website->isSaas()
+                && $website->isRegistryActive(),
             403,
-            'You cannot purchase Marketplace products for this website.'
+            'This SaaS website is not active in the Central Esubiz registry.'
         );
+
+
+        /*
+         * If a Central Esubiz session already exists, it must belong
+         * to the website owner. We never silently switch an already
+         * authenticated Central account to somebody else.
+         */
+        if (auth()->check()) {
+
+            abort_unless(
+                (int) auth()->id() ===
+                    (int) $website->owner_id,
+                403,
+                'The current Esubiz account does not own this website.'
+            );
+
+            $buyerIdentitySource =
+                'existing_central_session';
+
+            $walletAllowed =
+                true;
+
+        } else {
+
+            /*
+             * No Central session exists.
+             *
+             * Establish the Central buyer from the authoritative
+             * website registry. This allows a user who entered from
+             * their authenticated SaaS admin to use the same Central
+             * Marketplace checkout without manually signing in again.
+             *
+             * This is only reached AFTER successful signed-handoff
+             * validation above.
+             */
+            abort_unless(
+                !empty($website->owner_id),
+                403,
+                'This SaaS website does not have a Central owner.'
+            );
+
+            \Illuminate\Support\Facades\Auth::loginUsingId(
+                (int) $website->owner_id
+            );
+
+            abort_unless(
+                auth()->check()
+                    && (int) auth()->id() ===
+                        (int) $website->owner_id,
+                401,
+                'Unable to establish the Marketplace buyer session.'
+            );
+
+            $buyerIdentitySource =
+                'signed_saas_handoff';
+
+            /*
+             * Do NOT automatically expose Central wallet funds merely
+             * because a SaaS-local login initiated checkout.
+             *
+             * Card/gateway checkout can proceed. Wallet authorization
+             * will require explicit Central-session authority.
+             */
+            $walletAllowed =
+                false;
+        }
+
+
+        $checkoutContext =
+            app(
+                \App\Services\Marketplace\MarketplaceCheckoutContextService::class
+            )->saas(
+                $website,
+                (int) auth()->id(),
+                (string) $request->query(
+                    'return_url',
+                    ''
+                ),
+                (string) $request->query(
+                    'return_area',
+                    ''
+                )
+            );
+
+
+        $checkoutContext['identity_source'] =
+            $buyerIdentitySource;
+
+        $checkoutContext['wallet_allowed'] =
+            $walletAllowed;
 
 
         $deploymentType =
@@ -2645,7 +2736,12 @@ class MarketplaceController extends Controller
                 (int) $website->id,
 
             'checkout_origin' =>
-                'saas_website',
+                $checkoutContext['checkout_origin'],
+
+            'wallet_allowed' =>
+                $checkoutContext['wallet_allowed']
+                    ? '1'
+                    : '0',
 
             'return_area' =>
                 (string) $request->query(
@@ -2689,7 +2785,27 @@ class MarketplaceController extends Controller
              */
             'checkout_origin' => [
                 'nullable',
-                'in:central_account,saas_website',
+                'in:central_account,saas_website,off_server_website',
+            ],
+
+            /*
+             * Trusted checkout-entry services may explicitly
+             * restrict payment methods.
+             *
+             * Examples:
+             *
+             * Central authenticated buyer:
+             *     wallet_allowed = true
+             *
+             * SaaS local-login handoff:
+             *     wallet_allowed = false
+             *
+             * Off-server Core handoff:
+             *     wallet_allowed = false
+             */
+            'wallet_allowed' => [
+                'nullable',
+                'boolean',
             ],
 
             'return_area' => [
@@ -2745,14 +2861,45 @@ class MarketplaceController extends Controller
 
 
         /*
-         * Central account and SaaS website sessions are connected
-         * directly to Esubiz, so Wallet remains available.
+         * --------------------------------------------------------
+         * UNIFIED MARKETPLACE WALLET AUTHORITY
+         * --------------------------------------------------------
          *
-         * Off-server website links will explicitly set this false
-         * in the signed-link entry path built separately.
+         * Wallet permission is determined by the trusted checkout
+         * entry context, never merely by deployment type.
+         *
+         * Central authenticated checkout:
+         *     normally true
+         *
+         * SaaS with genuine Central session:
+         *     true
+         *
+         * SaaS local-login signed handoff:
+         *     false
+         *
+         * Off-server Core checkout:
+         *     always false here
+         *
+         * Off-server may later use Central Wallet only through an
+         * explicitly authenticated Central-account checkout flow,
+         * never through the external website bearer identity.
          */
         $walletAllowed =
-            true;
+            array_key_exists(
+                'wallet_allowed',
+                $data
+            )
+                ? (bool) $data['wallet_allowed']
+                : true;
+
+
+        if (
+            $checkoutOrigin
+            === 'off_server_website'
+        ) {
+            $walletAllowed =
+                false;
+        }
 
 
         /*

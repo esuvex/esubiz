@@ -1770,3 +1770,40 @@ Route::post(
     ->middleware('throttle:20,1')
     ->name('api.core.license.activate');
 
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_CHECKPOINT5_OFF_SERVER_MARKETPLACE
+|--------------------------------------------------------------------------
+|
+| Authenticated off-server Core -> Central Marketplace checkout.
+|
+| API entry uses the installation bearer token.
+| Browser handoff uses a short-lived signed Central URL.
+|
+*/
+
+Route::post(
+    '/api/v1/core/marketplace/checkout-link',
+    [
+        \App\Http\Controllers\Api\OffServerMarketplaceController::class,
+        'checkoutLink',
+    ]
+)
+    ->middleware('throttle:30,1')
+    ->name(
+        'api.core.marketplace.checkout-link'
+    );
+
+
+Route::get(
+    '/marketplace/off-server/checkout/{order}',
+    [
+        \App\Http\Controllers\Api\OffServerMarketplaceController::class,
+        'handoff',
+    ]
+)
+    ->name(
+        'marketplace.off-server.checkout.handoff'
+    );
+

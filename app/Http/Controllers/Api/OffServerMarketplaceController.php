@@ -1,0 +1,503 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Services\Marketplace\MarketplaceCheckoutContextService;
+use App\Services\Marketplace\MarketplaceProductResolver;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
+use RuntimeException;
+
+class OffServerMarketplaceController extends Controller
+{
+    /**
+     * ============================================================
+     * OFF-SERVER CORE -> CENTRAL MARKETPLACE CHECKOUT HANDOFF
+     * ============================================================
+     *
+     * The remote Core authenticates with the installation bearer
+     * token provisioned after successful licence activation.
+     *
+     * The remote website NEVER supplies an authoritative website_id.
+     *
+     * Central resolves:
+     *
+     * bearer token
+     *   -> current installation
+     *   -> registered Central website
+     *   -> active domain-locked licence
+     *
+     * Central then creates the Marketplace order/session itself and
+     * returns a temporary Central checkout URL.
+     */
+    public function checkoutLink(
+        Request $request,
+        MarketplaceCheckoutContextService $contexts,
+        MarketplaceProductResolver $products
+    ) {
+        $data = $request->validate([
+            'product_type' => [
+                'required',
+                'string',
+                'max:100',
+            ],
+
+            'product_id' => [
+                'required',
+                'integer',
+                'min:1',
+            ],
+
+            'quantity' => [
+                'nullable',
+                'integer',
+                'min:1',
+                'max:1000',
+            ],
+
+            'return_url' => [
+                'required',
+                'url',
+                'max:2000',
+            ],
+
+            'return_area' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
+        ]);
+
+
+        /*
+         * This is the authoritative identity resolution.
+         *
+         * website_id, installation_id and licence registration are
+         * derived from the bearer token — never from request input.
+         */
+        $context =
+            $contexts->offServerRequest(
+                $request,
+                null,
+                $data['return_url'],
+                $data['return_area']
+                    ?? null
+            );
+
+
+        $website =
+            \App\Models\Website::query()
+                ->findOrFail(
+                    $context['website_id']
+                );
+
+
+        /*
+         * The Central website owner is the commercial buyer identity.
+         *
+         * We do NOT create a browser login session here.
+         * The resulting temporary checkout URL performs the trusted
+         * browser handoff separately.
+         */
+        abort_unless(
+            !empty($website->owner_id),
+            403,
+            'The registered off-server website has no Central owner.'
+        );
+
+
+        $buyerId =
+            (int) $website->owner_id;
+
+
+        /*
+         * Resolve the canonical Marketplace product centrally.
+         */
+        $product =
+            $products->resolve(
+                $data['product_type'],
+                (int) $data['product_id']
+            );
+
+
+        abort_unless(
+            $product,
+            404,
+            'Marketplace product was not found.'
+        );
+
+
+        abort_unless(
+            $products->available(
+                $product,
+                'off_server'
+            ),
+            403,
+            'This product is not available for off-server websites.'
+        );
+
+
+        $listing =
+            DB::table(
+                'marketplace_listings'
+            )
+                ->where(
+                    'product_type',
+                    $data['product_type']
+                )
+                ->where(
+                    'product_id',
+                    (int) $data['product_id']
+                )
+                ->where(
+                    'status',
+                    'published'
+                )
+                ->whereNull(
+                    'deleted_at'
+                )
+                ->latest('id')
+                ->first();
+
+
+        abort_unless(
+            $listing,
+            404,
+            'Marketplace listing was not found.'
+        );
+
+
+        $quantity =
+            max(
+                1,
+                (int) (
+                    $data['quantity']
+                    ?? 1
+                )
+            );
+
+
+        $unitPrice =
+            (float) (
+                $products->price(
+                    $product,
+                    'off_server'
+                )
+                ?? $listing->price
+                ?? 0
+            );
+
+
+        $currency =
+            strtoupper(
+                (string) (
+                    $products->currency(
+                        $product,
+                        'off_server'
+                    )
+                    ?: (
+                        $listing->currency
+                        ?? 'NGN'
+                    )
+                )
+            );
+
+
+        $amount =
+            round(
+                $unitPrice * $quantity,
+                2
+            );
+
+
+        /*
+         * Create Central Marketplace order.
+         */
+        $orderReference =
+            'OFF-'
+            . strtoupper(
+                Str::random(16)
+            );
+
+
+        $orderId =
+            DB::table(
+                'marketplace_orders'
+            )
+                ->insertGetId([
+                    'marketplace_listing_id' =>
+                        $listing->id,
+
+                    'vendor_id' =>
+                        $listing->vendor_id,
+
+                    'workspace_id' =>
+                        $listing->workspace_id
+                        ?? null,
+
+                    'buyer_id' =>
+                        $buyerId,
+
+                    'uuid' =>
+                        (string) Str::uuid(),
+
+                    'reference' =>
+                        $orderReference,
+
+                    'amount' =>
+                        $amount,
+
+                    'commission_amount' =>
+                        0,
+
+                    'vendor_amount' =>
+                        $amount,
+
+                    'currency' =>
+                        $currency,
+
+                    'status' =>
+                        'pending',
+
+                    'payment_status' =>
+                        'pending',
+
+                    'created_at' =>
+                        now(),
+
+                    'updated_at' =>
+                        now(),
+                ]);
+
+
+        /*
+         * Persist authoritative checkout target.
+         *
+         * Off-server wallet is ALWAYS false here.
+         */
+        $context['buyer_user_id'] =
+            $buyerId;
+
+        $context['wallet_allowed'] =
+            false;
+
+
+        $sessionValues =
+            $contexts->sessionValues(
+                $context
+            );
+
+
+        $checkoutSession =
+            array_merge(
+                [
+                    'user_id' =>
+                        $buyerId,
+
+                    'account_mode' =>
+                        'user',
+
+                    'product_type' =>
+                        $data['product_type'],
+
+                    'product_id' =>
+                        (int) $data['product_id'],
+
+                    'quantity' =>
+                        $quantity,
+
+                    'unit_price' =>
+                        $unitPrice,
+
+                    'total_amount' =>
+                        $amount,
+
+                    'currency' =>
+                        $currency,
+
+                    'marketplace_order_id' =>
+                        $orderId,
+
+                    'is_commissionable' =>
+                        true,
+
+                    'status' =>
+                        'pending_payment',
+
+                    'expires_at' =>
+                        now()->addHours(24),
+
+                    'created_at' =>
+                        now(),
+
+                    'updated_at' =>
+                        now(),
+                ],
+                $sessionValues
+            );
+
+
+        DB::table(
+            'marketplace_checkout_sessions'
+        )->insert(
+            $checkoutSession
+        );
+
+
+        /*
+         * Browser handoff.
+         *
+         * The temporary signature prevents the remote Core/browser
+         * from changing order or buyer identity.
+         */
+        $checkoutUrl =
+            URL::temporarySignedRoute(
+                'marketplace.off-server.checkout.handoff',
+                now()->addMinutes(30),
+                [
+                    'order' =>
+                        $orderId,
+
+                    'buyer' =>
+                        $buyerId,
+                ]
+            );
+
+
+        return response()->json([
+            'success' =>
+                true,
+
+            'order_id' =>
+                $orderId,
+
+            'reference' =>
+                $orderReference,
+
+            'website_id' =>
+                $context['website_id'],
+
+            'website_uuid' =>
+                $context['website_uuid'],
+
+            'deployment_type' =>
+                'off_server',
+
+            'checkout_origin' =>
+                'off_server_website',
+
+            'wallet_allowed' =>
+                false,
+
+            'checkout_url' =>
+                $checkoutUrl,
+
+            'expires_in_minutes' =>
+                30,
+        ]);
+    }
+
+
+    /**
+     * Trusted browser handoff after the Core API has created
+     * the order/session.
+     */
+    public function handoff(
+        Request $request,
+        int $order
+    ) {
+        abort_unless(
+            $request->hasValidSignature(),
+            403,
+            'This Marketplace checkout link is invalid or has expired.'
+        );
+
+
+        $record =
+            DB::table(
+                'marketplace_orders'
+            )
+                ->where(
+                    'id',
+                    $order
+                )
+                ->firstOrFail();
+
+
+        $session =
+            DB::table(
+                'marketplace_checkout_sessions'
+            )
+                ->where(
+                    'marketplace_order_id',
+                    $record->id
+                )
+                ->latest('id')
+                ->first();
+
+
+        abort_unless(
+            $session,
+            404,
+            'Marketplace checkout session was not found.'
+        );
+
+
+        abort_unless(
+            ($session->checkout_origin ?? null)
+                === 'off_server_website'
+                &&
+            ($session->deployment_type ?? null)
+                === 'off_server',
+            403,
+            'Marketplace checkout identity is invalid.'
+        );
+
+
+        abort_unless(
+            (int) $record->buyer_id
+                ===
+            (int) $request->query(
+                'buyer'
+            ),
+            403,
+            'Marketplace buyer identity is invalid.'
+        );
+
+
+        /*
+         * Establish the Central browser buyer only AFTER Central has
+         * authenticated the remote installation and created the order.
+         *
+         * This session still does not authorize Wallet because the
+         * persisted checkout session explicitly has wallet_allowed=0.
+         */
+        Auth::loginUsingId(
+            (int) $record->buyer_id
+        );
+
+
+        abort_unless(
+            auth()->check()
+                &&
+            (int) auth()->id()
+                ===
+            (int) $record->buyer_id,
+            401,
+            'Unable to establish Marketplace buyer session.'
+        );
+
+
+        return redirect()->route(
+            'marketplace.checkout',
+            [
+                'order' =>
+                    $record->id,
+            ]
+        );
+    }
+}
