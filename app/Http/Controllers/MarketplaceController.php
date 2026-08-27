@@ -3164,30 +3164,140 @@ class MarketplaceController extends Controller
                 ->first();
 
             if ($listing) {
-                $orderForFulfilment = (object) array_merge(
-                    (array) $record,
-                    [
-                        'deployment_type' => $record->deployment_type
-                            ?? (str_starts_with((string) $record->reference, 'DEV-')
-                                ? 'off_server'
-                                : 'saas'),
-                        'website_id' => $record->website_id ?? null,
-                        'workspace_id' => $record->workspace_id ?? null,
-                    ]
-                );
+
+                /*
+                 * The authoritative target website/deployment context
+                 * lives on marketplace_checkout_sessions, not directly
+                 * on marketplace_orders.
+                 *
+                 * This is shared by:
+                 *
+                 * - SaaS website checkout
+                 * - Off-server website checkout link
+                 * - Central Esubiz account checkout
+                 *
+                 * Fulfilment therefore resolves the purchase target from
+                 * the originating checkout session before dispatching to
+                 * the product-specific fulfilment handler.
+                 */
+                $checkoutSession =
+                    DB::table(
+                        'marketplace_checkout_sessions'
+                    )
+                        ->where(
+                            'marketplace_order_id',
+                            $record->id
+                        )
+                        ->whereNull(
+                            'deleted_at'
+                        )
+                        ->latest('id')
+                        ->first();
+
+
+                $deploymentType =
+                    $checkoutSession->deployment_type
+                    ?? $record->deployment_type
+                    ?? (
+                        str_starts_with(
+                            (string) $record->reference,
+                            'DEV-'
+                        )
+                            ? 'off_server'
+                            : 'saas'
+                    );
+
+
+                $orderForFulfilment =
+                    (object) array_merge(
+                        (array) $record,
+                        [
+                            'deployment_type' =>
+                                $deploymentType,
+
+                            'website_id' =>
+                                $checkoutSession->website_id
+                                ?? $record->website_id
+                                ?? null,
+
+                            'workspace_id' =>
+                                $checkoutSession->workspace_id
+                                ?? $record->workspace_id
+                                ?? null,
+
+                            'checkout_origin' =>
+                                $checkoutSession->checkout_origin
+                                ?? null,
+
+                            'return_url' =>
+                                $checkoutSession->return_url
+                                ?? null,
+
+                            'return_area' =>
+                                $checkoutSession->return_area
+                                ?? null,
+
+                            'wallet_allowed' =>
+                                isset(
+                                    $checkoutSession->wallet_allowed
+                                )
+                                    ? (bool) $checkoutSession->wallet_allowed
+                                    : true,
+                        ]
+                    );
+
 
                 app(
                     \App\Services\Marketplace\MarketplaceFulfilmentManager::class
-                )->fulfil($orderForFulfilment, $listing);
+                )->fulfil(
+                    $orderForFulfilment,
+                    $listing
+                );
 
-                DB::table('marketplace_orders')
-                    ->where('id', $record->id)
+
+                DB::table(
+                    'marketplace_orders'
+                )
+                    ->where(
+                        'id',
+                        $record->id
+                    )
                     ->update([
-                        'status' => 'completed',
-                        'updated_at' => now(),
+                        'status' =>
+                            'completed',
+
+                        'updated_at' =>
+                            now(),
                     ]);
 
-                $record->status = 'completed';
+
+                if ($checkoutSession) {
+                    DB::table(
+                        'marketplace_checkout_sessions'
+                    )
+                        ->where(
+                            'id',
+                            $checkoutSession->id
+                        )
+                        ->update([
+                            'status' =>
+                                'completed',
+
+                            'updated_at' =>
+                                now(),
+                        ]);
+                }
+
+
+                $record->status =
+                    'completed';
+
+                $record->deployment_type =
+                    $deploymentType;
+
+                $record->website_id =
+                    $orderForFulfilment
+                        ->website_id;
             }
         }
 
@@ -3202,17 +3312,138 @@ class MarketplaceController extends Controller
             ? (json_decode($transaction->payload, true) ?: [])
             : [];
 
-        $deploymentType = $successPayload['deployment_type']
-            ?? ($record->deployment_type ?? null)
-            ?? (str_starts_with((string) $record->reference, 'DEV-')
-                ? 'off_server'
-                : 'saas');
+        /*
+         * Resolve the authoritative checkout origin again for the
+         * presentation/return step.
+         *
+         * SaaS and off-server purchases must return to the exact
+         * product page that started checkout:
+         *
+         * AI Credits -> AI page
+         * SMS Credits -> SMS page
+         * Add-on -> Add-on page
+         * Theme -> Theme page
+         * Module -> Module page
+         * etc.
+         */
+        $returnCheckoutSession =
+            DB::table(
+                'marketplace_checkout_sessions'
+            )
+                ->where(
+                    'marketplace_order_id',
+                    $record->id
+                )
+                ->whereNull(
+                    'deleted_at'
+                )
+                ->latest('id')
+                ->first();
 
-        $successDestination = $deploymentType === 'off_server'
-            ? route('marketplace.developer.library')
-            : ($successPayload['website_id'] ?? $record->website_id ?? null
-                ? url('/dashboard')
-                : route('marketplace.index'));
+
+        $deploymentType =
+            $returnCheckoutSession->deployment_type
+            ?? $successPayload['deployment_type']
+            ?? ($record->deployment_type ?? null)
+            ?? (
+                str_starts_with(
+                    (string) $record->reference,
+                    'DEV-'
+                )
+                    ? 'off_server'
+                    : 'saas'
+            );
+
+
+        $checkoutOrigin =
+            $returnCheckoutSession->checkout_origin
+            ?? $successPayload['checkout_origin']
+            ?? null;
+
+
+        $originReturnUrl =
+            trim(
+                (string) (
+                    $returnCheckoutSession->return_url
+                    ?? $successPayload['return_url']
+                    ?? ''
+                )
+            );
+
+
+        /*
+         * Only accept normal HTTP(S) return URLs.
+         *
+         * SaaS return URLs came through the signed Central handoff.
+         * Off-server return URLs were validated against the registered
+         * API application/domain before the checkout link was issued.
+         */
+        $validOriginReturnUrl =
+            $originReturnUrl !== ''
+            && filter_var(
+                $originReturnUrl,
+                FILTER_VALIDATE_URL
+            )
+            && in_array(
+                strtolower(
+                    (string) parse_url(
+                        $originReturnUrl,
+                        PHP_URL_SCHEME
+                    )
+                ),
+                [
+                    'http',
+                    'https',
+                ],
+                true
+            );
+
+
+        if (
+            in_array(
+                $checkoutOrigin,
+                [
+                    'saas_website',
+                    'off_server_website',
+                ],
+                true
+            )
+            && $validOriginReturnUrl
+        ) {
+
+            $successDestination =
+                $originReturnUrl;
+
+        } elseif (
+            $deploymentType === 'off_server'
+        ) {
+
+            /*
+             * Central-account purchase targeting an off-server
+             * website with no originating external return URL.
+             */
+            $successDestination =
+                route(
+                    'marketplace.developer.library'
+                );
+
+        } else {
+
+            /*
+             * Central-account/SaaS fallback when checkout did not
+             * originate from a website page.
+             */
+            $successDestination =
+                (
+                    $successPayload['website_id']
+                    ?? $record->website_id
+                    ?? null
+                )
+                    ? url('/dashboard')
+                    : route(
+                        'marketplace.index'
+                    );
+        }
 
         if ($record->payment_status === 'paid') {
             return view('marketplace.payment-success', [
