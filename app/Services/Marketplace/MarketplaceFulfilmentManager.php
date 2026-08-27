@@ -9,6 +9,19 @@ class MarketplaceFulfilmentManager
     protected array $handlers = [
 
             /*
+             * OFF_SERVER_LICENSE_MARKETPLACE_HANDLER
+             *
+             * License-only Marketplace products issue a pending
+             * domain-unlocked license after successful payment.
+             */
+            'license' =>
+                \App\Services\Marketplace\Handlers\OffServerLicenseFulfilmentHandler::class,
+
+            'off_server_license' =>
+                \App\Services\Marketplace\Handlers\OffServerLicenseFulfilmentHandler::class,
+
+
+            /*
              * Generic Esubiz credit products.
              *
              * All credit systems use one central fulfilment path.

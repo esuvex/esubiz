@@ -1704,3 +1704,69 @@ Route::middleware(['auth'])->group(function () {
         [\App\Http\Controllers\WalletController::class, 'previewPayoutConversion']
     )->name('account.wallet.payout.preview-conversion');
 });
+
+
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_OFF_SERVER_LICENSE_VALIDATE_ROUTE
+|--------------------------------------------------------------------------
+|
+| PRE-INSTALL validation.
+|
+| This route confirms that the manually entered licence is genuine
+| and eligible for the requested domain.
+|
+| It does NOT activate or domain-lock the licence.
+|
+*/
+
+Route::post(
+    '/api/v1/core/license/validate',
+    [
+        \App\Http\Controllers\Api\OffServerLicenseController::class,
+        'validate',
+    ]
+)
+    ->withoutMiddleware(
+        \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class
+    )
+    ->middleware('throttle:30,1')
+    ->name('api.core.license.validate');
+
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_OFF_SERVER_CORE_LICENSE_ACTIVATION
+|--------------------------------------------------------------------------
+|
+| Initial activation endpoint for licensed off-server Esubiz Core.
+|
+| This endpoint does not grant normal Central API access.
+| It establishes the permanent:
+|
+| licence -> domain -> installation -> Central website identity
+|
+*/
+
+Route::post(
+    '/api/v1/core/license/activate',
+    [
+        \App\Http\Controllers\Api\OffServerLicenseController::class,
+        'activate',
+    ]
+)
+    /*
+     * Server-to-server activation endpoint.
+     *
+     * Off-server Core cannot possess an Esubiz browser CSRF token,
+     * so CSRF is disabled ONLY for this exact route.
+     *
+     * All Central Esubiz and SaaS browser routes remain protected.
+     */
+    ->withoutMiddleware(
+        \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class
+    )
+    ->middleware('throttle:20,1')
+    ->name('api.core.license.activate');
+

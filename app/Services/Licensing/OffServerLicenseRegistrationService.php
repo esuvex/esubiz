@@ -798,4 +798,309 @@ class OffServerLicenseRegistrationService
 
         return $registration;
     }
+
+
+    /**
+     * ESUBIZ_SAME_DOMAIN_REINSTALL_CONTRACT
+     *
+     * Determine whether a licence can be used by an installer.
+     *
+     * Rules:
+     *
+     * PENDING:
+     * - may be tested on a domain
+     * - no permanent domain mutation happens here
+     *
+     * ACTIVE:
+     * - same registered domain is valid
+     * - a new installation UUID means reinstall/server migration
+     * - different domain is permanently rejected
+     *
+     * This method is READ-ONLY.
+     */
+    public function installationEligibility(
+        object $registration,
+        string $domain,
+        ?string $installationUuid = null
+    ): array {
+
+        $normalizedDomain =
+            $this->assertDomainLock(
+                $registration,
+                $domain
+            );
+
+
+        $status =
+            strtolower(
+                trim(
+                    (string) (
+                        $registration->status
+                        ?? ''
+                    )
+                )
+            );
+
+
+        $registeredDomain =
+            trim(
+                (string) (
+                    $registration->registered_domain
+                    ?? ''
+                )
+            );
+
+
+        $currentInstallationUuid =
+            trim(
+                (string) (
+                    $registration->installation_uuid
+                    ?? ''
+                )
+            );
+
+
+        $requestedInstallationUuid =
+            trim(
+                (string) (
+                    $installationUuid
+                    ?? ''
+                )
+            );
+
+
+        $domainLocked =
+            $registeredDomain !== '';
+
+
+        $sameInstallation =
+            $currentInstallationUuid !== ''
+            && $requestedInstallationUuid !== ''
+            && hash_equals(
+                $currentInstallationUuid,
+                $requestedInstallationUuid
+            );
+
+
+        /*
+         * An active licence that passed assertDomainLock() is on
+         * its permanently registered domain.
+         *
+         * A different installation UUID therefore represents a
+         * legitimate reinstall/server migration, not licence theft
+         * to another domain.
+         */
+        $reinstallation =
+            $status === self::STATUS_ACTIVE
+            && $domainLocked
+            && !$sameInstallation;
+
+
+        return [
+            'allowed' =>
+                true,
+
+            'status' =>
+                $status,
+
+            'domain' =>
+                $normalizedDomain,
+
+            'domain_locked' =>
+                $domainLocked,
+
+            'same_installation' =>
+                $sameInstallation,
+
+            'reinstallation' =>
+                $reinstallation,
+
+            'website_id' =>
+                $registration->website_id
+                ?? null,
+
+            'current_installation_uuid' =>
+                $currentInstallationUuid !== ''
+                    ? $currentInstallationUuid
+                    : null,
+
+            'requested_installation_uuid' =>
+                $requestedInstallationUuid !== ''
+                    ? $requestedInstallationUuid
+                    : null,
+        ];
+    }
+
+
+    /**
+     * Complete a SAME-DOMAIN reinstall after the new Core
+     * installation has succeeded.
+     *
+     * IMPORTANT:
+     *
+     * - licence key remains unchanged
+     * - registered domain remains unchanged
+     * - domain hash remains unchanged
+     * - Central website_id remains unchanged
+     * - Central website_uuid remains unchanged
+     *
+     * Only the current installation identity is rebound.
+     *
+     * Checkpoint 4 will use this same successful rebind event to
+     * rotate/revoke API application credentials.
+     */
+    public function completeSameDomainReinstallation(
+        object $registration,
+        string $domain,
+        string $installationUuid
+    ): array {
+
+        $eligibility =
+            $this->installationEligibility(
+                $registration,
+                $domain,
+                $installationUuid
+            );
+
+
+        if (
+            strtolower(
+                (string) (
+                    $registration->status
+                    ?? ''
+                )
+            ) !== self::STATUS_ACTIVE
+        ) {
+            throw new \RuntimeException(
+                'Only an active Esubiz Core licence can be reinstalled.'
+            );
+        }
+
+
+        if (
+            empty(
+                $registration->website_id
+            )
+        ) {
+            throw new \RuntimeException(
+                'The active Esubiz Core licence has no Central website identity.'
+            );
+        }
+
+
+        /*
+         * Same installation calling activation again is idempotent.
+         */
+        if (
+            $eligibility[
+                'same_installation'
+            ]
+        ) {
+
+            $website =
+                \App\Models\Website::query()
+                    ->findOrFail(
+                        (int) $registration->website_id
+                    );
+
+
+            return [
+                'success' =>
+                    true,
+
+                'reinstalled' =>
+                    false,
+
+                'same_installation' =>
+                    true,
+
+                'license_status' =>
+                    self::STATUS_ACTIVE,
+
+                'registered_domain' =>
+                    $eligibility['domain'],
+
+                'installation_uuid' =>
+                    $registration->installation_uuid,
+
+                'website_id' =>
+                    $website->id,
+
+                'website_uuid' =>
+                    $website->website_uuid,
+
+                'deployment_type' =>
+                    $website->deployment_type,
+
+                'registry_status' =>
+                    $website->registry_status,
+            ];
+        }
+
+
+        /*
+         * The domain has already been verified by assertDomainLock().
+         * Rebind ONLY the installation UUID.
+         *
+         * Never modify registered_domain/domain_hash here.
+         */
+        \Illuminate\Support\Facades\DB::table(
+            'off_server_license_registrations'
+        )
+            ->where(
+                'id',
+                $registration->id
+            )
+            ->update([
+                'installation_uuid' =>
+                    $installationUuid,
+
+                'last_verified_at' =>
+                    now(),
+
+                'updated_at' =>
+                    now(),
+            ]);
+
+
+        $website =
+            \App\Models\Website::query()
+                ->findOrFail(
+                    (int) $registration->website_id
+                );
+
+
+        return [
+            'success' =>
+                true,
+
+            'reinstalled' =>
+                true,
+
+            'same_installation' =>
+                false,
+
+            'license_status' =>
+                self::STATUS_ACTIVE,
+
+            'registered_domain' =>
+                $eligibility['domain'],
+
+            'installation_uuid' =>
+                $installationUuid,
+
+            'website_id' =>
+                $website->id,
+
+            'website_uuid' =>
+                $website->website_uuid,
+
+            'deployment_type' =>
+                $website->deployment_type,
+
+            'registry_status' =>
+                $website->registry_status,
+        ];
+    }
+
 }
