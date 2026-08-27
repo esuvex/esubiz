@@ -39,6 +39,159 @@ class EsubizCentralSiteAiProvider implements SiteAiProvider
     ): array {
 
         /*
+         * ========================================================
+         * CHECKPOINT_7_AI_CENTRAL_AUTHORIZATION
+         * ========================================================
+         *
+         * AI execution remains inside CentralAiEngine.
+         *
+         * This authorization layer only establishes the trusted
+         * Central website identity before credits/provider/model
+         * execution begins.
+         *
+         * Supported website origins:
+         *
+         * - SaaS
+         * - Off-server
+         *
+         * Central user/admin AI may continue using its existing
+         * direct Central execution path.
+         */
+
+        $websiteId =
+            (int) (
+                $request['website_id']
+                ?? 0
+            );
+
+
+        if ($websiteId <= 0) {
+            throw new RuntimeException(
+                'Central AI request has no valid website identity.'
+            );
+        }
+
+
+        $website =
+            \App\Models\Website::query()
+                ->find(
+                    $websiteId
+                );
+
+
+        if (!$website) {
+            throw new RuntimeException(
+                'Central AI website identity was not found.'
+            );
+        }
+
+
+        $authorizer =
+            app(
+                \App\Services\CentralApi\CentralWebsiteAuthorizationService::class
+            );
+
+
+        if ($website->isOffServer()) {
+
+            /*
+             * Off-server AI must never trust website_id alone.
+             *
+             * The Core request must carry the current installation
+             * bearer token, which resolves back to this website.
+             */
+            $rawToken =
+                trim(
+                    (string) (
+                        $request['access_token']
+                        ?? $request['bearer_token']
+                        ?? ''
+                    )
+                );
+
+
+            if ($rawToken === '') {
+                throw new RuntimeException(
+                    'Off-server AI requires an authenticated Esubiz installation token.'
+                );
+            }
+
+
+            $fakeRequest =
+                \Illuminate\Http\Request::create(
+                    '/',
+                    'POST'
+                );
+
+
+            $fakeRequest->headers->set(
+                'Authorization',
+                'Bearer ' . $rawToken
+            );
+
+
+            $identity =
+                $authorizer->authorizeService(
+                    \App\Support\CentralApi\CentralServiceScopeRegistry::AI_USE,
+                    \App\Services\CentralApi\CentralWebsiteAuthorizationService::ORIGIN_OFF_SERVER,
+                    $fakeRequest
+                );
+
+
+            if (
+                (int) (
+                    $identity['website_id']
+                    ?? 0
+                )
+                !== $websiteId
+            ) {
+                throw new RuntimeException(
+                    'Off-server AI token does not belong to the requested website.'
+                );
+            }
+
+        } elseif ($website->isSaas()) {
+
+            /*
+             * SaaS website identity is trusted through the Central
+             * registry. User/session authorization remains handled
+             * by the SaaS application entry point.
+             */
+            $identity =
+                $authorizer->authorizeService(
+                    \App\Support\CentralApi\CentralServiceScopeRegistry::AI_USE,
+                    \App\Services\CentralApi\CentralWebsiteAuthorizationService::ORIGIN_SAAS,
+                    $website,
+                    isset($request['user_id'])
+                        ? (int) $request['user_id']
+                        : null
+                );
+
+        } else {
+
+            throw new RuntimeException(
+                'Central AI website deployment type is unsupported.'
+            );
+        }
+
+
+        /*
+         * Replace externally supplied identity with the trusted
+         * Central identity returned by the authorizer.
+         */
+        $request['website_id'] =
+            (int) $identity['website_id'];
+
+        $request['website_uuid'] =
+            $identity['website_uuid']
+            ?? null;
+
+        $request['deployment_type'] =
+            $identity['deployment_type']
+            ?? null;
+
+
+        /*
         |--------------------------------------------------------------------------
         | WEBSITE IDENTITY
         |--------------------------------------------------------------------------

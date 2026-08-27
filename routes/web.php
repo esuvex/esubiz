@@ -1807,3 +1807,48 @@ Route::get(
         'marketplace.off-server.checkout.handoff'
     );
 
+
+/*
+ * ================================================================
+ * CHECKPOINT_7_ACTIVE_GIFTCARD_API_ROUTES
+ * ================================================================
+ *
+ * This application currently exposes its Core Central API endpoints
+ * through the active web route bootstrap.
+ *
+ * Keep Gift Card authorization inside the controller/service layer:
+ *
+ * bearer
+ * -> installation
+ * -> website
+ * -> active licence
+ * -> giftcard scope
+ * -> Central GiftCardService
+ */
+Route::middleware([
+    'throttle:20,1',
+])->group(function () {
+
+    Route::post(
+        '/api/v1/core/giftcard/validate',
+        [
+            \App\Http\Controllers\Api\OffServerGiftCardController::class,
+            'validateCard',
+        ]
+    )->name(
+        'api.core.giftcard.validate'
+    );
+
+
+    Route::post(
+        '/api/v1/core/giftcard/redeem',
+        [
+            \App\Http\Controllers\Api\OffServerGiftCardController::class,
+            'redeem',
+        ]
+    )->name(
+        'api.core.giftcard.redeem'
+    );
+
+});
+
