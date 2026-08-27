@@ -11,6 +11,69 @@ use RuntimeException;
 
 class WebsiteCreditService
 {
+    /*
+     * CHECKPOINT_8_CENTRAL_CREDIT_BRIDGE
+     *
+     * WebsiteCreditService remains the compatibility facade used by
+     * existing Marketplace fulfilment and service callers.
+     *
+     * CentralWebsiteCreditService is now the authoritative balance
+     * ledger for:
+     *
+     * - AI
+     * - SMS
+     * - Email
+     * - WhatsApp
+     */
+    protected function centralCredits():
+        \App\Services\CentralApi\CentralWebsiteCreditService
+    {
+        return app(
+            \App\Services\CentralApi\CentralWebsiteCreditService::class
+        );
+    }
+
+
+    protected function centralServiceName(
+        string $creditType
+    ): string {
+
+        return match (
+            strtolower(
+                trim(
+                    $creditType
+                )
+            )
+        ) {
+
+            'ai',
+            'ai_credit',
+            'ai_credits' =>
+                \App\Services\CentralApi\CentralWebsiteCreditService::SERVICE_AI,
+
+            'sms',
+            'sms_credit',
+            'sms_credits' =>
+                \App\Services\CentralApi\CentralWebsiteCreditService::SERVICE_SMS,
+
+            'email',
+            'email_credit',
+            'email_credits' =>
+                \App\Services\CentralApi\CentralWebsiteCreditService::SERVICE_EMAIL,
+
+            'whatsapp',
+            'whatsapp_credit',
+            'whatsapp_credits' =>
+                \App\Services\CentralApi\CentralWebsiteCreditService::SERVICE_WHATSAPP,
+
+            default =>
+                throw new \InvalidArgumentException(
+                    "Unsupported Esubiz credit type [{$creditType}]."
+                ),
+        };
+    }
+
+
     public function __construct(
         protected CreditTypeRegistry $registry
     ) {
@@ -335,4 +398,82 @@ class WebsiteCreditService
             5
         );
     }
+
+
+    /**
+     * Canonical Central balance lookup.
+     */
+    public function centralBalance(
+        int $websiteId,
+        string $creditType
+    ): float {
+
+        return $this->centralCredits()
+            ->balance(
+                $websiteId,
+                $this->centralServiceName(
+                    $creditType
+                )
+            );
+    }
+
+
+    /**
+     * Canonical Central purchase/funding credit.
+     */
+    public function centralCredit(
+        int $websiteId,
+        string $creditType,
+        float $amount,
+        ?string $requestKey = null,
+        array $context = []
+    ): array {
+
+        return $this->centralCredits()
+            ->credit(
+                $websiteId,
+                $this->centralServiceName(
+                    $creditType
+                ),
+                $amount,
+                $requestKey,
+                $context
+            );
+    }
+
+
+    /**
+     * Canonical Central service consumption.
+     */
+    public function centralConsume(
+        int $websiteId,
+        string $creditType,
+        float $amount,
+        string $requestKey,
+        array $context = []
+    ): array {
+
+        return $this->centralCredits()
+            ->consume(
+                $websiteId,
+                $this->centralServiceName(
+                    $creditType
+                ),
+                $amount,
+                $requestKey,
+                $context
+            );
+    }
+
+
+    public function centralBalances(
+        int $websiteId
+    ): array {
+
+        return $this->centralCredits()
+            ->balances(
+                $websiteId
+            );
+    }
+
 }

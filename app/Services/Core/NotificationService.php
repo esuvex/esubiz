@@ -25,6 +25,7 @@ class NotificationService
         ?int $workspaceId = null,
         ?string $reference = null,
         $notifiable = null,
+        ?int $websiteId = null,
     ): Notification {
         $channel = NotificationChannel::query()
             ->where('type', $type)
@@ -59,6 +60,74 @@ class NotificationService
             );
         }
 
+
+        /*
+         * ========================================================
+         * CHECKPOINT 8 — CENTRAL SERVICE CREDIT BILLING
+         * ========================================================
+         *
+         * Only website-bound metered services are billed here.
+         *
+         * Existing Central/internal notifications with no website_id
+         * remain unchanged.
+         */
+        $billableService =
+            in_array(
+                $channel->type,
+                [
+                    'email',
+                    'sms',
+                    'whatsapp',
+                ],
+                true
+            )
+            && $websiteId !== null
+            && $websiteId > 0;
+
+
+        $creditService = null;
+        $creditAmount = 0.0;
+
+
+        if ($billableService) {
+
+            $creditService =
+                app(
+                    \App\Services\CentralApi\CentralServiceCreditConsumptionService::class
+                );
+
+
+            /*
+             * Initial charging model:
+             *
+             * 1 successful notification delivery = 1 service credit.
+             *
+             * Provider-specific pricing can later replace this with
+             * exact segment/message/API-cost metering without changing
+             * this authorization/ledger architecture.
+             */
+            $creditAmount =
+                1.0;
+
+
+            if (
+                !$creditService->has(
+                    $websiteId,
+                    $channel->type,
+                    $creditAmount
+                )
+            ) {
+                throw new RuntimeException(
+                    'Insufficient Esubiz '
+                    . strtoupper(
+                        $channel->type
+                    )
+                    . ' credits.'
+                );
+            }
+        }
+
+
         $subject = $this->render(
             $notificationTemplate->subject ?? '',
             $variables
@@ -88,6 +157,57 @@ class NotificationService
             $driver = $this->driverFactory->make($channel->type);
 
             $driver->send($notification);
+
+
+            /*
+             * Provider has succeeded.
+             *
+             * Only now may Central consume service credits.
+             */
+            if (
+                $billableService
+                && $creditService
+            ) {
+
+                $creditService->consume(
+                    $websiteId,
+                    $channel->type,
+                    $creditAmount,
+                    'notification:'
+                        . $notification->uuid,
+                    [
+                        'user_id' =>
+                            $userId,
+
+                        'source_type' =>
+                            'notification',
+
+                        'source_id' =>
+                            (string) $notification->uuid,
+
+                        'metadata' => [
+                            'notification_id' =>
+                                $notification->id,
+
+                            'notification_uuid' =>
+                                $notification->uuid,
+
+                            'channel' =>
+                                $channel->type,
+
+                            'template' =>
+                                $template,
+
+                            'recipient' =>
+                                $recipient,
+
+                            'reference' =>
+                                $notification->reference,
+                        ],
+                    ]
+                );
+            }
+
 
             $notification->update([
                 'status' => 'sent',

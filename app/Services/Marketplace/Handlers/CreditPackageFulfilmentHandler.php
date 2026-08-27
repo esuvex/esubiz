@@ -235,12 +235,22 @@ class CreditPackageFulfilmentHandler
 
         /*
         |--------------------------------------------------------------------------
-        | GENERIC CENTRAL CREDIT
+        | CHECKPOINT 8 — AUTHORITATIVE CENTRAL SERVICE CREDIT
         |--------------------------------------------------------------------------
+        |
+        | Marketplace purchases now credit the Central Esubiz service
+        | ledger directly.
+        |
+        | SaaS and off-server websites may display/use this balance,
+        | but neither deployment may create authoritative credits in
+        | its own local database.
+        |
+        | The Marketplace order identity remains the idempotency key.
+        |
         */
 
         $transaction =
-            $this->credits->credit(
+            $this->credits->centralCredit(
                 $websiteId,
                 $creditType,
                 $totalCredits,
@@ -251,30 +261,29 @@ class CreditPackageFulfilmentHandler
                         ?? $order->user_id
                         ?? null,
 
-                    'workspace_id' =>
-                        $order->workspace_id
+                    'installation_id' =>
+                        $order->installation_id
                         ?? null,
-
-                    'type' =>
-                        'marketplace_credit_purchase',
 
                     'source_type' =>
                         'marketplace_order',
 
                     'source_id' =>
-                        (string) (
-                            $order->id
-                            ?? $orderIdentity
-                        ),
-
-                    'description' =>
-                        (
-                            $package->name
-                            ?? 'Credit Package'
-                        )
-                        . ' purchase',
+                        isset($order->id)
+                            ? (int) $order->id
+                            : null,
 
                     'metadata' => [
+                        'type' =>
+                            'marketplace_credit_purchase',
+
+                        'description' =>
+                            (
+                                $package->name
+                                ?? 'Credit Package'
+                            )
+                            . ' purchase',
+
                         'marketplace_order_id' =>
                             $order->id
                             ?? null,
@@ -309,6 +318,10 @@ class CreditPackageFulfilmentHandler
                         'deployment_type' =>
                             $order->deployment_type
                             ?? null,
+
+                        'workspace_id' =>
+                            $order->workspace_id
+                            ?? null,
                     ],
                 ]
             );
@@ -320,6 +333,16 @@ class CreditPackageFulfilmentHandler
 
             'fulfilled' =>
                 true,
+
+            /*
+             * Repeated payment verification/fulfilment returns the
+             * existing Central transaction without adding credits.
+             */
+            'already_processed' =>
+                (bool) (
+                    $transaction['already_processed']
+                    ?? false
+                ),
 
             'product_type' =>
                 'credit_package',
@@ -343,19 +366,37 @@ class CreditPackageFulfilmentHandler
                 $purchaseQuantity,
 
             'credits_added' =>
-                (float) $transaction->credits,
+                (float) (
+                    $transaction['amount']
+                    ?? $totalCredits
+                ),
 
             'balance_before' =>
-                (float) $transaction->balance_before,
+                (float) (
+                    $transaction['balance_before']
+                    ?? 0
+                ),
 
             'balance_after' =>
-                (float) $transaction->balance_after,
+                (float) (
+                    $transaction['balance_after']
+                    ?? 0
+                ),
 
             'transaction_id' =>
-                $transaction->id,
+                $transaction['transaction_id']
+                ?? null,
 
+            /*
+             * Central service-credit transactions use request_key
+             * as their immutable external transaction identity.
+             */
             'transaction_reference' =>
-                $transaction->reference,
+                $transaction['request_key']
+                ?? $requestKey,
+
+            'central_service_ledger' =>
+                true,
         ];
     }
 }

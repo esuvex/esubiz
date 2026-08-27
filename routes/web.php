@@ -1852,3 +1852,52 @@ Route::middleware([
 
 });
 
+
+/*
+ * ================================================================
+ * CHECKPOINT_8_OFF_SERVER_COMMUNICATION_ROUTES
+ * ================================================================
+ *
+ * Off-server Core authenticated Central communication services.
+ *
+ * Authentication and scope checks occur through the installation
+ * bearer-token authorization gateway.
+ */
+Route::middleware([
+    'throttle:30,1',
+])->group(function () {
+
+    Route::post(
+        '/api/v1/core/sms/send',
+        [
+            \App\Http\Controllers\Api\OffServerCommunicationController::class,
+            'sms',
+        ]
+    )->name(
+        'api.core.sms.send'
+    );
+
+
+    Route::post(
+        '/api/v1/core/email/send',
+        [
+            \App\Http\Controllers\Api\OffServerCommunicationController::class,
+            'email',
+        ]
+    )->name(
+        'api.core.email.send'
+    );
+
+
+    Route::post(
+        '/api/v1/core/whatsapp/send',
+        [
+            \App\Http\Controllers\Api\OffServerCommunicationController::class,
+            'whatsapp',
+        ]
+    )->name(
+        'api.core.whatsapp.send'
+    );
+
+});
+

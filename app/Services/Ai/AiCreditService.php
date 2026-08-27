@@ -20,13 +20,29 @@ class AiCreditService
     }
 
 
+    /*
+     * CHECKPOINT 8 — CENTRAL AI CREDIT AUTHORITY
+     *
+     * AI balance and consumption are authoritative in the
+     * Central Esubiz website service-credit ledger.
+     *
+     * SaaS tenant databases and off-server Core databases
+     * cannot manufacture or alter the authoritative balance.
+     */
+
     public function balance(
         Website|int $website
     ): float {
 
-        return $this->credits->balance(
-            $website,
-            'ai_credits'
+        $websiteId =
+            $website instanceof Website
+                ? (int) $website->id
+                : (int) $website;
+
+
+        return $this->credits->centralBalance(
+            $websiteId,
+            'ai'
         );
     }
 
@@ -36,11 +52,9 @@ class AiCreditService
         float $credits
     ): bool {
 
-        return $this->credits->has(
-            $website,
-            'ai_credits',
-            $credits
-        );
+        return $this->balance(
+            $website
+        ) >= $credits;
     }
 
 
@@ -51,12 +65,75 @@ class AiCreditService
         array $context = []
     ) {
 
-        return $this->credits->debit(
-            $website,
-            'ai_credits',
+        $websiteId =
+            $website instanceof Website
+                ? (int) $website->id
+                : (int) $website;
+
+
+        /*
+         * centralConsume() provides:
+         *
+         * - authoritative Central balance
+         * - row locking / concurrency protection
+         * - insufficient-credit protection
+         * - request-key idempotency
+         *
+         * Therefore ai-usage:<request_uuid> can never charge
+         * the same AI request twice.
+         */
+        return $this->credits->centralConsume(
+            $websiteId,
+            'ai',
             $credits,
             $requestKey,
-            $context
+            [
+                'user_id' =>
+                    $context['user_id']
+                    ?? null,
+
+                'installation_id' =>
+                    $context['installation_id']
+                    ?? null,
+
+                'source_type' =>
+                    $context['source_type']
+                    ?? 'central_ai_engine',
+
+                'source_id' =>
+                    $context['source_id']
+                    ?? null,
+
+                'metadata' => [
+                    'type' =>
+                        $context['type']
+                        ?? 'ai_usage',
+
+                    'description' =>
+                        $context['description']
+                        ?? 'Esubiz AI usage',
+
+                    'workspace_id' =>
+                        $context['workspace_id']
+                        ?? null,
+
+                    'ai_usage_log_id' =>
+                        $context['ai_usage_log_id']
+                        ?? null,
+
+                    'ai_model_id' =>
+                        $context['ai_model_id']
+                        ?? null,
+
+                    'route_key' =>
+                        $context['route_key']
+                        ?? null,
+
+                    'usage_metadata' =>
+                        $context['metadata']
+                        ?? [],
+                ],
+            ]
         );
     }
 
