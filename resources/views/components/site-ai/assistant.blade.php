@@ -2937,8 +2937,28 @@
                     return;
                 }
 
-                const message =
+                /*
+                 * ESUBIZ_TYPING_EDIT_PHOTO_RESTORE_V3
+                 *
+                 * The AI typing row may be appended before this
+                 * delayed user-message enhancement executes.
+                 * Skip temporary typing rows.
+                 */
+                let message =
                     root.lastElementChild;
+
+                while (
+                    message
+                    && (
+                        message.dataset?.esubizAiTyping === '1'
+                        || message.classList?.contains(
+                            'esubiz-site-ai-typing-row'
+                        )
+                    )
+                ) {
+                    message =
+                        message.previousElementSibling;
+                }
 
                 if (!message) {
                     return;
