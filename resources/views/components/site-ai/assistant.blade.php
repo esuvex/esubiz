@@ -674,6 +674,159 @@
     }
 
 
+
+
+/* =========================================================
+ * ESUBIZ_CHATGPT_COMPOSER_V1
+ * ========================================================= */
+
+.esubiz-ai-composer {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+    margin-top: 14px;
+    padding: 8px 10px 9px;
+    border: 1px solid rgba(127, 127, 127, .24);
+    border-radius: 18px;
+    background: inherit;
+    overflow: visible;
+}
+
+.esubiz-ai-composer textarea[data-site-ai-prompt] {
+    box-sizing: border-box;
+    display: block;
+    width: 100%;
+    min-height: 62px;
+    max-height: 180px;
+    margin: 0;
+    padding: 8px 5px;
+    border: 0 !important;
+    outline: 0 !important;
+    box-shadow: none !important;
+    resize: none;
+    background: transparent !important;
+    color: inherit;
+    font: inherit;
+    line-height: 1.45;
+}
+
+.esubiz-ai-composer textarea[data-site-ai-prompt]:focus {
+    border: 0 !important;
+    outline: 0 !important;
+    box-shadow: none !important;
+}
+
+.esubiz-ai-composer-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    margin-top: 3px;
+}
+
+.esubiz-ai-composer-tools {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    gap: 8px;
+}
+
+.esubiz-ai-composer-attach {
+    box-sizing: border-box;
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    margin: 0;
+    padding: 0;
+    border: 1px solid rgba(127, 127, 127, .28);
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    user-select: none;
+}
+
+.esubiz-ai-composer-attach:hover {
+    background: rgba(127, 127, 127, .10);
+}
+
+.esubiz-ai-composer-attach > span {
+    display: block;
+    font-size: 22px;
+    font-weight: 400;
+    line-height: 1;
+    transform: translateY(-1px);
+}
+
+.esubiz-ai-composer-limit {
+    overflow: hidden;
+    max-width: 230px;
+    color: inherit;
+    font-size: 10px;
+    line-height: 1.2;
+    opacity: .55;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.esubiz-ai-composer-send {
+    flex: 0 0 auto;
+    width: auto !important;
+    min-width: 64px;
+    margin: 0 !important;
+    padding: 8px 14px !important;
+    border-radius: 999px !important;
+}
+
+.esubiz-ai-composer-previews {
+    display: none;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+    margin: 0 !important;
+    padding: 3px 3px 7px;
+}
+
+/*
+ * Existing JS inserts .esubiz-ai-reference-item elements here.
+ * :has() makes the preview strip appear only when photos exist.
+ */
+.esubiz-ai-composer-previews:has(.esubiz-ai-reference-item) {
+    display: flex;
+}
+
+.esubiz-ai-composer-previews .esubiz-ai-reference-item {
+    width: 54px;
+    height: 54px;
+}
+
+.esubiz-ai-composer-previews .esubiz-ai-reference-thumb {
+    width: 54px;
+    height: 54px;
+    border-radius: 10px;
+}
+
+.esubiz-ai-composer-previews .esubiz-ai-reference-remove {
+    top: -5px;
+    right: -5px;
+}
+
+@media (max-width: 520px) {
+
+    .esubiz-ai-composer-limit {
+        max-width: 150px;
+    }
+
+}
+
+
 </style>
 
 
@@ -1270,47 +1423,6 @@
                     </div>
 
 
-                    {{-- REFERENCE PHOTO ATTACHMENTS --}}
-                    <div class="esubiz-ai-reference-box">
-
-                        <div class="esubiz-ai-reference-heading">
-
-                            <div>
-                                <strong>
-                                    Reference photos
-                                </strong>
-
-                                <span>
-                                    Optional · up to {{ $esubizAiChatLimits['max_photos_per_message'] }} photo{{ $esubizAiChatLimits['max_photos_per_message'] === 1 ? '' : 's' }} · {{ $esubizAiChatLimits['max_photo_size_mb'] }} MB each
-                                </span>
-                            </div>
-
-
-                            <label class="esubiz-ai-add-reference">
-
-                                <input
-                                    type="file"
-                                    accept="image/jpeg,image/png,image/webp"
-                                    multiple
-                                    data-site-ai-reference-input
-                                    hidden
-                                >
-
-                                + Add photos
-
-                            </label>
-
-                        </div>
-
-
-                        <div
-                            data-site-ai-reference-previews
-                            class="esubiz-ai-reference-previews"
-                        ></div>
-
-                    </div>
-
-
                     {{-- CHAT HISTORY --}}
                     <div
                         data-site-ai-conversation
@@ -1318,23 +1430,65 @@
                     ></div>
 
 
-                    {{-- COMPOSER --}}
+                    {{-- ESUBIZ_CHATGPT_COMPOSER_V1 --}}
                     <div class="esubiz-ai-composer">
+
+                        {{-- Selected attachments now live inside composer --}}
+                        <div
+                            data-site-ai-reference-previews
+                            class="esubiz-ai-reference-previews esubiz-ai-composer-previews"
+                        ></div>
+
 
                         <textarea
                             data-site-ai-prompt
-                            rows="4"
-                            placeholder="Describe what you want AI to create..."
+                            rows="3"
+                            placeholder="Message AI..."
                         ></textarea>
 
 
-                        <button
-                            type="button"
-                            data-site-ai-send
-                            class="esubiz-ai-primary-button"
-                        >
-                            Generate with AI
-                        </button>
+                        <div class="esubiz-ai-composer-toolbar">
+
+                            <div class="esubiz-ai-composer-tools">
+
+                                <label
+                                    class="esubiz-ai-composer-attach"
+                                    title="Add photos"
+                                    aria-label="Add photos"
+                                >
+
+                                    <input
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/webp"
+                                        multiple
+                                        data-site-ai-reference-input
+                                        hidden
+                                    >
+
+                                    <span aria-hidden="true">
+                                        +
+                                    </span>
+
+                                </label>
+
+
+                                <span class="esubiz-ai-composer-limit">
+                                    Up to {{ $esubizAiChatLimits['max_photos_per_message'] }} photo{{ $esubizAiChatLimits['max_photos_per_message'] === 1 ? '' : 's' }}
+                                    · {{ $esubizAiChatLimits['max_photo_size_mb'] }} MB each
+                                </span>
+
+                            </div>
+
+
+                            <button
+                                type="button"
+                                data-site-ai-send
+                                class="esubiz-ai-primary-button esubiz-ai-composer-send"
+                            >
+                                Send
+                            </button>
+
+                        </div>
 
                     </div>
 
@@ -3924,20 +4078,23 @@
 
 
                 /*
-                 * Clear only composer attachment previews.
+                 * ESUBIZ_COMPOSER_PREVIEW_CLEAR_V2
                  *
-                 * Historical message images are outside these upload
-                 * controls and remain in the conversation.
+                 * Clear the actual composer preview container
+                 * after preparedReferenceImages has already
+                 * captured the outgoing photos.
+                 *
+                 * Historical message photos are rendered in the
+                 * conversation and are intentionally untouched.
                  */
-                document
-                    .querySelectorAll(
-                        '[data-site-ai-reference-preview],'
-                        + '[data-site-ai-reference-item],'
-                        + '[data-site-ai-upload-preview]'
-                    )
-                    .forEach(function (element) {
-                        element.remove();
-                    });
+                const esubizReferencePreviews =
+                    root.querySelector(
+                        '[data-site-ai-reference-previews]'
+                    );
+
+                if (esubizReferencePreviews) {
+                    esubizReferencePreviews.replaceChildren();
+                }
 
 
                 /*
