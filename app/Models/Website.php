@@ -7,16 +7,183 @@ use Illuminate\Database\Eloquent\Model;
 
 class Website extends Model
 {
+
+    /*
+     * ============================================================
+     * ESUBIZ_UNIFIED_WEBSITE_IDENTITY
+     * ============================================================
+     *
+     * Every website known to Esubiz has one permanent Central
+     * identity regardless of where checkout originates.
+     *
+     * Deployment:
+     * - saas
+     * - off_server
+     *
+     * "central" is not a deployment type. It is a checkout origin.
+     */
+
+    public const DEPLOYMENT_SAAS =
+        'saas';
+
+    public const DEPLOYMENT_OFF_SERVER =
+        'off_server';
+
+    public const REGISTRY_ACTIVE =
+        'active';
+
+    public const REGISTRY_SUSPENDED =
+        'suspended';
+
+    public const REGISTRY_REVOKED =
+        'revoked';
+
+
+    public function isSaas(): bool
+    {
+        return $this->deployment_type
+            === static::DEPLOYMENT_SAAS;
+    }
+
+
+    public function isOffServer(): bool
+    {
+        return $this->deployment_type
+            === static::DEPLOYMENT_OFF_SERVER;
+    }
+
+
+    public function isRegistryActive(): bool
+    {
+        return $this->registry_status
+            === static::REGISTRY_ACTIVE;
+    }
+
+
+    /**
+     * Public-safe Central website identity for APIs,
+     * installations, licensing and Marketplace handoffs.
+     */
+    public function centralWebsiteIdentity(): string
+    {
+        return (string) (
+            $this->website_uuid
+            ?: $this->id
+        );
+    }
+
+
+    /**
+     * Current canonical registered host.
+     */
+    public function registeredHost(): ?string
+    {
+        $domain =
+            strtolower(
+                trim(
+                    (string) $this->registered_domain
+                )
+            );
+
+        return $domain !== ''
+            ? $domain
+            : null;
+    }
+
+
     use HasFactory;
 
     protected static function booted(): void
     {
+
+        /*
+         * ESUBIZ_CENTRAL_WEBSITE_IDENTITY_CREATION
+         */
+        static::creating(
+            function (Website $website): void {
+
+                if (
+                    empty(
+                        $website->website_uuid
+                    )
+                ) {
+                    $website->website_uuid =
+                        (string)
+                        \Illuminate\Support\Str::uuid();
+                }
+
+
+                if (
+                    empty(
+                        $website->deployment_type
+                    )
+                ) {
+                    $website->deployment_type =
+                        static::DEPLOYMENT_SAAS;
+                }
+
+
+                if (
+                    empty(
+                        $website->registry_status
+                    )
+                ) {
+                    $website->registry_status =
+                        static::REGISTRY_ACTIVE;
+                }
+
+
+                if (
+                    empty(
+                        $website->registered_at
+                    )
+                ) {
+                    $website->registered_at =
+                        now();
+                }
+
+
+                /*
+                 * SaaS default domain.
+                 *
+                 * Off-server registration will explicitly supply its
+                 * licensed domain during Central licence activation.
+                 */
+                if (
+                    $website->deployment_type
+                        === static::DEPLOYMENT_SAAS
+                    && empty(
+                        $website->registered_domain
+                    )
+                    && !empty(
+                        $website->subdomain
+                    )
+                ) {
+                    $website->registered_domain =
+                        strtolower(
+                            trim(
+                                (string)
+                                $website->subdomain
+                            )
+                        )
+                        . '.esubiz.com';
+                }
+            }
+        );
+
+
         static::deleting(function (Website $website) {
             $website->apiApplication()->delete();
         });
     }
 
     protected $fillable = [
+        'website_uuid',
+        'deployment_type',
+        'registered_domain',
+        'registry_status',
+        'registered_at',
+        'last_central_seen_at',
 
         /*
         |--------------------------------------------------------------------------

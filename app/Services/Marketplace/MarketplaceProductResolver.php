@@ -55,11 +55,39 @@ class MarketplaceProductResolver
             return null;
         }
 
-        return DB::table($table)
-            ->where('id', $id)
-            ->where('is_active', true)
-            ->whereNull('deleted_at')
-            ->first();
+        $query =
+            DB::table($table)
+                ->where(
+                    'id',
+                    $id
+                )
+                ->where(
+                    'is_active',
+                    true
+                );
+
+        /*
+         * Marketplace product registries do not all use
+         * Laravel SoftDeletes.
+         *
+         * Apply the deleted_at constraint only when the
+         * underlying product table actually provides it.
+         *
+         * This keeps the resolver generic for credit packages
+         * and future pluggable Marketplace product types.
+         */
+        if (
+            \Illuminate\Support\Facades\Schema::hasColumn(
+                $table,
+                'deleted_at'
+            )
+        ) {
+            $query->whereNull(
+                'deleted_at'
+            );
+        }
+
+        return $query->first();
     }
 
     /**
