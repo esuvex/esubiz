@@ -551,8 +551,54 @@ class OffServerLicenseRegistrationService
 
 
                     $website->forceFill([
+                        /*
+                         * Existing canonical Website UUID required
+                         * by the original websites schema.
+                         */
+                        'uuid' =>
+                            (string) \Illuminate\Support\Str::uuid(),
+
                         'owner_id' =>
                             (int) $registration->user_id,
+
+                        /*
+                         * Existing websites schema requires a name.
+                         *
+                         * For first off-server registration use the
+                         * licensed domain as the canonical default.
+                         * The website owner may later change the
+                         * display/business name without changing
+                         * licence or website identity.
+                         */
+                        'name' =>
+                            $domain,
+
+                        /*
+                         * Existing websites schema also requires
+                         * a non-null slug.
+                         *
+                         * Build a unique Central registry slug from
+                         * the licensed domain without changing the
+                         * actual registered domain.
+                         */
+                        'slug' =>
+                            'offserver-'
+                            . \Illuminate\Support\Str::slug(
+                                $domain
+                            )
+                            . '-'
+                            . strtolower(
+                                substr(
+                                    str_replace(
+                                        '-',
+                                        '',
+                                        (string)
+                                        \Illuminate\Support\Str::uuid()
+                                    ),
+                                    0,
+                                    8
+                                )
+                            ),
 
                         'deployment_type' =>
                             Website::DEPLOYMENT_OFF_SERVER,

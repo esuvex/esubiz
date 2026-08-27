@@ -514,6 +514,89 @@ class OffServerLicenseController extends Controller
             }
 
 
+            /*
+             * ====================================================
+             * ESUBIZ_OFF_SERVER_INSTALLATION_API_BINDING
+             * ====================================================
+             *
+             * The licence/domain/website identity has already been
+             * successfully activated above.
+             *
+             * Now establish the currently authorized Core
+             * installation and issue its Central API credentials.
+             *
+             * On a same-domain reinstall:
+             *
+             * - website_id is preserved
+             * - website_uuid is preserved
+             * - licence is preserved
+             * - registered domain is preserved
+             * - previous installation becomes superseded
+             * - previous installation bearer tokens are revoked
+             * - new installation receives a fresh bearer token
+             */
+            $activatedRegistration =
+                DB::table(
+                    'off_server_license_registrations'
+                )
+                    ->where(
+                        'id',
+                        $registration->id
+                    )
+                    ->first();
+
+
+            if (!$activatedRegistration) {
+                throw new \RuntimeException(
+                    'Activated Core licence registration could not be reloaded.'
+                );
+            }
+
+
+            $website =
+                \App\Models\Website::query()
+                    ->find(
+                        (int) $result['website_id']
+                    );
+
+
+            if (!$website) {
+                throw new \RuntimeException(
+                    'Central website identity could not be loaded after Core activation.'
+                );
+            }
+
+
+            $installation =
+                app(
+                    \App\Services\Licensing\OffServerInstallationService::class
+                )->registerSuccessfulInstallation(
+                    $activatedRegistration,
+                    $website,
+                    $data['installation_uuid'],
+                    [
+                        'activation_source' =>
+                            'core_installer',
+
+                        'reinstallation' =>
+                            (bool) (
+                                $result['reinstallation']
+                                ?? false
+                            ),
+                    ]
+                );
+
+
+            $apiCredentials =
+                app(
+                    \App\Services\Licensing\OffServerApiCredentialService::class
+                )->bind(
+                    $activatedRegistration,
+                    $website,
+                    $installation
+                );
+
+
             return response()->json([
                 'success' =>
                     true,
@@ -545,6 +628,48 @@ class OffServerLicenseController extends Controller
                     'domain_locked' =>
                         true,
                 ],
+
+                /*
+                 * Core stores this bearer token securely in its
+                 * server-side configuration.
+                 *
+                 * The raw token is never stored by Central Esubiz;
+                 * only its SHA-256 hash is retained.
+                 */
+                'central_api' => [
+                    'website_id' =>
+                        $website->id,
+
+                    'website_uuid' =>
+                        $website->website_uuid,
+
+                    'installation_id' =>
+                        $installation->id,
+
+                    'installation_uuid' =>
+                        $installation->installation_uuid,
+
+                    'api_application_id' =>
+                        $apiCredentials[
+                            'api_application_id'
+                        ],
+
+                    'access_token' =>
+                        $apiCredentials[
+                            'access_token'
+                        ],
+
+                    'token_type' =>
+                        $apiCredentials[
+                            'token_type'
+                        ],
+
+                    'scopes' =>
+                        $apiCredentials[
+                            'scopes'
+                        ],
+                ],
+
 
                 'installation' => [
                     'uuid' =>
