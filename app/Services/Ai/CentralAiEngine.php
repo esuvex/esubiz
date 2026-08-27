@@ -297,7 +297,11 @@ class CentralAiEngine
                 $model->model_key,
 
             'input' =>
-                $input,
+                        $this->buildSiteAiProviderInput(
+                            $routeKey,
+                            $input,
+                            $options
+                        ),
         ];
 
 
@@ -672,19 +676,19 @@ class CentralAiEngine
                     $pricing,
 
                 'credit_transaction_id' =>
-                    $creditTransaction?->id,
+                    data_get($creditTransaction, 'id'),
 
                 'credit_transaction_reference' =>
-                    $creditTransaction?->reference,
+                    data_get($creditTransaction, 'reference'),
 
                 'balance_before' =>
                     $creditTransaction
-                        ? (float) $creditTransaction->balance_before
+                        ? (float) data_get($creditTransaction, 'balance_before')
                         : null,
 
                 'balance_after' =>
                     $creditTransaction
-                        ? (float) $creditTransaction->balance_after
+                        ? (float) data_get($creditTransaction, 'balance_after')
                         : null,
 
                 'model_key' =>
@@ -748,19 +752,19 @@ class CentralAiEngine
                         : 0,
 
                 'transaction_id' =>
-                    $creditTransaction?->id,
+                    data_get($creditTransaction, 'id'),
 
                 'reference' =>
-                    $creditTransaction?->reference,
+                    data_get($creditTransaction, 'reference'),
 
                 'balance_before' =>
                     $creditTransaction
-                        ? (float) $creditTransaction->balance_before
+                        ? (float) data_get($creditTransaction, 'balance_before')
                         : null,
 
                 'balance_after' =>
                     $creditTransaction
-                        ? (float) $creditTransaction->balance_after
+                        ? (float) data_get($creditTransaction, 'balance_after')
                         : null,
             ],
 
@@ -889,4 +893,121 @@ class CentralAiEngine
             )
         );
     }
+
+
+    /*
+     * SAFE_SITE_AI_VISION_INPUT
+     *
+     * Convert Site AI reference images into the OpenAI Responses
+     * multimodal input contract.
+     *
+     * Text-only AI requests remain unchanged.
+     */
+    protected function buildSiteAiProviderInput(
+        string $routeKey,
+        string $input,
+        array $options
+    ): string|array {
+
+        if ($routeKey !== 'site') {
+            return $input;
+        }
+
+
+        /*
+         * SITE_AI_CONTEXT_VISION_FALLBACK
+         *
+         * Canonical location remains payload.reference_images.
+         * context.reference_images is accepted as the transport
+         * fallback used by SiteAiEngine.
+         */
+        $referenceImages =
+            (array) (
+                data_get(
+                    $options,
+                    'payload.reference_images'
+                )
+                ?? data_get(
+                    $options,
+                    'context.reference_images'
+                )
+                ?? []
+            );
+
+
+        if (empty($referenceImages)) {
+            return $input;
+        }
+
+
+        $content = [
+            [
+                'type' =>
+                    'input_text',
+
+                'text' =>
+                    $input,
+            ],
+        ];
+
+
+        foreach (
+            array_slice(
+                $referenceImages,
+                0,
+                5
+            )
+            as $referenceImage
+        ) {
+
+            $imageUrl =
+                trim(
+                    (string) data_get(
+                        $referenceImage,
+                        'data_url',
+                        ''
+                    )
+                );
+
+
+            if (
+                $imageUrl === ''
+                || !str_starts_with(
+                    $imageUrl,
+                    'data:image/'
+                )
+            ) {
+                continue;
+            }
+
+
+            $content[] = [
+                'type' =>
+                    'input_image',
+
+                'image_url' =>
+                    $imageUrl,
+            ];
+        }
+
+
+        /*
+         * No valid image survived validation.
+         */
+        if (count($content) === 1) {
+            return $input;
+        }
+
+
+        return [
+            [
+                'role' =>
+                    'user',
+
+                'content' =>
+                    $content,
+            ],
+        ];
+    }
+
 }

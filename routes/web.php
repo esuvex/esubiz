@@ -2057,3 +2057,44 @@ Route::get(
         'api.saas.website.state'
     );
 
+
+/*
+ * ================================================================
+ * CENTRAL_GLOBAL_AI_SETTINGS
+ * ================================================================
+ *
+ * One Central chat-style configuration applies across Esubiz.
+ */
+Route::get(
+    '/admin/ai/settings',
+    [
+        \App\Http\Controllers\Admin\AiSettingsController::class,
+        'index',
+    ]
+)
+    ->middleware([
+        'auth',
+        'permission:roles.view',
+        'account-mode:admin',
+    ])
+    ->name(
+        'admin.ai.settings'
+    );
+
+
+Route::patch(
+    '/admin/ai/settings/chat',
+    [
+        \App\Http\Controllers\Admin\AiSettingsController::class,
+        'updateChat',
+    ]
+)
+    ->middleware([
+        'auth',
+        'permission:roles.view',
+        'account-mode:admin',
+    ])
+    ->name(
+        'admin.ai.settings.chat.update'
+    );
+

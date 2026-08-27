@@ -1192,4 +1192,125 @@
 
 
 
+
+<!-- SITE_AI_CHAT_BRANDING_SETTINGS -->
+<div class="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+
+    <div class="mb-6">
+        <h3 class="text-lg font-semibold text-slate-900">
+            AI Chat Identity & Appearance
+        </h3>
+
+        <p class="mt-1 text-sm text-slate-500">
+            Personalize how your AI assistant appears to website visitors.
+        </p>
+    </div>
+
+    <form
+        method="POST"
+        action="{{ route('tenant.cms.site-ai.settings.update', ['subdomain' => $website->subdomain]) }}"
+        class="space-y-6"
+    >
+        @csrf
+        @method('PUT')
+
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+
+            <div>
+                <label class="mb-2 block text-sm font-medium text-slate-700">
+                    AI Assistant Name
+                </label>
+
+                <input
+                    type="text"
+                    name="site_ai_name"
+                    maxlength="100"
+                    value="{{ old('site_ai_name', $website->site_ai_name ?? 'Esubiz AI') }}"
+                    placeholder="e.g. Luna"
+                    class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+                >
+            </div>
+
+            <div>
+                <label class="mb-2 block text-sm font-medium text-slate-700">
+                    AI Avatar URL
+                </label>
+
+                <input
+                    type="text"
+                    name="site_ai_avatar"
+                    value="{{ old('site_ai_avatar', $website->site_ai_avatar ?? '') }}"
+                    placeholder="https://..."
+                    class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+                >
+            </div>
+
+            <div>
+                <label class="mb-2 block text-sm font-medium text-slate-700">
+                    AI Message Color
+                </label>
+
+                <input
+                    type="color"
+                    name="site_ai_color"
+                    value="{{ old('site_ai_color', $website->site_ai_color ?? '#0b1f3a') }}"
+                    class="h-12 w-20 cursor-pointer rounded-lg border border-slate-300 bg-white p-1"
+                >
+            </div>
+
+            <div>
+                <label class="mb-2 block text-sm font-medium text-slate-700">
+                    AI Text Color
+                </label>
+
+                <input
+                    type="color"
+                    name="site_ai_text_color"
+                    value="{{ old('site_ai_text_color', $website->site_ai_text_color ?? '#ffffff') }}"
+                    class="h-12 w-20 cursor-pointer rounded-lg border border-slate-300 bg-white p-1"
+                >
+            </div>
+
+            <div>
+                <label class="mb-2 block text-sm font-medium text-slate-700">
+                    Visitor Message Color
+                </label>
+
+                <input
+                    type="color"
+                    name="site_ai_user_color"
+                    value="{{ old('site_ai_user_color', $website->site_ai_user_color ?? '#f1f5f9') }}"
+                    class="h-12 w-20 cursor-pointer rounded-lg border border-slate-300 bg-white p-1"
+                >
+            </div>
+
+            <div>
+                <label class="mb-2 block text-sm font-medium text-slate-700">
+                    Visitor Text Color
+                </label>
+
+                <input
+                    type="color"
+                    name="site_ai_user_text_color"
+                    value="{{ old('site_ai_user_text_color', $website->site_ai_user_text_color ?? '#0f172a') }}"
+                    class="h-12 w-20 cursor-pointer rounded-lg border border-slate-300 bg-white p-1"
+                >
+            </div>
+
+        </div>
+
+        <div class="flex justify-end">
+            <button
+                type="submit"
+                class="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+            >
+                Save Chat Appearance
+            </button>
+        </div>
+
+    </form>
+
+</div>
+
+
 @endsection

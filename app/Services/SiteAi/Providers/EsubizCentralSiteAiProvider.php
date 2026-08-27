@@ -368,6 +368,304 @@ class EsubizCentralSiteAiProvider implements SiteAiProvider
         |
         */
 
+        /*
+         * SITE_AI_FINAL_VISION_OPTION_NORMALIZATION
+         *
+         * Normalize Site AI reference photos immediately before
+         * CentralAiEngine execution.
+         *
+         * This touches only AI request data. It does not affect
+         * chat appearance, avatars, names or text-only requests.
+         */
+        $referenceImages =
+            (array) (
+                data_get(
+                    $request,
+                    'payload.reference_images'
+                )
+                ?? data_get(
+                    $request,
+                    'context.reference_images'
+                )
+                ?? []
+            );
+
+
+        if (!empty($referenceImages)) {
+
+            $referenceImages =
+                array_slice(
+                    $referenceImages,
+                    0,
+                    5
+                );
+
+            $options['payload'] =
+                (array) (
+                    $options['payload']
+                    ?? []
+                );
+
+            $options['context'] =
+                (array) (
+                    $options['context']
+                    ?? []
+                );
+
+            $options['payload']['reference_images'] =
+                $referenceImages;
+
+            $options['payload']['reference_images_count'] =
+                count(
+                    $referenceImages
+                );
+
+            $options['context']['reference_images'] =
+                $referenceImages;
+        }
+
+
+        /*
+         * ESUBIZ_OFFSERVER_CENTRAL_CHAT_LIMITS_V1
+         *
+         * Central Admin limits are authoritative here too.
+         *
+         * This provider is the trusted central boundary used by
+         * Site AI, including authenticated off-server installations.
+         * Off-server JavaScript/PHP cannot raise these limits.
+         */
+        $centralChatLimits =
+            \Illuminate\Support\Facades\DB::table(
+                'central_ai_chat_settings'
+            )
+                ->orderBy('id')
+                ->first();
+
+        $maxMessageCharacters =
+            max(
+                100,
+                (int) (
+                    $centralChatLimits
+                        ->max_message_characters
+                    ?? 10000
+                )
+            );
+
+        $maxConversationMessages =
+            max(
+                1,
+                (int) (
+                    $centralChatLimits
+                        ->max_conversation_messages
+                    ?? 100
+                )
+            );
+
+        $maxPhotosPerMessage =
+            max(
+                0,
+                (int) (
+                    $centralChatLimits
+                        ->max_photos_per_message
+                    ?? 5
+                )
+            );
+
+        $maxPhotoSizeMb =
+            max(
+                1,
+                (int) (
+                    $centralChatLimits
+                        ->max_photo_size_mb
+                    ?? 10
+                )
+            );
+
+
+        /*
+         * Character limit.
+         */
+        if (
+            mb_strlen(
+                (string) $prompt
+            )
+            > $maxMessageCharacters
+        ) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'prompt' => [
+                    'Maximum message length is '
+                    . $maxMessageCharacters
+                    . ' characters.',
+                ],
+            ]);
+        }
+
+
+        /*
+         * Photo count + actual transported image-size limit.
+         *
+         * The working vision transport already normalizes images
+         * into $options['payload']['reference_images'].
+         * We only inspect it; we do not alter it.
+         */
+        $referenceImages =
+            (array) (
+                data_get(
+                    $options,
+                    'payload.reference_images'
+                )
+                ?? data_get(
+                    $options,
+                    'context.reference_images'
+                )
+                ?? []
+            );
+
+        if (
+            count($referenceImages)
+            > $maxPhotosPerMessage
+        ) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'reference_images' => [
+                    'A maximum of '
+                    . $maxPhotosPerMessage
+                    . ' photos may be attached to one message.',
+                ],
+            ]);
+        }
+
+        foreach (
+            $referenceImages
+            as $referenceImage
+        ) {
+            $dataUrl =
+                trim(
+                    (string) data_get(
+                        $referenceImage,
+                        'data_url',
+                        ''
+                    )
+                );
+
+            if (
+                $dataUrl === ''
+                || !str_starts_with(
+                    $dataUrl,
+                    'data:image/'
+                )
+                || !str_contains(
+                    $dataUrl,
+                    ','
+                )
+            ) {
+                continue;
+            }
+
+            [, $encodedImage] =
+                explode(
+                    ',',
+                    $dataUrl,
+                    2
+                );
+
+            $padding =
+                substr_count(
+                    substr(
+                        $encodedImage,
+                        -2
+                    ),
+                    '='
+                );
+
+            $imageBytes =
+                max(
+                    0,
+                    (
+                        (int) floor(
+                            strlen($encodedImage)
+                            * 3
+                            / 4
+                        )
+                    )
+                    - $padding
+                );
+
+            if (
+                $imageBytes
+                > (
+                    $maxPhotoSizeMb
+                    * 1024
+                    * 1024
+                )
+            ) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'reference_images' => [
+                        'Each photo must be '
+                        . $maxPhotoSizeMb
+                        . ' MB or smaller.',
+                    ],
+                ]);
+            }
+        }
+
+
+        /*
+         * Conversation-length contract.
+         *
+         * Existing clients may send conversation/history/messages
+         * under different compatible context keys. We accept the
+         * existing forms without changing the request contract.
+         */
+        $conversationMessages =
+            data_get(
+                $options,
+                'context.conversation'
+            )
+            ?? data_get(
+                $options,
+                'context.messages'
+            )
+            ?? data_get(
+                $options,
+                'context.history'
+            );
+
+        if (
+            is_array($conversationMessages)
+            && count($conversationMessages)
+                > $maxConversationMessages
+        ) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'conversation' => [
+                    'This conversation has reached the maximum of '
+                    . $maxConversationMessages
+                    . ' messages. Start a new chat to continue.',
+                ],
+            ]);
+        }
+
+
+        /*
+         * Publish the authoritative limits into the request context.
+         *
+         * This gives SaaS/off-server consumers a common central
+         * contract whenever response/context metadata is propagated.
+         */
+        $options['context']['chat_limits'] = [
+            'max_message_characters' =>
+                $maxMessageCharacters,
+
+            'max_conversation_messages' =>
+                $maxConversationMessages,
+
+            'max_photos_per_message' =>
+                $maxPhotosPerMessage,
+
+            'max_photo_size_mb' =>
+                $maxPhotoSizeMb,
+        ];
+
+
         $result =
             $this->engine->execute(
                 'site',

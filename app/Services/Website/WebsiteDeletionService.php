@@ -15,6 +15,22 @@ class WebsiteDeletionService
 
     public function delete(Website $website): void
     {
+
+        /*
+         * CHECKPOINT_10_PERMANENT_TENANT_DATABASE_DELETE
+         *
+         * Resolve the actual tenant database BEFORE deleting any
+         * Central website records.
+         *
+         * The database name is intentionally not trusted from a
+         * browser/request/database column.
+         */
+        $tenantDatabaseName =
+            $this->resolveTenantDatabaseName(
+                $website
+            );
+
+
         /*
          * SaaS tenant database must be removed first.
          *
@@ -252,7 +268,117 @@ class WebsiteDeletionService
             /*
              * Finally remove canonical Central registry identity.
              */
-            $website->delete();
+            
+        /*
+         * The tenant database is deleted at the MySQL level as part
+         * of permanent SaaS website deletion.
+         */
+        $this->dropTenantDatabase(
+            $website,
+            $tenantDatabaseName
+        );
+
+
+$website->delete();
         });
     }
+
+
+    /**
+     * Resolve the actual tenant database from the existing
+     * WebsiteTenantDatabaseService connection.
+     */
+    protected function resolveTenantDatabaseName(
+        \App\Models\Website $website
+    ): ?string {
+
+        if (!$website->isSaas()) {
+            return null;
+        }
+
+        $service =
+            app(
+                \App\Services\Website\WebsiteTenantDatabaseService::class
+            );
+
+        $service->connect(
+            $website
+        );
+
+        $databaseName =
+            trim(
+                (string)
+                $service
+                    ->connection()
+                    ->getDatabaseName()
+            );
+
+        if ($databaseName === '') {
+            throw new \RuntimeException(
+                'The tenant database could not be resolved for permanent website deletion.'
+            );
+        }
+
+        return $databaseName;
+    }
+
+
+    /**
+     * Permanently remove the SaaS tenant database at MySQL level.
+     */
+    protected function dropTenantDatabase(
+        \App\Models\Website $website,
+        ?string $databaseName
+    ): void {
+
+        if (
+            !$website->isSaas()
+            || !$databaseName
+        ) {
+            return;
+        }
+
+        $centralDatabase =
+            trim(
+                (string)
+                config(
+                    'database.connections.mysql.database'
+                )
+            );
+
+        /*
+         * Never allow the Central Esubiz database to be dropped.
+         */
+        if (
+            $centralDatabase !== ''
+            && strcasecmp(
+                $databaseName,
+                $centralDatabase
+            ) === 0
+        ) {
+            throw new \RuntimeException(
+                'Refusing to delete the Central Esubiz database.'
+            );
+        }
+
+        /*
+         * MySQL identifiers cannot be parameter-bound.
+         * Escape backticks before quoting the already-resolved
+         * database name.
+         */
+        $quotedDatabase =
+            '`'
+            . str_replace(
+                '`',
+                '``',
+                $databaseName
+            )
+            . '`';
+
+        DB::statement(
+            'DROP DATABASE IF EXISTS '
+            . $quotedDatabase
+        );
+    }
+
 }

@@ -1,3 +1,916 @@
+
+@php
+    /*
+     * ESUBIZ_CHAT_IDENTITY_COLOR_LAYER
+     *
+     * CENTRAL GLOBAL SETTINGS = defaults.
+     * Website settings = optional SaaS override.
+     *
+     * User identity:
+     * SaaS -> website name / first letter.
+     * Central -> authenticated account name / first letter.
+     */
+
+    $chatWebsite =
+        $website ?? null;
+
+    $globalChat =
+        \Illuminate\Support\Facades\DB::table(
+            'central_ai_chat_settings'
+        )
+            ->orderBy('id')
+            ->first();
+
+        /*
+         * ESUBIZ_CENTRAL_CHAT_LIMITS_ENFORCEMENT_V1
+         */
+        $esubizAiChatLimits = [
+            'max_message_characters' =>
+                max(
+                    100,
+                    (int) (
+                        $globalChat->max_message_characters
+                        ?? 10000
+                    )
+                ),
+
+            'max_conversation_messages' =>
+                max(
+                    1,
+                    (int) (
+                        $globalChat->max_conversation_messages
+                        ?? 100
+                    )
+                ),
+
+            'max_photos_per_message' =>
+                max(
+                    0,
+                    (int) (
+                        $globalChat->max_photos_per_message
+                        ?? 5
+                    )
+                ),
+
+            'max_photo_size_mb' =>
+                max(
+                    1,
+                    (int) (
+                        $globalChat->max_photo_size_mb
+                        ?? 10
+                    )
+                ),
+        ];
+
+
+
+    /*
+     * Website overrides remain nullable.
+     * A missing override automatically falls back to Central.
+     */
+    $aiBubbleColor =
+        $chatWebsite?->site_ai_color
+        ?: (
+            $globalChat->ai_bubble_color
+            ?? '#0b1f3a'
+        );
+
+    $aiTextColor =
+        $chatWebsite?->site_ai_text_color
+        ?: (
+            $globalChat->ai_text_color
+            ?? '#ffffff'
+        );
+
+    $userBubbleColor =
+        $chatWebsite?->site_ai_user_color
+        ?: (
+            $globalChat->user_bubble_color
+            ?? '#f1f5f9'
+        );
+
+    $userTextColor =
+        $chatWebsite?->site_ai_user_text_color
+        ?: (
+            $globalChat->user_text_color
+            ?? '#0f172a'
+        );
+
+
+    /*
+     * User/account identity.
+     */
+    $chatUserName =
+        trim(
+            (string) (
+                $chatWebsite?->name
+                ?: auth()->user()?->name
+                ?: 'User'
+            )
+        );
+
+    $chatUserInitial =
+        strtoupper(
+            mb_substr(
+                $chatUserName,
+                0,
+                1
+            )
+        );
+
+
+    /*
+     * AI identity.
+     *
+     * Use the persona already supplied to this component when
+     * available. Do NOT expose the underlying OpenAI model name.
+     */
+    /*
+     * OFFICIAL_ESUBIZ_AI_PERSONA_IDENTITY
+     *
+     * AiPersona is the official human-facing Esubiz AI identity.
+     * Never expose the technical ai_models name such as
+     * "GPT-5.6 Terra" in the chat interface.
+     */
+    $chatPersona =
+        $persona
+        ?? $aiPersona
+        ?? null;
+
+
+    /*
+     * SaaS website:
+     * Resolve the persona selected in tenant Site AI settings.
+     */
+    if (
+        !$chatPersona
+        && $chatWebsite
+    ) {
+        try {
+
+            $tenantDatabaseService =
+                app(
+                    \App\Services\Website\WebsiteTenantDatabaseService::class
+                );
+
+            $tenantDatabaseService->connect(
+                $chatWebsite
+            );
+
+            $personaId =
+                $tenantDatabaseService
+                    ->connection()
+                    ->table(
+                        'site_settings'
+                    )
+                    ->where(
+                        'key',
+                        'ai.persona_id'
+                    )
+                    ->value(
+                        'value'
+                    );
+
+            if (
+                $personaId
+                && is_numeric(
+                    $personaId
+                )
+            ) {
+                $chatPersona =
+                    \App\Models\Ai\AiPersona::query()
+                        ->where(
+                            'is_active',
+                            true
+                        )
+                        ->find(
+                            (int) $personaId
+                        );
+            }
+
+        } catch (\Throwable $e) {
+
+            /*
+             * Identity rendering must never break the chat.
+             * Fall through to an active Central persona.
+             */
+            $chatPersona = null;
+        }
+    }
+
+
+    /*
+     * Central Esubiz user/developer or website without an
+     * explicit persona:
+     *
+     * Use an active official Esubiz persona rather than the
+     * technical provider/model record.
+     */
+    if (!$chatPersona) {
+        $chatPersona =
+            \App\Models\Ai\AiPersona::query()
+                ->where(
+                    'is_active',
+                    true
+                )
+                ->orderBy('id')
+                ->first();
+    }
+
+
+    $chatAiName =
+        trim(
+            (string) (
+                data_get(
+                    $chatPersona,
+                    'name'
+                )
+                ?: 'Esubiz AI'
+            )
+        );
+
+
+    $chatAiAvatar =
+        $chatPersona
+            && method_exists(
+                $chatPersona,
+                'avatarUrl'
+            )
+                ? $chatPersona->avatarUrl()
+                : (
+                    data_get(
+                        $chatPersona,
+                        'avatar_url'
+                    )
+                    ?: data_get(
+                        $chatPersona,
+                        'avatar_path'
+                    )
+                    ?: null
+                );
+@endphp
+
+
+<style>
+    :root {
+        --esubiz-ai-bubble-color: {{ $aiBubbleColor }};
+        --esubiz-ai-text-color: {{ $aiTextColor }};
+        --esubiz-user-bubble-color: {{ $userBubbleColor }};
+        --esubiz-user-text-color: {{ $userTextColor }};
+    }
+
+    .esubiz-ai-live-row {
+        display: flex;
+        width: 100%;
+        gap: 10px;
+        align-items: flex-end;
+        margin: 12px 0;
+    }
+
+    .esubiz-ai-live-row.is-user {
+        justify-content: flex-end;
+    }
+
+    .esubiz-ai-live-row.is-assistant {
+        justify-content: flex-start;
+    }
+
+    .esubiz-ai-live-avatar {
+        width: 34px;
+        height: 34px;
+        min-width: 34px;
+        border-radius: 50%;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 800;
+        background: #2563eb;
+        color: #fff;
+        border: 1px solid rgba(148,163,184,.25);
+    }
+
+    .esubiz-ai-live-avatar.ai {
+        background: #0f172a;
+    }
+
+    .esubiz-ai-live-avatar img {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: cover;
+    }
+
+    .esubiz-ai-live-message {
+        display: flex;
+        flex-direction: column;
+        max-width: min(78%, 620px);
+    }
+
+    .esubiz-ai-live-row.is-user .esubiz-ai-live-message {
+        align-items: flex-end;
+    }
+
+    .esubiz-ai-live-row.is-assistant .esubiz-ai-live-message {
+        align-items: flex-start;
+    }
+
+    .esubiz-ai-live-name {
+        margin: 0 5px 4px;
+        font-size: 11px;
+        line-height: 1.2;
+        font-weight: 700;
+        color: #64748b;
+    }
+
+    .esubiz-ai-live-bubble {
+        padding: 10px 13px;
+        border-radius: 16px;
+        font-size: 13px;
+        line-height: 1.55;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
+    .esubiz-ai-live-row.is-assistant
+    .esubiz-ai-live-bubble {
+        background: var(--esubiz-ai-bubble-color);
+        color: var(--esubiz-ai-text-color);
+        border-bottom-left-radius: 5px;
+    }
+
+    .esubiz-ai-live-row.is-user
+    .esubiz-ai-live-bubble {
+        background: var(--esubiz-user-bubble-color);
+        color: var(--esubiz-user-text-color);
+        border-bottom-right-radius: 5px;
+    }
+
+    .esubiz-ai-message-photo-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+        margin-top: 8px;
+        max-width: 320px;
+    }
+
+    .esubiz-ai-message-photo {
+        width: 100%;
+        height: 74px;
+        border-radius: 10px;
+        object-fit: cover;
+        cursor: pointer;
+        background: #e2e8f0;
+    }
+
+    .esubiz-ai-message-photo-grid:has(
+        .esubiz-ai-message-photo:only-child
+    ) {
+        grid-template-columns: minmax(0, 180px);
+    }
+
+    @media (max-width: 640px) {
+        .esubiz-ai-message-photo-grid {
+            max-width: 260px;
+        }
+
+        .esubiz-ai-message-photo {
+            height: 66px;
+        }
+    }
+
+
+
+    /* ESUBIZ_CHATGPT_UI_V1 */
+
+    .esubiz-site-ai-message-actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 5px;
+        opacity: 0;
+        transition: opacity .15s ease;
+    }
+
+    [data-site-ai-conversation] > *:hover
+    .esubiz-site-ai-message-actions,
+    [data-site-ai-messages] > *:hover
+    .esubiz-site-ai-message-actions {
+        opacity: 1;
+    }
+
+    .esubiz-site-ai-message-edit,
+    .esubiz-site-ai-new-chat {
+        appearance: none;
+        border: 0;
+        background: transparent;
+        font: inherit;
+        cursor: pointer;
+    }
+
+    .esubiz-site-ai-message-edit {
+        padding: 3px 7px;
+        border-radius: 7px;
+        font-size: 11px;
+        opacity: .68;
+    }
+
+    .esubiz-site-ai-message-edit:hover {
+        opacity: 1;
+        background: rgba(127, 127, 127, .12);
+    }
+
+    .esubiz-site-ai-new-chat {
+        margin-left: auto;
+        margin-right: 8px;
+        padding: 5px 8px;
+        border-radius: 8px;
+        font-size: 12px;
+        opacity: .75;
+    }
+
+    .esubiz-site-ai-new-chat:hover {
+        opacity: 1;
+        background: rgba(127, 127, 127, .10);
+    }
+
+    .esubiz-site-ai-history-photo {
+        cursor: zoom-in;
+    }
+
+    .esubiz-site-ai-photo-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483646;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 30px;
+        background: rgba(0, 0, 0, .82);
+    }
+
+    .esubiz-site-ai-photo-overlay.is-open {
+        display: flex;
+    }
+
+    .esubiz-site-ai-photo-overlay img {
+        display: block;
+        max-width: min(1100px, 94vw);
+        max-height: 90vh;
+        object-fit: contain;
+        border-radius: 12px;
+    }
+
+    .esubiz-site-ai-photo-overlay-close {
+        position: fixed;
+        top: 18px;
+        right: 22px;
+        border: 0;
+        background: transparent;
+        color: #fff;
+        font-size: 34px;
+        line-height: 1;
+        cursor: pointer;
+    }
+
+
+
+
+    /* ESUBIZ_CHATGPT_CANCEL_EDIT_V1 */
+
+    .esubiz-site-ai-cancel-edit {
+        appearance: none;
+        border: 0;
+        background: transparent;
+        padding: 5px 8px;
+        margin-top: 5px;
+        border-radius: 7px;
+        font: inherit;
+        font-size: 11px;
+        cursor: pointer;
+        opacity: .7;
+    }
+
+    .esubiz-site-ai-cancel-edit:hover {
+        opacity: 1;
+        background: rgba(127, 127, 127, .12);
+    }
+
+    .esubiz-site-ai-cancel-edit[hidden] {
+        display: none !important;
+    }
+
+
+
+
+    /* ESUBIZ_INLINE_MESSAGE_EDITOR_V2 */
+
+    .esubiz-site-ai-inline-editor {
+        box-sizing: border-box;
+        width: 100%;
+        margin-top: 8px;
+        padding: 8px;
+        border: 1px solid rgba(127, 127, 127, .25);
+        border-radius: 12px;
+        background: inherit;
+    }
+
+    .esubiz-site-ai-inline-editor-input {
+        box-sizing: border-box;
+        display: block;
+        width: 100%;
+        min-height: 70px;
+        max-height: 180px;
+        padding: 8px;
+        border: 0;
+        border-radius: 8px;
+        outline: none;
+        resize: vertical;
+        background: rgba(127, 127, 127, .08);
+        color: inherit;
+        font: inherit;
+        line-height: 1.45;
+    }
+
+    .esubiz-site-ai-inline-editor-controls {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 7px;
+        margin-top: 8px;
+    }
+
+    .esubiz-site-ai-inline-editor-cancel,
+    .esubiz-site-ai-inline-editor-save {
+        appearance: none;
+        border-radius: 8px;
+        padding: 6px 11px;
+        font: inherit;
+        font-size: 12px;
+        cursor: pointer;
+    }
+
+    .esubiz-site-ai-inline-editor-cancel {
+        border: 1px solid rgba(127, 127, 127, .30);
+        background: transparent;
+        color: inherit;
+    }
+
+    .esubiz-site-ai-inline-editor-save {
+        border: 1px solid rgba(127, 127, 127, .30);
+        background: rgba(127, 127, 127, .15);
+        color: inherit;
+        font-weight: 600;
+    }
+
+    .esubiz-site-ai-inline-editor-cancel:hover,
+    .esubiz-site-ai-inline-editor-save:hover {
+        background: rgba(127, 127, 127, .20);
+    }
+
+    .esubiz-site-ai-inline-editor-cancel:disabled,
+    .esubiz-site-ai-inline-editor-save:disabled {
+        opacity: .5;
+        cursor: default;
+    }
+
+
+
+
+    /* ESUBIZ_AI_TYPING_BUBBLE_V1 */
+
+    .esubiz-site-ai-typing-message {
+        min-height: 28px;
+    }
+
+    .esubiz-site-ai-typing-bubble {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        min-width: 42px;
+        min-height: 24px;
+        padding: 2px 4px;
+        color: inherit;
+    }
+
+    .esubiz-site-ai-typing-dot {
+        display: block;
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: currentColor;
+        opacity: .35;
+        animation:
+            esubizSiteAiTypingDot
+            1.15s
+            infinite
+            ease-in-out;
+    }
+
+    .esubiz-site-ai-typing-dot:nth-child(2) {
+        animation-delay: .15s;
+    }
+
+    .esubiz-site-ai-typing-dot:nth-child(3) {
+        animation-delay: .30s;
+    }
+
+    @keyframes esubizSiteAiTypingDot {
+
+        0%,
+        60%,
+        100% {
+            transform: translateY(0);
+            opacity: .30;
+        }
+
+        30% {
+            transform: translateY(-4px);
+            opacity: 1;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+
+        .esubiz-site-ai-typing-dot {
+            animation: none;
+            opacity: .65;
+        }
+    }
+
+
+
+
+    /* ESUBIZ_AI_TYPING_DIRECT_ROW_V2 */
+
+    .esubiz-site-ai-typing-row {
+        box-sizing: border-box;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: flex-start !important;
+        justify-content: flex-start !important;
+        width: 100% !important;
+        margin: 6px 0 !important;
+        padding: 0 !important;
+        text-align: left !important;
+        align-self: flex-start !important;
+    }
+
+    .esubiz-site-ai-typing-row
+    .esubiz-site-ai-typing-bubble {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 4px;
+        width: auto !important;
+        min-width: 42px;
+        min-height: 28px;
+        margin: 0 !important;
+        padding: 5px 9px;
+        border-radius: 12px;
+        color: inherit;
+        background: rgba(127, 127, 127, .10);
+    }
+
+
+</style>
+
+
+<script>
+    /*
+     * Presentation-only renderer.
+     * Existing Site AI submission/request code is NOT replaced.
+     */
+    window.EsubizSiteAiIdentity = {
+        userName: @json($chatUserName),
+        userInitial: @json($chatUserInitial),
+        aiName: @json($chatAiName),
+        aiAvatar: @json($chatAiAvatar)
+    };
+
+
+    window.EsubizSiteAiCreateMessage =
+        function (
+            role,
+            message
+        ) {
+
+            const identity =
+                window.EsubizSiteAiIdentity;
+
+            const isUser =
+                role === 'user';
+
+            const row =
+                document.createElement(
+                    'div'
+                );
+
+            row.className =
+                'esubiz-ai-live-row '
+                + (
+                    isUser
+                        ? 'is-user'
+                        : 'is-assistant'
+                );
+
+
+            const avatar =
+                document.createElement(
+                    'div'
+                );
+
+            avatar.className =
+                'esubiz-ai-live-avatar '
+                + (
+                    isUser
+                        ? 'user'
+                        : 'ai'
+                );
+
+
+            if (
+                !isUser
+                && identity.aiAvatar
+            ) {
+
+                const image =
+                    document.createElement(
+                        'img'
+                    );
+
+                image.src =
+                    identity.aiAvatar;
+
+                image.alt =
+                    identity.aiName;
+
+                image.onerror =
+                    function () {
+                        image.remove();
+
+                        avatar.textContent =
+                            (
+                                identity.aiName
+                                || 'AI'
+                            )
+                                .substring(
+                                    0,
+                                    2
+                                )
+                                .toUpperCase();
+                    };
+
+                avatar.appendChild(
+                    image
+                );
+
+            } else {
+
+                avatar.textContent =
+                    isUser
+                        ? identity.userInitial
+                        : (
+                            identity.aiName
+                            || 'AI'
+                        )
+                            .substring(
+                                0,
+                                2
+                            )
+                            .toUpperCase();
+            }
+
+
+            const content =
+                document.createElement(
+                    'div'
+                );
+
+            content.className =
+                'esubiz-ai-live-message';
+
+
+            const sender =
+                document.createElement(
+                    'div'
+                );
+
+            sender.className =
+                'esubiz-ai-live-name';
+
+            sender.textContent =
+                isUser
+                    ? identity.userName
+                    : identity.aiName;
+
+
+            const bubble =
+                document.createElement(
+                    'div'
+                );
+
+            bubble.className =
+                'esubiz-ai-live-bubble';
+
+            /*
+             * textContent intentionally prevents AI output
+             * from injecting HTML.
+             */
+            bubble.textContent =
+                message ?? '';
+
+
+            content.appendChild(
+                sender
+            );
+
+            content.appendChild(
+                bubble
+            );
+
+
+            if (isUser) {
+
+                row.appendChild(
+                    content
+                );
+
+                row.appendChild(
+                    avatar
+                );
+
+            } else {
+
+                row.appendChild(
+                    avatar
+                );
+
+                row.appendChild(
+                    content
+                );
+            }
+
+            return row;
+        };
+</script>
+
+
+
+@php
+    /*
+     * GLOBAL_ESUBIZ_AI_CHAT_COLORS
+     *
+     * One Central Admin configuration provides the default
+     * chat appearance across Esubiz.
+     */
+    $globalAiChatSettings =
+        \Illuminate\Support\Facades\DB::table(
+            'central_ai_chat_settings'
+        )
+            ->orderBy('id')
+            ->first();
+
+    $globalAiBubbleColor =
+        $globalAiChatSettings->ai_bubble_color
+        ?? '#0b1f3a';
+
+    $globalAiTextColor =
+        $globalAiChatSettings->ai_text_color
+        ?? '#ffffff';
+
+    $globalUserBubbleColor =
+        $globalAiChatSettings->user_bubble_color
+        ?? '#f1f5f9';
+
+    $globalUserTextColor =
+        $globalAiChatSettings->user_text_color
+        ?? '#0f172a';
+@endphp
+
+<style>
+    :root {
+        --esubiz-ai-bubble-color: {{ $globalAiBubbleColor }};
+        --esubiz-ai-text-color: {{ $globalAiTextColor }};
+        --esubiz-user-bubble-color: {{ $globalUserBubbleColor }};
+        --esubiz-user-text-color: {{ $globalUserTextColor }};
+    }
+
+    .esubiz-ai-chat-message-assistant .esubiz-ai-chat-bubble,
+    .esubiz-ai-chat-message-assistant .esubiz-ai-message-bubble {
+        background: var(--esubiz-ai-bubble-color) !important;
+        color: var(--esubiz-ai-text-color) !important;
+    }
+
+    .esubiz-ai-chat-message-user .esubiz-ai-chat-bubble,
+    .esubiz-ai-chat-message-user .esubiz-ai-message-bubble {
+        background: var(--esubiz-user-bubble-color) !important;
+        color: var(--esubiz-user-text-color) !important;
+    }
+</style>
+
+
 @php
     /*
      * =========================================================
@@ -368,7 +1281,7 @@
                                 </strong>
 
                                 <span>
-                                    Optional · up to 5 photos · 10 MB each
+                                    Optional · up to {{ $esubizAiChatLimits['max_photos_per_message'] }} photo{{ $esubizAiChatLimits['max_photos_per_message'] === 1 ? '' : 's' }} · {{ $esubizAiChatLimits['max_photo_size_mb'] }} MB each
                                 </span>
                             </div>
 
@@ -1030,9 +1943,12 @@
 <script>
 (function () {
 
-    const MAX_REFERENCE_IMAGES = 5;
+    const MAX_REFERENCE_IMAGES =
+                    @json($esubizAiChatLimits['max_photos_per_message']);
     const MAX_REFERENCE_SIZE =
-        10 * 1024 * 1024;
+                    @json($esubizAiChatLimits['max_photo_size_mb'])
+                    * 1024
+                    * 1024;
 
 
     document.querySelectorAll(
@@ -1548,7 +2464,14 @@
                             >= MAX_REFERENCE_IMAGES
                         ) {
                             alert(
-                                'You can attach a maximum of 5 reference photos.'
+                                'You can attach a maximum of '
+                                + MAX_REFERENCE_IMAGES
+                                + ' reference photo'
+                                + (
+                                    MAX_REFERENCE_IMAGES === 1
+                                        ? '.'
+                                        : 's.'
+                                )
                             );
                             break;
                         }
@@ -1570,7 +2493,9 @@
                         ) {
                             alert(
                                 file.name
-                                + ' is larger than 10 MB.'
+                                + ' is larger than '
+                                + @json($esubizAiChatLimits['max_photo_size_mb'])
+                                + ' MB.'
                             );
 
                             continue;
@@ -1687,10 +2612,14 @@
                 );
 
 
-            function appendConversationMessage(
-                role,
-                message
-            ) {
+            /*
+             * ESUBIZ_LIVE_IDENTITY_RENDERER_CONNECTED
+             *
+             * Presentation only.
+             *
+             * Existing send/request/provider/billing logic remains untouched.
+             */
+            function appendConversationMessage(role, message) {
 
                 if (
                     !conversation
@@ -1700,42 +2629,92 @@
                 }
 
 
+                const normalizedRole =
+                    role === 'user'
+                        ? 'user'
+                        : 'assistant';
+
+
                 const row =
-                    document.createElement(
-                        'div'
+                    window.EsubizSiteAiCreateMessage(
+                        normalizedRole,
+                        String(message)
                     );
-
-                row.className =
-                    'esubiz-ai-chat-message '
-                    + (
-                        role === 'user'
-                            ? 'esubiz-ai-chat-message-user'
-                            : 'esubiz-ai-chat-message-assistant'
-                    );
-
-
-                const bubble =
-                    document.createElement(
-                        'div'
-                    );
-
-                bubble.className =
-                    'esubiz-ai-chat-bubble';
 
 
                 /*
-                 * textContent deliberately prevents AI output
-                 * from injecting HTML into the tenant dashboard.
+                 * Preserve legacy classes so any existing selectors
+                 * continue working.
                  */
-                bubble.textContent =
-                    String(
-                        message
-                    );
-
-
-                row.appendChild(
-                    bubble
+                row.classList.add(
+                    'esubiz-ai-chat-message',
+                    normalizedRole === 'user'
+                        ? 'esubiz-ai-chat-message-user'
+                        : 'esubiz-ai-chat-message-assistant'
                 );
+
+
+                /*
+                 * SITE_AI_USER_MESSAGE_PHOTOS
+                 *
+                 * A user's reference photos become part of the
+                 * conversation message itself, alongside the text.
+                 */
+                if (
+                    normalizedRole === 'user'
+                    && typeof referenceFiles !== 'undefined'
+                    && referenceFiles.length
+                ) {
+
+                    const photoGrid =
+                        document.createElement(
+                            'div'
+                        );
+
+                    photoGrid.className =
+                        'esubiz-ai-message-photo-grid';
+
+
+                    referenceFiles
+                        .slice(0, 5)
+                        .forEach(
+                            function (file) {
+
+                                const image =
+                                    document.createElement(
+                                        'img'
+                                    );
+
+                                image.src =
+                                    URL.createObjectURL(
+                                        file
+                                    );
+
+                                image.alt =
+                                    file.name
+                                    || 'Reference image';
+
+                                image.className =
+                                    'esubiz-ai-message-photo';
+
+                                photoGrid.appendChild(
+                                    image
+                                );
+                            }
+                        );
+
+
+                    const messageContainer =
+                        row.querySelector(
+                            '.esubiz-ai-live-message'
+                        )
+                        || row;
+
+                    messageContainer.appendChild(
+                        photoGrid
+                    );
+                }
+
 
                 conversation.appendChild(
                     row
@@ -1838,6 +2817,763 @@
             }
 
 
+
+            /*
+             * ESUBIZ_CHATGPT_UI_V1
+             *
+             * Presentation-only enhancement.
+             * Existing send/vision flow remains authoritative.
+             */
+
+            function esubizSiteAiConversationRoot() {
+                return (
+                    document.querySelector(
+                        '[data-site-ai-conversation]'
+                    )
+                    || document.querySelector(
+                        '[data-site-ai-messages]'
+                    )
+                );
+            }
+
+
+            function esubizSiteAiOpenMessagePhoto(src) {
+
+                if (!src) {
+                    return;
+                }
+
+                /*
+                 * Prefer the component's existing image viewer.
+                 */
+                const viewer =
+                    document.querySelector(
+                        '[data-site-ai-viewer]'
+                    );
+
+                const viewerImage =
+                    document.querySelector(
+                        '[data-site-ai-viewer-image]'
+                    );
+
+                if (
+                    viewer
+                    && viewerImage
+                ) {
+                    viewerImage.src = src;
+                    viewer.hidden = false;
+
+                    return;
+                }
+
+
+                /*
+                 * Safe fallback if the existing viewer uses
+                 * different selectors.
+                 */
+                let overlay =
+                    document.getElementById(
+                        'esubiz-site-ai-photo-overlay'
+                    );
+
+                if (!overlay) {
+                    overlay =
+                        document.createElement('div');
+
+                    overlay.id =
+                        'esubiz-site-ai-photo-overlay';
+
+                    overlay.className =
+                        'esubiz-site-ai-photo-overlay';
+
+                    overlay.innerHTML =
+                        '<button type="button" '
+                        + 'class="esubiz-site-ai-photo-overlay-close" '
+                        + 'aria-label="Close">×</button>'
+                        + '<img alt="Chat attachment">';
+
+                    document.body.appendChild(
+                        overlay
+                    );
+
+                    overlay.addEventListener(
+                        'click',
+                        function (event) {
+
+                            if (
+                                event.target === overlay
+                                || event.target.closest(
+                                    '.esubiz-site-ai-photo-overlay-close'
+                                )
+                            ) {
+                                overlay.classList.remove(
+                                    'is-open'
+                                );
+                            }
+                        }
+                    );
+                }
+
+                const image =
+                    overlay.querySelector('img');
+
+                if (image) {
+                    image.src = src;
+                }
+
+                overlay.classList.add(
+                    'is-open'
+                );
+            }
+
+
+            function esubizEnhanceLatestUserMessage(
+                originalPrompt
+            ) {
+                const root =
+                    esubizSiteAiConversationRoot();
+
+                if (!root) {
+                    return;
+                }
+
+                const message =
+                    root.lastElementChild;
+
+                if (!message) {
+                    return;
+                }
+
+                message.dataset.esubizUserPrompt =
+                    originalPrompt;
+
+
+                /*
+                 * Existing attachment thumbnails stay exactly
+                 * where the working renderer created them.
+                 * We only make them clickable.
+                 */
+                message
+                    .querySelectorAll('img')
+                    .forEach(function (image) {
+
+                        if (
+                            image.dataset.esubizPreviewReady
+                        ) {
+                            return;
+                        }
+
+                        image.dataset.esubizPreviewReady =
+                            '1';
+
+                        image.classList.add(
+                            'esubiz-site-ai-history-photo'
+                        );
+
+                        image.addEventListener(
+                            'click',
+                            function () {
+                                esubizSiteAiOpenMessagePhoto(
+                                    image.currentSrc
+                                    || image.src
+                                );
+                            }
+                        );
+                    });
+
+
+                /*
+                 * Add Edit without changing the message renderer.
+                 */
+                if (
+                    !message.querySelector(
+                        '[data-esubiz-site-ai-edit]'
+                    )
+                ) {
+                    const actions =
+                        document.createElement('div');
+
+                    actions.className =
+                        'esubiz-site-ai-message-actions';
+
+                    const edit =
+                        document.createElement('button');
+
+                    edit.type = 'button';
+
+                    edit.className =
+                        'esubiz-site-ai-message-edit';
+
+                    edit.dataset.esubizSiteAiEdit =
+                        '1';
+
+                    edit.textContent =
+                        'Edit';
+
+                    edit.addEventListener(
+                        'click',
+                        function () {
+
+                            if (!promptInput) {
+                                return;
+                            }
+
+
+                            /*
+                             * ESUBIZ_INLINE_MESSAGE_EDITOR_V2
+                             *
+                             * Only one historical message can be
+                             * edited at a time.
+                             */
+                            document
+                                .querySelectorAll(
+                                    '[data-esubiz-inline-editor]'
+                                )
+                                .forEach(function (existing) {
+
+                                    const owner =
+                                        existing.parentElement;
+
+                                    existing.remove();
+
+                                    if (owner) {
+                                        owner.classList.remove(
+                                            'esubiz-site-ai-is-editing'
+                                        );
+                                    }
+                                });
+
+
+                            esubizSiteAiEditingMessage =
+                                message;
+
+                            esubizSiteAiHideCancelEdit();
+
+
+                            const editor =
+                                document.createElement('div');
+
+                            editor.className =
+                                'esubiz-site-ai-inline-editor';
+
+                            editor.dataset.esubizInlineEditor =
+                                '1';
+
+
+                            const textarea =
+                                document.createElement(
+                                    'textarea'
+                                );
+
+                            textarea.className =
+                                'esubiz-site-ai-inline-editor-input';
+
+                            textarea.value =
+                                message.dataset.esubizUserPrompt
+                                || '';
+
+                            textarea.rows =
+                                3;
+
+
+                            const controls =
+                                document.createElement('div');
+
+                            controls.className =
+                                'esubiz-site-ai-inline-editor-controls';
+
+
+                            const cancel =
+                                document.createElement('button');
+
+                            cancel.type =
+                                'button';
+
+                            cancel.className =
+                                'esubiz-site-ai-inline-editor-cancel';
+
+                            cancel.textContent =
+                                'Cancel';
+
+
+                            const save =
+                                document.createElement('button');
+
+                            save.type =
+                                'button';
+
+                            save.className =
+                                'esubiz-site-ai-inline-editor-save';
+
+                            save.textContent =
+                                'Send';
+
+
+                            /*
+                             * Cancel:
+                             * remove only the temporary editor.
+                             * Historical conversation remains intact.
+                             */
+                            cancel.addEventListener(
+                                'click',
+                                function () {
+
+                                    esubizSiteAiEditingMessage =
+                                        null;
+
+                                    editor.remove();
+
+                                    message.classList.remove(
+                                        'esubiz-site-ai-is-editing'
+                                    );
+                                }
+                            );
+
+
+                            /*
+                             * Send:
+                             * put edited text into the existing hidden/
+                             * normal composer and use the already-working
+                             * sendAiRequest() + rewind implementation.
+                             */
+                            save.addEventListener(
+                                'click',
+                                async function () {
+
+                                    const editedPrompt =
+                                        textarea.value.trim();
+
+                                    if (!editedPrompt) {
+                                        textarea.focus();
+                                        return;
+                                    }
+
+
+                                    const MAX_EDIT_CHARACTERS =
+                                        @json($esubizAiChatLimits['max_message_characters']);
+
+
+                                    if (
+                                        editedPrompt.length
+                                        > MAX_EDIT_CHARACTERS
+                                    ) {
+                                        alert(
+                                            'Maximum message length is '
+                                            + MAX_EDIT_CHARACTERS
+                                            + ' characters.'
+                                        );
+
+                                        textarea.focus();
+
+                                        return;
+                                    }
+
+
+                                    promptInput.value =
+                                        editedPrompt;
+
+                                    save.disabled =
+                                        true;
+
+                                    cancel.disabled =
+                                        true;
+
+
+                                    /*
+                                     * Do not remove this editor here.
+                                     *
+                                     * Existing sendAiRequest() removes
+                                     * this historical message and all
+                                     * later messages as part of the
+                                     * working edit rewind.
+                                     */
+                                    await sendAiRequest();
+                                }
+                            );
+
+
+                            /*
+                             * Ctrl/Cmd + Enter also submits the edit.
+                             */
+                            textarea.addEventListener(
+                                'keydown',
+                                function (event) {
+
+                                    if (
+                                        event.key === 'Enter'
+                                        && (
+                                            event.ctrlKey
+                                            || event.metaKey
+                                        )
+                                    ) {
+                                        event.preventDefault();
+                                        save.click();
+                                    }
+
+
+                                    if (
+                                        event.key === 'Escape'
+                                    ) {
+                                        event.preventDefault();
+                                        cancel.click();
+                                    }
+                                }
+                            );
+
+
+                            controls.appendChild(
+                                cancel
+                            );
+
+                            controls.appendChild(
+                                save
+                            );
+
+                            editor.appendChild(
+                                textarea
+                            );
+
+                            editor.appendChild(
+                                controls
+                            );
+
+
+                            message.classList.add(
+                                'esubiz-site-ai-is-editing'
+                            );
+
+                            message.appendChild(
+                                editor
+                            );
+
+
+                            textarea.focus();
+
+                            if (
+                                typeof textarea.setSelectionRange
+                                === 'function'
+                            ) {
+                                const length =
+                                    textarea.value.length;
+
+                                textarea.setSelectionRange(
+                                    length,
+                                    length
+                                );
+                            }
+                        }
+                    );
+
+                    actions.appendChild(edit);
+                    message.appendChild(actions);
+                }
+            }
+
+
+            function esubizInstallNewChatButton() {
+
+                if (
+                    document.querySelector(
+                        '[data-esubiz-site-ai-new-chat]'
+                    )
+                ) {
+                    return;
+                }
+
+                const closeButton =
+                    document.querySelector(
+                        '[data-site-ai-close]'
+                    )
+                    || document.querySelector(
+                        '[data-site-ai-panel-close]'
+                    );
+
+                if (!closeButton) {
+                    return;
+                }
+
+                const button =
+                    document.createElement('button');
+
+                button.type =
+                    'button';
+
+                button.className =
+                    'esubiz-site-ai-new-chat';
+
+                button.dataset.esubizSiteAiNewChat =
+                    '1';
+
+                button.textContent =
+                    'New Chat';
+
+                button.title =
+                    'Start a new chat';
+
+                button.addEventListener(
+                    'click',
+                    function () {
+
+                        const root =
+                            esubizSiteAiConversationRoot();
+
+                        if (root) {
+                            root.innerHTML = '';
+                        }
+
+                        if (promptInput) {
+                            promptInput.value = '';
+                            promptInput.focus();
+                        }
+                    }
+                );
+
+                closeButton.parentNode.insertBefore(
+                    button,
+                    closeButton
+                );
+            }
+
+
+            setTimeout(
+                esubizInstallNewChatButton,
+                0
+            );
+
+
+
+            /*
+             * ESUBIZ_CHATGPT_EDIT_ATTACHMENT_FIX_V2
+             *
+             * The message currently being edited.
+             * Null means a normal new message.
+             */
+            let esubizSiteAiEditingMessage = null;
+
+            /*
+             * ESUBIZ_CHATGPT_CANCEL_EDIT_V1
+             */
+            let esubizSiteAiCancelEditButton = null;
+
+
+            function esubizSiteAiEnsureCancelEditButton() {
+
+                if (
+                    esubizSiteAiCancelEditButton
+                    && document.body.contains(
+                        esubizSiteAiCancelEditButton
+                    )
+                ) {
+                    return esubizSiteAiCancelEditButton;
+                }
+
+
+                if (!promptInput) {
+                    return null;
+                }
+
+
+                const button =
+                    document.createElement('button');
+
+                button.type =
+                    'button';
+
+                button.className =
+                    'esubiz-site-ai-cancel-edit';
+
+                button.textContent =
+                    'Cancel Edit';
+
+                button.hidden =
+                    true;
+
+                button.setAttribute(
+                    'aria-label',
+                    'Cancel editing message'
+                );
+
+
+                button.addEventListener(
+                    'click',
+                    function () {
+
+                        esubizSiteAiEditingMessage =
+                            null;
+
+                        promptInput.value =
+                            '';
+
+                        button.hidden =
+                            true;
+
+                        promptInput.focus();
+                    }
+                );
+
+
+                /*
+                 * Place beside/near the composer without restructuring
+                 * the existing upload/send controls.
+                 */
+                const composer =
+                    promptInput.parentElement;
+
+                if (composer) {
+                    composer.appendChild(
+                        button
+                    );
+                }
+
+
+                esubizSiteAiCancelEditButton =
+                    button;
+
+                return button;
+            }
+
+
+            function esubizSiteAiShowCancelEdit() {
+
+                const button =
+                    esubizSiteAiEnsureCancelEditButton();
+
+                if (button) {
+                    button.hidden =
+                        false;
+                }
+            }
+
+
+            function esubizSiteAiHideCancelEdit() {
+
+                if (
+                    esubizSiteAiCancelEditButton
+                ) {
+                    esubizSiteAiCancelEditButton.hidden =
+                        true;
+                }
+            }
+
+
+
+
+
+            /*
+             * ESUBIZ_AI_TYPING_BUBBLE_V1
+             *
+             * Temporary assistant message displayed while the
+             * existing AI request is processing.
+             */
+            let esubizSiteAiTypingBubble =
+                null;
+
+
+            function esubizSiteAiRemoveTypingBubble() {
+
+                if (
+                    esubizSiteAiTypingBubble
+                    && esubizSiteAiTypingBubble.parentNode
+                ) {
+                    esubizSiteAiTypingBubble.remove();
+                }
+
+                esubizSiteAiTypingBubble =
+                    null;
+            }
+
+
+            function esubizSiteAiShowTypingBubble() {
+
+                /*
+                 * ESUBIZ_AI_TYPING_DIRECT_ROW_V2
+                 *
+                 * Temporary visual-only assistant typing row.
+                 * It never enters conversation history or AI payload.
+                 */
+                esubizSiteAiRemoveTypingBubble();
+
+
+                const conversation =
+                    esubizSiteAiConversationRoot();
+
+                if (!conversation) {
+                    return;
+                }
+
+
+                const row =
+                    document.createElement('div');
+
+                row.className =
+                    'esubiz-site-ai-typing-row';
+
+                row.dataset.esubizAiTyping =
+                    '1';
+
+                row.setAttribute(
+                    'role',
+                    'status'
+                );
+
+                row.setAttribute(
+                    'aria-label',
+                    'AI is typing'
+                );
+
+
+                const bubble =
+                    document.createElement('div');
+
+                bubble.className =
+                    'esubiz-site-ai-typing-bubble';
+
+
+                for (let i = 0; i < 3; i++) {
+
+                    const dot =
+                        document.createElement('span');
+
+                    dot.className =
+                        'esubiz-site-ai-typing-dot';
+
+                    dot.setAttribute(
+                        'aria-hidden',
+                        'true'
+                    );
+
+                    bubble.appendChild(
+                        dot
+                    );
+                }
+
+
+                row.appendChild(
+                    bubble
+                );
+
+                conversation.appendChild(
+                    row
+                );
+
+
+                esubizSiteAiTypingBubble =
+                    row;
+
+
+                row.scrollIntoView({
+                    behavior:
+                        'smooth',
+
+                    block:
+                        'nearest',
+                });
+            }
+
+
+
+
+
             async function sendAiRequest() {
 
                 if (
@@ -1851,6 +3587,25 @@
                 const prompt =
                     promptInput.value
                         .trim();
+
+
+                const MAX_MESSAGE_CHARACTERS =
+                    @json($esubizAiChatLimits['max_message_characters']);
+
+                if (
+                    prompt.length
+                    > MAX_MESSAGE_CHARACTERS
+                ) {
+                    alert(
+                        'Maximum message length is '
+                        + MAX_MESSAGE_CHARACTERS
+                        + ' characters.'
+                    );
+
+                    promptInput.focus();
+
+                    return;
+                }
 
 
                 if (!prompt) {
@@ -1903,9 +3658,48 @@
                     'generate';
 
 
+                /*
+                 * If this is an edit, rewind the visible conversation
+                 * to immediately before the historical user message.
+                 *
+                 * Normal sends are completely unchanged.
+                 */
+                if (
+                    esubizSiteAiEditingMessage
+                    && esubizSiteAiEditingMessage.parentNode
+                ) {
+                    let node =
+                        esubizSiteAiEditingMessage;
+
+                    while (node) {
+                        const next =
+                            node.nextSibling;
+
+                        node.remove();
+
+                        node = next;
+                    }
+
+                    esubizSiteAiEditingMessage =
+                        null;
+
+                    esubizSiteAiHideCancelEdit();
+
+                }
+
+
                 appendConversationMessage(
                     'user',
                     prompt
+                );
+
+
+                requestAnimationFrame(
+                    function () {
+                        esubizEnhanceLatestUserMessage(
+                            prompt
+                        );
+                    }
                 );
 
 
@@ -1931,7 +3725,218 @@
                     'Generating...';
 
 
-                const requestPayload = {
+                /*
+                 * Show temporary assistant typing state while the
+                 * existing request is processed.
+                 */
+                esubizSiteAiShowTypingBubble();
+
+
+                
+                /*
+                 * SITE_AI_REFERENCE_VISION_PAYLOAD
+                 *
+                 * Selected reference photos are resized/compressed
+                 * before being sent to Site AI.
+                 *
+                 * Existing limits remain:
+                 * - maximum 5 images
+                 * - maximum 10 MB source image
+                 */
+                async function prepareSiteAiReferenceImage(file) {
+
+                    return new Promise(
+                        function (resolve, reject) {
+
+                            const reader =
+                                new FileReader();
+
+                            reader.onerror =
+                                function () {
+                                    reject(
+                                        new Error(
+                                            'Could not read the reference image.'
+                                        )
+                                    );
+                                };
+
+                            reader.onload =
+                                function () {
+
+                                    const image =
+                                        new Image();
+
+                                    image.onerror =
+                                        function () {
+                                            reject(
+                                                new Error(
+                                                    'Could not prepare the reference image.'
+                                                )
+                                            );
+                                        };
+
+                                    image.onload =
+                                        function () {
+
+                                            const maximum =
+                                                1600;
+
+                                            let width =
+                                                image.naturalWidth;
+
+                                            let height =
+                                                image.naturalHeight;
+
+
+                                            if (
+                                                width > maximum
+                                                || height > maximum
+                                            ) {
+
+                                                const scale =
+                                                    Math.min(
+                                                        maximum / width,
+                                                        maximum / height
+                                                    );
+
+                                                width =
+                                                    Math.round(
+                                                        width * scale
+                                                    );
+
+                                                height =
+                                                    Math.round(
+                                                        height * scale
+                                                    );
+                                            }
+
+
+                                            const canvas =
+                                                document.createElement(
+                                                    'canvas'
+                                                );
+
+                                            canvas.width =
+                                                width;
+
+                                            canvas.height =
+                                                height;
+
+
+                                            const context =
+                                                canvas.getContext(
+                                                    '2d'
+                                                );
+
+                                            context.drawImage(
+                                                image,
+                                                0,
+                                                0,
+                                                width,
+                                                height
+                                            );
+
+
+                                            resolve({
+                                                name:
+                                                    file.name,
+
+                                                mime_type:
+                                                    'image/jpeg',
+
+                                                width:
+                                                    width,
+
+                                                height:
+                                                    height,
+
+                                                data_url:
+                                                    canvas.toDataURL(
+                                                        'image/jpeg',
+                                                        0.80
+                                                    ),
+                                            });
+                                        };
+
+                                    image.src =
+                                        reader.result;
+                                };
+
+                            reader.readAsDataURL(
+                                file
+                            );
+                        }
+                    );
+                }
+
+
+                const preparedReferenceImages =
+                    [];
+
+                for (
+                    const referenceFile
+                    of referenceFiles.slice(
+                        0,
+                        MAX_REFERENCE_IMAGES
+                    )
+                ) {
+
+                    preparedReferenceImages.push(
+                        await prepareSiteAiReferenceImage(
+                            referenceFile
+                        )
+                    );
+                }
+
+
+
+                /*
+                 * The selected files have now been captured into
+                 * preparedReferenceImages.
+                 *
+                 * Clear composer attachment STATE so the next message
+                 * cannot accidentally resend the previous photos.
+                 */
+                referenceFiles.splice(
+                    0,
+                    referenceFiles.length
+                );
+
+
+                /*
+                 * Clear only composer attachment previews.
+                 *
+                 * Historical message images are outside these upload
+                 * controls and remain in the conversation.
+                 */
+                document
+                    .querySelectorAll(
+                        '[data-site-ai-reference-preview],'
+                        + '[data-site-ai-reference-item],'
+                        + '[data-site-ai-upload-preview]'
+                    )
+                    .forEach(function (element) {
+                        element.remove();
+                    });
+
+
+                /*
+                 * Reset the actual file input as well. This allows
+                 * selecting the same photo again in a later message.
+                 */
+                const esubizReferenceInput =
+                    document.querySelector(
+                        'input[type="file"][data-site-ai-reference],'
+                        + 'input[type="file"][data-site-ai-upload],'
+                        + 'input[type="file"][accept*="image"]'
+                    );
+
+                if (esubizReferenceInput) {
+                    esubizReferenceInput.value = '';
+                }
+
+
+const requestPayload = {
 
                     capability:
                         capability,
@@ -1950,7 +3955,10 @@
                             ),
 
                         reference_images_count:
-                            referenceFiles.length,
+                            preparedReferenceImages.length,
+
+                        reference_images:
+                            preparedReferenceImages,
                     },
 
                     context: {
@@ -2038,6 +4046,9 @@
                         );
 
 
+                    esubizSiteAiRemoveTypingBubble();
+
+
                     appendConversationMessage(
                         'assistant',
                         aiMessage
@@ -2062,6 +4073,9 @@
 
 
                 } catch (error) {
+
+                    esubizSiteAiRemoveTypingBubble();
+
 
                     appendConversationMessage(
                         'assistant',

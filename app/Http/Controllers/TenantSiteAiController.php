@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use RuntimeException;
 use Throwable;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Generic tenant-facing AI endpoint.
@@ -65,7 +66,145 @@ class TenantSiteAiController extends Controller
             ]);
 
 
-        $payload =
+        
+        /*
+         * ESUBIZ_CENTRAL_CHAT_LIMITS_SERVER_V1
+         *
+         * Central Admin remains authoritative.
+         * Client-side limits are only for immediate UX.
+         */
+        $centralChatLimits =
+            DB::table(
+                'central_ai_chat_settings'
+            )
+                ->orderBy('id')
+                ->first();
+
+        $maxMessageCharacters =
+            max(
+                100,
+                (int) (
+                    $centralChatLimits->max_message_characters
+                    ?? 10000
+                )
+            );
+
+        $maxPhotosPerMessage =
+            max(
+                0,
+                (int) (
+                    $centralChatLimits->max_photos_per_message
+                    ?? 5
+                )
+            );
+
+        $maxPhotoSizeMb =
+            max(
+                1,
+                (int) (
+                    $centralChatLimits->max_photo_size_mb
+                    ?? 10
+                )
+            );
+
+        if (
+            mb_strlen(
+                (string) ($data['prompt'] ?? '')
+            )
+            > $maxMessageCharacters
+        ) {
+            return response()->json(
+                [
+                    'message' =>
+                        'Maximum message length is '
+                        . $maxMessageCharacters
+                        . ' characters.',
+                ],
+                422
+            );
+        }
+
+        $incomingReferenceImages =
+            (array) data_get(
+                $data,
+                'payload.reference_images',
+                []
+            );
+
+        if (
+            count($incomingReferenceImages)
+            > $maxPhotosPerMessage
+        ) {
+            return response()->json(
+                [
+                    'message' =>
+                        'A maximum of '
+                        . $maxPhotosPerMessage
+                        . ' photos may be attached to one message.',
+                ],
+                422
+            );
+        }
+
+        foreach (
+            $incomingReferenceImages
+            as $incomingReferenceImage
+        ) {
+            $dataUrl =
+                (string) data_get(
+                    $incomingReferenceImage,
+                    'data_url',
+                    ''
+                );
+
+            if (
+                $dataUrl === ''
+                || !str_contains($dataUrl, ',')
+            ) {
+                continue;
+            }
+
+            [, $encodedImage] =
+                explode(
+                    ',',
+                    $dataUrl,
+                    2
+                );
+
+            $padding =
+                substr_count(
+                    substr(
+                        $encodedImage,
+                        -2
+                    ),
+                    '='
+                );
+
+            $imageBytes =
+                (int) floor(
+                    strlen($encodedImage)
+                    * 3
+                    / 4
+                )
+                - $padding;
+
+            if (
+                $imageBytes
+                > ($maxPhotoSizeMb * 1024 * 1024)
+            ) {
+                return response()->json(
+                    [
+                        'message' =>
+                            'Each photo must be '
+                            . $maxPhotoSizeMb
+                            . ' MB or smaller.',
+                    ],
+                    422
+                );
+            }
+        }
+
+$payload =
             (array) (
                 $data[
                     'payload'
@@ -92,6 +231,40 @@ class TenantSiteAiController extends Controller
         }
 
 
+        /*
+         * SITE_AI_REFERENCE_IMAGE_CONTEXT_BRIDGE
+         *
+         * Keep reference images in the canonical payload, while also
+         * exposing them through context for the Central vision bridge.
+         *
+         * This does not affect normal text-only requests.
+         */
+        $siteAiContext =
+            (array) (
+                $data[
+                    'context'
+                ] ?? []
+            );
+
+        $referenceImages =
+            (array) (
+                $payload[
+                    'reference_images'
+                ] ?? []
+            );
+
+        if (!empty($referenceImages)) {
+            $siteAiContext[
+                'reference_images'
+            ] =
+                array_slice(
+                    $referenceImages,
+                    0,
+                    5
+                );
+        }
+
+
         try {
 
             $result =
@@ -104,10 +277,50 @@ class TenantSiteAiController extends Controller
                         'action'
                     ],
                     $payload,
-                    (array) (
-                        $data[
-                            'context'
-                        ] ?? []
+                    array_merge(
+                        $siteAiContext,
+                        [
+                            /*
+                             * SITE_AI_IDENTITY_CONTEXT
+                             *
+                             * Authoritative identity supplied by
+                             * the Central website configuration.
+                             */
+                            'assistant_name' =>
+                                trim(
+                                    (string) (
+                                        $website->site_ai_name
+                                        ?: 'Esubiz AI'
+                                    )
+                                ),
+
+                            'website_name' =>
+                                trim(
+                                    (string) (
+                                        $website->name
+                                        ?: 'this website'
+                                    )
+                                ),
+
+                            'assistant_identity_instruction' =>
+                                'Your name is "'
+                                . trim(
+                                    (string) (
+                                        $website->site_ai_name
+                                        ?: 'Esubiz AI'
+                                    )
+                                )
+                                . '". You are the AI assistant for "'
+                                . trim(
+                                    (string) (
+                                        $website->name
+                                        ?: 'this website'
+                                    )
+                                )
+                                . '". Always use this configured assistant name when asked your name or identity. '
+                                . 'Never identify yourself as ChatGPT, GPT, OpenAI, or by the underlying model name. '
+                                . 'Keep this identity consistent throughout the conversation.',
+                        ]
                     )
                 );
 
@@ -427,7 +640,78 @@ class TenantSiteAiController extends Controller
                     'nullable',
                     'boolean',
                 ],
+
+                'site_ai_name' => [
+                    'nullable',
+                    'string',
+                    'max:100',
+                ],
+
+                'site_ai_avatar' => [
+                    'nullable',
+                    'string',
+                    'max:255',
+                ],
+
+                'site_ai_color' => [
+                    'nullable',
+                    'regex:/^#[0-9A-Fa-f]{6}$/',
+                ],
+
+                'site_ai_text_color' => [
+                    'nullable',
+                    'regex:/^#[0-9A-Fa-f]{6}$/',
+                ],
+
+                'site_ai_user_color' => [
+                    'nullable',
+                    'regex:/^#[0-9A-Fa-f]{6}$/',
+                ],
+
+                'site_ai_user_text_color' => [
+                    'nullable',
+                    'regex:/^#[0-9A-Fa-f]{6}$/',
+                ],
             ]);
+
+
+        $website->forceFill([
+            'site_ai_name' =>
+                trim(
+                    (string) (
+                        $data['site_ai_name']
+                        ?? ''
+                    )
+                ) ?: null,
+
+            'site_ai_avatar' =>
+                trim(
+                    (string) (
+                        $data['site_ai_avatar']
+                        ?? ''
+                    )
+                ) ?: null,
+
+            'site_ai_color' =>
+                $data['site_ai_color']
+                ?? $website->site_ai_color
+                ?? '#0b1f3a',
+
+            'site_ai_text_color' =>
+                $data['site_ai_text_color']
+                ?? $website->site_ai_text_color
+                ?? '#ffffff',
+
+            'site_ai_user_color' =>
+                $data['site_ai_user_color']
+                ?? $website->site_ai_user_color
+                ?? '#f1f5f9',
+
+            'site_ai_user_text_color' =>
+                $data['site_ai_user_text_color']
+                ?? $website->site_ai_user_text_color
+                ?? '#0f172a',
+        ])->save();
 
 
         $persona =
@@ -484,6 +768,30 @@ class TenantSiteAiController extends Controller
 
 
             $aiSettings = [
+                'ai.assistant_name' =>
+                    $website->site_ai_name
+                    ?: 'Esubiz AI',
+
+                'ai.assistant_avatar' =>
+                    $website->site_ai_avatar
+                    ?: '',
+
+                'ai.chat.ai_color' =>
+                    $website->site_ai_color
+                    ?: '#0b1f3a',
+
+                'ai.chat.ai_text_color' =>
+                    $website->site_ai_text_color
+                    ?: '#ffffff',
+
+                'ai.chat.user_color' =>
+                    $website->site_ai_user_color
+                    ?: '#f1f5f9',
+
+                'ai.chat.user_text_color' =>
+                    $website->site_ai_user_text_color
+                    ?: '#0f172a',
+
                 'ai.site_enabled' =>
                     $request->boolean(
                         'site_ai_enabled'

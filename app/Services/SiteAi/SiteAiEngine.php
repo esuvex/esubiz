@@ -141,11 +141,53 @@ class SiteAiEngine
             'manifest' =>
                 $manifest,
 
+            /*
+             * SITE_AI_DIRECT_REFERENCE_IMAGE_PRESERVE
+             *
+             * Capability preparation may normalize/remove fields
+             * it does not understand. Reference images must remain
+             * attached to the canonical provider payload.
+             */
             'payload' =>
-                $prepared,
+                array_merge(
+                    $prepared,
+                    [
+                        'reference_images' =>
+                            (array) (
+                                data_get(
+                                    $payload,
+                                    'reference_images'
+                                )
+                                ?? []
+                            ),
+
+                        'reference_images_count' =>
+                            count(
+                                (array) (
+                                    data_get(
+                                        $payload,
+                                        'reference_images'
+                                    )
+                                    ?? []
+                                )
+                            ),
+                    ]
+                ),
 
             'context' =>
-                $context,
+                array_merge(
+                    $context,
+                    [
+                        'reference_images' =>
+                            (array) (
+                                data_get(
+                                    $payload,
+                                    'reference_images'
+                                )
+                                ?? []
+                            ),
+                    ]
+                ),
         ];
 
 
