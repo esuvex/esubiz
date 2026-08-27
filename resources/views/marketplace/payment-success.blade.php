@@ -245,6 +245,59 @@
         $returnDestination =
             $successDestination
             ?? route('marketplace.index');
+
+
+        /*
+         * Carry payment outcome back to the originating page for UI
+         * feedback only.
+         *
+         * This value must never be used as proof of payment or
+         * fulfilment. Central Marketplace remains authoritative.
+         */
+        $returnPaymentState =
+            $paid
+                ? 'success'
+                : (
+                    strtolower(
+                        (string) (
+                            $order->payment_status
+                            ?? 'pending'
+                        )
+                    ) === 'failed'
+                        ? 'failed'
+                        : 'pending'
+                );
+
+
+        if (
+            is_string($returnDestination)
+            && filter_var(
+                $returnDestination,
+                FILTER_VALIDATE_URL
+            )
+        ) {
+            $separator =
+                str_contains(
+                    $returnDestination,
+                    '?'
+                )
+                    ? '&'
+                    : '?';
+
+            $returnDestination .=
+                $separator
+                . 'marketplace_payment='
+                . urlencode(
+                    $returnPaymentState
+                )
+                . '&marketplace_order='
+                . urlencode(
+                    (string) (
+                        $order->id
+                        ?? ''
+                    )
+                );
+        }
     @endphp
 
 
