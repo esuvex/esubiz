@@ -1,3 +1,4 @@
+{{-- ESUBIZ_INTERNAL_MEDIA_ON_DEMAND_V1 --}}
 
 @php
     /*
@@ -1282,10 +1283,10 @@
 
                 @if(!empty($aiPersona['avatar_url']))
 
-                                <img
-                                    src="{{ $aiPersona['avatar_url'] }}"
-                                    alt="{{ $aiPersona['name'] ?? 'Esubiz AI' }}"
-                                >
+                                <x-media.image
+    src="{{ $aiPersona['avatar_url'] }}"
+    alt="{{ $aiPersona['name'] ?? 'Esubiz AI' }}"
+/>
 
                             @else
 
@@ -1525,14 +1526,14 @@
                                 )
                             )
 
-                                <img
-                                    src="{{
+                                <x-media.image
+    src="{{
                                         $aiPersona[
                                             'avatar_url'
                                         ]
                                     }}"
-                                    alt=""
-                                >
+    alt=""
+/>
 
                             @else
 
@@ -1676,11 +1677,11 @@
             ×
         </button>
 
-        <img
-            data-site-ai-image-viewer-image
-            src=""
-            alt="Reference preview"
-        >
+        <x-media.image
+    src=""
+    alt="Reference preview"
+    data-site-ai-image-viewer-image
+/>
 
     </div>
 
@@ -2685,7 +2686,7 @@
                             'esubiz-ai-reference-thumb';
 
                         preview.innerHTML =
-                            '<img alt="Reference photo">';
+                            '<img loading="lazy" decoding="async" alt="Reference photo">';
 
 
                         preview
@@ -3208,7 +3209,7 @@
                         '<button type="button" '
                         + 'class="esubiz-site-ai-photo-overlay-close" '
                         + 'aria-label="Close">×</button>'
-                        + '<img alt="Chat attachment">';
+                        + '<img loading="lazy" decoding="async" alt="Chat attachment">';
 
                     document.body.appendChild(
                         overlay

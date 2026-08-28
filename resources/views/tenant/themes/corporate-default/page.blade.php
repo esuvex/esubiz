@@ -1,3 +1,4 @@
+{{-- ESUBIZ_GLOBAL_MEDIA_COMPONENT_MIGRATION_V1 --}}
 @extends('tenant.themes.corporate-default.layout')
 
 @section(
@@ -393,10 +394,11 @@
 
                                                     <figure style="margin:0;">
 
-                                                        <img
-                                                            src="{{ $data['src'] }}"
-                                                            alt="{{ $data['alt'] ?? '' }}"
-                                                        >
+                                                        {{-- ESUBIZ_PAGE_BUILDER_ON_DEMAND_IMAGES_V1 --}}
+                                                        <x-media.image
+    src="{{ $data['src'] }}"
+    alt="{{ $data['alt'] ?? '' }}"
+/>
 
                                                         @if(
                                                             !empty(
@@ -495,11 +497,11 @@
                                                                     $item['image']
                                                                 )
                                                             )
-                                                                <img
-                                                                    src="{{ $item['image'] }}"
-                                                                    alt=""
-                                                                    style="margin-bottom:18px;"
-                                                                >
+                                                                <x-media.image
+    src="{{ $item['image'] }}"
+    alt="{{ $item['image_alt'] ?? $item['title'] ?? $item['name'] ?? '' }}"
+    style="margin-bottom:18px;"
+/>
                                                             @endif
 
                                                             @if(

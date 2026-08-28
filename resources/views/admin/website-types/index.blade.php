@@ -1,3 +1,4 @@
+{{-- ESUBIZ_INTERNAL_MEDIA_ON_DEMAND_V1 --}}
 @extends('admin.layouts.app')
 
 @section('title', 'Website Types')
@@ -65,6 +66,8 @@
                         <div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-slate-100">
                             @if($websiteType->image)
                                 <img
+    decoding="async"
+    loading="lazy"
                                     src="{{ asset('storage/' . $websiteType->image) }}"
                                     alt="{{ $websiteType->name }}"
                                     class="h-full w-full object-cover">

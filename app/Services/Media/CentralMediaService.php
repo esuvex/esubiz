@@ -60,7 +60,112 @@ class CentralMediaService
 
 
         /*
+        |--------------------------------------------------------------------------
+        | ESUBIZ_GLOBAL_IMAGE_OPTIMIZATION_V1
+        |--------------------------------------------------------------------------
+        |
+        | Every ordinary JPEG, PNG or WEBP image entering the Central
+        | Media service is normalized and optimized before storage.
+        |
+        | Large source images are reduced to a maximum long edge of
+        | 1920px while preserving their original aspect ratio.
+        |
+        | Smaller images are never enlarged.
+        |
+        | storeOptimizedImage() handles the final WEBP encoding and
+        | metadata-free optimized output.
+        |
+        */
+
+        if (
+            $this->canOptimizeImage(
+                $file
+            )
+        ) {
+
+            $sourcePath =
+                $file->getRealPath();
+
+            $imageInfo =
+                $sourcePath
+                    ? @getimagesize(
+                        $sourcePath
+                    )
+                    : false;
+
+            if (
+                is_array(
+                    $imageInfo
+                )
+                && isset(
+                    $imageInfo[0],
+                    $imageInfo[1]
+                )
+                && $imageInfo[0] > 0
+                && $imageInfo[1] > 0
+            ) {
+
+                $sourceWidth =
+                    (int) $imageInfo[0];
+
+                $sourceHeight =
+                    (int) $imageInfo[1];
+
+                $maximumEdge =
+                    1920;
+
+                $largestEdge =
+                    max(
+                        $sourceWidth,
+                        $sourceHeight
+                    );
+
+                $scale =
+                    min(
+                        1,
+                        $maximumEdge
+                        / $largestEdge
+                    );
+
+                $targetWidth =
+                    max(
+                        1,
+                        (int) round(
+                            $sourceWidth
+                            * $scale
+                        )
+                    );
+
+                $targetHeight =
+                    max(
+                        1,
+                        (int) round(
+                            $sourceHeight
+                            * $scale
+                        )
+                    );
+
+                $optimized =
+                    $this->storeOptimizedImage(
+                        $file,
+                        $folder,
+                        $targetWidth,
+                        $targetHeight,
+                        82
+                    );
+
+                if ($optimized) {
+                    return $optimized;
+                }
+            }
+        }
+
+
+        /*
          * Generic Central media fallback.
+         *
+         * Non-image files and images that GD cannot process
+         * retain the original storage behaviour.
          */
         $extension =
             strtolower(
@@ -82,6 +187,122 @@ class CentralMediaService
             . $folder,
             $filename,
             'public'
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | ESUBIZ_CANONICAL_DISK_IMAGE_OPTIMIZATION_V1
+    |--------------------------------------------------------------------------
+    |
+    | Optimize an uploaded website image while preserving the caller's
+    | canonical storage disk and directory.
+    |
+    | Tenant media must remain under:
+    |
+    | tenant-websites/{website_id}/media/...
+    |
+    | rather than being moved into central-media.
+    |
+    */
+    public function storeOptimizedToDisk(
+        UploadedFile $file,
+        string $disk,
+        string $directory,
+        int $maximumEdge = 1920,
+        int $quality = 82
+    ): ?string {
+
+        if (
+            !$this->canOptimizeImage(
+                $file
+            )
+        ) {
+            return null;
+        }
+
+
+        $sourcePath =
+            $file->getRealPath();
+
+
+        $imageInfo =
+            $sourcePath
+                ? @getimagesize(
+                    $sourcePath
+                )
+                : false;
+
+
+        if (
+            !is_array(
+                $imageInfo
+            )
+            || !isset(
+                $imageInfo[0],
+                $imageInfo[1]
+            )
+            || $imageInfo[0] < 1
+            || $imageInfo[1] < 1
+        ) {
+            return null;
+        }
+
+
+        $sourceWidth =
+            (int) $imageInfo[0];
+
+        $sourceHeight =
+            (int) $imageInfo[1];
+
+
+        $largestEdge =
+            max(
+                $sourceWidth,
+                $sourceHeight
+            );
+
+
+        $scale =
+            min(
+                1,
+                $maximumEdge
+                / $largestEdge
+            );
+
+
+        $targetWidth =
+            max(
+                1,
+                (int) round(
+                    $sourceWidth
+                    * $scale
+                )
+            );
+
+
+        $targetHeight =
+            max(
+                1,
+                (int) round(
+                    $sourceHeight
+                    * $scale
+                )
+            );
+
+
+        return $this->storeOptimizedImage(
+            $file,
+            'unused',
+            $targetWidth,
+            $targetHeight,
+            $quality,
+            $disk,
+            trim(
+                $directory,
+                '/'
+            )
         );
     }
 
@@ -322,7 +543,9 @@ class CentralMediaService
         string $folder,
         int $width,
         int $height,
-        int $quality = 82
+        int $quality = 82,
+        string $disk = 'public',
+        ?string $directory = null
     ): ?string {
 
         $sourcePath =
@@ -535,17 +758,28 @@ class CentralMediaService
             . '.webp';
 
 
+        $baseDirectory =
+            $directory !== null
+                ? trim(
+                    $directory,
+                    '/'
+                )
+                : (
+                    $this->root
+                    . '/'
+                    . $folder
+                );
+
+
         $relative =
-            $this->root
-            . '/'
-            . $folder
+            $baseDirectory
             . '/'
             . $filename;
 
 
         $absolute =
             Storage::disk(
-                'public'
+                $disk
             )->path(
                 $relative
             );

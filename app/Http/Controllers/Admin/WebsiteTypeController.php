@@ -50,8 +50,42 @@ class WebsiteTypeController extends Controller
         $validated['is_active'] = $request->boolean('is_active');
         $validated['sort_order'] = $validated['sort_order'] ?? 0;
 
+        /*
+         * ESUBIZ_WEBSITE_TYPE_IMAGE_OPTIMIZATION_V1
+         *
+         * Website Type media belongs to the landlord/platform,
+         * never to a tenant media bucket.
+         *
+         * Raster images use the central optimizer while remaining
+         * inside the landlord website-types directory.
+         *
+         * SVG and unsupported image formats retain their original
+         * storage behaviour.
+         */
         if ($request->hasFile('image')) {
-            $validated['image'] = $request->file('image')->store('website-types', 'public');
+
+            $file =
+                $request->file(
+                    'image'
+                );
+
+            $optimized =
+                app(
+                    \App\Services\Media\CentralMediaService::class
+                )->storeOptimizedToDisk(
+                    $file,
+                    'public',
+                    'website-types',
+                    1920,
+                    82
+                );
+
+            $validated['image'] =
+                $optimized
+                ?: $file->store(
+                    'website-types',
+                    'public'
+                );
         }
 
         WebsiteType::create($validated);
@@ -96,14 +130,62 @@ class WebsiteTypeController extends Controller
         $validated['is_active'] = $request->boolean('is_active');
         $validated['sort_order'] = $validated['sort_order'] ?? 0;
 
+        /*
+         * ESUBIZ_WEBSITE_TYPE_IMAGE_UPDATE_OPTIMIZATION_V1
+         *
+         * Replacement Website Type media follows the same landlord
+         * storage boundary and central image optimization policy.
+         */
         if ($request->hasFile('image')) {
-            if ($websiteType->image) {
-                Storage::disk('public')->delete($websiteType->image);
+
+            $file =
+                $request->file(
+                    'image'
+                );
+
+            $optimized =
+                app(
+                    \App\Services\Media\CentralMediaService::class
+                )->storeOptimizedToDisk(
+                    $file,
+                    'public',
+                    'website-types',
+                    1920,
+                    82
+                );
+
+            $newImage =
+                $optimized
+                ?: $file->store(
+                    'website-types',
+                    'public'
+                );
+
+
+            /*
+             * Delete the previous asset only after the replacement
+             * has been stored successfully.
+             */
+            if (
+                $newImage
+                && $websiteType->image
+            ) {
+                Storage::disk(
+                    'public'
+                )->delete(
+                    $websiteType->image
+                );
             }
 
-            $validated['image'] = $request->file('image')->store('website-types', 'public');
+
+            $validated['image'] =
+                $newImage;
+
         } else {
-            unset($validated['image']);
+
+            unset(
+                $validated['image']
+            );
         }
 
         $websiteType->update($validated);

@@ -1,3 +1,4 @@
+{{-- ESUBIZ_INTERNAL_MEDIA_ON_DEMAND_V1 --}}
 @extends('tenant.admin.layouts.app')
 
 @section('title', 'Esubiz AI')
@@ -1057,6 +1058,8 @@
                             @if($persona->avatarUrl())
 
                                 <img
+    decoding="async"
+    loading="lazy"
                                     src="{{ $persona->avatarUrl() }}"
                                     alt="{{ $persona->name }}"
                                     class="h-full w-full object-cover"
@@ -1194,6 +1197,28 @@
 
 
 <!-- SITE_AI_CHAT_BRANDING_SETTINGS -->
+    @php
+        /*
+         * ESUBIZ_TENANT_CHAT_APPEARANCE_PERMISSION_V2
+         *
+         * Central Admin is authoritative for whether
+         * website admins may customize AI chat colors.
+         */
+        $allowSiteAiChatColorCustomization =
+            (bool) (
+                \Illuminate\Support\Facades\DB::table(
+                    'central_ai_chat_settings'
+                )
+                    ->orderBy('id')
+                    ->value(
+                        'allow_user_chat_color_customization'
+                    )
+                ?? true
+            );
+    @endphp
+
+    @if($allowSiteAiChatColorCustomization)
+
 <div class="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 
     <div class="mb-6">
@@ -1215,35 +1240,6 @@
         @method('PUT')
 
         <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-
-            <div>
-                <label class="mb-2 block text-sm font-medium text-slate-700">
-                    AI Assistant Name
-                </label>
-
-                <input
-                    type="text"
-                    name="site_ai_name"
-                    maxlength="100"
-                    value="{{ old('site_ai_name', $website->site_ai_name ?? 'Esubiz AI') }}"
-                    placeholder="e.g. Luna"
-                    class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
-                >
-            </div>
-
-            <div>
-                <label class="mb-2 block text-sm font-medium text-slate-700">
-                    AI Avatar URL
-                </label>
-
-                <input
-                    type="text"
-                    name="site_ai_avatar"
-                    value="{{ old('site_ai_avatar', $website->site_ai_avatar ?? '') }}"
-                    placeholder="https://..."
-                    class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
-                >
-            </div>
 
             <div>
                 <label class="mb-2 block text-sm font-medium text-slate-700">
@@ -1311,6 +1307,8 @@
     </form>
 
 </div>
+
+    @endif
 
 
 @endsection

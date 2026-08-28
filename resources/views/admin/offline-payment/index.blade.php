@@ -1,3 +1,4 @@
+{{-- ESUBIZ_INTERNAL_MEDIA_ON_DEMAND_V1 --}}
 @extends('admin.layouts.app')
 
 @section('title', 'Offline Payment Gateway')
@@ -1237,11 +1238,12 @@
                                                     </div>
 
                                                     <div class="flex max-h-[65vh] min-h-[280px] items-center justify-center overflow-auto bg-slate-100 p-4">
-                                                        <img
-                                                            :src="open ? receiptUrl : ''"
-                                                            alt="Payment receipt"
-                                                            class="max-h-[58vh] max-w-full rounded-xl border border-slate-200 bg-white object-contain shadow-sm"
-                                                        >
+                                                        <x-media.image
+    src="open ? receiptUrl : ''"
+    alt="Payment receipt"
+    class="max-h-[58vh] max-w-full rounded-xl border border-slate-200 bg-white object-contain shadow-sm"
+    :src="open ? receiptUrl : ''"
+/>
                                                     </div>
 
                                                     <div class="flex justify-end border-t border-slate-200 bg-white px-5 py-4 sm:px-6">

@@ -1,3 +1,4 @@
+{{-- ESUBIZ_INTERNAL_MEDIA_ON_DEMAND_V1 --}}
 @extends('tenant.admin.layouts.app')
 
 @section('title', 'Themes')
@@ -97,11 +98,11 @@
 
                         <div class="relative h-56 overflow-hidden">
 
-                            <img
-                                src="{{ $previewUrl }}"
-                                alt="{{ $installedTheme['name'] }} theme preview"
-                                class="h-full w-full object-cover object-top transition duration-300 group-hover:scale-[1.02]"
-                            >
+                            <x-media.image
+    src="{{ $previewUrl }}"
+    alt="{{ $installedTheme['name'] }} theme preview"
+    class="h-full w-full object-cover object-top transition duration-300 group-hover:scale-[1.02]"
+/>
 
                             <div
                                 class="absolute inset-0 flex items-center justify-center bg-slate-950/0 opacity-0 transition group-hover:bg-slate-950/35 group-hover:opacity-100"
@@ -632,12 +633,12 @@
                 ×
             </button>
 
-            <img
-                id="themeAiImagePreviewImage"
-                src=""
-                alt="Theme reference preview"
-                class="block max-h-[85vh] w-auto max-w-full object-contain"
-            >
+            <x-media.image
+    src=""
+    alt="Theme reference preview"
+    class="block max-h-[85vh] w-auto max-w-full object-contain"
+    id="themeAiImagePreviewImage"
+/>
 
         </div>
     </div>
@@ -700,12 +701,12 @@
             <div
                 class="overflow-hidden rounded-2xl bg-white shadow-2xl"
             >
-                <img
-                    id="businessThemePreviewImage"
-                    src=""
-                    alt="Business full theme preview"
-                    class="block h-auto w-full"
-                >
+                <x-media.image
+    src=""
+    alt="Business full theme preview"
+    class="block h-auto w-full"
+    id="businessThemePreviewImage"
+/>
             </div>
 
         </div>
@@ -919,6 +920,8 @@
                                     data-index="${index}"
                                 >
                                     <img
+    decoding="async"
+    loading="lazy"
                                         src="${image.url}"
                                         alt=""
                                         class="h-full w-full object-cover"

@@ -1,3 +1,4 @@
+{{-- ESUBIZ_INTERNAL_MEDIA_ON_DEMAND_V1 --}}
 @extends('admin.layouts.app')
 
 @section('title', 'Esubiz AI')
@@ -153,11 +154,11 @@
                     class="mt-3 hidden"
                     data-ai-avatar-preview-box
                 >
-                    <img
-                        src=""
-                        alt="Avatar preview"
-                        class="h-24 w-24 rounded-full border border-slate-200 object-cover"
-                    >
+                    <x-media.image
+    src=""
+    alt="Avatar preview"
+    class="h-24 w-24 rounded-full border border-slate-200 object-cover"
+/>
                 </div>
 
                 @error('avatar')
@@ -265,6 +266,8 @@
 
                             @if($persona->avatarUrl())
                                 <img
+    decoding="async"
+    loading="lazy"
                                     src="{{ $persona->avatarUrl() }}"
                                     alt="{{ $persona->name }}"
                                     class="h-full w-full object-cover"
@@ -332,11 +335,11 @@
                                 class="mt-2 hidden"
                                 data-ai-avatar-preview-box
                             >
-                                <img
-                                    src=""
-                                    alt="Avatar preview"
-                                    class="h-20 w-20 rounded-full border border-slate-200 object-cover"
-                                >
+                                <x-media.image
+    src=""
+    alt="Avatar preview"
+    class="h-20 w-20 rounded-full border border-slate-200 object-cover"
+/>
                             </div>
 
                             <textarea
@@ -1826,7 +1829,51 @@ document.addEventListener(
 
                 </div>
 
-                <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                
+            <div
+                class="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+            >
+                <div
+                    class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                    <div class="max-w-2xl">
+                        <div class="text-sm font-black text-slate-900">
+                            Allow Website Chat Color Customization
+                        </div>
+
+                        <p class="mt-1 text-sm text-slate-500">
+                            Allow site admins to override the global AI and user
+                            message bubble and text colors on their websites.
+                            When disabled, Esubiz global chat colors are authoritative.
+                        </p>
+                    </div>
+
+                    <label
+                        class="inline-flex cursor-pointer items-center gap-3"
+                    >
+                        <input
+                            type="checkbox"
+                            name="allow_user_chat_color_customization"
+                            value="1"
+                            @checked(
+                                old(
+                                    'allow_user_chat_color_customization',
+                                    $globalChatSettings->allow_user_chat_color_customization
+                                        ?? true
+                                )
+                            )
+                            class="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        >
+
+                        <span class="text-sm font-bold text-slate-700">
+                            Allow
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+
+            <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 
                     <div>
                         <label class="mb-2 block text-sm font-bold text-slate-700">

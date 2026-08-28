@@ -1,3 +1,4 @@
+{{-- ESUBIZ_GLOBAL_MEDIA_COMPONENT_MIGRATION_V1 --}}
 <header x-data="{
     open:false,
     company:false,
@@ -15,10 +16,11 @@ class="sticky top-0 z-50 bg-white/90 backdrop-blur-xl border-b border-slate-200"
 
 <a href="{{ route('home') }}" class="flex items-center">
 
-    <img
-        src="{{ asset('images/esubiz-logo.png') }}"
-        alt="Esubiz"
-        class="h-14 lg:h-16 w-auto shrink-0">
+    <x-media.image
+    src="{{ asset('images/esubiz-logo.png') }}"
+    alt="Esubiz"
+    class="h-14 lg:h-16 w-auto shrink-0"
+/>
 
 </a>
 

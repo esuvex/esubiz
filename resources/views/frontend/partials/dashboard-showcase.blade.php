@@ -1,3 +1,4 @@
+{{-- ESUBIZ_GLOBAL_MEDIA_COMPONENT_MIGRATION_V1 --}}
 <section id="workspace" class="py-24 bg-slate-50 overflow-hidden">
 
     <div class="max-w-7xl mx-auto px-6 lg:px-8">
@@ -69,10 +70,11 @@
 
                         <aside class="bg-slate-900 text-white p-6">
 
-                            <img
-                                src="{{ asset('images/esubiz-logo.png') }}"
-                                alt="Esubiz"
-                                class="h-10 mb-10">
+                            <x-media.image
+    src="{{ asset('images/esubiz-logo.png') }}"
+    alt="Esubiz"
+    class="h-10 mb-10"
+/>
 
 
                             <nav class="space-y-5 text-sm">

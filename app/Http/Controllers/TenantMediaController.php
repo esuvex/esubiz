@@ -226,15 +226,36 @@ class TenantMediaController extends Controller
             . '/media';
 
         /*
+         * ESUBIZ_TENANT_MEDIA_OPTIMIZATION_V1
+         *
          * All website media consumes the same storage quota.
+         *
+         * Images are optimized centrally while remaining inside
+         * the website's canonical tenant media directory.
          */
         $path =
-            Storage::disk('local')
-                ->putFileAs(
-                    $directory,
-                    $file,
-                    $filename
-                );
+            app(
+                \App\Services\Media\CentralMediaService::class
+            )->storeOptimizedToDisk(
+                $file,
+                'local',
+                $directory,
+                1920,
+                82
+            );
+
+
+        if (!$path) {
+
+            $path =
+                Storage::disk('local')
+                    ->putFileAs(
+                        $directory,
+                        $file,
+                        $filename
+                    );
+        }
+
 
         abort_unless(
             $path,
@@ -243,12 +264,35 @@ class TenantMediaController extends Controller
         );
 
 
+        /*
+         * Use metadata from the final stored asset rather than
+         * the original upload because optimized images become WEBP.
+         */
+        $filename =
+            basename(
+                $path
+            );
+
+
         $mime =
-            $file->getMimeType();
+            strtolower(
+                pathinfo(
+                    $filename,
+                    PATHINFO_EXTENSION
+                )
+            ) === 'webp'
+                ? 'image/webp'
+                : $file->getMimeType();
+
 
         $bytes =
-            (int)
-            $file->getSize();
+            (int) (
+                Storage::disk('local')
+                    ->size(
+                        $path
+                    )
+                ?: $file->getSize()
+            );
 
 
         $this->registerMedia(

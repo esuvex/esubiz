@@ -1,3 +1,4 @@
+{{-- ESUBIZ_INTERNAL_MEDIA_ON_DEMAND_V1 --}}
 @props([
     'name',
     'label' => 'Photo',
@@ -44,12 +45,12 @@
 
         <div class="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-dashed border-slate-300 bg-slate-50">
 
-            <img
-                data-image-preview
-                src="{{ $currentUrl ?: '' }}"
-                alt="{{ $label }} preview"
-                class="{{ $currentUrl ? '' : 'hidden' }} h-full w-full object-cover"
-            >
+            <x-media.image
+    src="{{ $currentUrl ?: '' }}"
+    alt="{{ $label }} preview"
+    class="{{ $currentUrl ? '' : 'hidden' }} h-full w-full object-cover"
+    data-image-preview
+/>
 
             <span
                 data-image-placeholder

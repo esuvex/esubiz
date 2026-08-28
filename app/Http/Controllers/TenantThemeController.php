@@ -830,19 +830,52 @@ class TenantThemeController extends Controller
             . '/media/theme/'
             . $folder;
 
+        /*
+         * ESUBIZ_TENANT_THEME_IMAGE_OPTIMIZATION_V1
+         *
+         * Theme images use the same centralized optimization
+         * policy as Media Library images while retaining their
+         * canonical tenant storage path.
+         */
         $stored =
-            \Illuminate\Support\Facades\Storage::disk('local')
-                ->putFileAs(
-                    $directory,
-                    $file,
-                    $filename
-                );
+            app(
+                \App\Services\Media\CentralMediaService::class
+            )->storeOptimizedToDisk(
+                $file,
+                'local',
+                $directory,
+                1920,
+                82
+            );
+
+
+        if (!$stored) {
+
+            $stored =
+                \Illuminate\Support\Facades\Storage::disk('local')
+                    ->putFileAs(
+                        $directory,
+                        $file,
+                        $filename
+                    );
+        }
+
 
         abort_unless(
             $stored,
             500,
             'Theme image could not be stored.'
         );
+
+
+        /*
+         * Optimized assets are WEBP and receive a generated
+         * filename, so registration must use the stored asset.
+         */
+        $filename =
+            basename(
+                $stored
+            );
 
         /*
          * Register the uploaded theme asset in website_media
@@ -890,14 +923,27 @@ class TenantThemeController extends Controller
                                 ),
 
                             'mime_type' =>
-                                $file->getMimeType(),
+                                strtolower(
+                                    pathinfo(
+                                        $filename,
+                                        PATHINFO_EXTENSION
+                                    )
+                                ) === 'webp'
+                                    ? 'image/webp'
+                                    : $file->getMimeType(),
 
                             'media_type' =>
                                 'image',
 
                             'size_bytes' =>
-                                (int)
-                                $file->getSize(),
+                                (int) (
+                                    \Illuminate\Support\Facades\Storage::disk(
+                                        'local'
+                                    )->size(
+                                        $stored
+                                    )
+                                    ?: $file->getSize()
+                                ),
 
                             'source' =>
                                 'theme',

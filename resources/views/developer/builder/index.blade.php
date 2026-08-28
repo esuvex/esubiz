@@ -1,3 +1,4 @@
+{{-- ESUBIZ_INTERNAL_MEDIA_ON_DEMAND_V1 --}}
 @extends('admin.layouts.app')
 
 @section('title', 'Website Builder')
@@ -356,11 +357,12 @@
                             ×
                         </button>
 
-                        <img
-                            id="ai-theme-photo-modal-image"
-                            src=""
-                            alt="Reference photo enlarged preview"
-                            class="max-h-[60vh] max-w-[70vw] rounded-xl object-contain">
+                        <x-media.image
+    src=""
+    alt="Reference photo enlarged preview"
+    class="max-h-[60vh] max-w-[70vw] rounded-xl object-contain"
+    id="ai-theme-photo-modal-image"
+/>
                     </div>
 
                 </div>

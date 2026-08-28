@@ -1,3 +1,4 @@
+{{-- ESUBIZ_GLOBAL_MEDIA_COMPONENT_MIGRATION_V1 --}}
 @extends('tenant.themes.corporate-default.layout')
 
 @section('title', ($website->name ?? 'Website') . ' | Home')
@@ -84,11 +85,13 @@
 
             @if(!empty($theme['hero_image_path']))
 
-                <img
-                    src="{{ $assetUrl($theme['hero_image_path']) }}"
-                    alt="{{ $website->name ?? 'Business' }}"
-                    loading="eager"
-                >
+                <x-media.image
+                    :src="$assetUrl(
+                        $theme['hero_image_path']
+                    )"
+                    :alt="$website->name ?? 'Business'"
+                    :priority="true"
+                />
 
             @else
 
@@ -207,11 +210,10 @@
 
                         @if(!empty($feature['image_path']))
 
-                            <img
-                                src="{{ $assetUrl($feature['image_path']) }}"
-                                alt="{{ $feature['title'] ?? 'Feature' }}"
-                                loading="lazy"
-                            >
+                            <x-media.image
+    src="{{ $assetUrl($feature['image_path']) }}"
+    alt="{{ $feature['title'] ?? 'Feature' }}"
+/>
 
                         @else
 
@@ -293,11 +295,12 @@
 
             @if(!empty($theme['about_image_path']))
 
-                <img
-                    src="{{ $assetUrl($theme['about_image_path']) }}"
-                    alt="About {{ $website->name ?? 'us' }}"
-                    loading="lazy"
-                >
+                <x-media.image
+                    :src="$assetUrl(
+                        $theme['about_image_path']
+                    )"
+                    :alt="'About ' . ($website->name ?? 'us')"
+                />
 
             @else
 
@@ -394,12 +397,11 @@
 
                                 @if(!empty($testimonial['photo_path']))
 
-                                    <img
-                                        src="{{ $assetUrl($testimonial['photo_path']) }}"
-                                        class="testimonial-avatar"
-                                        alt=""
-                                        loading="lazy"
-                                    >
+                                    <x-media.image
+    src="{{ $assetUrl($testimonial['photo_path']) }}"
+    alt=""
+    class="testimonial-avatar"
+/>
 
                                 @else
 

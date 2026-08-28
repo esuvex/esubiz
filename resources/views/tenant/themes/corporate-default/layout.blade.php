@@ -1,3 +1,4 @@
+{{-- ESUBIZ_GLOBAL_MEDIA_COMPONENT_MIGRATION_V1 --}}
 <!DOCTYPE html>
 <html lang="en">
 
@@ -1365,10 +1366,10 @@
 
             @if(!empty($theme['logo_path']))
 
-                <img
-                    src="{{ $assetUrl($theme['logo_path']) }}"
-                    alt="{{ $website->name ?? 'Website' }}"
-                >
+                <x-media.image
+                    :src="$assetUrl($theme['logo_path'])"
+                    :alt="$website->name ?? 'Website'"
+                />
 
             @else
 
@@ -1558,17 +1559,17 @@
         )
     )
 
-        <img
-            src="{{
+        <x-media.image
+    src="{{
                 $assetUrl(
                     $theme[
                         'footer_background_path'
                     ]
                 )
             }}"
-            class="footer-bg"
-            alt=""
-        >
+    alt=""
+    class="footer-bg"
+/>
 
     @endif
 
@@ -1600,20 +1601,13 @@
                         )
                     )
 
-                        <img
-                            src="{{
-                                $assetUrl(
-                                    $theme[
-                                        'footer_logo_path'
-                                    ]
-                                )
-                            }}"
+                        <x-media.image
+                            :src="$assetUrl(
+                                $theme['footer_logo_path']
+                            )"
+                            :alt="$website->name ?? 'Website'"
                             class="footer-logo"
-                            alt="{{
-                                $website->name
-                                    ?? 'Website'
-                            }}"
-                        >
+                        />
 
                     @endif
 

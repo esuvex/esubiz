@@ -1,3 +1,4 @@
+{{-- ESUBIZ_INTERNAL_MEDIA_ON_DEMAND_V1 --}}
 {{--
 |--------------------------------------------------------------------------
 | ESUBIZ-PAGE-BUILDER-BOUNDARY
@@ -1570,11 +1571,11 @@
                 if (d.src) {
                     return `
                         <figure>
-                            <img
-                                src="${escapeHtml(d.src)}"
-                                alt="${escapeHtml(d.alt || '')}"
-                                class="max-h-[420px] w-full rounded-2xl object-cover"
-                            >
+                            <x-media.image
+    src="${escapeHtml(d.src)}"
+    alt="${escapeHtml(d.alt || '')}"
+    class="max-h-[420px] w-full rounded-2xl object-cover"
+/>
 
                             ${
                                 d.caption
@@ -2572,6 +2573,8 @@ section.columns.forEach(
                                 widget.data.src
                                     ? `
                                         <img
+    decoding="async"
+    loading="lazy"
                                             src="${escapeHtml(widget.data.src)}"
                                             alt=""
                                             class="max-h-[260px] w-full object-cover"
@@ -3131,6 +3134,8 @@ section.columns.forEach(
 
                     preview.innerHTML = `
                         <img
+    decoding="async"
+    loading="lazy"
                             src="${localUrl}"
                             alt=""
                             class="max-h-[260px] w-full object-cover"
@@ -3267,6 +3272,8 @@ section.columns.forEach(
 
                         preview.innerHTML = `
                             <img
+    decoding="async"
+    loading="lazy"
                                 src="${escapeHtml(uploadedPath)}"
                                 alt=""
                                 class="max-h-[260px] w-full object-cover"

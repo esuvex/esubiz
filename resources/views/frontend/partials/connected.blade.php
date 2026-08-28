@@ -1,3 +1,4 @@
+{{-- ESUBIZ_GLOBAL_MEDIA_COMPONENT_MIGRATION_V1 --}}
 <section id="connected" class="relative py-28 bg-slate-950 overflow-hidden">
 
     <!-- Background Effects -->
@@ -53,10 +54,11 @@
 
                     <div class="w-56 h-56 rounded-full bg-gradient-to-br from-amber-400 to-amber-500 shadow-[0_0_80px_rgba(251,191,36,.45)] flex flex-col items-center justify-center">
 
-                        <img
-                            src="{{ asset('images/esubiz-logo.png') }}"
-                            alt="Esubiz"
-                            class="h-14 w-auto">
+                        <x-media.image
+    src="{{ asset('images/esubiz-logo.png') }}"
+    alt="Esubiz"
+    class="h-14 w-auto"
+/>
 
                         <p class="mt-4 font-black text-slate-900 text-lg">
 

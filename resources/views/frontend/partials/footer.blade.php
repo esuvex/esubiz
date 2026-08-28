@@ -1,3 +1,4 @@
+{{-- ESUBIZ_GLOBAL_MEDIA_COMPONENT_MIGRATION_V1 --}}
 <footer class="bg-slate-950 text-slate-300">
 
     <!-- Top -->
@@ -12,10 +13,11 @@
 
                 <a href="{{ route('home') }}" class="inline-flex">
 
-                    <img
-                        src="{{ asset('images/esubiz-logo.png') }}"
-                        alt="Esubiz"
-                        class="h-12 w-auto">
+                    <x-media.image
+    src="{{ asset('images/esubiz-logo.png') }}"
+    alt="Esubiz"
+    class="h-12 w-auto"
+/>
 
                 </a>
 

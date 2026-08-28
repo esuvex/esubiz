@@ -1,3 +1,4 @@
+{{-- ESUBIZ_INTERNAL_MEDIA_ON_DEMAND_V1 --}}
 {{--
 |--------------------------------------------------------------------------
 | Business Home Content Editor
@@ -130,11 +131,11 @@
                     </div>
 
                     @if(!empty($theme['hero_image_path']))
-                        <img
-                            src="{{ $assetUrl($theme['hero_image_path']) }}"
-                            alt="Current hero image"
-                            class="mt-4 aspect-[3/2] w-full rounded-2xl object-cover"
-                        >
+                        <x-media.image
+    src="{{ $assetUrl($theme['hero_image_path']) }}"
+    alt="Current hero image"
+    class="mt-4 aspect-[3/2] w-full rounded-2xl object-cover"
+/>
                     @endif
 
                     <input
@@ -345,11 +346,11 @@
                                 </div>
 
                                 @if(!empty($feature['image_path']))
-                                    <img
-                                        src="{{ $assetUrl($feature['image_path']) }}"
-                                        class="mt-3 aspect-[800/520] w-full rounded-xl object-cover"
-                                        alt=""
-                                    >
+                                    <x-media.image
+    src="{{ $assetUrl($feature['image_path']) }}"
+    alt=""
+    class="mt-3 aspect-[800/520] w-full rounded-xl object-cover"
+/>
                                 @endif
 
                                 <input
@@ -632,11 +633,11 @@
                     </div>
 
                     @if(!empty($theme['about_image_path']))
-                        <img
-                            src="{{ $assetUrl($theme['about_image_path']) }}"
-                            class="mt-4 aspect-[5/4] w-full rounded-2xl object-cover"
-                            alt=""
-                        >
+                        <x-media.image
+    src="{{ $assetUrl($theme['about_image_path']) }}"
+    alt=""
+    class="mt-4 aspect-[5/4] w-full rounded-2xl object-cover"
+/>
                     @endif
 
                     <input
@@ -857,11 +858,11 @@
                                 </div>
 
                                 @if(!empty($testimonial['photo_path']))
-                                    <img
-                                        src="{{ $assetUrl($testimonial['photo_path']) }}"
-                                        class="mt-3 h-16 w-16 rounded-full object-cover"
-                                        alt=""
-                                    >
+                                    <x-media.image
+    src="{{ $assetUrl($testimonial['photo_path']) }}"
+    alt=""
+    class="mt-3 h-16 w-16 rounded-full object-cover"
+/>
                                 @endif
 
                                 <input

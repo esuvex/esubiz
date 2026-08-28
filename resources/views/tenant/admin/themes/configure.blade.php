@@ -1,3 +1,4 @@
+{{-- ESUBIZ_INTERNAL_MEDIA_ON_DEMAND_V1 --}}
 
 {{-- ============================================================
      ESUBIZ_THEME_HOMEPAGE_AI_CONTRIBUTION
@@ -331,11 +332,11 @@
 
                     @if(!empty($theme['logo_path']))
                         <div class="mt-4 rounded-xl bg-white p-4">
-                            <img
-                                src="{{ $assetUrl($theme['logo_path']) }}"
-                                alt="Current logo"
-                                class="max-h-16 max-w-[220px] object-contain"
-                            >
+                            <x-media.image
+    src="{{ $assetUrl($theme['logo_path']) }}"
+    alt="Current logo"
+    class="max-h-16 max-w-[220px] object-contain"
+/>
                         </div>
                     @endif
 
@@ -379,11 +380,11 @@
 
                     @if(!empty($theme['favicon_path']))
                         <div class="mt-4">
-                            <img
-                                src="{{ $assetUrl($theme['favicon_path']) }}"
-                                alt="Current favicon"
-                                class="h-14 w-14 rounded-xl object-cover"
-                            >
+                            <x-media.image
+    src="{{ $assetUrl($theme['favicon_path']) }}"
+    alt="Current favicon"
+    class="h-14 w-14 rounded-xl object-cover"
+/>
                         </div>
                     @endif
 
@@ -771,17 +772,17 @@
                                 )
                             )
 
-                                <img
-                                    src="{{
+                                <x-media.image
+    src="{{
                                         $assetUrl(
                                             $theme[
                                                 'footer_logo_path'
                                             ]
                                         )
                                     }}"
-                                    class="mt-4 max-h-16 max-w-[220px] object-contain"
-                                    alt=""
-                                >
+    alt=""
+    class="mt-4 max-h-16 max-w-[220px] object-contain"
+/>
 
                             @endif
 
