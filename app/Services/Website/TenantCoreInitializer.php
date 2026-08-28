@@ -245,5 +245,807 @@ class TenantCoreInitializer
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+
+        /*
+         * ESUBIZ_CORE_DEFAULT_PAGE_BUILDER_SEED_V1
+         *
+         * Seed the six standard Core pages with real Basic Page Builder
+         * documents so every new deployment can edit them immediately.
+         */
+        $this->initializeDefaultCorePages(
+            $db,
+            $website
+        );
+    }
+
+
+    protected function initializeDefaultCorePages(
+        $db,
+        Website $website
+    ): void {
+
+        $pages = $this->defaultCorePageBuilderDefinitions(
+            $website
+        );
+
+
+        foreach ($pages as $slug => $definition) {
+
+            /*
+             * Reuse the page if another installer stage has already
+             * created it. This prevents duplicate slugs.
+             */
+            $existingPage =
+                $db->table('pages')
+                    ->where(
+                        'slug',
+                        $slug
+                    )
+                    ->first();
+
+
+            if ($existingPage) {
+
+                $pageId =
+                    $existingPage->id;
+
+            } else {
+
+                $pageId =
+                    $db->table('pages')
+                        ->insertGetId([
+                            'title' =>
+                                $definition['title'],
+
+                            'slug' =>
+                                $slug,
+
+                            'status' =>
+                                'published',
+
+                            'content' =>
+                                '',
+
+                            'is_homepage' =>
+                                false,
+
+                            'settings' =>
+                                json_encode([
+                                    'core_default_page' =>
+                                        true,
+
+                                    'core_default_slug' =>
+                                        $slug,
+                                ]),
+
+                            'seo' =>
+                                json_encode([]),
+
+                            'published_at' =>
+                                now(),
+
+                            'created_at' =>
+                                now(),
+
+                            'updated_at' =>
+                                now(),
+                        ]);
+            }
+
+
+            /*
+             * Never overwrite an existing builder document.
+             *
+             * This makes the operation safe if initialization is ever
+             * retried and protects any existing edited page.
+             */
+            $builderExists =
+                $db->table(
+                    'page_builder_documents'
+                )
+                    ->where(
+                        'page_id',
+                        $pageId
+                    )
+                    ->exists();
+
+
+            if ($builderExists) {
+                continue;
+            }
+
+
+            $db->table(
+                'page_builder_documents'
+            )
+                ->insert([
+                    'page_id' =>
+                        $pageId,
+
+                    'content' =>
+                        json_encode([
+                            'type' =>
+                                'basic-page-builder',
+
+                            'version' =>
+                                '1.0.0',
+
+                            'sections' =>
+                                $definition[
+                                    'sections'
+                                ],
+                        ]),
+
+                    'builder_version' =>
+                        '1.0.0',
+
+                    'created_at' =>
+                        now(),
+
+                    'updated_at' =>
+                        now(),
+                ]);
+        }
+    }
+
+
+    protected function defaultCorePageBuilderDefinitions(
+        Website $website
+    ): array {
+
+        /*
+         * Helpers keep every seeded document in the exact
+         * section -> columns -> widgets structure used by the editor.
+         */
+        $section = static function (
+            string $id,
+            array $widgets
+        ): array {
+
+            return [
+                'id' =>
+                    $id,
+
+                'type' =>
+                    'section',
+
+                'ratios' =>
+                    [1],
+
+                'collapsed' =>
+                    false,
+
+                'settings' =>
+                    [],
+
+                'columns' =>
+                    [
+                        [
+                            'id' =>
+                                $id . '-column-1',
+
+                            'widgets' =>
+                                $widgets,
+                        ],
+                    ],
+            ];
+        };
+
+
+        $widget = static function (
+            string $id,
+            string $type,
+            array $data
+        ): array {
+
+            return [
+                'id' =>
+                    $id,
+
+                'type' =>
+                    $type,
+
+                'settings' =>
+                    [],
+
+                'data' =>
+                    $data,
+            ];
+        };
+
+
+        $hero = static function (
+            string $id,
+            string $eyebrow,
+            string $heading,
+            string $text
+        ) use ($widget): array {
+
+            return $widget(
+                $id,
+                'hero',
+                [
+                    'eyebrow' =>
+                        $eyebrow,
+
+                    'heading' =>
+                        $heading,
+
+                    'text' =>
+                        $text,
+
+                    'buttonText' =>
+                        '',
+
+                    'buttonUrl' =>
+                        '',
+
+                    'image' =>
+                        '',
+
+                    'image_path' =>
+                        '',
+
+                    'width_mode' =>
+                        'container',
+                ]
+            );
+        };
+
+
+        $heading = static function (
+            string $id,
+            string $text
+        ) use ($widget): array {
+
+            return $widget(
+                $id,
+                'heading',
+                [
+                    'text' =>
+                        $text,
+
+                    'level' =>
+                        'h2',
+                ]
+            );
+        };
+
+
+        $text = static function (
+            string $id,
+            string $content
+        ) use ($widget): array {
+
+            return $widget(
+                $id,
+                'text',
+                [
+                    'text' =>
+                        $content,
+                ]
+            );
+        };
+
+
+        /*
+         * New structured Card schema.
+         *
+         * Do not revert these to the legacy:
+         * image / text / buttonText / buttonUrl shape.
+         */
+        $card = static function (
+            string $title,
+            string $description,
+            string $icon = ''
+        ): array {
+
+            return [
+                'enabled' =>
+                    true,
+
+                'image_path' =>
+                    '',
+
+                'show_image' =>
+                    false,
+
+                'icon' =>
+                    $icon,
+
+                'show_icon' =>
+                    $icon !== '',
+
+                'title' =>
+                    $title,
+
+                'description' =>
+                    $description,
+
+                'show_button' =>
+                    false,
+
+                'button_label' =>
+                    '',
+
+                'button_url' =>
+                    '',
+
+                'button_url_active' =>
+                    false,
+            ];
+        };
+
+
+        return [
+
+            /*
+             * ---------------------------------------------------------
+             * ABOUT
+             * ---------------------------------------------------------
+             */
+            'about' => [
+                'title' =>
+                    'About',
+
+                'sections' => [
+
+                    $section(
+                        'core-about-hero',
+                        [
+                            $hero(
+                                'core-about-hero-widget',
+                                'About us',
+                                'People first. Purpose always.',
+                                'Learn more about our company, what drives us and how we approach the work we do.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-about-story',
+                        [
+                            $heading(
+                                'core-about-heading',
+                                'Doing meaningful work, the right way.'
+                            ),
+
+                            $text(
+                                'core-about-text',
+                                'Our company exists to create practical solutions and positive experiences for the people we serve. We believe the strongest businesses grow through consistency, trust and a genuine commitment to delivering value.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-about-values',
+                        [
+                            $widget(
+                                'core-about-cards',
+                                'cards',
+                                [
+                                    'heading' =>
+                                        '',
+
+                                    'items' => [
+                                        $card(
+                                            'Our Vision',
+                                            'To be trusted for thoughtful solutions, meaningful service and lasting value.'
+                                        ),
+
+                                        $card(
+                                            'Our Mission',
+                                            'To serve people well through dependable work, clear communication and continuous improvement.'
+                                        ),
+
+                                        $card(
+                                            'Our Values',
+                                            'Integrity, consistency, thoughtful service and a commitment to creating real value.'
+                                        ),
+                                    ],
+                                ]
+                            ),
+                        ]
+                    ),
+                ],
+            ],
+
+
+            /*
+             * ---------------------------------------------------------
+             * CONTACT
+             * ---------------------------------------------------------
+             *
+             * Contact Form uses deferred binding.
+             *
+             * formId remains empty so a missing Form Builder or database
+             * row cannot break deployment.
+             *
+             * When Form Builder is added, create the standard form with:
+             *
+             * key: contact-form
+             * name: Contact Form
+             *
+             * The Form widget can then resolve it automatically.
+             * ---------------------------------------------------------
+             */
+            'contact' => [
+                'title' =>
+                    'Contact',
+
+                'sections' => [
+
+                    $section(
+                        'core-contact-hero',
+                        [
+                            $hero(
+                                'core-contact-hero-widget',
+                                'Contact',
+                                "Let's start a conversation.",
+                                'Have a question, enquiry or project in mind? Send us a message and we will get back to you.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-contact-intro',
+                        [
+                            $heading(
+                                'core-contact-heading',
+                                'We would love to hear from you.'
+                            ),
+
+                            $text(
+                                'core-contact-text',
+                                'Reach out using the contact form or any of the available contact details.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-contact-form-section',
+                        [
+                            $widget(
+                                'core-contact-form',
+                                'form',
+                                [
+                                    /*
+                                     * Existing Form widget compatibility.
+                                     */
+                                    'formId' =>
+                                        '',
+
+                                    /*
+                                     * Future deferred resource binding.
+                                     */
+                                    'form_id' =>
+                                        null,
+
+                                    'form_key' =>
+                                        'contact-form',
+
+                                    'form_name' =>
+                                        'Contact Form',
+
+                                    'binding' =>
+                                        'deferred',
+                                ]
+                            ),
+                        ]
+                    ),
+                ],
+            ],
+
+
+            /*
+             * ---------------------------------------------------------
+             * FAQS
+             * ---------------------------------------------------------
+             */
+            'faqs' => [
+                'title' =>
+                    'FAQs',
+
+                'sections' => [
+
+                    $section(
+                        'core-faqs-hero',
+                        [
+                            $hero(
+                                'core-faqs-hero-widget',
+                                'FAQs',
+                                'Frequently asked questions.',
+                                'Helpful answers to common questions about our business.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-faqs-content',
+                        [
+                            $widget(
+                                'core-faqs-widget',
+                                'faq',
+                                [
+                                    'heading' =>
+                                        'Frequently Asked Questions',
+
+                                    'items' => [
+                                        [
+                                            'question' =>
+                                                'What services do you provide?',
+
+                                            'answer' =>
+                                                'We provide solutions tailored to the needs of our customers. Contact us to discuss your specific requirements.',
+                                        ],
+
+                                        [
+                                            'question' =>
+                                                'How can I get started?',
+
+                                            'answer' =>
+                                                'Use our contact page to send us a message. We will review your request and guide you through the next steps.',
+                                        ],
+
+                                        [
+                                            'question' =>
+                                                'How long does it take to receive a response?',
+
+                                            'answer' =>
+                                                'Response times may vary, but we aim to respond to enquiries as quickly as possible during our normal business hours.',
+                                        ],
+
+                                        [
+                                            'question' =>
+                                                'Can I request a custom solution?',
+
+                                            'answer' =>
+                                                'Yes. We understand that every customer can have different requirements, so custom requests can be discussed with our team.',
+                                        ],
+
+                                        [
+                                            'question' =>
+                                                'How can I learn more about your business?',
+
+                                            'answer' =>
+                                                'Visit our About page or contact us directly for more information.',
+                                        ],
+                                    ],
+                                ]
+                            ),
+                        ]
+                    ),
+                ],
+            ],
+
+
+            /*
+             * ---------------------------------------------------------
+             * SERVICES
+             * ---------------------------------------------------------
+             */
+            'services' => [
+                'title' =>
+                    'Services',
+
+                'sections' => [
+
+                    $section(
+                        'core-services-hero',
+                        [
+                            $hero(
+                                'core-services-hero-widget',
+                                'Our services',
+                                'Solutions built around your needs.',
+                                'Explore the services we provide and discover how we can help.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-services-intro',
+                        [
+                            $heading(
+                                'core-services-heading',
+                                'How we can help.'
+                            ),
+
+                            $text(
+                                'core-services-text',
+                                'Our services are designed to provide practical, dependable solutions while keeping the customer experience clear and straightforward.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-services-cards-section',
+                        [
+                            $widget(
+                                'core-services-cards',
+                                'cards',
+                                [
+                                    'heading' =>
+                                        '',
+
+                                    'items' => [
+                                        $card(
+                                            'Service One',
+                                            'Describe your first core service and the value it provides to customers.'
+                                        ),
+
+                                        $card(
+                                            'Service Two',
+                                            'Describe your second core service and how it helps customers achieve their goals.'
+                                        ),
+
+                                        $card(
+                                            'Service Three',
+                                            'Describe another important service or solution your business provides.'
+                                        ),
+                                    ],
+                                ]
+                            ),
+                        ]
+                    ),
+                ],
+            ],
+
+
+            /*
+             * ---------------------------------------------------------
+             * TERMS
+             * ---------------------------------------------------------
+             */
+            'terms' => [
+                'title' =>
+                    'Terms',
+
+                'sections' => [
+
+                    $section(
+                        'core-terms-hero',
+                        [
+                            $hero(
+                                'core-terms-hero-widget',
+                                'Legal',
+                                'Terms & Conditions',
+                                'The general terms governing use of this website.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-terms-use',
+                        [
+                            $heading(
+                                'core-terms-use-heading',
+                                'Website Use'
+                            ),
+
+                            $text(
+                                'core-terms-use-text',
+                                'By using this website, you agree to use it lawfully and in a manner that does not interfere with the rights or experience of others.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-terms-information',
+                        [
+                            $heading(
+                                'core-terms-information-heading',
+                                'Information'
+                            ),
+
+                            $text(
+                                'core-terms-information-text',
+                                'We aim to keep information accurate and current, but content may be updated from time to time.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-terms-services',
+                        [
+                            $heading(
+                                'core-terms-services-heading',
+                                'Services'
+                            ),
+
+                            $text(
+                                'core-terms-services-text',
+                                'Information about services on this website is provided for general guidance and may be updated as our business develops.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-terms-contact',
+                        [
+                            $heading(
+                                'core-terms-contact-heading',
+                                'Questions'
+                            ),
+
+                            $text(
+                                'core-terms-contact-text',
+                                'If you have questions about these terms, please contact us through our contact page.'
+                            ),
+                        ]
+                    ),
+                ],
+            ],
+
+
+            /*
+             * ---------------------------------------------------------
+             * PRIVACY
+             * ---------------------------------------------------------
+             */
+            'privacy' => [
+                'title' =>
+                    'Privacy',
+
+                'sections' => [
+
+                    $section(
+                        'core-privacy-hero',
+                        [
+                            $hero(
+                                'core-privacy-hero-widget',
+                                'Privacy',
+                                'Privacy Policy',
+                                'How information submitted through this website may be handled.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-privacy-receive',
+                        [
+                            $heading(
+                                'core-privacy-receive-heading',
+                                'Information We Receive'
+                            ),
+
+                            $text(
+                                'core-privacy-receive-text',
+                                'Information may be provided when you contact us, submit forms or interact with services available through this website.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-privacy-use',
+                        [
+                            $heading(
+                                'core-privacy-use-heading',
+                                'How Information Is Used'
+                            ),
+
+                            $text(
+                                'core-privacy-use-text',
+                                'Information may be used to respond to enquiries, provide requested services and improve customer experience.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-privacy-protection',
+                        [
+                            $heading(
+                                'core-privacy-protection-heading',
+                                'Protection'
+                            ),
+
+                            $text(
+                                'core-privacy-protection-text',
+                                'Reasonable measures should be used to protect information from unauthorized access, misuse, loss or disclosure.'
+                            ),
+                        ]
+                    ),
+                ],
+            ],
+        ];
     }
 }
