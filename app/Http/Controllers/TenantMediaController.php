@@ -110,6 +110,23 @@ class TenantMediaController extends Controller
         string $source = 'media_library',
         ?string $sourceContext = null
     ): void {
+        /*
+         * ESUBIZ_TENANT_MEDIA_DATABASE_CONTEXT_V1
+         *
+         * Media uploads can arrive through their own AJAX request,
+         * therefore they cannot assume another controller has already
+         * configured Laravel's dynamic website_tenant connection.
+         *
+         * Establish the owning website's database context immediately
+         * before registering the media record. Physical storage remains
+         * isolated by the website-specific storage directory.
+         */
+        app(
+            \App\Services\Website\WebsiteTenantDatabaseService::class
+        )->connect(
+            $website
+        );
+
         DB::connection('website_tenant')
             ->table('website_media')
             ->updateOrInsert(
@@ -234,14 +251,17 @@ class TenantMediaController extends Controller
          * the website's canonical tenant media directory.
          */
         $path =
-            app(
+            /* ESUBIZ_TENANT_UNIVERSAL_MEDIA_STORE_V1 */
+        app(
                 \App\Services\Media\CentralMediaService::class
-            )->storeOptimizedToDisk(
+            )->storeMediaToDisk(
                 $file,
                 'local',
                 $directory,
-                1920,
-                82
+                [
+                    'maximum_edge' => 1920,
+                    'image_quality' => 82,
+                ]
             );
 
 
@@ -339,6 +359,169 @@ class TenantMediaController extends Controller
 
             'mime' =>
                 $mime,
+        ]);
+    }
+
+
+    /*
+     * ESUBIZ_TENANT_VIDEO_UPLOAD_V1
+     *
+     * Store tenant video through the same canonical media
+     * architecture used by the Media Library. CentralMediaService
+     * handles FFmpeg optimization/transcoding when available.
+     */
+    public function uploadVideo(
+        Request $request
+    ) {
+        $website =
+            $this->authorizeCms();
+
+        $request->validate([
+            'video' => [
+                'required',
+                'file',
+                'mimetypes:video/mp4,video/webm,video/quicktime,video/x-m4v',
+                'max:102400',
+            ],
+
+            'source' => [
+                'nullable',
+                'string',
+                'max:50',
+            ],
+
+            'source_context' => [
+                'nullable',
+                'string',
+                'max:150',
+            ],
+        ]);
+
+        $file =
+            $request->file(
+                'video'
+            );
+
+        $directory =
+            'tenant-websites/'
+            . $website->id
+            . '/media';
+
+        $path =
+            app(
+                \App\Services\Media\CentralMediaService::class
+            )->storeMediaToDisk(
+                $file,
+                'local',
+                $directory
+            );
+
+        if (!$path) {
+
+            $extension =
+                strtolower(
+                    $file
+                        ->getClientOriginalExtension()
+                );
+
+            $filename =
+                now()->format(
+                    'YmdHis'
+                )
+                . '-'
+                . Str::lower(
+                    Str::random(12)
+                )
+                . (
+                    $extension
+                        ? '.' . $extension
+                        : ''
+                );
+
+            $path =
+                Storage::disk('local')
+                    ->putFileAs(
+                        $directory,
+                        $file,
+                        $filename
+                    );
+        }
+
+        abort_unless(
+            $path,
+            500,
+            'Video could not be stored.'
+        );
+
+        $filename =
+            basename(
+                $path
+            );
+
+        $mime =
+            Storage::disk('local')
+                ->mimeType(
+                    $path
+                )
+            ?: $file->getMimeType()
+            ?: 'video/mp4';
+
+        $bytes =
+            (int) (
+                Storage::disk('local')
+                    ->size(
+                        $path
+                    )
+                ?: $file->getSize()
+            );
+
+        $this->registerMedia(
+            $website,
+            $path,
+            $filename,
+            $file->getClientOriginalName(),
+            $mime,
+            $bytes,
+            $request->input(
+                'source',
+                'page_builder'
+            ),
+            $request->input(
+                'source_context',
+                'gallery'
+            )
+        );
+
+        return response()->json([
+            'success' =>
+                true,
+
+            'path' =>
+                $path,
+
+            'url' =>
+                route(
+                    'tenant.website.media',
+                    [
+                        'subdomain' =>
+                            $website->subdomain,
+
+                        'path' =>
+                            $path,
+                    ]
+                ),
+
+            'filename' =>
+                $filename,
+
+            'bytes' =>
+                $bytes,
+
+            'mime' =>
+                $mime,
+
+            'media_type' =>
+                'video',
         ]);
     }
 

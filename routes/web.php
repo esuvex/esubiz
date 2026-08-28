@@ -384,6 +384,18 @@ Route::domain('{subdomain}.esubiz.com')
             ]
         )->name('tenant.cms.media.image.upload');
 
+        /*
+         * ESUBIZ_TENANT_VIDEO_UPLOAD_ROUTE_V1
+         */
+        Route::post(
+            '/admin/media/upload-video',
+            [
+                \App\Http\Controllers\TenantMediaController::class,
+                'uploadVideo',
+            ]
+        )->name('tenant.cms.media.video.upload');
+
+
 
 
         /*

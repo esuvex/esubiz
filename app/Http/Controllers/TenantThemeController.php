@@ -77,7 +77,13 @@ class TenantThemeController extends Controller
             'features_subtitle' =>
                 'Our approach combines clear thinking, practical execution and consistent support.',
 
-            'features_json' => '[{"title": "Professional Service", "text": "Reliable solutions delivered with care, clarity and attention to detail.", "image_path": ""}, {"title": "Customer Focus", "text": "We listen first and shape the experience around the people we serve.", "image_path": ""}, {"title": "Long-term Value", "text": "Our goal is not simply to deliver today, but to create value that lasts.", "image_path": ""}]',
+            /*
+             * ESUBIZ_BUSINESS_STRUCTURED_ITEMS_V1
+             *
+             * Business Features use the same structured item
+             * capabilities as Basic Page Builder Cards.
+             */
+            'features_json' => '[{"enabled":true,"title":"Professional Service","text":"Reliable solutions delivered with care, clarity and attention to detail.","image_path":"","show_image":false,"icon":"","show_icon":false,"show_button":false,"button_label":"","button_url":"","button_url_active":false},{"enabled":true,"title":"Customer Focus","text":"We listen first and shape the experience around the people we serve.","image_path":"","show_image":false,"icon":"","show_icon":false,"show_button":false,"button_label":"","button_url":"","button_url_active":false},{"enabled":true,"title":"Long-term Value","text":"Our goal is not simply to deliver today, but to create value that lasts.","image_path":"","show_image":false,"icon":"","show_icon":false,"show_button":false,"button_label":"","button_url":"","button_url_active":false}]',
 
             /*
              * Statistics
@@ -115,7 +121,7 @@ class TenantThemeController extends Controller
             'testimonials_subtitle' =>
                 'Real experiences from customers and clients we have served.',
 
-            'testimonials_json' => '[{"name": "Amaka N.", "role": "Business Owner", "text": "Professional, responsive and easy to work with from beginning to end.", "photo_path": ""}, {"name": "David O.", "role": "Client", "text": "The experience was clear, efficient and thoughtfully handled.", "photo_path": ""}, {"name": "Sarah K.", "role": "Customer", "text": "Strong communication and attention to detail made the process easy.", "photo_path": ""}, {"name": "Michael A.", "role": "Business Client", "text": "A dependable team with a practical approach and consistent delivery.", "photo_path": ""}, {"name": "Ifeoma C.", "role": "Customer", "text": "Everything felt organized, professional and focused on the right outcome.", "photo_path": ""}, {"name": "Tunde B.", "role": "Returning Client", "text": "The quality of service gave us the confidence to work together again.", "photo_path": ""}]',
+            'testimonials_json' => '[{"enabled":true,"name":"Amaka N.","role":"Business Owner","text":"Professional, responsive and easy to work with from beginning to end.","photo_path":"","show_image":false,"icon":"","show_icon":false,"show_button":false,"button_label":"","button_url":"","button_url_active":false},{"enabled":true,"name":"David O.","role":"Client","text":"The experience was clear, efficient and thoughtfully handled.","photo_path":"","show_image":false,"icon":"","show_icon":false,"show_button":false,"button_label":"","button_url":"","button_url_active":false},{"enabled":true,"name":"Sarah K.","role":"Customer","text":"Strong communication and attention to detail made the process easy.","photo_path":"","show_image":false,"icon":"","show_icon":false,"show_button":false,"button_label":"","button_url":"","button_url_active":false},{"enabled":true,"name":"Michael A.","role":"Business Client","text":"A dependable team with a practical approach and consistent delivery.","photo_path":"","show_image":false,"icon":"","show_icon":false,"show_button":false,"button_label":"","button_url":"","button_url_active":false},{"enabled":true,"name":"Ifeoma C.","role":"Customer","text":"Everything felt organized, professional and focused on the right outcome.","photo_path":"","show_image":false,"icon":"","show_icon":false,"show_button":false,"button_label":"","button_url":"","button_url_active":false},{"enabled":true,"name":"Tunde B.","role":"Returning Client","text":"The quality of service gave us the confidence to work together again.","photo_path":"","show_image":false,"icon":"","show_icon":false,"show_button":false,"button_label":"","button_url":"","button_url_active":false}]',
 
             /*
              * Final CTA
@@ -838,14 +844,17 @@ class TenantThemeController extends Controller
          * canonical tenant storage path.
          */
         $stored =
-            app(
+            /* ESUBIZ_TENANT_UNIVERSAL_MEDIA_STORE_V1 */
+        app(
                 \App\Services\Media\CentralMediaService::class
-            )->storeOptimizedToDisk(
+            )->storeMediaToDisk(
                 $file,
                 'local',
                 $directory,
-                1920,
-                82
+                [
+                    'maximum_edge' => 1920,
+                    'image_quality' => 82,
+                ]
             );
 
 
@@ -1139,6 +1148,49 @@ class TenantThemeController extends Controller
                 'max:1000',
             ],
 
+            'features.*.enabled' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'features.*.show_image' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'features.*.icon' => [
+                'nullable',
+                'string',
+                'max:180',
+            ],
+
+            'features.*.show_icon' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'features.*.show_button' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'features.*.button_label' => [
+                'nullable',
+                'string',
+                'max:180',
+            ],
+
+            'features.*.button_url' => [
+                'nullable',
+                'string',
+                'max:1000',
+            ],
+
+            'features.*.button_url_active' => [
+                'nullable',
+                'boolean',
+            ],
+
             'features.*.existing_image' => [
                 'nullable',
                 'string',
@@ -1176,6 +1228,49 @@ class TenantThemeController extends Controller
                 'nullable',
                 'string',
                 'max:1200',
+            ],
+
+            'testimonials.*.enabled' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'testimonials.*.show_image' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'testimonials.*.icon' => [
+                'nullable',
+                'string',
+                'max:180',
+            ],
+
+            'testimonials.*.show_icon' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'testimonials.*.show_button' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'testimonials.*.button_label' => [
+                'nullable',
+                'string',
+                'max:180',
+            ],
+
+            'testimonials.*.button_url' => [
+                'nullable',
+                'string',
+                'max:1000',
+            ],
+
+            'testimonials.*.button_url_active' => [
+                'nullable',
+                'boolean',
             ],
 
             'testimonials.*.existing_photo' => [
@@ -1795,10 +1890,42 @@ class TenantThemeController extends Controller
                     continue;
                 }
 
+                /*
+                 * ESUBIZ_BUSINESS_STRUCTURED_SAVE_RENDER_V1
+                 */
                 $features[] = [
+                    'enabled' =>
+                        ((string) ($feature['enabled'] ?? '0')) === '1',
+
                     'title' => $title,
                     'text' => $text,
                     'image_path' => $imagePath,
+
+                    'show_image' =>
+                        ((string) (
+                            $feature['show_image']
+                            ?? ($imagePath !== '' ? '1' : '0')
+                        )) === '1',
+
+                    'icon' =>
+                        trim((string) ($feature['icon'] ?? '')),
+
+                    'show_icon' =>
+                        ((string) ($feature['show_icon'] ?? '0')) === '1',
+
+                    'show_button' =>
+                        ((string) ($feature['show_button'] ?? '0')) === '1',
+
+                    'button_label' =>
+                        trim((string) ($feature['button_label'] ?? '')),
+
+                    'button_url' =>
+                        trim((string) ($feature['button_url'] ?? '')),
+
+                    'button_url_active' =>
+                        ((string) (
+                            $feature['button_url_active'] ?? '0'
+                        )) === '1',
                 ];
             }
 
@@ -1896,10 +2023,49 @@ class TenantThemeController extends Controller
                 }
 
                 $testimonials[] = [
+                    'enabled' =>
+                        ((string) (
+                            $testimonial['enabled'] ?? '0'
+                        )) === '1',
+
                     'name' => $name,
                     'role' => $role,
                     'text' => $text,
                     'photo_path' => $photoPath,
+
+                    'show_image' =>
+                        ((string) (
+                            $testimonial['show_image']
+                            ?? ($photoPath !== '' ? '1' : '0')
+                        )) === '1',
+
+                    'icon' =>
+                        trim((string) ($testimonial['icon'] ?? '')),
+
+                    'show_icon' =>
+                        ((string) (
+                            $testimonial['show_icon'] ?? '0'
+                        )) === '1',
+
+                    'show_button' =>
+                        ((string) (
+                            $testimonial['show_button'] ?? '0'
+                        )) === '1',
+
+                    'button_label' =>
+                        trim((string) (
+                            $testimonial['button_label'] ?? ''
+                        )),
+
+                    'button_url' =>
+                        trim((string) (
+                            $testimonial['button_url'] ?? ''
+                        )),
+
+                    'button_url_active' =>
+                        ((string) (
+                            $testimonial['button_url_active'] ?? '0'
+                        )) === '1',
                 ];
             }
 

@@ -418,7 +418,7 @@
             </div>
 
 
-            
+
             <div
                 class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
                 data-theme-menu-position="header"
@@ -506,12 +506,12 @@
 
         <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
 
-            
 
 
 
 
-            
+
+
         {{-- =========================================================
              BUSINESS V1.0 NATIVE HOMEPAGE
              ========================================================= --}}
@@ -699,7 +699,7 @@
                                     Footer Logo
                                 </div>
 
-                                
+
 <div
     class="inline-flex overflow-hidden rounded-xl border border-slate-200 text-[10px] font-black uppercase"
     data-inline-toggle="footer_logo_enabled"
@@ -850,7 +850,7 @@
                                     Short Text
                                 </label>
 
-                                
+
 <div
     class="inline-flex overflow-hidden rounded-xl border border-slate-200 text-[10px] font-black uppercase"
     data-inline-toggle="footer_text_enabled"
@@ -941,7 +941,7 @@
                      SECTION 2 — CONTACT + SOCIAL
                 ================================================== --}}
 
-                
+
                     @php
                         /*
                          * Reload footer social links exactly from
@@ -1191,211 +1191,10 @@
                     @endphp
 
 
-                    <div
-                        class="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5"
-                        data-footer-social-editor
-                    >
-
-                        
+                                    {{-- ESUBIZ_FOOTER_INTERMEDIATE_SOCIAL_CARD_REMOVED_V1 --}}
 
 
-
-                        <div
-                            class="mt-5 grid gap-4"
-                            data-footer-social-list
-                        >
-
-                            @foreach(
-                                $footerSocials
-                                as $index => $social
-                            )
-
-                                <div
-                                    class="rounded-2xl border border-slate-200 bg-white p-4"
-                                    data-footer-social-row
-                                >
-
-                                    <div
-                                        class="grid items-center gap-3 md:grid-cols-[48px_220px_1fr_auto]"
-                                    >
-
-                                        <div
-                                            class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700"
-                                            data-social-icon
-                                        ></div>
-
-
-                                        <select
-                                            name="footer_socials[{{ $index }}][platform]"
-                                            class="rounded-xl border border-slate-200 px-4 py-3 text-sm"
-                                            data-social-platform
-                                        >
-
-                                            <option value="">
-                                                Select platform
-                                            </option>
-
-                                            @foreach(
-                                                [
-                                                    'facebook' =>
-                                                        'Facebook',
-
-                                                    'instagram' =>
-                                                        'Instagram',
-
-                                                    'x' =>
-                                                        'X / Twitter',
-
-                                                    'linkedin' =>
-                                                        'LinkedIn',
-
-                                                    'youtube' =>
-                                                        'YouTube',
-
-                                                    'tiktok' =>
-                                                        'TikTok',
-
-                                                    'whatsapp' =>
-                                                        'WhatsApp',
-                                                ]
-                                                as $value => $label
-                                            )
-
-                                                <option
-                                                    value="{{ $value }}"
-                                                    {{
-                                                        (
-                                                            $social[
-                                                                'platform'
-                                                            ] ?? ''
-                                                        ) === $value
-                                                            ? 'selected'
-                                                            : ''
-                                                    }}
-                                                >
-                                                    {{ $label }}
-                                                </option>
-
-                                            @endforeach
-
-                                        </select>
-
-
-                                        <input
-                                            type="url"
-                                            name="footer_socials[{{ $index }}][url]"
-                                            value="{{
-                                                $social[
-                                                    'url'
-                                                ] ?? ''
-                                            }}"
-                                            placeholder="https://..."
-                                            class="rounded-xl border border-slate-200 px-4 py-3 text-sm"
-                                            data-social-url
-                                        >
-
-
-                                        <button
-                                            type="button"
-                                            class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-black text-red-600 hover:bg-red-100"
-                                            data-delete-footer-social
-                                        >
-                                            Delete
-                                        </button>
-
-                                    </div>
-
-                                </div>
-
-                            @endforeach
-
-                        </div>
-
-
-                        <template
-                            data-footer-social-template
-                        >
-
-                            <div
-                                class="rounded-2xl border border-slate-200 bg-white p-4"
-                                data-footer-social-row
-                            >
-
-                                <div
-                                    class="grid items-center gap-3 md:grid-cols-[48px_220px_1fr_auto]"
-                                >
-
-                                    <div
-                                        class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700"
-                                        data-social-icon
-                                    ></div>
-
-
-                                    <select
-                                        class="rounded-xl border border-slate-200 px-4 py-3 text-sm"
-                                        data-social-platform
-                                    >
-                                        <option value="">
-                                            Select platform
-                                        </option>
-                                        <option value="facebook">
-                                            Facebook
-                                        </option>
-                                        <option value="instagram">
-                                            Instagram
-                                        </option>
-                                        <option value="x">
-                                            X / Twitter
-                                        </option>
-                                        <option value="linkedin">
-                                            LinkedIn
-                                        </option>
-                                        <option value="youtube">
-                                            YouTube
-                                        </option>
-                                        <option value="tiktok">
-                                            TikTok
-                                        </option>
-                                        <option value="whatsapp">
-                                            WhatsApp
-                                        </option>
-                                    </select>
-
-
-                                    <input
-                                        type="url"
-                                        placeholder="https://..."
-                                        class="rounded-xl border border-slate-200 px-4 py-3 text-sm"
-                                        data-social-url
-                                    >
-
-
-                                    <button
-                                        type="button"
-                                        class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-black text-red-600 hover:bg-red-100"
-                                        data-delete-footer-social
-                                    >
-                                        Delete
-                                    </button>
-
-                                </div>
-
-                            </div>
-
-                        </template>
-
-                    </div>
-
-
-
-
-                {{-- =================================================
-                     SECTION 3 — QUICK LINKS
-                ================================================== --}}
-
-                
-
-                {{-- =================================================
+{{-- =================================================
                      SECTION 2 — CONTACT & SOCIAL LINKS
                 ================================================== --}}
 
@@ -2043,7 +1842,7 @@
 
 
                 {{-- Footer Sections 3 + 4 --}}
-                
+
 
 
 
@@ -2151,7 +1950,7 @@
                     </div>
 
 
-                    
+
 
                 </div>
 
@@ -2254,7 +2053,7 @@
                     </div>
 
 
-                    
+
 
                 </div>
 
@@ -2262,7 +2061,7 @@
 
 
 
-                
+
 
 
 
@@ -2437,7 +2236,7 @@
                             Devices
                         </label>
 
-                        
+
                         @php
                             $whatsapp_devicesCurrent =
                                 old(
@@ -2645,7 +2444,7 @@
                             Devices
                         </label>
 
-                        
+
                         @php
                             $live_chat_devicesCurrent =
                                 old(
@@ -2853,7 +2652,7 @@
                             Devices
                         </label>
 
-                        
+
                         @php
                             $back_to_top_devicesCurrent =
                                 old(

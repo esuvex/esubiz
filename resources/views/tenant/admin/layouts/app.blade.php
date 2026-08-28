@@ -109,13 +109,7 @@
                 ☰
             </button>
 
-                <a
-                    href="{{ route('tenant.cms.themes.index', ['subdomain' => $website->subdomain]) }}"
-                    class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition hover:bg-white/10"
-                >
-                    <span>🎨</span>
-                    <span>Themes</span>
-                </a>
+                {{-- ESUBIZ_TENANT_HEADER_THEME_LINK_REMOVED_V1 --}}
 
 
             <div class="min-w-0">

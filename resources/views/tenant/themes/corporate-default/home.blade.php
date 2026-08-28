@@ -202,13 +202,28 @@
             style="margin-top:42px;"
         >
 
-            @foreach($features as $index => $feature)
+            @foreach(
+                collect($features)
+                    ->filter(
+                        fn ($feature) =>
+                            !array_key_exists('enabled', $feature)
+                            || (bool) $feature['enabled']
+                    )
+                    ->values()
+                as $index => $feature
+            )
 
                 <article class="card reveal">
 
                     <div class="media">
 
-                        @if(!empty($feature['image_path']))
+                        @if(
+                            !empty($feature['image_path'])
+                            && (
+                                !array_key_exists('show_image', $feature)
+                                || (bool) $feature['show_image']
+                            )
+                        )
 
                             <x-media.image
     src="{{ $assetUrl($feature['image_path']) }}"
@@ -225,6 +240,19 @@
 
                     </div>
 
+                    @if(
+                        !empty($feature['show_icon'])
+                        && !empty($feature['icon'])
+                    )
+                        <div
+                            class="feature-icon"
+                            style="font-size:32px;margin-bottom:14px;"
+                            aria-hidden="true"
+                        >
+                            {{ $feature['icon'] }}
+                        </div>
+                    @endif
+
                     <h3>
                         {{ $feature['title'] ?? '' }}
                     </h3>
@@ -232,6 +260,31 @@
                     <p class="section-copy">
                         {{ $feature['text'] ?? '' }}
                     </p>
+
+                    @if(
+                        !empty($feature['show_button'])
+                        && !empty($feature['button_label'])
+                    )
+                        @if(
+                            !empty($feature['button_url_active'])
+                            && !empty($feature['button_url'])
+                        )
+                            <a
+                                href="{{ $feature['button_url'] }}"
+                                class="btn btn-primary"
+                                style="margin-top:20px;"
+                            >
+                                {{ $feature['button_label'] }}
+                            </a>
+                        @else
+                            <span
+                                class="btn btn-primary"
+                                style="margin-top:20px;"
+                            >
+                                {{ $feature['button_label'] }}
+                            </span>
+                        @endif
+                    @endif
 
                 </article>
 
@@ -389,13 +442,34 @@
                     id="businessTestimonialTrack"
                 >
 
-                    @foreach($testimonials as $testimonial)
+                    @foreach(
+                        collect($testimonials)
+                            ->filter(
+                                fn ($testimonial) =>
+                                    !array_key_exists(
+                                        'enabled',
+                                        $testimonial
+                                    )
+                                    || (bool) $testimonial['enabled']
+                            )
+                            ->values()
+                        as $testimonial
+                    )
 
                         <article class="testimonial-slide">
 
                             <div class="testimonial-card">
 
-                                @if(!empty($testimonial['photo_path']))
+                                @if(
+                                    !empty($testimonial['photo_path'])
+                                    && (
+                                        !array_key_exists(
+                                            'show_image',
+                                            $testimonial
+                                        )
+                                        || (bool) $testimonial['show_image']
+                                    )
+                                )
 
                                     <x-media.image
     src="{{ $assetUrl($testimonial['photo_path']) }}"
@@ -419,6 +493,18 @@
                                 @endif
 
 
+                                @if(
+                                    !empty($testimonial['show_icon'])
+                                    && !empty($testimonial['icon'])
+                                )
+                                    <div
+                                        style="font-size:30px;margin-bottom:14px;"
+                                        aria-hidden="true"
+                                    >
+                                        {{ $testimonial['icon'] }}
+                                    </div>
+                                @endif
+
                                 <div class="testimonial-quote">
                                     “
                                 </div>
@@ -434,6 +520,37 @@
                                 <div class="testimonial-role">
                                     {{ $testimonial['role'] ?? '' }}
                                 </div>
+
+                                @if(
+                                    !empty($testimonial['show_button'])
+                                    && !empty($testimonial['button_label'])
+                                )
+                                    @if(
+                                        !empty(
+                                            $testimonial[
+                                                'button_url_active'
+                                            ]
+                                        )
+                                        && !empty(
+                                            $testimonial['button_url']
+                                        )
+                                    )
+                                        <a
+                                            href="{{ $testimonial['button_url'] }}"
+                                            class="btn btn-primary"
+                                            style="margin-top:20px;"
+                                        >
+                                            {{ $testimonial['button_label'] }}
+                                        </a>
+                                    @else
+                                        <span
+                                            class="btn btn-primary"
+                                            style="margin-top:20px;"
+                                        >
+                                            {{ $testimonial['button_label'] }}
+                                        </span>
+                                    @endif
+                                @endif
 
                             </div>
 

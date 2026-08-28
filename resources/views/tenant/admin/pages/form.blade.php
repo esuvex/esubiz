@@ -200,6 +200,16 @@
             ) }}"
         >
 
+        <input
+            type="hidden"
+            id="builderVideoUploadUrl"
+            value="{{ route(
+                'tenant.cms.media.video.upload',
+                ['subdomain' => $website->subdomain]
+            ) }}"
+        >
+
+
 <input
             type="hidden"
             name="builder_json"
@@ -1235,7 +1245,8 @@
 
 
             gallery: {
-                images: []
+                images: [],
+                items: []
             },
 
 
@@ -1635,7 +1646,40 @@
                 return `<div class="text-2xl font-black">${escapeHtml(d.text)}</div>`;
 
             case 'text':
-                return `<p class="leading-7 text-slate-600">${escapeHtml(d.text)}</p>`;
+                return d.text
+                    ? `<p class="leading-7 text-slate-600">${escapeHtml(d.text)}</p>`
+                    : `
+                        <div
+                            class="min-h-[72px] rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-400"
+                        >
+                            Empty text — click to edit
+                        </div>
+                    `;
+
+            case 'gallery': {
+                const galleryItems =
+                    Array.isArray(d.items) && d.items.length
+                        ? d.items
+                        : (d.images || []).map(
+                            src => ({
+                                type: 'image',
+                                src
+                            })
+                        );
+
+                return `
+                    <div>
+                        <div class="text-xl font-black">
+                            ${escapeHtml(d.heading || 'Gallery')}
+                        </div>
+
+                        <div class="mt-3 text-sm text-slate-500">
+                            ${galleryItems.length} media item${galleryItems.length === 1 ? '' : 's'}
+                            · click to manage gallery
+                        </div>
+                    </div>
+                `;
+            }
 
             case 'features':
                 return `<div><div class="text-xl font-black">${escapeHtml(d.heading)}</div><div class="mt-3 text-sm text-slate-500">Feature grid · ${(d.items || []).length} items</div></div>`;
@@ -3597,9 +3641,144 @@ section.columns.forEach(
                 break;
 
 
+            /*
+             * ESUBIZ_PAGE_BUILDER_GALLERY_MEDIA_V1
+             */
+            case 'gallery': {
+
+                const existingGalleryItems =
+                    Array.isArray(widget.data.items)
+                    && widget.data.items.length
+                        ? widget.data.items
+                        : (
+                            Array.isArray(widget.data.images)
+                                ? widget.data.images.map(
+                                    src => ({
+                                        type: 'image',
+                                        src
+                                    })
+                                )
+                                : []
+                        );
+
+                widget.data.items =
+                    existingGalleryItems.map(
+                        item => (
+                            typeof item === 'string'
+                                ? {
+                                    type: 'image',
+                                    src: item
+                                }
+                                : {
+                                    type:
+                                        item?.type === 'video'
+                                            ? 'video'
+                                            : 'image',
+                                    src:
+                                        item?.src
+                                        || item?.url
+                                        || ''
+                                }
+                        )
+                    );
+
+                content += `
+                    <div class="space-y-4">
+
+                        <div>
+                            <label class="text-xs font-black uppercase tracking-wide text-slate-500">
+                                Gallery heading
+                            </label>
+
+                            <input
+                                type="text"
+                                data-data-key="heading"
+                                value="${escapeHtml(widget.data.heading || '')}"
+                                placeholder="Gallery"
+                                class="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
+                            >
+                        </div>
+
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+
+                            <div class="font-black text-slate-900">
+                                Add media
+                            </div>
+
+                            <div class="mt-1 text-xs leading-5 text-slate-500">
+                                Upload an image or add a video URL.
+                            </div>
+
+                            <div class="mt-4 grid gap-3 sm:grid-cols-2">
+
+                                <label
+                                    class="flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-4 py-4 text-sm font-black text-slate-700 hover:border-blue-400"
+                                >
+                                    + Upload Image
+
+                                    <input
+                                        id="galleryImageUpload"
+                                        type="file"
+                                        accept="image/*"
+                                        class="hidden"
+                                    >
+                                </label>
+
+                                <label
+                                    class="flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-4 py-4 text-sm font-black text-slate-700 hover:border-blue-400"
+                                >
+                                    + Upload Video
+
+                                    <input
+                                        id="galleryVideoUpload"
+                                        type="file"
+                                        accept="video/mp4,video/webm,video/quicktime,video/x-m4v"
+                                        class="hidden"
+                                    >
+                                </label>
+
+                            </div>
+
+                            <div class="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
+
+                                <input
+                                    id="galleryVideoUrl"
+                                    type="url"
+                                    placeholder="Video URL"
+                                    class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm"
+                                >
+
+                                <button
+                                    id="galleryAddVideo"
+                                    type="button"
+                                    class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-black text-white"
+                                >
+                                    Add Video
+                                </button>
+
+                            </div>
+
+                            <div
+                                id="galleryUploadStatus"
+                                class="mt-2 text-xs font-bold text-slate-500"
+                            ></div>
+
+                        </div>
+
+                        <div
+                            id="galleryMediaEditor"
+                            class="space-y-3"
+                        ></div>
+
+                    </div>
+                `;
+
+                break;
+            }
+
+
             case 'features':
             case 'stats':
-            case 'gallery':
             case 'social':
 
                 if (
@@ -4038,6 +4217,414 @@ section.columns.forEach(
 
 
         /*
+         * ESUBIZ_PAGE_BUILDER_GALLERY_MEDIA_BINDING_V1
+         */
+        if (widget.type === 'gallery') {
+
+            const galleryEditor =
+                document.getElementById(
+                    'galleryMediaEditor'
+                );
+
+            const galleryImageUpload =
+                document.getElementById(
+                    'galleryImageUpload'
+                );
+
+            const galleryVideoUpload =
+                document.getElementById(
+                    'galleryVideoUpload'
+                );
+
+            const galleryVideoUrl =
+                document.getElementById(
+                    'galleryVideoUrl'
+                );
+
+            const galleryAddVideo =
+                document.getElementById(
+                    'galleryAddVideo'
+                );
+
+            const galleryUploadStatus =
+                document.getElementById(
+                    'galleryUploadStatus'
+                );
+
+            const renderGalleryMediaEditor =
+                () => {
+
+                    if (!galleryEditor) {
+                        return;
+                    }
+
+                    const items =
+                        widget.data.items || [];
+
+                    if (!items.length) {
+
+                        galleryEditor.innerHTML = `
+                            <div
+                                class="rounded-xl border border-dashed border-slate-300 p-5 text-center text-sm text-slate-400"
+                            >
+                                No gallery media yet.
+                            </div>
+                        `;
+
+                        return;
+                    }
+
+                    galleryEditor.innerHTML =
+                        items.map(
+                            (item, index) => {
+
+                                const src =
+                                    item?.src || '';
+
+                                const previewSrc =
+                                    item?.type === 'image'
+                                        ? builderMediaPreviewUrl(
+                                            src
+                                        )
+                                        : src;
+
+                                return `
+                                    <div
+                                        class="rounded-xl border border-slate-200 bg-white p-3"
+                                        data-gallery-index="${index}"
+                                    >
+
+                                        ${
+                                            item?.type === 'video'
+                                                ? `
+                                                    <div class="rounded-lg bg-slate-950 p-4 text-sm font-bold text-white">
+                                                        ▶ Video
+                                                    </div>
+
+                                                    <div class="mt-2 break-all text-xs text-slate-500">
+                                                        ${escapeHtml(src)}
+                                                    </div>
+                                                `
+                                                : `
+                                                    <img
+                                                        src="${escapeHtml(previewSrc)}"
+                                                        alt=""
+                                                        class="h-32 w-full rounded-lg object-cover"
+                                                    >
+                                                `
+                                        }
+
+                                        <div class="mt-3 flex items-center justify-between gap-3">
+
+                                            <div class="text-xs font-black uppercase text-slate-500">
+                                                ${item?.type === 'video' ? 'Video' : 'Image'}
+                                            </div>
+
+                                            <button
+                                                type="button"
+                                                data-gallery-remove="${index}"
+                                                class="text-xs font-black text-red-600"
+                                            >
+                                                Remove
+                                            </button>
+
+                                        </div>
+
+                                    </div>
+                                `;
+                            }
+                        ).join('');
+
+                    galleryEditor
+                        .querySelectorAll(
+                            '[data-gallery-remove]'
+                        )
+                        .forEach(
+                            button => {
+
+                                button.addEventListener(
+                                    'click',
+                                    () => {
+
+                                        const index =
+                                            Number(
+                                                button.dataset
+                                                    .galleryRemove
+                                            );
+
+                                        widget.data.items.splice(
+                                            index,
+                                            1
+                                        );
+
+                                        widget.data.images =
+                                            widget.data.items
+                                                .filter(
+                                                    item =>
+                                                        item.type
+                                                        === 'image'
+                                                )
+                                                .map(
+                                                    item =>
+                                                        item.src
+                                                );
+
+                                        sync();
+                                        renderCanvas();
+                                        renderGalleryMediaEditor();
+                                    }
+                                );
+                            }
+                        );
+                };
+
+            renderGalleryMediaEditor();
+
+            galleryImageUpload
+                ?.addEventListener(
+                    'change',
+                    async event => {
+
+                        const file =
+                            event.target.files?.[0];
+
+                        if (!file) {
+                            return;
+                        }
+
+                        try {
+
+                            galleryUploadStatus.textContent =
+                                'Uploading image...';
+
+                            const uploadedPath =
+                                await uploadBuilderImage(
+                                    file
+                                );
+
+                            widget.data.items.push({
+                                type: 'image',
+                                src: uploadedPath
+                            });
+
+                            widget.data.images =
+                                widget.data.items
+                                    .filter(
+                                        item =>
+                                            item.type
+                                            === 'image'
+                                    )
+                                    .map(
+                                        item =>
+                                            item.src
+                                    );
+
+                            sync();
+                            renderCanvas();
+                            renderGalleryMediaEditor();
+
+                            galleryUploadStatus.textContent =
+                                'Image uploaded successfully.';
+
+                            event.target.value = '';
+
+                        } catch (error) {
+
+                            console.error(error);
+
+                            galleryUploadStatus.textContent =
+                                error.message
+                                || 'Image upload failed.';
+                        }
+                    }
+                );
+
+            /*
+             * ESUBIZ_GALLERY_VIDEO_FILE_BINDING_V1
+             */
+            galleryVideoUpload
+                ?.addEventListener(
+                    'change',
+                    async event => {
+
+                        const file =
+                            event.target.files?.[0];
+
+                        if (!file) {
+                            return;
+                        }
+
+                        try {
+
+                            galleryUploadStatus.textContent =
+                                'Uploading and optimizing video...';
+
+                            const uploadedPath =
+                                await uploadBuilderVideo(
+                                    file
+                                );
+
+                            widget.data.items.push({
+                                type: 'video',
+                                src: uploadedPath
+                            });
+
+                            sync();
+                            renderCanvas();
+                            renderGalleryMediaEditor();
+
+                            galleryUploadStatus.textContent =
+                                'Video uploaded successfully.';
+
+                            event.target.value = '';
+
+                        } catch (error) {
+
+                            console.error(error);
+
+                            galleryUploadStatus.textContent =
+                                error.message
+                                || 'Video upload failed.';
+                        }
+                    }
+                );
+
+
+            galleryAddVideo
+                ?.addEventListener(
+                    'click',
+                    () => {
+
+                        const url =
+                            galleryVideoUrl?.value
+                                ?.trim();
+
+                        if (!url) {
+                            return;
+                        }
+
+                        widget.data.items.push({
+                            type: 'video',
+                            src: url
+                        });
+
+                        sync();
+                        renderCanvas();
+                        renderGalleryMediaEditor();
+
+                        galleryVideoUrl.value = '';
+                    }
+                );
+        }
+
+
+        /*
+         * ESUBIZ_PAGE_BUILDER_VIDEO_UPLOAD_V1
+         */
+        async function uploadBuilderVideo(
+            file
+        ) {
+            if (
+                !file
+                || !file.type.startsWith(
+                    'video/'
+                )
+            ) {
+                throw new Error(
+                    'Please choose a valid video file.'
+                );
+            }
+
+            const endpoint =
+                document
+                    .getElementById(
+                        'builderVideoUploadUrl'
+                    )
+                    ?.value;
+
+            if (!endpoint) {
+                throw new Error(
+                    'Video upload endpoint is unavailable.'
+                );
+            }
+
+            const body =
+                new FormData();
+
+            body.append(
+                'video',
+                file
+            );
+
+            body.append(
+                'source',
+                'page_builder'
+            );
+
+            body.append(
+                'source_context',
+                'gallery'
+            );
+
+            const token =
+                document.querySelector(
+                    '#pageBuilderForm input[name="_token"]'
+                )?.value;
+
+            const response =
+                await fetch(
+                    endpoint,
+                    {
+                        method: 'POST',
+
+                        headers: {
+                            'X-CSRF-TOKEN':
+                                token || '',
+
+                            'Accept':
+                                'application/json'
+                        },
+
+                        body
+                    }
+                );
+
+            let payload = null;
+
+            try {
+                payload =
+                    await response.json();
+            } catch {
+                payload = null;
+            }
+
+            if (!response.ok) {
+                throw new Error(
+                    payload?.message
+                    || 'Video upload failed.'
+                );
+            }
+
+            const uploadedPath =
+                payload?.path
+                || payload?.url
+                || payload?.src
+                || payload?.location
+                || payload?.data?.path
+                || payload?.data?.url
+                || null;
+
+            if (!uploadedPath) {
+                throw new Error(
+                    'Upload succeeded but no video path was returned.'
+                );
+            }
+
+            return uploadedPath;
+        }
+
+
+        /*
          * Shared tenant Page Builder image uploader.
          */
         async function uploadBuilderImage(
@@ -4472,6 +5059,119 @@ section.columns.forEach(
         /*
          * ESUBIZ_SLIDER_BUTTON_AND_CLOSED_ICON_PICKER_V2
          */
+        /*
+         * ESUBIZ_CARD_TESTIMONIAL_ICON_PICKER_V1
+         * Cards and Testimonials reuse the standard
+         * searchable Page Builder icon selector.
+         */
+
+
+        /*
+         * ESUBIZ_CARD_TESTIMONIAL_SIMPLE_ICON_PICKER_V2
+         *
+         * Dedicated reliable selector for Cards / Testimonials.
+         * Does not depend on the older floating picker click logic.
+         */
+        function builderSimpleItemIconPickerHtml(
+            scope,
+            index,
+            selected
+        ) {
+            const icons = [
+                ['','No icon'],
+                ['★','Star'],
+                ['✓','Check'],
+                ['♥','Heart'],
+                ['☎','Phone'],
+                ['✉','Email / Message'],
+                ['⌖','Location'],
+                ['⌂','Home'],
+                ['♙','User'],
+                ['♟','Users'],
+                ['▣','Calendar'],
+                ['◷','Clock'],
+                ['◎','Globe'],
+                ['↗','Link'],
+                ['⌕','Search'],
+                ['⚙','Settings'],
+                ['⚒','Tools'],
+                ['◆','Shield'],
+                ['⚿','Key'],
+                ['🛒','Cart'],
+                ['🎁','Gift'],
+                ['◉','Camera'],
+                ['▧','Image'],
+                ['▶','Video / Play'],
+                ['♪','Music'],
+                ['❝','Quote'],
+                ['💡','Idea'],
+                ['⚡','Bolt'],
+                ['❧','Leaf'],
+                ['▥','Building'],
+                ['▣','Briefcase'],
+                ['⚑','Flag'],
+                ['◇','Tag'],
+                ['↓','Download'],
+                ['↑','Upload'],
+                ['ⓘ','Info'],
+                ['?','Question'],
+                ['⚠','Warning']
+            ];
+
+            const options =
+                icons.map(
+                    ([value, label]) => `
+                        <option
+                            value="${escapeHtml(value)}"
+                            data-icon-label="${escapeHtml(label.toLowerCase())}"
+                            ${
+                                String(selected || '') === String(value)
+                                    ? 'selected'
+                                    : ''
+                            }
+                        >
+                            ${value ? `${value} — ` : ''}${escapeHtml(label)}
+                        </option>
+                    `
+                ).join('');
+
+            return `
+                <div
+                    class="rounded-xl border border-slate-200 bg-slate-50 p-3"
+                    data-simple-item-icon-picker
+                    data-icon-scope="${escapeHtml(scope)}"
+                    data-icon-index="${index}"
+                >
+                    <label
+                        class="text-xs font-black uppercase tracking-wide text-slate-500"
+                    >
+                        Icon
+                    </label>
+
+                    <input
+                        type="search"
+                        placeholder="Search icons..."
+                        data-simple-icon-search
+                        class="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                    >
+
+                    <select
+                        data-simple-icon-select
+                        class="mt-2 w-full cursor-pointer rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                    >
+                        ${options}
+                    </select>
+
+                    <input
+                        type="hidden"
+                        data-${scope}-key="icon"
+                        data-${scope}-index="${index}"
+                        value="${escapeHtml(selected || '')}"
+                    >
+                </div>
+            `;
+        }
+
 
         function builderIconPickerHtml(
             scope,
@@ -8160,6 +8860,140 @@ section.columns.forEach(
 
     document.getElementById('pageBuilderForm')
         .addEventListener('submit', sync);
+
+
+    /*
+     * Card / Testimonial simple icon selector bindings.
+     * Delegated so dynamically re-rendered editors work too.
+     */
+    document.addEventListener(
+        'input',
+        event => {
+
+            const search =
+                event.target.closest(
+                    '[data-simple-icon-search]'
+                );
+
+            if (!search) {
+                return;
+            }
+
+            const picker =
+                search.closest(
+                    '[data-simple-item-icon-picker]'
+                );
+
+            const select =
+                picker?.querySelector(
+                    '[data-simple-icon-select]'
+                );
+
+            if (!select) {
+                return;
+            }
+
+            const term =
+                String(
+                    search.value || ''
+                )
+                .trim()
+                .toLowerCase();
+
+            Array.from(
+                select.options
+            ).forEach(
+                option => {
+
+                    const searchable =
+                        (
+                            option.textContent
+                            + ' '
+                            + (
+                                option.dataset.iconLabel
+                                || ''
+                            )
+                        )
+                        .toLowerCase();
+
+                    option.hidden =
+                        term !== ''
+                        && !searchable.includes(
+                            term
+                        );
+                }
+            );
+
+            const firstVisible =
+                Array.from(
+                    select.options
+                ).find(
+                    option =>
+                        !option.hidden
+                );
+
+            if (
+                firstVisible
+                && term !== ''
+            ) {
+                select.value =
+                    firstVisible.value;
+            }
+        }
+    );
+
+
+    document.addEventListener(
+        'change',
+        event => {
+
+            const select =
+                event.target.closest(
+                    '[data-simple-icon-select]'
+                );
+
+            if (!select) {
+                return;
+            }
+
+            const picker =
+                select.closest(
+                    '[data-simple-item-icon-picker]'
+                );
+
+            const hidden =
+                picker?.querySelector(
+                    'input[type="hidden"]'
+                );
+
+            if (!hidden) {
+                return;
+            }
+
+            hidden.value =
+                select.value || '';
+
+            hidden.dispatchEvent(
+                new Event(
+                    'input',
+                    {
+                        bubbles: true
+                    }
+                )
+            );
+
+            hidden.dispatchEvent(
+                new Event(
+                    'change',
+                    {
+                        bubbles: true
+                    }
+                )
+            );
+        }
+    );
+
+
 })();
 
 

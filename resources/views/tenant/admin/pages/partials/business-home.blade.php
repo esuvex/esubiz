@@ -64,9 +64,9 @@
 
             </div>
 
-            
 
-            
+
+
 
 
             <div class="text-xs font-black uppercase tracking-[.14em] text-blue-600">
@@ -223,9 +223,9 @@
 
             </div>
 
-            
 
-            
+
+
 
 
             <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -317,6 +317,24 @@
 
                             <div class="space-y-4">
 
+                                {{-- ESUBIZ_BUSINESS_STRUCTURED_EDITOR_V1 --}}
+
+                                <label class="flex items-center gap-3 text-sm font-bold text-slate-700">
+                                    <input
+                                        type="hidden"
+                                        name="features[{{ $index }}][enabled]"
+                                        value="0"
+                                    >
+                                    <input
+                                        type="checkbox"
+                                        name="features[{{ $index }}][enabled]"
+                                        value="1"
+                                        @checked(($feature['enabled'] ?? true) == true)
+                                    >
+                                    Show this card
+                                </label>
+
+
                                 <input
                                     type="text"
                                     name="features[{{ $index }}][title]"
@@ -331,6 +349,126 @@
                                     placeholder="Feature description"
                                     class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
                                 >{{ $feature['text'] ?? '' }}</textarea>
+
+
+                                <div class="grid gap-3 sm:grid-cols-2">
+
+                                    <input
+                                        type="text"
+                                        {{-- ESUBIZ_BUSINESS_EXISTING_ICON_LIST_V4 --}}
+
+                                    name="features[{{ $index }}][icon]"
+                                    list="businessBasicIconList"
+                                        value="{{ $feature['icon'] ?? '' }}"
+                                        placeholder="Icon"
+                                        class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                                    >
+
+                                    <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700">
+                                        <input
+                                            type="hidden"
+                                            name="features[{{ $index }}][show_icon]"
+                                            value="0"
+                                        >
+                                        <input
+                                            type="checkbox"
+                                            name="features[{{ $index }}][show_icon]"
+                                            value="1"
+                                            @checked(($feature['show_icon'] ?? false) == true)
+                                        >
+                                        Show icon
+                                    </label>
+
+                                </div>
+
+
+                                <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700">
+
+                                    <input
+                                        type="hidden"
+                                        name="features[{{ $index }}][show_image]"
+                                        value="0"
+                                    >
+
+                                    <input
+                                        type="checkbox"
+                                        name="features[{{ $index }}][show_image]"
+                                        value="1"
+                                        @checked(
+                                            array_key_exists(
+                                                'show_image',
+                                                $feature
+                                            )
+                                                ? (bool) $feature['show_image']
+                                                : !empty($feature['image_path'])
+                                        )
+                                    >
+
+                                    Show image
+
+                                </label>
+
+
+                                <label class="flex items-center gap-3 text-sm font-bold text-slate-700">
+
+                                    <input
+                                        type="hidden"
+                                        name="features[{{ $index }}][show_button]"
+                                        value="0"
+                                    >
+
+                                    <input
+                                        type="checkbox"
+                                        name="features[{{ $index }}][show_button]"
+                                        value="1"
+                                        @checked(($feature['show_button'] ?? false) == true)
+                                    >
+
+                                    Show button
+
+                                </label>
+
+
+                                <div class="grid gap-3 sm:grid-cols-2">
+
+                                    <input
+                                        type="text"
+                                        name="features[{{ $index }}][button_label]"
+                                        value="{{ $feature['button_label'] ?? '' }}"
+                                        placeholder="Button label"
+                                        class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                                    >
+
+                                    <input
+                                        type="text"
+                                        name="features[{{ $index }}][button_url]"
+                                        value="{{ $feature['button_url'] ?? '' }}"
+                                        placeholder="Button URL"
+                                        class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                                    >
+
+                                </div>
+
+
+                                <label class="flex items-center gap-3 text-sm font-bold text-slate-700">
+
+                                    <input
+                                        type="hidden"
+                                        name="features[{{ $index }}][button_url_active]"
+                                        value="0"
+                                    >
+
+                                    <input
+                                        type="checkbox"
+                                        name="features[{{ $index }}][button_url_active]"
+                                        value="1"
+                                        @checked(($feature['button_url_active'] ?? false) == true)
+                                    >
+
+                                    Activate button link
+
+                                </label>
+
 
                             </div>
 
@@ -450,7 +588,7 @@
             </div>
 
 
-            
+
 
 
             <div class="text-xs font-black uppercase tracking-[.14em] text-blue-600">
@@ -571,7 +709,7 @@
 
             </div>
 
-            
+
 
 
             <div class="text-xs font-black uppercase tracking-[.14em] text-blue-600">
@@ -726,9 +864,9 @@
             </div>
 
 
-            
 
-            
+
+
 
 
             <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -804,6 +942,57 @@
 
                     <div class="repeatable-testimonial rounded-2xl border border-slate-200 bg-slate-50 p-5">
 
+                        <div class="mb-4 grid gap-3 sm:grid-cols-2">
+
+                            <label class="flex items-center gap-3 text-sm font-bold text-slate-700">
+
+                                <input
+                                    type="hidden"
+                                    name="testimonials[{{ $index }}][enabled]"
+                                    value="0"
+                                >
+
+                                <input
+                                    type="checkbox"
+                                    name="testimonials[{{ $index }}][enabled]"
+                                    value="1"
+                                    @checked(($testimonial['enabled'] ?? true) == true)
+                                >
+
+                                Show testimonial
+
+                            </label>
+
+
+                            <label class="flex items-center gap-3 text-sm font-bold text-slate-700">
+
+                                <input
+                                    type="hidden"
+                                    name="testimonials[{{ $index }}][show_image]"
+                                    value="0"
+                                >
+
+                                <input
+                                    type="checkbox"
+                                    name="testimonials[{{ $index }}][show_image]"
+                                    value="1"
+                                    @checked(
+                                        array_key_exists(
+                                            'show_image',
+                                            $testimonial
+                                        )
+                                            ? (bool) $testimonial['show_image']
+                                            : !empty($testimonial['photo_path'])
+                                    )
+                                >
+
+                                Show photo
+
+                            </label>
+
+                        </div>
+
+
                         <div class="flex justify-end">
 
                             <button
@@ -845,6 +1034,101 @@
                                 placeholder="Testimonial"
                                 class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
                             >{{ $testimonial['text'] ?? '' }}</textarea>
+
+
+                                <div class="grid gap-3 sm:grid-cols-2">
+
+                                    <input
+                                        type="text"
+                                        name="testimonials[{{ $index }}][icon]"
+                                    list="businessBasicIconList"
+                                        value="{{ $testimonial['icon'] ?? '' }}"
+                                        placeholder="Icon"
+                                        class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                                    >
+
+                                    <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700">
+
+                                        <input
+                                            type="hidden"
+                                            name="testimonials[{{ $index }}][show_icon]"
+                                            value="0"
+                                        >
+
+                                        <input
+                                            type="checkbox"
+                                            name="testimonials[{{ $index }}][show_icon]"
+                                            value="1"
+                                            @checked(($testimonial['show_icon'] ?? false) == true)
+                                        >
+
+                                        Show icon
+
+                                    </label>
+
+                                </div>
+
+
+                                <label class="flex items-center gap-3 text-sm font-bold text-slate-700">
+
+                                    <input
+                                        type="hidden"
+                                        name="testimonials[{{ $index }}][show_button]"
+                                        value="0"
+                                    >
+
+                                    <input
+                                        type="checkbox"
+                                        name="testimonials[{{ $index }}][show_button]"
+                                        value="1"
+                                        @checked(($testimonial['show_button'] ?? false) == true)
+                                    >
+
+                                    Show button
+
+                                </label>
+
+
+                                <div class="grid gap-3 sm:grid-cols-2">
+
+                                    <input
+                                        type="text"
+                                        name="testimonials[{{ $index }}][button_label]"
+                                        value="{{ $testimonial['button_label'] ?? '' }}"
+                                        placeholder="Button label"
+                                        class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                                    >
+
+                                    <input
+                                        type="text"
+                                        name="testimonials[{{ $index }}][button_url]"
+                                        value="{{ $testimonial['button_url'] ?? '' }}"
+                                        placeholder="Button URL"
+                                        class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                                    >
+
+                                </div>
+
+
+                                <label class="flex items-center gap-3 text-sm font-bold text-slate-700">
+
+                                    <input
+                                        type="hidden"
+                                        name="testimonials[{{ $index }}][button_url_active]"
+                                        value="0"
+                                    >
+
+                                    <input
+                                        type="checkbox"
+                                        name="testimonials[{{ $index }}][button_url_active]"
+                                        value="1"
+                                        @checked(($testimonial['button_url_active'] ?? false) == true)
+                                    >
+
+                                    Activate button link
+
+                                </label>
+
 
 
                             <div>

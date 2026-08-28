@@ -10,7 +10,8 @@ use RuntimeException;
 class TenantCoreInstallationService
 {
     public function __construct(
-        protected WebsiteTenantDatabaseService $tenantDatabaseService
+        protected WebsiteTenantDatabaseService $tenantDatabaseService,
+        protected TenantCoreInitializer $tenantCoreInitializer
     ) {
     }
 
@@ -37,6 +38,26 @@ class TenantCoreInstallationService
             $this->runTenantCoreMigrations($website);
 
             $this->seedTenantCore();
+
+            /*
+             * ESUBIZ_TENANT_CORE_INITIALIZER_PIPELINE_V1
+             *
+             * Migrations create the tenant schema.
+             * TenantCoreSeeder installs mandatory Core records.
+             *
+             * TenantCoreInitializer then installs the actual
+             * website-level defaults, including:
+             *
+             * - default theme state/settings
+             * - Core CMS defaults
+             * - default landing-page placeholder
+             * - six editable Page Builder pages
+             *
+             * Keep this inside the active tenant connection lifecycle.
+             */
+            $this->tenantCoreInitializer->initialize(
+                $website
+            );
 
         } finally {
 

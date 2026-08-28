@@ -65,7 +65,23 @@ class TenantCoreInitializer
             'website_slug' => $website->slug,
             'subdomain' => $website->subdomain,
             'domain' => $website->domain,
+
+            /*
+             * Core fallback theme identity.
+             */
             'theme' => config('esubiz_core.defaults.theme'),
+
+            /*
+             * ESUBIZ_DEFAULT_BUSINESS_THEME_ACTIVE_V1
+             *
+             * TenantThemeController uses theme.active as the
+             * authoritative enabled/disabled state.
+             *
+             * The public Business theme maps internally to the
+             * corporate-default runtime package, but its canonical
+             * tenant activation key is "business".
+             */
+            'theme.active' => 'business',
         ];
 
         foreach ($settings as $key => $value) {
