@@ -1,4 +1,3 @@
-{{-- ESUBIZ_INTERNAL_MEDIA_ON_DEMAND_V1 --}}
 {{--
 |--------------------------------------------------------------------------
 | ESUBIZ-PAGE-BUILDER-BOUNDARY
@@ -13,6 +12,7 @@
 --}}
 
 @extends('tenant.admin.layouts.app')
+{{-- ESUBIZ_PAGE_BUILDER_CREATE_WITH_AI_REMOVED_V1 --}}
 
 @section('title', $page ? 'Page Builder' : 'Create Page')
 
@@ -190,7 +190,7 @@
             @method('PUT')
         @endif
 
-        
+
         <input
             type="hidden"
             id="builderMediaUploadUrl"
@@ -250,21 +250,17 @@
                 >
                     <div class="flex flex-wrap gap-2">
 
-                        <button
-                            type="button"
-                            id="addSectionButton"
-                            class="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-black text-white hover:bg-blue-700"
-                        >
-                            + Add Section
-                        </button>
+        {{-- ESUBIZ_ADD_SECTION_BUTTON_TOOLBAR_V3 --}}
+        <button
+            type="button"
+            id="addSectionButton"
+            class="rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-sm hover:bg-blue-700"
+        >
+            + Add Section
+        </button>
 
-                        <button
-                            type="button"
-                            id="aiAssistButton"
-                            class="rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2.5 text-sm font-black text-white"
-                        >
-                            ✦ Create with AI
-                        </button>
+
+
 
                     </div>
 
@@ -479,6 +475,10 @@
 
     </div>
 </div>
+
+
+
+
 
 
 {{-- Add Section Layout --}}
@@ -893,6 +893,26 @@
         panorama: { label:'360° Panorama', icon:'360°' },
         html: { label:'HTML', icon:'</>' }
     };
+
+    /*
+     * ESUBIZ_PAGE_BUILDER_STRUCTURED_WIDGETS_V3
+     */
+    widgetDefinitions.slider = {
+        label: 'Photo Slider',
+        icon: '▣',
+        category: 'Media',
+        data: {
+            slides: [],
+            autoplay: true,
+            duration: 5000,
+            width: 1200,
+            height: 650,
+            fit: 'cover',
+            show_arrows: true,
+            show_dots: true
+        }
+    };
+
 
     /*
      * Builder document format:
@@ -1571,11 +1591,11 @@
                 if (d.src) {
                     return `
                         <figure>
-                            <x-media.image
-    src="${escapeHtml(d.src)}"
-    alt="${escapeHtml(d.alt || '')}"
-    class="max-h-[420px] w-full rounded-2xl object-cover"
-/>
+                            <img
+                                src="${escapeHtml(d.src)}"
+                                alt="${escapeHtml(d.alt || '')}"
+                                class="max-h-[420px] w-full rounded-2xl object-cover"
+                            >
 
                             ${
                                 d.caption
@@ -1620,8 +1640,14 @@
             case 'features':
                 return `<div><div class="text-xl font-black">${escapeHtml(d.heading)}</div><div class="mt-3 text-sm text-slate-500">Feature grid · ${(d.items || []).length} items</div></div>`;
 
+            case 'cards':
+                return `<div><div class="text-xl font-black">${escapeHtml(d.heading || 'Cards')}</div><div class="mt-3 text-sm text-slate-500">Card grid · ${(d.items || []).length} cards</div></div>`;
+
             case 'testimonials':
                 return `<div><div class="text-xl font-black">${escapeHtml(d.heading)}</div><div class="mt-3 text-sm text-slate-500">Testimonials slider · ${(d.items || []).length} testimonials</div></div>`;
+
+            case 'slider':
+                return `<div><div class="text-xl font-black">Photo Slider</div><div class="mt-3 text-sm text-slate-500">${(d.slides || []).length} slides · ${d.autoplay === false ? 'Manual' : 'Autoplay'} · ${Number(d.duration || 5000) / 1000}s</div></div>`;
 
             case 'faq':
                 return `<div><div class="text-xl font-black">${escapeHtml(d.heading)}</div><div class="mt-3 text-sm text-slate-500">FAQ accordion · ${(d.items || []).length} questions</div></div>`;
@@ -1834,8 +1860,9 @@ section.columns.forEach(
                                 .map(
                                     widget => `
                                         <div
-                                            class="eb-widget mb-3 rounded-xl border border-slate-200 bg-white p-3"
+                                            class="eb-widget mb-3 rounded-xl border border-slate-200 bg-white p-3 transition"
                                             data-widget-id="${widget.id}"
+                                            draggable="false"
                                         >
 
                                             <div
@@ -1863,6 +1890,18 @@ section.columns.forEach(
 
 
                                                 <div class="flex gap-1">
+
+                                                    {{-- ESUBIZ_PAGE_BUILDER_WIDGET_DRAG_DROP_V1 --}}
+                                                    <button
+                                                        type="button"
+                                                        data-widget-drag-handle
+                                                        data-widget-id="${widget.id}"
+                                                        class="cursor-grab rounded border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-black text-slate-500 active:cursor-grabbing"
+                                                        title="Drag widget"
+                                                        aria-label="Drag widget"
+                                                    >
+                                                        ↕ Move
+                                                    </button>
 
                                                     <button
                                                         type="button"
@@ -1918,6 +1957,357 @@ section.columns.forEach(
                                 + Add Widget
                             </button>
                         `;
+
+
+                        /*
+                         * ESUBIZ_PAGE_BUILDER_WIDGET_DRAG_DROP_V1
+                         *
+                         * Widgets are moved inside the real
+                         * section.columns[].widgets document.
+                         * sync() therefore persists the move.
+                         */
+                        const widgetDropZone =
+                            columnEl.querySelector(
+                                '.eb-column-widgets'
+                            );
+
+
+                        columnEl
+                            .querySelectorAll(
+                                '.eb-widget'
+                            )
+                            .forEach(
+                                widgetElement => {
+
+                                    const dragHandle =
+                                        widgetElement
+                                            .querySelector(
+                                                '[data-widget-drag-handle]'
+                                            );
+
+
+                                    dragHandle
+                                        ?.addEventListener(
+                                            'mousedown',
+                                            event => {
+
+                                                event.stopPropagation();
+
+                                                widgetElement
+                                                    .setAttribute(
+                                                        'draggable',
+                                                        'true'
+                                                    );
+                                            }
+                                        );
+
+
+                                    dragHandle
+                                        ?.addEventListener(
+                                            'click',
+                                            event => {
+
+                                                event.preventDefault();
+                                                event.stopPropagation();
+                                            }
+                                        );
+
+
+                                    widgetElement
+                                        .addEventListener(
+                                            'dragstart',
+                                            event => {
+
+                                                if (
+                                                    widgetElement
+                                                        .getAttribute(
+                                                            'draggable'
+                                                        )
+                                                    !== 'true'
+                                                ) {
+                                                    event.preventDefault();
+                                                    return;
+                                                }
+
+
+                                                draggedId =
+                                                    widgetElement
+                                                        .dataset
+                                                        .widgetId;
+
+
+                                                event.dataTransfer
+                                                    .effectAllowed =
+                                                    'move';
+
+
+                                                event.dataTransfer
+                                                    .setData(
+                                                        'text/plain',
+                                                        draggedId
+                                                    );
+
+
+                                                requestAnimationFrame(
+                                                    () => {
+                                                        widgetElement
+                                                            .classList
+                                                            .add(
+                                                                'opacity-40',
+                                                                'ring-2',
+                                                                'ring-blue-400'
+                                                            );
+                                                    }
+                                                );
+                                            }
+                                        );
+
+
+                                    widgetElement
+                                        .addEventListener(
+                                            'dragend',
+                                            () => {
+
+                                                draggedId = null;
+
+                                                widgetElement
+                                                    .setAttribute(
+                                                        'draggable',
+                                                        'false'
+                                                    );
+
+
+                                                document
+                                                    .querySelectorAll(
+                                                        '.eb-column-widgets'
+                                                    )
+                                                    .forEach(
+                                                        zone => {
+                                                            zone.classList.remove(
+                                                                'ring-2',
+                                                                'ring-blue-500',
+                                                                'bg-blue-50'
+                                                            );
+                                                        }
+                                                    );
+
+
+                                                widgetElement
+                                                    .classList
+                                                    .remove(
+                                                        'opacity-40',
+                                                        'ring-2',
+                                                        'ring-blue-400'
+                                                    );
+                                            }
+                                        );
+                                }
+                            );
+
+
+                        widgetDropZone
+                            ?.addEventListener(
+                                'dragover',
+                                event => {
+
+                                    if (!draggedId) {
+                                        return;
+                                    }
+
+
+                                    event.preventDefault();
+
+                                    event.dataTransfer
+                                        .dropEffect =
+                                        'move';
+
+
+                                    widgetDropZone
+                                        .classList
+                                        .add(
+                                            'ring-2',
+                                            'ring-blue-500',
+                                            'bg-blue-50'
+                                        );
+                                }
+                            );
+
+
+                        widgetDropZone
+                            ?.addEventListener(
+                                'dragleave',
+                                event => {
+
+                                    if (
+                                        widgetDropZone
+                                            .contains(
+                                                event.relatedTarget
+                                            )
+                                    ) {
+                                        return;
+                                    }
+
+
+                                    widgetDropZone
+                                        .classList
+                                        .remove(
+                                            'ring-2',
+                                            'ring-blue-500',
+                                            'bg-blue-50'
+                                        );
+                                }
+                            );
+
+
+                        widgetDropZone
+                            ?.addEventListener(
+                                'drop',
+                                event => {
+
+                                    event.preventDefault();
+                                    event.stopPropagation();
+
+
+                                    const widgetId =
+                                        draggedId
+                                        || event.dataTransfer
+                                            .getData(
+                                                'text/plain'
+                                            );
+
+
+                                    if (!widgetId) {
+                                        return;
+                                    }
+
+
+                                    const source =
+                                        findWidget(
+                                            widgetId
+                                        );
+
+
+                                    const targetColumn =
+                                        findColumn(
+                                            section.id,
+                                            column.id
+                                        );
+
+
+                                    if (
+                                        !source
+                                        || !targetColumn
+                                    ) {
+                                        return;
+                                    }
+
+
+                                    const sourceIndex =
+                                        source.column.widgets
+                                            .findIndex(
+                                                item =>
+                                                    item.id
+                                                    === widgetId
+                                            );
+
+
+                                    if (sourceIndex < 0) {
+                                        return;
+                                    }
+
+
+                                    /*
+                                     * Work out insertion position from
+                                     * the mouse Y coordinate.
+                                     */
+                                    const candidates =
+                                        Array.from(
+                                            widgetDropZone
+                                                .querySelectorAll(
+                                                    '.eb-widget'
+                                                )
+                                        )
+                                        .filter(
+                                            element =>
+                                                element.dataset.widgetId
+                                                !== widgetId
+                                        );
+
+
+                                    let targetIndex =
+                                        candidates.length;
+
+
+                                    for (
+                                        let i = 0;
+                                        i < candidates.length;
+                                        i++
+                                    ) {
+                                        const rect =
+                                            candidates[i]
+                                                .getBoundingClientRect();
+
+
+                                        if (
+                                            event.clientY
+                                            < rect.top
+                                                + (
+                                                    rect.height
+                                                    / 2
+                                                )
+                                        ) {
+                                            targetIndex = i;
+                                            break;
+                                        }
+                                    }
+
+
+                                    /*
+                                     * Remove from original location.
+                                     */
+                                    const [
+                                        movedWidget
+                                    ] =
+                                        source.column.widgets
+                                            .splice(
+                                                sourceIndex,
+                                                1
+                                            );
+
+
+                                    /*
+                                     * Insert into destination.
+                                     *
+                                     * Because candidates excluded the
+                                     * dragged widget, targetIndex is
+                                     * already correct for same-column
+                                     * reordering too.
+                                     */
+                                    targetColumn.widgets
+                                        .splice(
+                                            targetIndex,
+                                            0,
+                                            movedWidget
+                                        );
+
+
+                                    selectedSectionId =
+                                        section.id;
+
+                                    selectedColumnId =
+                                        column.id;
+
+                                    selectedId =
+                                        movedWidget.id;
+
+
+                                    draggedId = null;
+
+
+                                    sync();
+                                    renderCanvas();
+                                }
+                            );
 
 
                         columnEl
@@ -2474,6 +2864,56 @@ section.columns.forEach(
                         widget.data.text
                     );
 
+                /*
+                 * ESUBIZ_HERO_WIDTH_MODE_V1
+                 */
+                content += `
+                    <div>
+                        <label
+                            class="text-xs font-black uppercase tracking-wide text-slate-500"
+                        >
+                            Hero Width
+                        </label>
+
+                        <select
+                            data-data-key="widthMode"
+                            class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700"
+                        >
+                            <option
+                                value="container"
+                                ${
+                                    (
+                                        widget.data.widthMode
+                                        || 'container'
+                                    ) === 'container'
+                                        ? 'selected'
+                                        : ''
+                                }
+                            >
+                                Container
+                            </option>
+
+                            <option
+                                value="full"
+                                ${
+                                    widget.data.widthMode === 'full'
+                                        ? 'selected'
+                                        : ''
+                                }
+                            >
+                                Full Width
+                            </option>
+                        </select>
+
+                        <p
+                            class="mt-1 text-xs text-slate-400"
+                        >
+                            Container follows the page width.
+                            Full Width stretches across the screen.
+                        </p>
+                    </div>
+                `;
+
                 content +=
                     textField(
                         'Button Text',
@@ -2488,12 +2928,120 @@ section.columns.forEach(
                         widget.data.buttonUrl
                     );
 
-                content +=
-                    textField(
-                        'Image',
-                        'image',
-                        widget.data.image
-                    );
+                content += `
+                    <div
+                        class="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                        data-hero-image-editor
+                    >
+                        <div
+                            class="flex flex-wrap items-start justify-between gap-3"
+                        >
+                            <div>
+                                <label
+                                    class="text-xs font-black uppercase tracking-wide text-slate-500"
+                                >
+                                    Hero Photo
+                                </label>
+
+                                <p
+                                    class="mt-1 text-xs text-slate-400"
+                                >
+                                    Upload a photo from your device.
+                                </p>
+
+                                <p
+                                    class="mt-1 text-xs font-semibold text-slate-500"
+                                >
+                                    Recommended: 1600 × 900 px.
+                                </p>
+
+                                {{-- ESUBIZ_HERO_RECOMMENDED_DIMENSIONS_V1 --}}
+                            </div>
+
+                            ${
+                                widget.data.image
+                                    ? `
+                                        <button
+                                            type="button"
+                                            data-hero-image-remove
+                                            class="rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-black text-red-600 hover:bg-red-50"
+                                        >
+                                            Remove Photo
+                                        </button>
+                                    `
+                                    : ''
+                            }
+                        </div>
+
+                        ${
+                            widget.data.image
+                                ? `
+                                    <div
+                                        class="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white"
+                                    >
+                                        <img
+                                            src="${escapeHtml(
+                                                builderMediaPreviewUrl(
+                                                    widget.data.image
+                                                )
+                                            )}"
+                                            alt="Hero photo preview"
+                                            class="max-h-[300px] w-full object-cover"
+                                        >
+                                    </div>
+                                `
+                                : `
+                                    <div
+                                        class="mt-4 flex min-h-[160px] items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-white p-5 text-center"
+                                    >
+                                        <div>
+                                            <div class="text-3xl">
+                                                ▧
+                                            </div>
+
+                                            <div
+                                                class="mt-2 text-sm font-black text-slate-700"
+                                            >
+                                                No hero photo uploaded
+                                            </div>
+
+                                            <div
+                                                class="mt-1 text-xs text-slate-400"
+                                            >
+                                                JPG, PNG or WebP
+                                            </div>
+                                        </div>
+                                    </div>
+                                `
+                        }
+
+                        <label
+                            class="mt-4 inline-flex cursor-pointer items-center rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-black text-white hover:bg-slate-800"
+                        >
+                            ${
+                                widget.data.image
+                                    ? 'Change Photo'
+                                    : 'Upload Photo'
+                            }
+
+                            <input
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                data-hero-image-file
+                                class="hidden"
+                            >
+                        </label>
+
+                        <input
+                            type="hidden"
+                            data-data-key="image"
+                            value="${escapeHtml(
+                                widget.data.image || ''
+                            )}"
+                        >
+                    </div>
+                `;
+
                 break;
 
 
@@ -2573,8 +3121,6 @@ section.columns.forEach(
                                 widget.data.src
                                     ? `
                                         <img
-    decoding="async"
-    loading="lazy"
                                             src="${escapeHtml(widget.data.src)}"
                                             alt=""
                                             class="max-h-[260px] w-full object-cover"
@@ -2745,9 +3291,313 @@ section.columns.forEach(
                 break;
 
 
-            case 'features':
             case 'cards':
+
+                if (
+                    Object.prototype
+                        .hasOwnProperty
+                        .call(
+                            widget.data,
+                            'heading'
+                        )
+                ) {
+                    content +=
+                        textField(
+                            'Heading',
+                            'heading',
+                            widget.data.heading
+                        );
+                }
+
+                content += `
+                    <div>
+                        <div class="flex items-center justify-between gap-3">
+
+                            <div>
+                                <label class="text-xs font-black uppercase tracking-wide text-slate-500">
+                                    Cards
+                                </label>
+
+                                <p class="mt-1 text-xs text-slate-400">
+                                    Add and edit individual cards.
+                                </p>
+                            </div>
+
+                            <button
+                                type="button"
+                                id="addCardItem"
+                                class="rounded-xl bg-blue-600 px-3 py-2 text-xs font-black text-white"
+                            >
+                                + Add Card
+                            </button>
+
+                        </div>
+
+                        <div
+                            id="cardItemEditor"
+                            class="mt-4 space-y-4"
+                        ></div>
+                    </div>
+                `;
+
+                break;
+
+
             case 'testimonials':
+
+                if (
+                    Object.prototype
+                        .hasOwnProperty
+                        .call(
+                            widget.data,
+                            'heading'
+                        )
+                ) {
+                    content +=
+                        textField(
+                            'Heading',
+                            'heading',
+                            widget.data.heading
+                        );
+                }
+
+                content += `
+                    <div>
+
+                        <div class="flex items-center justify-between gap-3">
+
+                            <div>
+                                <label class="text-xs font-black uppercase tracking-wide text-slate-500">
+                                    Testimonials
+                                </label>
+
+                                <p class="mt-1 text-xs text-slate-400">
+                                    Add and edit individual testimonials.
+                                </p>
+                            </div>
+
+                            <button
+                                type="button"
+                                id="addTestimonialItem"
+                                class="rounded-xl bg-blue-600 px-3 py-2 text-xs font-black text-white"
+                            >
+                                + Add Testimonial
+                            </button>
+
+                        </div>
+
+                        <div
+                            id="testimonialItemEditor"
+                            class="mt-4 space-y-4"
+                        ></div>
+
+                    </div>
+                `;
+
+                break;
+
+
+            case 'slider':
+
+                content += `
+                    <div class="space-y-5">
+
+                        {{-- ESUBIZ_SLIDER_WIDTH_MODE_V1 --}}
+                        <div>
+                            <label
+                                class="text-xs font-black uppercase tracking-wide text-slate-500"
+                            >
+                                Slider Width
+                            </label>
+
+                            <select
+                                data-slider-setting="width_mode"
+                                class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-700"
+                            >
+                                <option
+                                    value="container"
+                                    ${
+                                        (
+                                            widget.data.width_mode
+                                            || 'container'
+                                        ) === 'container'
+                                            ? 'selected'
+                                            : ''
+                                    }
+                                >
+                                    Container
+                                </option>
+
+                                <option
+                                    value="full"
+                                    ${
+                                        widget.data.width_mode === 'full'
+                                            ? 'selected'
+                                            : ''
+                                    }
+                                >
+                                    Full Width
+                                </option>
+                            </select>
+
+                            <p
+                                class="mt-1 text-xs text-slate-400"
+                            >
+                                Container follows the page width.
+                                Full Width stretches across the screen.
+                            </p>
+                        </div>
+
+                        <div class="grid gap-4 md:grid-cols-2">
+
+                            <div>
+                                <label class="text-xs font-black uppercase text-slate-500">
+                                    Image Width
+                                </label>
+
+                                <input
+                                    type="number"
+                                    min="1"
+                                    data-slider-setting="width"
+                                    value="${Number(widget.data.width || 1200)}"
+                                    class="mt-2 w-full rounded-xl border px-3 py-2"
+                                >
+                            </div>
+
+                            <div>
+                                <label class="text-xs font-black uppercase text-slate-500">
+                                    Image Height
+                                </label>
+
+                                <input
+                                    type="number"
+                                    min="1"
+                                    data-slider-setting="height"
+                                    value="${Number(widget.data.height || 650)}"
+                                    class="mt-2 w-full rounded-xl border px-3 py-2"
+                                >
+                            </div>
+
+                        </div>
+
+
+                        <div>
+                            <label class="text-xs font-black uppercase text-slate-500">
+                                Image Fit
+                            </label>
+
+                            <select
+                                data-slider-setting="fit"
+                                class="mt-2 w-full rounded-xl border px-3 py-2"
+                            >
+                                <option
+                                    value="cover"
+                                    ${widget.data.fit !== 'contain' ? 'selected' : ''}
+                                >
+                                    Cover
+                                </option>
+
+                                <option
+                                    value="contain"
+                                    ${widget.data.fit === 'contain' ? 'selected' : ''}
+                                >
+                                    Contain
+                                </option>
+                            </select>
+                        </div>
+
+
+                        <label class="flex items-center gap-2 text-sm font-bold">
+                            <input
+                                type="checkbox"
+                                data-slider-setting="autoplay"
+                                ${widget.data.autoplay !== false ? 'checked' : ''}
+                            >
+                            Autoplay
+                        </label>
+
+
+                        <div>
+                            <label class="text-xs font-black uppercase text-slate-500">
+                                Slide Duration
+                            </label>
+
+                            <div class="mt-1 text-xs text-slate-400">
+                                5000 = 5 seconds
+                            </div>
+
+                            <input
+                                type="number"
+                                min="1000"
+                                step="500"
+                                data-slider-setting="duration"
+                                value="${Number(widget.data.duration || 5000)}"
+                                class="mt-2 w-full rounded-xl border px-3 py-2"
+                            >
+                        </div>
+
+
+                        <div class="grid gap-3 sm:grid-cols-2">
+
+                            <label class="flex items-center gap-2 text-sm font-bold">
+                                <input
+                                    type="checkbox"
+                                    data-slider-setting="show_arrows"
+                                    ${widget.data.show_arrows !== false ? 'checked' : ''}
+                                >
+                                Show Arrows
+                            </label>
+
+                            <label class="flex items-center gap-2 text-sm font-bold">
+                                <input
+                                    type="checkbox"
+                                    data-slider-setting="show_dots"
+                                    ${widget.data.show_dots !== false ? 'checked' : ''}
+                                >
+                                Show Dots
+                            </label>
+
+                        </div>
+
+
+                        <div class="border-t pt-5">
+
+                            <div class="flex items-center justify-between gap-3">
+
+                                <div>
+                                    <div class="text-xs font-black uppercase text-slate-500">
+                                        Slides
+                                    </div>
+
+                                    <div class="mt-1 text-xs text-slate-400">
+                                        Unlimited photos supported.
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    id="addSliderSlide"
+                                    class="rounded-xl bg-blue-600 px-3 py-2 text-xs font-black text-white"
+                                >
+                                    + Add Slide
+                                </button>
+
+                            </div>
+
+                            <div
+                                id="sliderSlideEditor"
+                                class="mt-4 space-y-4"
+                            ></div>
+
+                        </div>
+
+                    </div>
+                `;
+
+                break;
+
+
+            case 'features':
             case 'stats':
             case 'gallery':
             case 'social':
@@ -2770,17 +3620,9 @@ section.columns.forEach(
 
                 content += `
                     <div>
-                        <label
-                            class="text-xs font-black uppercase tracking-wide text-slate-500"
-                        >
+                        <label class="text-xs font-black uppercase tracking-wide text-slate-500">
                             Items
                         </label>
-
-                        <p
-                            class="mt-1 text-xs leading-5 text-slate-400"
-                        >
-                            This structured editor will also be upgraded to visual repeatable controls.
-                        </p>
 
                         <textarea
                             data-json-key="items"
@@ -3072,6 +3914,240 @@ section.columns.forEach(
 
 
         /*
+         * ESUBIZ_HERO_MEDIA_UPLOAD_V2
+         *
+         * Hero uses the same centralized tenant media
+         * uploader as Cards, Testimonials and Slider.
+         */
+        if (
+            widget.type === 'hero'
+            && fields.querySelector(
+                '[data-hero-image-editor]'
+            )
+        ) {
+            const heroImageFile =
+                fields.querySelector(
+                    '[data-hero-image-file]'
+                );
+
+            const heroImageRemove =
+                fields.querySelector(
+                    '[data-hero-image-remove]'
+                );
+
+            const heroImageHidden =
+                fields.querySelector(
+                    '[data-data-key="image"]'
+                );
+
+
+            heroImageFile?.addEventListener(
+                'change',
+                async event => {
+
+                    const file =
+                        event.target.files?.[0];
+
+                    if (!file) {
+                        return;
+                    }
+
+
+                    heroImageFile.disabled = true;
+
+
+                    try {
+
+                        const path =
+                            await uploadBuilderImage(
+                                file
+                            );
+
+
+                        widget.data.image =
+                            path;
+
+
+                        if (heroImageHidden) {
+                            heroImageHidden.value =
+                                path;
+                        }
+
+
+                        sync();
+                        renderCanvas();
+
+
+                        requestAnimationFrame(
+                            () => {
+                                selectWidget(
+                                    widget.id
+                                );
+                            }
+                        );
+
+                    } catch (error) {
+
+                        console.error(
+                            'Hero image upload failed:',
+                            error
+                        );
+
+
+                        alert(
+                            error?.message
+                            || 'Hero photo upload failed.'
+                        );
+
+                    } finally {
+
+                        heroImageFile.disabled =
+                            false;
+                    }
+                }
+            );
+
+
+            heroImageRemove?.addEventListener(
+                'click',
+                () => {
+
+                    widget.data.image = '';
+
+
+                    if (heroImageHidden) {
+                        heroImageHidden.value =
+                            '';
+                    }
+
+
+                    sync();
+                    renderCanvas();
+
+
+                    requestAnimationFrame(
+                        () => {
+                            selectWidget(
+                                widget.id
+                            );
+                        }
+                    );
+                }
+            );
+        }
+
+
+        /*
+         * Shared tenant Page Builder image uploader.
+         */
+        async function uploadBuilderImage(
+            file
+        ) {
+
+            if (
+                !file
+                || !file.type.startsWith(
+                    'image/'
+                )
+            ) {
+                throw new Error(
+                    'Please choose a valid image file.'
+                );
+            }
+
+
+            const endpoint =
+                document
+                    .getElementById(
+                        'builderMediaUploadUrl'
+                    )
+                    ?.value;
+
+
+            if (!endpoint) {
+                throw new Error(
+                    'Media upload endpoint is unavailable.'
+                );
+            }
+
+
+            const body =
+                new FormData();
+
+
+            body.append(
+                'image',
+                file
+            );
+
+
+            const token =
+                document.querySelector(
+                    '#pageBuilderForm input[name="_token"]'
+                )?.value;
+
+
+            const response =
+                await fetch(
+                    endpoint,
+                    {
+                        method: 'POST',
+
+                        headers: {
+                            'X-CSRF-TOKEN':
+                                token || '',
+
+                            'Accept':
+                                'application/json'
+                        },
+
+                        body
+                    }
+                );
+
+
+            let payload = null;
+
+
+            try {
+                payload =
+                    await response.json();
+            } catch {
+                payload = null;
+            }
+
+
+            if (!response.ok) {
+                throw new Error(
+                    payload?.message
+                    || 'Image upload failed.'
+                );
+            }
+
+
+            const path =
+                payload?.url
+                || payload?.path
+                || payload?.src
+                || payload?.location
+                || payload?.data?.url
+                || payload?.data?.path
+                || payload?.data?.src
+                || null;
+
+
+            if (!path) {
+                throw new Error(
+                    'Upload succeeded but no image path was returned.'
+                );
+            }
+
+
+            return path;
+        }
+
+
+        /*
          * Image widget upload.
          *
          * Uses the existing tenant CMS media endpoint so images
@@ -3134,8 +4210,6 @@ section.columns.forEach(
 
                     preview.innerHTML = `
                         <img
-    decoding="async"
-    loading="lazy"
                             src="${localUrl}"
                             alt=""
                             class="max-h-[260px] w-full object-cover"
@@ -3272,8 +4346,6 @@ section.columns.forEach(
 
                         preview.innerHTML = `
                             <img
-    decoding="async"
-    loading="lazy"
                                 src="${escapeHtml(uploadedPath)}"
                                 alt=""
                                 class="max-h-[260px] w-full object-cover"
@@ -3308,6 +4380,2260 @@ section.columns.forEach(
                     }
                 }
             );
+        }
+
+
+        /*
+         * ESUBIZ_PAGE_BUILDER_EDITOR_MEDIA_ICON_FIX_V1
+         */
+
+        function builderMediaPreviewUrl(path) {
+
+            if (!path) {
+                return '';
+            }
+
+            const value =
+                String(path).trim();
+
+            if (
+                value.startsWith('http://')
+                || value.startsWith('https://')
+                || value.startsWith('data:')
+                || value.startsWith('blob:')
+            ) {
+                return value;
+            }
+
+            /*
+             * Tenant media is publicly served through
+             * /theme-assets/{canonical-path}.
+             *
+             * This matches the public theme asset resolver
+             * without scanning storage.
+             */
+            return (
+                '/theme-assets/'
+                + value.replace(/^\/+/, '')
+            );
+        }
+
+
+        const builderBasicIcons = [
+            ['Star', '★'],
+            ['Heart', '♥'],
+            ['Check', '✓'],
+            ['Check Circle', '✔'],
+            ['Plus', '+'],
+            ['Arrow Right', '→'],
+            ['Arrow Up Right', '↗'],
+            ['Phone', '☎'],
+            ['Email', '✉'],
+            ['Location', '⌖'],
+            ['Home', '⌂'],
+            ['User', '♙'],
+            ['Users', '♟'],
+            ['Calendar', '▣'],
+            ['Clock', '◷'],
+            ['Globe', '◎'],
+            ['Link', '↗'],
+            ['Search', '⌕'],
+            ['Settings', '⚙'],
+            ['Tools', '⚒'],
+            ['Shield', '◆'],
+            ['Key', '⚿'],
+            ['Cart', '🛒'],
+            ['Gift', '🎁'],
+            ['Camera', '◉'],
+            ['Image', '▧'],
+            ['Video', '▶'],
+            ['Music', '♪'],
+            ['Message', '✉'],
+            ['Quote', '❝'],
+            ['Idea', '💡'],
+            ['Bolt', '⚡'],
+            ['Leaf', '❧'],
+            ['Building', '▥'],
+            ['Briefcase', '▣'],
+            ['Chart', '▥'],
+            ['Award', '★'],
+            ['Flag', '⚑'],
+            ['Bookmark', '◆'],
+            ['Tag', '◇'],
+            ['Download', '↓'],
+            ['Upload', '↑'],
+            ['Play', '▶'],
+            ['Info', 'ⓘ'],
+            ['Question', '?'],
+            ['Warning', '⚠']
+        ];
+
+
+        /*
+         * ESUBIZ_SLIDER_BUTTON_AND_CLOSED_ICON_PICKER_V2
+         */
+
+        function builderIconPickerHtml(
+            scope,
+            index,
+            selected
+        ) {
+
+            const selectedEntry =
+                builderBasicIcons.find(
+                    entry => entry[1] === selected
+                );
+
+            const selectedLabel =
+                selectedEntry
+                    ? `${selectedEntry[1]} ${selectedEntry[0]}`
+                    : 'Choose icon';
+
+            const options =
+                builderBasicIcons
+                    .map(
+                        ([name, icon]) => `
+                            <button
+                                type="button"
+                                data-icon-option
+                                data-icon-value="${escapeHtml(icon)}"
+                                data-icon-label="${escapeHtml(name)}"
+                                class="
+                                    flex w-full items-center gap-3
+                                    rounded-lg px-3 py-2
+                                    text-left text-sm
+                                    hover:bg-slate-100
+                                "
+                            >
+                                <span
+                                    style="
+                                        width:24px;
+                                        text-align:center;
+                                        font-size:18px;
+                                    "
+                                >
+                                    ${escapeHtml(icon)}
+                                </span>
+
+                                <span>
+                                    ${escapeHtml(name)}
+                                </span>
+                            </button>
+                        `
+                    )
+                    .join('');
+
+            return `
+                <div
+                    class="relative"
+                    data-basic-icon-picker
+                    data-icon-scope="${scope}"
+                    data-icon-index="${index}"
+                >
+
+                    <input
+                        type="hidden"
+                        data-${scope}-key="icon"
+                        data-${scope}-index="${index}"
+                        value="${escapeHtml(selected || '')}"
+                    >
+
+                    <button
+                        type="button"
+                        data-icon-picker-toggle
+                        class="
+                            flex w-full items-center
+                            justify-between rounded-xl
+                            border bg-white px-3 py-2
+                            text-left
+                        "
+                    >
+                        <span data-icon-picker-label>
+                            ${escapeHtml(selectedLabel)}
+                        </span>
+
+                        <span aria-hidden="true">
+                            ▾
+                        </span>
+                    </button>
+
+                    <div
+                        data-icon-picker-menu
+                        hidden
+                        class="
+                            absolute left-0 right-0
+                            z-50 mt-2 rounded-xl
+                            border border-slate-200
+                            bg-white p-2 shadow-xl
+                        "
+                    >
+
+                        <input
+                            type="search"
+                            data-icon-picker-search
+                            placeholder="Search icons..."
+                            autocomplete="off"
+                            class="
+                                mb-2 w-full rounded-lg
+                                border px-3 py-2 text-sm
+                            "
+                        >
+
+                        <div
+                            data-icon-picker-options
+                            class="max-h-56 overflow-y-auto"
+                        >
+
+                            <button
+                                type="button"
+                                data-icon-option
+                                data-icon-value=""
+                                data-icon-label="No icon"
+                                class="
+                                    flex w-full items-center
+                                    rounded-lg px-3 py-2
+                                    text-left text-sm
+                                    hover:bg-slate-100
+                                "
+                            >
+                                No icon
+                            </button>
+
+                            ${options}
+
+                        </div>
+
+                    </div>
+
+                </div>
+            `;
+        }
+
+
+        function bindBuilderIconSearch(
+            editor,
+            scope
+        ) {
+
+            if (!editor) {
+                return;
+            }
+
+            editor
+                .querySelectorAll(
+                    `[data-basic-icon-picker][data-icon-scope="${scope}"]`
+                )
+                .forEach(
+                    picker => {
+
+                        const toggle =
+                            picker.querySelector(
+                                '[data-icon-picker-toggle]'
+                            );
+
+                        const menu =
+                            picker.querySelector(
+                                '[data-icon-picker-menu]'
+                            );
+
+                        const search =
+                            picker.querySelector(
+                                '[data-icon-picker-search]'
+                            );
+
+                        const label =
+                            picker.querySelector(
+                                '[data-icon-picker-label]'
+                            );
+
+                        const hidden =
+                            picker.querySelector(
+                                `[data-${scope}-key="icon"]`
+                            );
+
+                        if (
+                            !toggle
+                            || !menu
+                            || !hidden
+                        ) {
+                            return;
+                        }
+
+
+                        toggle.addEventListener(
+                            'click',
+                            event => {
+
+                                event.preventDefault();
+
+                                const opening =
+                                    menu.hidden;
+
+                                editor
+                                    .querySelectorAll(
+                                        '[data-icon-picker-menu]'
+                                    )
+                                    .forEach(
+                                        otherMenu => {
+                                            if (
+                                                otherMenu !== menu
+                                            ) {
+                                                otherMenu.hidden =
+                                                    true;
+                                            }
+                                        }
+                                    );
+
+                                menu.hidden =
+                                    !opening;
+
+                                if (
+                                    opening
+                                    && search
+                                ) {
+                                    search.value = '';
+
+                                    picker
+                                        .querySelectorAll(
+                                            '[data-icon-option]'
+                                        )
+                                        .forEach(
+                                            option => {
+                                                option.hidden =
+                                                    false;
+                                            }
+                                        );
+
+                                    search.focus();
+                                }
+                            }
+                        );
+
+
+                        search?.addEventListener(
+                            'input',
+                            () => {
+
+                                const query =
+                                    search.value
+                                        .trim()
+                                        .toLowerCase();
+
+                                picker
+                                    .querySelectorAll(
+                                        '[data-icon-option]'
+                                    )
+                                    .forEach(
+                                        option => {
+
+                                            const haystack =
+                                                (
+                                                    (
+                                                        option.dataset.iconLabel
+                                                        || ''
+                                                    )
+                                                    + ' '
+                                                    + (
+                                                        option.dataset.iconValue
+                                                        || ''
+                                                    )
+                                                )
+                                                .toLowerCase();
+
+                                            option.hidden =
+                                                query !== ''
+                                                && !haystack.includes(
+                                                    query
+                                                );
+                                        }
+                                    );
+                            }
+                        );
+
+
+                        picker.addEventListener(
+                            'click',
+                            event => {
+
+                                const option =
+                                    event.target.closest(
+                                        '[data-icon-option]'
+                                    );
+
+                                if (!option) {
+                                    return;
+                                }
+
+                                const value =
+                                    option.dataset.iconValue
+                                    || '';
+
+                                const name =
+                                    option.dataset.iconLabel
+                                    || 'Choose icon';
+
+                                hidden.value =
+                                    value;
+
+                                if (label) {
+                                    label.textContent =
+                                        value
+                                            ? `${value} ${name}`
+                                            : 'Choose icon';
+                                }
+
+                                menu.hidden =
+                                    true;
+
+                                hidden.dispatchEvent(
+                                    new Event(
+                                        'input',
+                                        {
+                                            bubbles: true
+                                        }
+                                    )
+                                );
+                            }
+                        );
+                    }
+                );
+        }
+
+
+        /*
+         * Structured Cards.
+         */
+        if (widget.type === 'cards') {
+
+            if (!Array.isArray(widget.data.items)) {
+                widget.data.items = [];
+            }
+
+
+            widget.data.items =
+                widget.data.items.map(
+                    item => ({
+
+                        enabled:
+                            item?.enabled !== false,
+
+                        title:
+                            item?.title || '',
+
+                        description:
+                            item?.description
+                            || item?.text
+                            || '',
+
+                        show_image:
+                            item?.show_image
+                            ?? Boolean(
+                                item?.image_path
+                                || item?.image
+                            ),
+
+                        image_path:
+                            item?.image_path
+                            || item?.image
+                            || '',
+
+                        show_icon:
+                            item?.show_icon
+                            ?? Boolean(item?.icon),
+
+                        icon:
+                            item?.icon || '',
+
+                        show_button:
+                            item?.show_button
+                            ?? Boolean(
+                                item?.button_label
+                                || item?.button_url
+                            ),
+
+                        button_label:
+                            item?.button_label || '',
+
+                        button_url:
+                            item?.button_url || '',
+
+                        button_url_active:
+                            item?.button_url_active
+                            ?? Boolean(
+                                item?.button_url
+                            )
+                    })
+                );
+
+
+            const editor =
+                document.getElementById(
+                    'cardItemEditor'
+                );
+
+            const add =
+                document.getElementById(
+                    'addCardItem'
+                );
+
+
+            function drawCards() {
+
+                if (!editor) {
+                    return;
+                }
+
+
+                editor.innerHTML = '';
+
+
+                widget.data.items.forEach(
+                    (
+                        item,
+                        index
+                    ) => {
+
+                        const row =
+                            document.createElement(
+                                'div'
+                            );
+
+
+                        row.className =
+                            'rounded-2xl border border-slate-200 bg-slate-50 p-4';
+
+
+                        row.innerHTML = `
+                            <div class="flex items-center justify-between">
+
+                                <strong>
+                                    Card ${index + 1}
+                                </strong>
+
+                                <button
+                                    type="button"
+                                    data-card-remove="${index}"
+                                    class="text-xs font-black text-red-600"
+                                >
+                                    Delete
+                                </button>
+
+                            </div>
+
+                            <div class="mt-4 space-y-3">
+
+                                <label class="flex items-center gap-2 text-xs font-bold">
+                                    <input
+                                        type="checkbox"
+                                        data-card-key="enabled"
+                                        data-card-index="${index}"
+                                        ${item.enabled ? 'checked' : ''}
+                                    >
+                                    Show Card
+                                </label>
+
+                                <input
+                                    type="text"
+                                    data-card-key="title"
+                                    data-card-index="${index}"
+                                    value="${escapeHtml(item.title)}"
+                                    placeholder="Title"
+                                    class="w-full rounded-xl border bg-white px-3 py-2"
+                                >
+
+                                <textarea
+                                    data-card-key="description"
+                                    data-card-index="${index}"
+                                    rows="4"
+                                    placeholder="Description"
+                                    class="w-full rounded-xl border bg-white px-3 py-2"
+                                >${escapeHtml(item.description)}</textarea>
+
+
+                                <label class="flex items-center gap-2 text-xs font-bold">
+                                    <input
+                                        type="checkbox"
+                                        data-card-key="show_image"
+                                        data-card-index="${index}"
+                                        ${item.show_image ? 'checked' : ''}
+                                    >
+                                    Show Image
+                                </label>
+
+                                ${
+                                    item.image_path
+                                        ? `
+                                            <img
+                                                src="${escapeHtml(builderMediaPreviewUrl(item.image_path))}"
+                                                alt=""
+                                                loading="lazy"
+                                                decoding="async"
+                                                class="h-32 w-full rounded-xl object-cover"
+                                            >
+                                        `
+                                        : ''
+                                }
+
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    data-card-image="${index}"
+                                    class="block w-full text-xs"
+                                >
+
+
+                                <label class="flex items-center gap-2 text-xs font-bold">
+                                    <input
+                                        type="checkbox"
+                                        data-card-key="show_icon"
+                                        data-card-index="${index}"
+                                        ${item.show_icon ? 'checked' : ''}
+                                    >
+                                    Show Icon
+                                </label>
+
+                                ${builderIconPickerHtml(
+                                    'card',
+                                    index,
+                                    item.icon
+                                )}
+
+
+                                <label class="flex items-center gap-2 text-xs font-bold">
+                                    <input
+                                        type="checkbox"
+                                        data-card-key="show_button"
+                                        data-card-index="${index}"
+                                        ${item.show_button ? 'checked' : ''}
+                                    >
+                                    Show Button
+                                </label>
+
+                                <input
+                                    type="text"
+                                    data-card-key="button_label"
+                                    data-card-index="${index}"
+                                    value="${escapeHtml(item.button_label)}"
+                                    placeholder="Button label"
+                                    class="w-full rounded-xl border bg-white px-3 py-2"
+                                >
+
+                                <input
+                                    type="text"
+                                    data-card-key="button_url"
+                                    data-card-index="${index}"
+                                    value="${escapeHtml(item.button_url)}"
+                                    placeholder="Button URL"
+                                    class="w-full rounded-xl border bg-white px-3 py-2"
+                                >
+
+                                <label class="flex items-center gap-2 text-xs font-bold">
+                                    <input
+                                        type="checkbox"
+                                        data-card-key="button_url_active"
+                                        data-card-index="${index}"
+                                        ${item.button_url_active ? 'checked' : ''}
+                                    >
+                                    Button URL Active
+                                </label>
+
+                            </div>
+                        `;
+
+
+                        editor.appendChild(row);
+                    }
+                );
+            }
+
+
+            bindBuilderIconSearch(
+                editor,
+                'card'
+            );
+
+
+            editor?.addEventListener(
+                'input',
+                event => {
+
+                    const input =
+                        event.target.closest(
+                            '[data-card-key]'
+                        );
+
+
+                    if (!input) {
+                        return;
+                    }
+
+
+                    const item =
+                        widget.data.items[
+                            Number(
+                                input.dataset.cardIndex
+                            )
+                        ];
+
+
+                    if (!item) {
+                        return;
+                    }
+
+
+                    item[
+                        input.dataset.cardKey
+                    ] =
+                        input.type === 'checkbox'
+                            ? input.checked
+                            : input.value;
+
+
+                    sync();
+                }
+            );
+
+
+            editor?.addEventListener(
+                'change',
+                async event => {
+
+                    const input =
+                        event.target.closest(
+                            '[data-card-image]'
+                        );
+
+
+                    if (!input) {
+                        return;
+                    }
+
+
+                    const file =
+                        input.files?.[0];
+
+
+                    if (!file) {
+                        return;
+                    }
+
+
+                    try {
+
+                        const path =
+                            await uploadBuilderImage(
+                                file
+                            );
+
+
+                        const item =
+                            widget.data.items[
+                                Number(
+                                    input.dataset.cardImage
+                                )
+                            ];
+
+
+                        item.image_path =
+                            path;
+
+                        item.show_image =
+                            true;
+
+
+                        sync();
+                        drawCards();
+                        renderCanvas();
+
+                    } catch (error) {
+
+                        alert(
+                            error.message
+                            || 'Image upload failed.'
+                        );
+                    }
+                }
+            );
+
+
+            editor?.addEventListener(
+                'click',
+                event => {
+
+                    const button =
+                        event.target.closest(
+                            '[data-card-remove]'
+                        );
+
+
+                    if (!button) {
+                        return;
+                    }
+
+
+                    widget.data.items.splice(
+                        Number(
+                            button.dataset.cardRemove
+                        ),
+                        1
+                    );
+
+
+                    sync();
+                    drawCards();
+                    renderCanvas();
+                }
+            );
+
+
+            add?.addEventListener(
+                'click',
+                () => {
+
+                    widget.data.items.push({
+                        enabled: true,
+                        title: '',
+                        description: '',
+                        show_image: false,
+                        image_path: '',
+                        show_icon: false,
+                        icon: '',
+                        show_button: false,
+                        button_label: '',
+                        button_url: '',
+                        button_url_active: false
+                    });
+
+
+                    sync();
+                    drawCards();
+                    renderCanvas();
+                }
+            );
+
+
+            drawCards();
+        }
+
+
+        /*
+         * Structured Testimonials.
+         */
+        if (widget.type === 'testimonials') {
+
+            if (!Array.isArray(widget.data.items)) {
+                widget.data.items = [];
+            }
+
+
+            widget.data.items =
+                widget.data.items.map(
+                    item => ({
+
+                        enabled:
+                            item?.enabled !== false,
+
+                        name:
+                            item?.name
+                            || item?.author
+                            || '',
+
+                        role:
+                            item?.role
+                            || item?.company
+                            || item?.position
+                            || '',
+
+                        text:
+                            item?.text
+                            || item?.testimonial
+                            || item?.quote
+                            || '',
+
+                        show_image:
+                            item?.show_image
+                            ?? Boolean(
+                                item?.image_path
+                                || item?.photo_path
+                                || item?.image
+                            ),
+
+                        image_path:
+                            item?.image_path
+                            || item?.photo_path
+                            || item?.image
+                            || '',
+
+                        show_icon:
+                            item?.show_icon
+                            ?? Boolean(item?.icon),
+
+                        icon:
+                            item?.icon || '',
+
+                        show_button:
+                            item?.show_button
+                            ?? Boolean(
+                                item?.button_label
+                                || item?.button_url
+                            ),
+
+                        button_label:
+                            item?.button_label || '',
+
+                        button_url:
+                            item?.button_url || '',
+
+                        button_url_active:
+                            item?.button_url_active
+                            ?? Boolean(
+                                item?.button_url
+                            )
+                    })
+                );
+
+
+            const editor =
+                document.getElementById(
+                    'testimonialItemEditor'
+                );
+
+            const add =
+                document.getElementById(
+                    'addTestimonialItem'
+                );
+
+
+            function drawTestimonials() {
+
+                if (!editor) {
+                    return;
+                }
+
+
+                editor.innerHTML = '';
+
+
+                widget.data.items.forEach(
+                    (
+                        item,
+                        index
+                    ) => {
+
+                        const row =
+                            document.createElement(
+                                'div'
+                            );
+
+
+                        row.className =
+                            'rounded-2xl border border-slate-200 bg-slate-50 p-4';
+
+
+                        row.innerHTML = `
+                            <div class="flex items-center justify-between">
+
+                                <strong>
+                                    Testimonial ${index + 1}
+                                </strong>
+
+                                <button
+                                    type="button"
+                                    data-testimonial-remove="${index}"
+                                    class="text-xs font-black text-red-600"
+                                >
+                                    Delete
+                                </button>
+
+                            </div>
+
+                            <div class="mt-4 space-y-3">
+
+                                <label class="flex items-center gap-2 text-xs font-bold">
+                                    <input
+                                        type="checkbox"
+                                        data-testimonial-key="enabled"
+                                        data-testimonial-index="${index}"
+                                        ${item.enabled ? 'checked' : ''}
+                                    >
+                                    Show Testimonial
+                                </label>
+
+                                <input
+                                    type="text"
+                                    data-testimonial-key="name"
+                                    data-testimonial-index="${index}"
+                                    value="${escapeHtml(item.name)}"
+                                    placeholder="Name"
+                                    class="w-full rounded-xl border bg-white px-3 py-2"
+                                >
+
+                                <input
+                                    type="text"
+                                    data-testimonial-key="role"
+                                    data-testimonial-index="${index}"
+                                    value="${escapeHtml(item.role)}"
+                                    placeholder="Role / Company"
+                                    class="w-full rounded-xl border bg-white px-3 py-2"
+                                >
+
+                                <textarea
+                                    data-testimonial-key="text"
+                                    data-testimonial-index="${index}"
+                                    rows="4"
+                                    placeholder="Testimonial"
+                                    class="w-full rounded-xl border bg-white px-3 py-2"
+                                >${escapeHtml(item.text)}</textarea>
+
+
+                                <label class="flex items-center gap-2 text-xs font-bold">
+                                    <input
+                                        type="checkbox"
+                                        data-testimonial-key="show_image"
+                                        data-testimonial-index="${index}"
+                                        ${item.show_image ? 'checked' : ''}
+                                    >
+                                    Show Image
+                                </label>
+
+                                ${
+                                    item.image_path
+                                        ? `
+                                            <img
+                                                src="${escapeHtml(builderMediaPreviewUrl(item.image_path))}"
+                                                alt=""
+                                                loading="lazy"
+                                                decoding="async"
+                                                class="h-24 w-24 rounded-full object-cover"
+                                            >
+                                        `
+                                        : ''
+                                }
+
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    data-testimonial-image="${index}"
+                                    class="block w-full text-xs"
+                                >
+
+
+                                <label class="flex items-center gap-2 text-xs font-bold">
+                                    <input
+                                        type="checkbox"
+                                        data-testimonial-key="show_icon"
+                                        data-testimonial-index="${index}"
+                                        ${item.show_icon ? 'checked' : ''}
+                                    >
+                                    Show Icon
+                                </label>
+
+                                ${builderIconPickerHtml(
+                                    'testimonial',
+                                    index,
+                                    item.icon
+                                )}
+
+
+                                <label class="flex items-center gap-2 text-xs font-bold">
+                                    <input
+                                        type="checkbox"
+                                        data-testimonial-key="show_button"
+                                        data-testimonial-index="${index}"
+                                        ${item.show_button ? 'checked' : ''}
+                                    >
+                                    Show Button
+                                </label>
+
+                                <input
+                                    type="text"
+                                    data-testimonial-key="button_label"
+                                    data-testimonial-index="${index}"
+                                    value="${escapeHtml(item.button_label)}"
+                                    placeholder="Button label"
+                                    class="w-full rounded-xl border bg-white px-3 py-2"
+                                >
+
+                                <input
+                                    type="text"
+                                    data-testimonial-key="button_url"
+                                    data-testimonial-index="${index}"
+                                    value="${escapeHtml(item.button_url)}"
+                                    placeholder="Button URL"
+                                    class="w-full rounded-xl border bg-white px-3 py-2"
+                                >
+
+                                <label class="flex items-center gap-2 text-xs font-bold">
+                                    <input
+                                        type="checkbox"
+                                        data-testimonial-key="button_url_active"
+                                        data-testimonial-index="${index}"
+                                        ${item.button_url_active ? 'checked' : ''}
+                                    >
+                                    Button URL Active
+                                </label>
+
+                            </div>
+                        `;
+
+
+                        editor.appendChild(row);
+                    }
+                );
+            }
+
+
+            bindBuilderIconSearch(
+                editor,
+                'testimonial'
+            );
+
+
+            editor?.addEventListener(
+                'input',
+                event => {
+
+                    const input =
+                        event.target.closest(
+                            '[data-testimonial-key]'
+                        );
+
+
+                    if (!input) {
+                        return;
+                    }
+
+
+                    const item =
+                        widget.data.items[
+                            Number(
+                                input.dataset.testimonialIndex
+                            )
+                        ];
+
+
+                    if (!item) {
+                        return;
+                    }
+
+
+                    item[
+                        input.dataset.testimonialKey
+                    ] =
+                        input.type === 'checkbox'
+                            ? input.checked
+                            : input.value;
+
+
+                    sync();
+                }
+            );
+
+
+            editor?.addEventListener(
+                'change',
+                async event => {
+
+                    const input =
+                        event.target.closest(
+                            '[data-testimonial-image]'
+                        );
+
+
+                    if (!input) {
+                        return;
+                    }
+
+
+                    const file =
+                        input.files?.[0];
+
+
+                    if (!file) {
+                        return;
+                    }
+
+
+                    try {
+
+                        const path =
+                            await uploadBuilderImage(
+                                file
+                            );
+
+
+                        const item =
+                            widget.data.items[
+                                Number(
+                                    input.dataset.testimonialImage
+                                )
+                            ];
+
+
+                        item.image_path =
+                            path;
+
+                        item.show_image =
+                            true;
+
+
+                        sync();
+                        drawTestimonials();
+                        renderCanvas();
+
+                    } catch (error) {
+
+                        alert(
+                            error.message
+                            || 'Image upload failed.'
+                        );
+                    }
+                }
+            );
+
+
+            editor?.addEventListener(
+                'click',
+                event => {
+
+                    const button =
+                        event.target.closest(
+                            '[data-testimonial-remove]'
+                        );
+
+
+                    if (!button) {
+                        return;
+                    }
+
+
+                    widget.data.items.splice(
+                        Number(
+                            button.dataset.testimonialRemove
+                        ),
+                        1
+                    );
+
+
+                    sync();
+                    drawTestimonials();
+                    renderCanvas();
+                }
+            );
+
+
+            add?.addEventListener(
+                'click',
+                () => {
+
+                    widget.data.items.push({
+                        enabled: true,
+                        name: '',
+                        role: '',
+                        text: '',
+                        show_image: false,
+                        image_path: '',
+                        show_icon: false,
+                        icon: '',
+                        show_button: false,
+                        button_label: '',
+                        button_url: '',
+                        button_url_active: false
+                    });
+
+
+                    sync();
+                    drawTestimonials();
+                    renderCanvas();
+                }
+            );
+
+
+            drawTestimonials();
+        }
+
+
+        /*
+         * Basic Photo Slider.
+         */
+        if (widget.type === 'slider') {
+
+            if (!Array.isArray(widget.data.slides)) {
+                widget.data.slides = [];
+            }
+
+
+            widget.data.autoplay =
+                widget.data.autoplay !== false;
+
+            widget.data.duration =
+                Number(
+                    widget.data.duration || 5000
+                );
+
+            widget.data.width =
+                Number(
+                    widget.data.width || 1200
+                );
+
+            widget.data.height =
+                Number(
+                    widget.data.height || 650
+                );
+
+            widget.data.fit =
+                widget.data.fit === 'contain'
+                    ? 'contain'
+                    : 'cover';
+
+            widget.data.show_arrows =
+                widget.data.show_arrows !== false;
+
+            widget.data.show_dots =
+                widget.data.show_dots !== false;
+
+
+            document
+                .querySelectorAll(
+                    '[data-slider-setting]'
+                )
+                .forEach(
+                    input => {
+
+                        input.addEventListener(
+                            'input',
+                            () => {
+
+                                const key =
+                                    input.dataset.sliderSetting;
+
+
+                                if (
+                                    input.type
+                                    === 'checkbox'
+                                ) {
+                                    widget.data[key] =
+                                        input.checked;
+                                } else if (
+                                    input.type
+                                    === 'number'
+                                ) {
+                                    widget.data[key] =
+                                        Number(
+                                            input.value
+                                        );
+                                } else {
+                                    widget.data[key] =
+                                        input.value;
+                                }
+
+
+                                sync();
+                                renderCanvas();
+                            }
+                        );
+                    }
+                );
+
+
+            const editor =
+                document.getElementById(
+                    'sliderSlideEditor'
+                );
+
+            const add =
+                document.getElementById(
+                    'addSliderSlide'
+                );
+
+
+            function drawSlides() {
+
+                if (!editor) {
+                    return;
+                }
+
+                editor.innerHTML = '';
+
+                const sliderButtonPresets = {
+                    'top-left': [12, 15],
+                    'top-right': [88, 15],
+                    'bottom-left': [12, 85],
+                    'bottom-right': [88, 85],
+                    'centre': [50, 50]
+                };
+
+
+                widget.data.slides.forEach(
+                    (
+                        slide,
+                        index
+                    ) => {
+
+                        slide.enabled =
+                            slide.enabled !== false;
+
+                        slide.image_path =
+                            slide.image_path
+                            || slide.src
+                            || '';
+
+                        slide.alt =
+                            slide.alt || '';
+
+                        slide.show_button =
+                            slide.show_button
+                            ?? false;
+
+                        slide.button_label =
+                            slide.button_label
+                            || '';
+
+                        slide.button_url =
+                            slide.button_url
+                            || '';
+
+                        slide.button_url_active =
+                            slide.button_url_active
+                            ?? Boolean(
+                                slide.button_url
+                            );
+
+                        slide.button_position =
+                            slide.button_position
+                            || 'bottom-left';
+
+                        const preset =
+                            sliderButtonPresets[
+                                slide.button_position
+                            ]
+                            || sliderButtonPresets[
+                                'bottom-left'
+                            ];
+
+                        if (
+                            slide.button_x === undefined
+                            || slide.button_x === null
+                            || isNaN(
+                                Number(slide.button_x)
+                            )
+                        ) {
+                            slide.button_x =
+                                preset[0];
+                        }
+
+                        if (
+                            slide.button_y === undefined
+                            || slide.button_y === null
+                            || isNaN(
+                                Number(slide.button_y)
+                            )
+                        ) {
+                            slide.button_y =
+                                preset[1];
+                        }
+
+                        slide.button_drag_enabled =
+                            slide.button_drag_enabled
+                            ?? false;
+
+
+                        const row =
+                            document.createElement(
+                                'div'
+                            );
+
+                        row.className =
+                            'rounded-2xl border border-slate-200 bg-slate-50 p-4';
+
+
+                        row.innerHTML = `
+                            <div
+                                class="
+                                    flex items-center
+                                    justify-between
+                                "
+                            >
+                                <strong>
+                                    Slide ${index + 1}
+                                </strong>
+
+                                <button
+                                    type="button"
+                                    data-slide-remove="${index}"
+                                    class="
+                                        text-xs font-black
+                                        text-red-600
+                                    "
+                                >
+                                    Delete
+                                </button>
+                            </div>
+
+
+                            <div class="mt-4 space-y-3">
+
+                                <label
+                                    class="
+                                        flex items-center
+                                        gap-2 text-xs
+                                        font-bold
+                                    "
+                                >
+                                    <input
+                                        type="checkbox"
+                                        data-slide-key="enabled"
+                                        data-slide-index="${index}"
+                                        ${slide.enabled ? 'checked' : ''}
+                                    >
+                                    Show Slide
+                                </label>
+
+
+                                <div
+                                    data-slide-stage="${index}"
+                                    class="
+                                        relative overflow-hidden
+                                        rounded-xl bg-slate-200
+                                    "
+                                >
+                                    ${
+                                        slide.image_path
+                                            ? `
+                                                <img
+                                                    src="${escapeHtml(
+                                                        builderMediaPreviewUrl(
+                                                            slide.image_path
+                                                        )
+                                                    )}"
+                                                    alt=""
+                                                    loading="lazy"
+                                                    decoding="async"
+                                                    class="
+                                                        block h-56
+                                                        w-full
+                                                        object-cover
+                                                    "
+                                                >
+                                            `
+                                            : `
+                                                <div
+                                                    class="
+                                                        flex h-56
+                                                        items-center
+                                                        justify-center
+                                                        text-xs
+                                                        font-bold
+                                                        text-slate-500
+                                                    "
+                                                >
+                                                    No image selected
+                                                </div>
+                                            `
+                                    }
+
+
+                                    ${
+                                        (
+                                            slide.show_button
+                                            && slide.button_label
+                                        )
+                                            ? `
+                                                <button
+                                                    type="button"
+                                                    data-slide-button-drag="${index}"
+                                                    class="
+                                                        absolute z-10
+                                                        rounded-xl
+                                                        bg-blue-600
+                                                        px-4 py-2
+                                                        text-sm
+                                                        font-black
+                                                        text-white
+                                                        shadow-lg
+                                                        ${
+                                                            slide.button_drag_enabled
+                                                                ? 'cursor-move'
+                                                                : 'cursor-default'
+                                                        }
+                                                    "
+                                                    style="
+                                                        left:${Number(slide.button_x)}%;
+                                                        top:${Number(slide.button_y)}%;
+                                                        transform:
+                                                            translate(
+                                                                -50%,
+                                                                -50%
+                                                            );
+                                                        touch-action:none;
+                                                    "
+                                                >
+                                                    ${escapeHtml(
+                                                        slide.button_label
+                                                    )}
+                                                </button>
+                                            `
+                                            : ''
+                                    }
+
+                                </div>
+
+
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    data-slide-image="${index}"
+                                    class="
+                                        block w-full
+                                        text-xs
+                                    "
+                                >
+
+
+                                <input
+                                    type="text"
+                                    data-slide-key="alt"
+                                    data-slide-index="${index}"
+                                    value="${escapeHtml(slide.alt)}"
+                                    placeholder="Image alt text"
+                                    class="
+                                        w-full rounded-xl
+                                        border bg-white
+                                        px-3 py-2
+                                    "
+                                >
+
+
+                                <div
+                                    class="
+                                        rounded-xl border
+                                        border-slate-200
+                                        bg-white p-4
+                                        space-y-3
+                                    "
+                                >
+
+                                    <label
+                                        class="
+                                            flex items-center
+                                            gap-2 text-xs
+                                            font-bold
+                                        "
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            data-slide-key="show_button"
+                                            data-slide-index="${index}"
+                                            ${slide.show_button ? 'checked' : ''}
+                                        >
+                                        Show Button
+                                    </label>
+
+
+                                    <input
+                                        type="text"
+                                        data-slide-key="button_label"
+                                        data-slide-index="${index}"
+                                        value="${escapeHtml(
+                                            slide.button_label
+                                        )}"
+                                        placeholder="Button label"
+                                        class="
+                                            w-full rounded-xl
+                                            border bg-white
+                                            px-3 py-2
+                                        "
+                                    >
+
+
+                                    <input
+                                        type="text"
+                                        data-slide-key="button_url"
+                                        data-slide-index="${index}"
+                                        value="${escapeHtml(
+                                            slide.button_url
+                                        )}"
+                                        placeholder="Button URL"
+                                        class="
+                                            w-full rounded-xl
+                                            border bg-white
+                                            px-3 py-2
+                                        "
+                                    >
+
+
+                                    <label
+                                        class="
+                                            flex items-center
+                                            gap-2 text-xs
+                                            font-bold
+                                        "
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            data-slide-key="button_url_active"
+                                            data-slide-index="${index}"
+                                            ${
+                                                slide.button_url_active
+                                                    ? 'checked'
+                                                    : ''
+                                            }
+                                        >
+                                        Button URL Active
+                                    </label>
+
+
+                                    <label
+                                        class="
+                                            block text-xs
+                                            font-bold
+                                            text-slate-600
+                                        "
+                                    >
+                                        Button Position
+                                    </label>
+
+
+                                    <select
+                                        data-slide-key="button_position"
+                                        data-slide-index="${index}"
+                                        class="
+                                            w-full rounded-xl
+                                            border bg-white
+                                            px-3 py-2
+                                        "
+                                    >
+                                        <option
+                                            value="bottom-left"
+                                            ${
+                                                slide.button_position
+                                                === 'bottom-left'
+                                                    ? 'selected'
+                                                    : ''
+                                            }
+                                        >
+                                            Bottom Left
+                                        </option>
+
+                                        <option
+                                            value="top-left"
+                                            ${
+                                                slide.button_position
+                                                === 'top-left'
+                                                    ? 'selected'
+                                                    : ''
+                                            }
+                                        >
+                                            Top Left
+                                        </option>
+
+                                        <option
+                                            value="bottom-right"
+                                            ${
+                                                slide.button_position
+                                                === 'bottom-right'
+                                                    ? 'selected'
+                                                    : ''
+                                            }
+                                        >
+                                            Bottom Right
+                                        </option>
+
+                                        <option
+                                            value="top-right"
+                                            ${
+                                                slide.button_position
+                                                === 'top-right'
+                                                    ? 'selected'
+                                                    : ''
+                                            }
+                                        >
+                                            Top Right
+                                        </option>
+
+                                        <option
+                                            value="centre"
+                                            ${
+                                                slide.button_position
+                                                === 'centre'
+                                                    ? 'selected'
+                                                    : ''
+                                            }
+                                        >
+                                            Centre
+                                        </option>
+
+                                        <option
+                                            value="custom"
+                                            ${
+                                                slide.button_position
+                                                === 'custom'
+                                                    ? 'selected'
+                                                    : ''
+                                            }
+                                        >
+                                            Custom
+                                        </option>
+                                    </select>
+
+
+                                    <label
+                                        class="
+                                            flex items-center
+                                            gap-2 text-xs
+                                            font-bold
+                                        "
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            data-slide-key="button_drag_enabled"
+                                            data-slide-index="${index}"
+                                            ${
+                                                slide.button_drag_enabled
+                                                    ? 'checked'
+                                                    : ''
+                                            }
+                                        >
+
+                                        Move Button With Mouse / Hand
+                                    </label>
+
+
+                                    <div
+                                        class="
+                                            grid grid-cols-2
+                                            gap-3
+                                        "
+                                    >
+                                        <label
+                                            class="
+                                                text-xs
+                                                font-bold
+                                            "
+                                        >
+                                            Horizontal %
+
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                data-slide-key="button_x"
+                                                data-slide-index="${index}"
+                                                value="${Number(
+                                                    slide.button_x
+                                                )}"
+                                                class="
+                                                    mt-1 w-full
+                                                    rounded-xl
+                                                    border px-3 py-2
+                                                "
+                                            >
+                                        </label>
+
+                                        <label
+                                            class="
+                                                text-xs
+                                                font-bold
+                                            "
+                                        >
+                                            Vertical %
+
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                data-slide-key="button_y"
+                                                data-slide-index="${index}"
+                                                value="${Number(
+                                                    slide.button_y
+                                                )}"
+                                                class="
+                                                    mt-1 w-full
+                                                    rounded-xl
+                                                    border px-3 py-2
+                                                "
+                                            >
+                                        </label>
+                                    </div>
+
+                                </div>
+
+                            </div>
+                        `;
+
+
+                        editor.appendChild(
+                            row
+                        );
+
+
+                        const stage =
+                            row.querySelector(
+                                `[data-slide-stage="${index}"]`
+                            );
+
+                        const draggable =
+                            row.querySelector(
+                                `[data-slide-button-drag="${index}"]`
+                            );
+
+
+                        if (
+                            stage
+                            && draggable
+                            && slide.button_drag_enabled
+                        ) {
+
+                            let dragging = false;
+
+
+                            function setDraggedPosition(
+                                event
+                            ) {
+
+                                if (!dragging) {
+                                    return;
+                                }
+
+                                const rect =
+                                    stage.getBoundingClientRect();
+
+                                if (
+                                    !rect.width
+                                    || !rect.height
+                                ) {
+                                    return;
+                                }
+
+                                const x =
+                                    Math.max(
+                                        0,
+                                        Math.min(
+                                            100,
+                                            (
+                                                (
+                                                    event.clientX
+                                                    - rect.left
+                                                )
+                                                / rect.width
+                                            )
+                                            * 100
+                                        )
+                                    );
+
+                                const y =
+                                    Math.max(
+                                        0,
+                                        Math.min(
+                                            100,
+                                            (
+                                                (
+                                                    event.clientY
+                                                    - rect.top
+                                                )
+                                                / rect.height
+                                            )
+                                            * 100
+                                        )
+                                    );
+
+                                slide.button_x =
+                                    Number(
+                                        x.toFixed(2)
+                                    );
+
+                                slide.button_y =
+                                    Number(
+                                        y.toFixed(2)
+                                    );
+
+                                slide.button_position =
+                                    'custom';
+
+                                draggable.style.left =
+                                    `${slide.button_x}%`;
+
+                                draggable.style.top =
+                                    `${slide.button_y}%`;
+
+                                sync();
+                            }
+
+
+                            draggable.addEventListener(
+                                'pointerdown',
+                                event => {
+
+                                    event.preventDefault();
+
+                                    dragging = true;
+
+                                    draggable
+                                        .setPointerCapture?.(
+                                            event.pointerId
+                                        );
+                                }
+                            );
+
+
+                            draggable.addEventListener(
+                                'pointermove',
+                                setDraggedPosition
+                            );
+
+
+                            draggable.addEventListener(
+                                'pointerup',
+                                event => {
+
+                                    setDraggedPosition(
+                                        event
+                                    );
+
+                                    dragging = false;
+
+                                    draggable
+                                        .releasePointerCapture?.(
+                                            event.pointerId
+                                        );
+
+                                    drawSlides();
+                                    renderCanvas();
+                                }
+                            );
+
+
+                            draggable.addEventListener(
+                                'pointercancel',
+                                () => {
+                                    dragging = false;
+                                }
+                            );
+                        }
+                    }
+                );
+            }
+
+
+            editor?.addEventListener(
+                'input',
+                event => {
+
+                    const input =
+                        event.target.closest(
+                            '[data-slide-key]'
+                        );
+
+
+                    if (!input) {
+                        return;
+                    }
+
+
+                    const slide =
+                        widget.data.slides[
+                            Number(
+                                input.dataset.slideIndex
+                            )
+                        ];
+
+
+                    if (!slide) {
+                        return;
+                    }
+
+
+                    const key =
+                        input.dataset.slideKey;
+
+                    slide[key] =
+                        input.type === 'checkbox'
+                            ? input.checked
+                            : (
+                                input.type === 'number'
+                                    ? Number(
+                                        input.value
+                                    )
+                                    : input.value
+                            );
+
+
+                    if (
+                        key === 'button_position'
+                        && slide.button_position
+                        !== 'custom'
+                    ) {
+
+                        const positions = {
+                            'top-left': [12, 15],
+                            'top-right': [88, 15],
+                            'bottom-left': [12, 85],
+                            'bottom-right': [88, 85],
+                            'centre': [50, 50]
+                        };
+
+                        const position =
+                            positions[
+                                slide.button_position
+                            ];
+
+                        if (position) {
+                            slide.button_x =
+                                position[0];
+
+                            slide.button_y =
+                                position[1];
+                        }
+                    }
+
+
+                    if (
+                        key === 'button_x'
+                        || key === 'button_y'
+                    ) {
+                        slide.button_position =
+                            'custom';
+                    }
+
+
+                    sync();
+
+
+                    if (
+                        [
+                            'show_button',
+                            'button_label',
+                            'button_position',
+                            'button_drag_enabled',
+                            'button_x',
+                            'button_y'
+                        ].includes(key)
+                    ) {
+                        drawSlides();
+                    }
+
+
+                    renderCanvas();
+                }
+            );
+
+
+            editor?.addEventListener(
+                'change',
+                async event => {
+
+                    const input =
+                        event.target.closest(
+                            '[data-slide-image]'
+                        );
+
+
+                    if (!input) {
+                        return;
+                    }
+
+
+                    const file =
+                        input.files?.[0];
+
+
+                    if (!file) {
+                        return;
+                    }
+
+
+                    try {
+
+                        const path =
+                            await uploadBuilderImage(
+                                file
+                            );
+
+
+                        const slide =
+                            widget.data.slides[
+                                Number(
+                                    input.dataset.slideImage
+                                )
+                            ];
+
+
+                        slide.image_path =
+                            path;
+
+
+                        sync();
+                        drawSlides();
+                        renderCanvas();
+
+                    } catch (error) {
+
+                        alert(
+                            error.message
+                            || 'Image upload failed.'
+                        );
+                    }
+                }
+            );
+
+
+            editor?.addEventListener(
+                'click',
+                event => {
+
+                    const button =
+                        event.target.closest(
+                            '[data-slide-remove]'
+                        );
+
+
+                    if (!button) {
+                        return;
+                    }
+
+
+                    widget.data.slides.splice(
+                        Number(
+                            button.dataset.slideRemove
+                        ),
+                        1
+                    );
+
+
+                    sync();
+                    drawSlides();
+                    renderCanvas();
+                }
+            );
+
+
+            add?.addEventListener(
+                'click',
+                () => {
+
+                    widget.data.slides.push({
+                        enabled: true,
+                        image_path: '',
+                        alt: '',
+                        show_button: false,
+                        button_label: '',
+                        button_url: '',
+                        button_url_active: false,
+                        button_position: 'bottom-left',
+                        button_x: 12,
+                        button_y: 85,
+                        button_drag_enabled: false
+                    });
+
+
+                    sync();
+                    drawSlides();
+                    renderCanvas();
+                }
+            );
+
+
+            drawSlides();
         }
 
 
@@ -3946,7 +7272,7 @@ section.columns.forEach(
                     );
                 }
             );
-    
+
 
         /*
          * Basic Page Builder image removal contract.
@@ -4700,7 +8026,7 @@ section.columns.forEach(
             'widgetDrawerPanel'
         );
 
-    
+
 
     document
         .getElementById(

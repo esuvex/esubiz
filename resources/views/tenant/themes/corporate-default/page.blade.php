@@ -151,6 +151,115 @@
         background: var(--soft);
     }
 
+
+    .builder-basic-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 46px;
+        min-height: 46px;
+        margin-bottom: 14px;
+        padding: 8px;
+        border-radius: 14px;
+        background: var(--soft);
+        font-size: 1.45rem;
+        line-height: 1;
+    }
+
+    .builder-slider {
+        margin-top: 22px;
+    }
+
+    .builder-slider-stage {
+        position: relative;
+        width: 100%;
+    }
+
+    .builder-slider-slide[hidden] {
+        display: none !important;
+    }
+
+    .builder-photo-slider-stage {
+        overflow: hidden;
+        border-radius: 18px;
+    }
+
+    .builder-photo-slide {
+        width: 100%;
+        height: 100%;
+    }
+
+    .builder-photo-slide {
+        position: relative;
+    }
+
+    .builder-slide-overlay-button {
+        position: absolute;
+        z-index: 5;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 46px;
+        padding: 0 20px;
+        border-radius: 14px;
+        background: var(--brand);
+        color: #fff;
+        font-weight: 850;
+        text-decoration: none;
+        transform: translate(-50%, -50%);
+        white-space: nowrap;
+    }
+
+
+    .builder-photo-slide img {
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    .builder-slider-controls {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 16px;
+    }
+
+    .builder-slider-controls > button {
+        display: inline-flex;
+        width: 40px;
+        height: 40px;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: #fff;
+        color: var(--ink);
+        cursor: pointer;
+        font-size: 1.35rem;
+    }
+
+    .builder-slider-dots {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+    }
+
+    .builder-slider-dots button {
+        width: 9px;
+        height: 9px;
+        padding: 0;
+        border: 0;
+        border-radius: 999px;
+        background: #cbd5e1;
+        cursor: pointer;
+    }
+
+    .builder-slider-dots button.active {
+        width: 24px;
+        background: var(--brand);
+    }
+
     @media(max-width:800px) {
         .builder-columns {
             grid-template-columns:
@@ -309,9 +418,63 @@
 
                                             @case('hero')
 
+                                                @php
+                                                    /*
+                                                     * ESUBIZ_HERO_PUBLIC_WIDTH_MODE_V1
+                                                     */
+                                                    $heroWidthMode =
+                                                        (
+                                                            $data['widthMode']
+                                                            ?? 'container'
+                                                        ) === 'full'
+                                                            ? 'full'
+                                                            : 'container';
+                                                @endphp
+
                                                 <div
                                                     class="builder-hero"
+                                                    data-hero-width="{{ $heroWidthMode }}"
+                                                    style="
+                                                        @if($heroWidthMode === 'full')
+                                                            width:100vw;
+                                                            max-width:100vw;
+                                                            margin-left:calc(50% - 50vw);
+                                                            margin-right:calc(50% - 50vw);
+                                                        @else
+                                                            width:100%;
+                                                            max-width:100%;
+                                                        @endif
+                                                    "
                                                 >
+
+                                                    {{-- ESUBIZ_PAGE_BUILDER_HERO_PUBLIC_IMAGE_V1 --}}
+                                                    @if(
+                                                        !empty(
+                                                            $data['image']
+                                                            ?? null
+                                                        )
+                                                    )
+                                                        <div
+                                                            style="
+                                                                margin-bottom:24px;
+                                                                overflow:hidden;
+                                                                border-radius:18px;
+                                                            "
+                                                        >
+                                                            <x-media.image
+                                                                src="{{ $data['image'] }}"
+                                                                alt="{{ $data['heading'] ?? 'Hero image' }}"
+                                                                loading="eager"
+                                                                fetchpriority="high"
+                                                                style="
+                                                                    display:block;
+                                                                    width:100%;
+                                                                    max-height:620px;
+                                                                    object-fit:cover;
+                                                                "
+                                                            />
+                                                        </div>
+                                                    @endif
 
                                                     @if(
                                                         !empty(
@@ -466,15 +629,11 @@
                                                 @break
 
 
-                                            @case('features')
-                                            @case('cards')
-                                            @case('testimonials')
+                                            {{-- ESUBIZ_STRUCTURED_PUBLIC_WIDGETS_V2 --}}
 
-                                                @if(
-                                                    !empty(
-                                                        $data['heading']
-                                                    )
-                                                )
+                                            @case('features')
+
+                                                @if(!empty($data['heading']))
                                                     <h2 class="builder-heading">
                                                         {{ $data['heading'] }}
                                                     </h2>
@@ -484,53 +643,662 @@
                                                     class="builder-items"
                                                     style="margin-top:22px;"
                                                 >
+                                                    @foreach(($data['items'] ?? []) as $item)
 
-                                                    @foreach(
-                                                        ($data['items'] ?? [])
-                                                        as $item
-                                                    )
+                                                        @if(($item['enabled'] ?? true) !== false)
 
-                                                        <article class="builder-card">
+                                                            @php
+                                                                $featureImage =
+                                                                    $item['image_path']
+                                                                    ?? $item['image']
+                                                                    ?? null;
 
-                                                            @if(
-                                                                !empty(
-                                                                    $item['image']
-                                                                )
-                                                            )
-                                                                <x-media.image
-    src="{{ $item['image'] }}"
-    alt="{{ $item['image_alt'] ?? $item['title'] ?? $item['name'] ?? '' }}"
-    style="margin-bottom:18px;"
-/>
-                                                            @endif
+                                                                $featureText =
+                                                                    $item['description']
+                                                                    ?? $item['text']
+                                                                    ?? '';
+                                                            @endphp
 
-                                                            @if(
-                                                                !empty(
-                                                                    $item['title']
-                                                                )
-                                                            )
-                                                                <h3>
-                                                                    {{ $item['title'] }}
-                                                                </h3>
-                                                            @endif
+                                                            <article class="builder-card">
 
-                                                            @if(
-                                                                !empty(
-                                                                    $item['name']
-                                                                )
-                                                            )
-                                                                <h3>
-                                                                    {{ $item['name'] }}
-                                                                </h3>
-                                                            @endif
+                                                                @if($featureImage)
+                                                                    <x-media.image
+                                                                        src="{{ $featureImage }}"
+                                                                        alt="{{ $item['image_alt'] ?? $item['title'] ?? '' }}"
+                                                                        style="margin-bottom:18px;"
+                                                                    />
+                                                                @endif
 
-                                                            <p class="builder-text">
-                                                                {{ $item['text'] ?? '' }}
-                                                            </p>
+                                                                @if(!empty($item['title']))
+                                                                    <h3>
+                                                                        {{ $item['title'] }}
+                                                                    </h3>
+                                                                @endif
 
-                                                        </article>
+                                                                @if($featureText !== '')
+                                                                    <p class="builder-text">
+                                                                        {{ $featureText }}
+                                                                    </p>
+                                                                @endif
+
+                                                            </article>
+
+                                                        @endif
 
                                                     @endforeach
+                                                </div>
+
+                                                @break
+
+
+                                            @case('cards')
+
+                                                @if(!empty($data['heading']))
+                                                    <h2 class="builder-heading">
+                                                        {{ $data['heading'] }}
+                                                    </h2>
+                                                @endif
+
+                                                <div
+                                                    class="builder-items"
+                                                    style="margin-top:22px;"
+                                                >
+                                                    @foreach(($data['items'] ?? []) as $item)
+
+                                                        @if(($item['enabled'] ?? true) !== false)
+
+                                                            @php
+                                                                $cardImage =
+                                                                    $item['image_path']
+                                                                    ?? $item['image']
+                                                                    ?? null;
+
+                                                                $cardText =
+                                                                    $item['description']
+                                                                    ?? $item['text']
+                                                                    ?? '';
+
+                                                                $showImage =
+                                                                    $item['show_image']
+                                                                    ?? !empty($cardImage);
+
+                                                                $showIcon =
+                                                                    $item['show_icon']
+                                                                    ?? !empty($item['icon']);
+
+                                                                $showButton =
+                                                                    $item['show_button']
+                                                                    ?? !empty($item['button_label']);
+
+                                                                $urlActive =
+                                                                    $item['button_url_active']
+                                                                    ?? !empty($item['button_url']);
+                                                            @endphp
+
+                                                            <article class="builder-card">
+
+                                                                @if($showImage && $cardImage)
+                                                                    <x-media.image
+                                                                        src="{{ $cardImage }}"
+                                                                        alt="{{ $item['title'] ?? '' }}"
+                                                                        style="margin-bottom:18px;"
+                                                                    />
+                                                                @endif
+
+                                                                @if($showIcon && !empty($item['icon']))
+                                                                    <div
+                                                                        class="builder-basic-icon"
+                                                                        aria-hidden="true"
+                                                                    >
+                                                                        {{ $item['icon'] }}
+                                                                    </div>
+                                                                @endif
+
+                                                                @if(!empty($item['title']))
+                                                                    <h3>
+                                                                        {{ $item['title'] }}
+                                                                    </h3>
+                                                                @endif
+
+                                                                @if($cardText !== '')
+                                                                    <p class="builder-text">
+                                                                        {{ $cardText }}
+                                                                    </p>
+                                                                @endif
+
+                                                                @if(
+                                                                    $showButton
+                                                                    && !empty($item['button_label'])
+                                                                )
+                                                                    @if(
+                                                                        $urlActive
+                                                                        && !empty($item['button_url'])
+                                                                    )
+                                                                        <a
+                                                                            href="{{ $item['button_url'] }}"
+                                                                            class="builder-button"
+                                                                            style="margin-top:18px;"
+                                                                        >
+                                                                            {{ $item['button_label'] }}
+                                                                        </a>
+                                                                    @else
+                                                                        <span
+                                                                            class="builder-button"
+                                                                            style="
+                                                                                margin-top:18px;
+                                                                                cursor:default;
+                                                                            "
+                                                                        >
+                                                                            {{ $item['button_label'] }}
+                                                                        </span>
+                                                                    @endif
+                                                                @endif
+
+                                                            </article>
+
+                                                        @endif
+
+                                                    @endforeach
+                                                </div>
+
+                                                @break
+
+
+                                            @case('testimonials')
+
+                                                @php
+                                                    $testimonialItems =
+                                                        collect($data['items'] ?? [])
+                                                            ->filter(
+                                                                fn ($item) =>
+                                                                    ($item['enabled'] ?? true)
+                                                                    !== false
+                                                            )
+                                                            ->values();
+
+                                                    $testimonialId =
+                                                        'testimonial-'
+                                                        . substr(
+                                                            md5(
+                                                                json_encode($widget)
+                                                                . uniqid('', true)
+                                                            ),
+                                                            0,
+                                                            12
+                                                        );
+                                                @endphp
+
+                                                @if(!empty($data['heading']))
+                                                    <h2 class="builder-heading">
+                                                        {{ $data['heading'] }}
+                                                    </h2>
+                                                @endif
+
+                                                @if($testimonialItems->count())
+
+                                                    <div
+                                                        id="{{ $testimonialId }}"
+                                                        class="builder-slider"
+                                                        data-esubiz-slider
+                                                        data-autoplay="1"
+                                                        data-duration="5000"
+                                                    >
+
+                                                        <div class="builder-slider-stage">
+
+                                                            @foreach($testimonialItems as $index => $item)
+
+                                                                @php
+                                                                    $photo =
+                                                                        $item['image_path']
+                                                                        ?? $item['photo_path']
+                                                                        ?? $item['image']
+                                                                        ?? null;
+
+                                                                    $text =
+                                                                        $item['text']
+                                                                        ?? $item['testimonial']
+                                                                        ?? $item['quote']
+                                                                        ?? '';
+
+                                                                    $name =
+                                                                        $item['name']
+                                                                        ?? $item['author']
+                                                                        ?? '';
+
+                                                                    $role =
+                                                                        $item['role']
+                                                                        ?? $item['company']
+                                                                        ?? $item['position']
+                                                                        ?? '';
+
+                                                                    $showImage =
+                                                                        $item['show_image']
+                                                                        ?? !empty($photo);
+
+                                                                    $showIcon =
+                                                                        $item['show_icon']
+                                                                        ?? !empty($item['icon']);
+
+                                                                    $showButton =
+                                                                        $item['show_button']
+                                                                        ?? !empty($item['button_label']);
+
+                                                                    $urlActive =
+                                                                        $item['button_url_active']
+                                                                        ?? !empty($item['button_url']);
+                                                                @endphp
+
+                                                                <article
+                                                                    class="builder-card builder-slider-slide"
+                                                                    data-esubiz-slide
+                                                                    @if($index !== 0)
+                                                                        hidden
+                                                                    @endif
+                                                                >
+
+                                                                    @if($showImage && $photo)
+                                                                        <div
+                                                                            style="
+                                                                                display:flex;
+                                                                                justify-content:center;
+                                                                                margin-bottom:18px;
+                                                                            "
+                                                                        >
+                                                                            <x-media.image
+                                                                                src="{{ $photo }}"
+                                                                                alt="{{ $name }}"
+                                                                                style="
+                                                                                    width:88px;
+                                                                                    height:88px;
+                                                                                    object-fit:cover;
+                                                                                    border-radius:999px;
+                                                                                "
+                                                                            />
+                                                                        </div>
+                                                                    @endif
+
+                                                                    @if($showIcon && !empty($item['icon']))
+                                                                        <div
+                                                                            class="builder-basic-icon"
+                                                                            aria-hidden="true"
+                                                                        >
+                                                                            {{ $item['icon'] }}
+                                                                        </div>
+                                                                    @endif
+
+                                                                    @if($text !== '')
+                                                                        <p class="builder-text">
+                                                                            {{ $text }}
+                                                                        </p>
+                                                                    @endif
+
+                                                                    @if($name !== '')
+                                                                        <h3 style="margin-bottom:4px;">
+                                                                            {{ $name }}
+                                                                        </h3>
+                                                                    @endif
+
+                                                                    @if($role !== '')
+                                                                        <div
+                                                                            style="
+                                                                                color:var(--muted);
+                                                                                font-size:.9rem;
+                                                                            "
+                                                                        >
+                                                                            {{ $role }}
+                                                                        </div>
+                                                                    @endif
+
+                                                                    @if(
+                                                                        $showButton
+                                                                        && !empty($item['button_label'])
+                                                                    )
+                                                                        @if(
+                                                                            $urlActive
+                                                                            && !empty($item['button_url'])
+                                                                        )
+                                                                            <a
+                                                                                href="{{ $item['button_url'] }}"
+                                                                                class="builder-button"
+                                                                                style="margin-top:18px;"
+                                                                            >
+                                                                                {{ $item['button_label'] }}
+                                                                            </a>
+                                                                        @else
+                                                                            <span
+                                                                                class="builder-button"
+                                                                                style="margin-top:18px;"
+                                                                            >
+                                                                                {{ $item['button_label'] }}
+                                                                            </span>
+                                                                        @endif
+                                                                    @endif
+
+                                                                </article>
+
+                                                            @endforeach
+
+                                                        </div>
+
+                                                        @if($testimonialItems->count() > 1)
+                                                            <div class="builder-slider-controls">
+
+                                                                <button
+                                                                    type="button"
+                                                                    data-esubiz-prev
+                                                                    aria-label="Previous testimonial"
+                                                                >
+                                                                    ‹
+                                                                </button>
+
+                                                                <div class="builder-slider-dots">
+                                                                    @foreach($testimonialItems as $index => $item)
+                                                                        <button
+                                                                            type="button"
+                                                                            data-esubiz-dot="{{ $index }}"
+                                                                            class="{{ $index === 0 ? 'active' : '' }}"
+                                                                            aria-label="Testimonial {{ $index + 1 }}"
+                                                                        ></button>
+                                                                    @endforeach
+                                                                </div>
+
+                                                                <button
+                                                                    type="button"
+                                                                    data-esubiz-next
+                                                                    aria-label="Next testimonial"
+                                                                >
+                                                                    ›
+                                                                </button>
+
+                                                            </div>
+                                                        @endif
+
+                                                    </div>
+
+                                                @endif
+
+                                                @break
+
+
+                                            @case('slider')
+
+                                                @php
+                                                    /*
+                                                     * ESUBIZ_SLIDER_PUBLIC_WIDTH_MODE_V1
+                                                     */
+                                                    $sliderWidthMode =
+                                                        (
+                                                            $data['width_mode']
+                                                            ?? 'container'
+                                                        ) === 'full'
+                                                            ? 'full'
+                                                            : 'container';
+                                                @endphp
+
+                                                <div
+                                                    data-slider-width="{{ $sliderWidthMode }}"
+                                                    style="
+                                                        @if($sliderWidthMode === 'full')
+                                                            width:100vw;
+                                                            max-width:100vw;
+                                                            margin-left:calc(50% - 50vw);
+                                                            margin-right:calc(50% - 50vw);
+                                                        @else
+                                                            width:100%;
+                                                            max-width:100%;
+                                                        @endif
+                                                    "
+                                                >
+
+                                                @php
+                                                    $slides =
+                                                        collect($data['slides'] ?? [])
+                                                            ->filter(
+                                                                fn ($slide) =>
+                                                                    ($slide['enabled'] ?? true)
+                                                                    !== false
+                                                                    && !empty(
+                                                                        $slide['image_path']
+                                                                        ?? $slide['image']
+                                                                        ?? null
+                                                                    )
+                                                            )
+                                                            ->values();
+
+                                                    $sliderWidth =
+                                                        max(
+                                                            1,
+                                                            (int) ($data['width'] ?? 1200)
+                                                        );
+
+                                                    $sliderHeight =
+                                                        max(
+                                                            1,
+                                                            (int) ($data['height'] ?? 650)
+                                                        );
+
+                                                    $sliderFit =
+                                                        in_array(
+                                                            $data['fit'] ?? 'cover',
+                                                            ['cover', 'contain'],
+                                                            true
+                                                        )
+                                                            ? $data['fit']
+                                                            : 'cover';
+
+                                                    $duration =
+                                                        max(
+                                                            1000,
+                                                            (int) ($data['duration'] ?? 5000)
+                                                        );
+                                                @endphp
+
+                                                @if($slides->count())
+
+                                                    <div
+                                                        class="builder-slider builder-photo-slider"
+                                                        data-esubiz-slider
+                                                        data-autoplay="{{ ($data['autoplay'] ?? true) ? '1' : '0' }}"
+                                                        data-duration="{{ $duration }}"
+                                                        style="
+                                                            max-width:{{ $sliderWidth }}px;
+                                                            margin-inline:auto;
+                                                        "
+                                                    >
+
+                                                        <div
+                                                            class="builder-slider-stage builder-photo-slider-stage"
+                                                            style="
+                                                                aspect-ratio:
+                                                                    {{ $sliderWidth }}
+                                                                    /
+                                                                    {{ $sliderHeight }};
+                                                            "
+                                                        >
+
+                                                            @foreach($slides as $index => $slide)
+
+                                                                @php
+                                                                    $slideImage =
+                                                                        $slide['image_path']
+                                                                        ?? $slide['image']
+                                                                        ?? null;
+                                                                @endphp
+
+                                                                <div
+                                                                    class="builder-slider-slide builder-photo-slide"
+                                                                    data-esubiz-slide
+                                                                    @if($index !== 0)
+                                                                        hidden
+                                                                    @endif
+                                                                >
+                                                                    <x-media.image
+                                                                        src="{{ $slideImage }}"
+                                                                        alt="{{ $slide['alt'] ?? '' }}"
+                                                                        style="
+                                                                            display:block;
+                                                                            width:100%;
+                                                                            height:100%;
+                                                                            object-fit:{{ $sliderFit }};
+                                                                            border-radius:18px;
+                                                                        "
+                                                                    />
+
+
+                                                                    {{-- ESUBIZ_SLIDER_POSITIONED_BUTTON_PUBLIC_V2 --}}
+                                                                    @php
+                                                                        $slideButtonVisible =
+                                                                            $slide['show_button']
+                                                                            ?? false;
+
+                                                                        $slideButtonLabel =
+                                                                            $slide['button_label']
+                                                                            ?? '';
+
+                                                                        $slideButtonUrl =
+                                                                            $slide['button_url']
+                                                                            ?? '';
+
+                                                                        $slideButtonUrlActive =
+                                                                            $slide['button_url_active']
+                                                                            ?? !empty(
+                                                                                $slideButtonUrl
+                                                                            );
+
+                                                                        $buttonPresetName =
+                                                                            $slide['button_position']
+                                                                            ?? 'bottom-left';
+
+                                                                        $buttonPresets = [
+                                                                            'top-left' => [12, 15],
+                                                                            'top-right' => [88, 15],
+                                                                            'bottom-left' => [12, 85],
+                                                                            'bottom-right' => [88, 85],
+                                                                            'centre' => [50, 50],
+                                                                        ];
+
+                                                                        $buttonPreset =
+                                                                            $buttonPresets[
+                                                                                $buttonPresetName
+                                                                            ]
+                                                                            ?? [12, 85];
+
+                                                                        $buttonX =
+                                                                            is_numeric(
+                                                                                $slide['button_x']
+                                                                                ?? null
+                                                                            )
+                                                                                ? max(
+                                                                                    0,
+                                                                                    min(
+                                                                                        100,
+                                                                                        (float) $slide['button_x']
+                                                                                    )
+                                                                                )
+                                                                                : $buttonPreset[0];
+
+                                                                        $buttonY =
+                                                                            is_numeric(
+                                                                                $slide['button_y']
+                                                                                ?? null
+                                                                            )
+                                                                                ? max(
+                                                                                    0,
+                                                                                    min(
+                                                                                        100,
+                                                                                        (float) $slide['button_y']
+                                                                                    )
+                                                                                )
+                                                                                : $buttonPreset[1];
+                                                                    @endphp
+
+
+                                                                    @if(
+                                                                        $slideButtonVisible
+                                                                        && $slideButtonLabel !== ''
+                                                                    )
+
+                                                                        @if(
+                                                                            $slideButtonUrlActive
+                                                                            && $slideButtonUrl !== ''
+                                                                        )
+                                                                            <a
+                                                                                href="{{ $slideButtonUrl }}"
+                                                                                class="builder-slide-overlay-button"
+                                                                                style="
+                                                                                    left:{{ $buttonX }}%;
+                                                                                    top:{{ $buttonY }}%;
+                                                                                "
+                                                                            >
+                                                                                {{ $slideButtonLabel }}
+                                                                            </a>
+                                                                        @else
+                                                                            <span
+                                                                                class="builder-slide-overlay-button"
+                                                                                style="
+                                                                                    left:{{ $buttonX }}%;
+                                                                                    top:{{ $buttonY }}%;
+                                                                                "
+                                                                            >
+                                                                                {{ $slideButtonLabel }}
+                                                                            </span>
+                                                                        @endif
+
+                                                                    @endif
+                                                                </div>
+
+                                                            @endforeach
+
+                                                        </div>
+
+                                                        @if($slides->count() > 1)
+
+                                                            <div class="builder-slider-controls">
+
+                                                                @if($data['show_arrows'] ?? true)
+                                                                    <button
+                                                                        type="button"
+                                                                        data-esubiz-prev
+                                                                        aria-label="Previous slide"
+                                                                    >
+                                                                        ‹
+                                                                    </button>
+                                                                @endif
+
+                                                                @if($data['show_dots'] ?? true)
+                                                                    <div class="builder-slider-dots">
+
+                                                                        @foreach($slides as $index => $slide)
+                                                                            <button
+                                                                                type="button"
+                                                                                data-esubiz-dot="{{ $index }}"
+                                                                                class="{{ $index === 0 ? 'active' : '' }}"
+                                                                                aria-label="Slide {{ $index + 1 }}"
+                                                                            ></button>
+                                                                        @endforeach
+
+                                                                    </div>
+                                                                @endif
+
+                                                                @if($data['show_arrows'] ?? true)
+                                                                    <button
+                                                                        type="button"
+                                                                        data-esubiz-next
+                                                                        aria-label="Next slide"
+                                                                    >
+                                                                        ›
+                                                                    </button>
+                                                                @endif
+
+                                                            </div>
+
+                                                        @endif
+
+                                                    </div>
+
+                                                @endif
+
 
                                                 </div>
 
@@ -781,5 +1549,166 @@
 @endif
 
 </div>
+
+
+<script>
+/* ESUBIZ_PAGE_BUILDER_SLIDER_RUNTIME_V1 */
+document.addEventListener(
+    'DOMContentLoaded',
+    function () {
+
+        document
+            .querySelectorAll(
+                '[data-esubiz-slider]'
+            )
+            .forEach(
+                function (slider) {
+
+                    const slides =
+                        Array.from(
+                            slider.querySelectorAll(
+                                '[data-esubiz-slide]'
+                            )
+                        );
+
+                    if (!slides.length) {
+                        return;
+                    }
+
+                    const dots =
+                        Array.from(
+                            slider.querySelectorAll(
+                                '[data-esubiz-dot]'
+                            )
+                        );
+
+                    const previous =
+                        slider.querySelector(
+                            '[data-esubiz-prev]'
+                        );
+
+                    const next =
+                        slider.querySelector(
+                            '[data-esubiz-next]'
+                        );
+
+                    const autoplay =
+                        slider.dataset.autoplay === '1';
+
+                    const duration =
+                        Math.max(
+                            1000,
+                            Number(
+                                slider.dataset.duration
+                                || 5000
+                            )
+                        );
+
+                    let current = 0;
+                    let timer = null;
+
+                    function show(index) {
+
+                        current =
+                            (
+                                index
+                                + slides.length
+                            )
+                            % slides.length;
+
+                        slides.forEach(
+                            function (slide, i) {
+                                slide.hidden =
+                                    i !== current;
+                            }
+                        );
+
+                        dots.forEach(
+                            function (dot, i) {
+                                dot.classList.toggle(
+                                    'active',
+                                    i === current
+                                );
+                            }
+                        );
+                    }
+
+                    function stop() {
+
+                        if (timer !== null) {
+                            clearInterval(timer);
+                            timer = null;
+                        }
+                    }
+
+                    function start() {
+
+                        stop();
+
+                        if (
+                            !autoplay
+                            || slides.length < 2
+                        ) {
+                            return;
+                        }
+
+                        timer =
+                            setInterval(
+                                function () {
+                                    show(current + 1);
+                                },
+                                duration
+                            );
+                    }
+
+                    if (previous) {
+                        previous.addEventListener(
+                            'click',
+                            function () {
+                                show(current - 1);
+                                start();
+                            }
+                        );
+                    }
+
+                    if (next) {
+                        next.addEventListener(
+                            'click',
+                            function () {
+                                show(current + 1);
+                                start();
+                            }
+                        );
+                    }
+
+                    dots.forEach(
+                        function (dot, index) {
+                            dot.addEventListener(
+                                'click',
+                                function () {
+                                    show(index);
+                                    start();
+                                }
+                            );
+                        }
+                    );
+
+                    slider.addEventListener(
+                        'mouseenter',
+                        stop
+                    );
+
+                    slider.addEventListener(
+                        'mouseleave',
+                        start
+                    );
+
+                    show(0);
+                    start();
+                }
+            );
+    }
+);
+</script>
 
 @endsection
