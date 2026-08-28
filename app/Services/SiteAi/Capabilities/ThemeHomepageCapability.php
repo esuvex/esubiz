@@ -5,10 +5,16 @@ namespace App\Services\SiteAi\Capabilities;
 use App\Services\SiteAi\Contracts\SiteAiCapability;
 
 /**
- * Theme Homepage capability.
+ * Generic Theme Homepage Site AI capability.
  *
- * Central Esubiz owns the capability definition.
- * Generated content/media belongs to the requesting workspace.
+ * ESUBIZ owns the capability/security contract.
+ *
+ * Individual themes declare the homepage functions and
+ * editable targets they expose to Site AI.
+ *
+ * This class must never assume that every theme contains
+ * Hero, About, Features, Testimonials, Rooms, Products,
+ * Services or any other particular section.
  */
 class ThemeHomepageCapability implements SiteAiCapability
 {
@@ -18,43 +24,124 @@ class ThemeHomepageCapability implements SiteAiCapability
     }
 
 
-    public function manifest(array $context = []): array
-    {
-        return $this->definition();
-    }
-
-
-    public function prepare(array $payload,
-        array $context = []): array
-    {
+    public function manifest(
+        array $context = []
+    ): array {
         /*
-         * Keep the caller payload intact.
-         * The central engine/provider performs generation.
+         * ESUBIZ_DYNAMIC_THEME_AI_MANIFEST_V1
+         *
+         * The active theme supplies its own AI manifest.
+         *
+         * Supported context location:
+         *
+         * theme_ai_manifest
+         *
+         * The central capability sanitizes that declaration
+         * before it can reach AI.
          */
-        return $context;
-    }
+        $themeManifest =
+            (array) (
+                $context['theme_ai_manifest']
+                ?? []
+            );
 
+        $functions =
+            $this->sanitizeFunctions(
+                (array) (
+                    $themeManifest['functions']
+                    ?? []
+                )
+            );
 
-    public function normalizeResult(array $result,
-        array $context = []): array
-    {
         /*
-         * Generated output is returned to the requesting
-         * workspace for persistence in its own storage.
+         * ESUBIZ_THEME_HOMEPAGE_TOP_LEVEL_TARGETS_V1
+         *
+         * SiteAiProposalFactory authorizes proposal items from the
+         * capability manifest's top-level "targets" array.
+         *
+         * Theme functions remain dynamic. Flatten only the targets
+         * declared by the currently scoped theme functions so Hero,
+         * About, Features, etc. stay isolated and manifest-controlled.
          */
-        return $context;
-    }
+        $allowedTargets = [];
+
+        foreach ($functions as $function) {
+            foreach (
+                (array) (
+                    $function['targets']
+                    ?? []
+                )
+                as $target
+            ) {
+                $target =
+                    $this->safeIdentifier(
+                        $target
+                    );
+
+                if (
+                    $target !== ''
+                    && !in_array(
+                        $target,
+                        $allowedTargets,
+                        true
+                    )
+                ) {
+                    $allowedTargets[] =
+                        $target;
+                }
+            }
+        }
 
 
-    public function definition(): array
-    {
         return [
-            'key' => $this->key(),
+            'key' =>
+                $this->key(),
 
-            'version' => '1.0.0',
+            'version' =>
+                '2.0.0',
 
-            'label' => 'Theme Homepage',
+            'label' =>
+                (string) (
+                    $themeManifest['label']
+                    ?? 'Theme Homepage'
+                ),
 
+            /*
+             * ESUBIZ_THEME_HOMEPAGE_GENERATE_ACTION_V1
+             *
+             * Theme homepage AI supports proposal-based
+             * generation through the canonical generate action.
+             */
+            'actions' => [
+                'generate',
+            ],
+
+            'theme' => [
+                'key' =>
+                    $this->safeIdentifier(
+                        $themeManifest['theme_key']
+                            ?? null
+                    ),
+
+                'name' =>
+                    $this->safeText(
+                        $themeManifest['theme_name']
+                            ?? null,
+                        150
+                    ),
+
+                'version' =>
+                    $this->safeText(
+                        $themeManifest['theme_version']
+                            ?? null,
+                        50
+                    ),
+            ],
+
+            /*
+             * Generated content/media belongs to the
+             * requesting website/workspace.
+             */
             'storage' => [
                 'output_owner' =>
                     'requesting_workspace',
@@ -75,211 +162,348 @@ class ThemeHomepageCapability implements SiteAiCapability
                     'workspace_media_library',
             ],
 
-            'functions' => [
+            /*
+             * These are the ONLY homepage functions the
+             * current theme has exposed to Site AI.
+             */
+            /*
+             * Proposal authorization contract.
+             */
+            'targets' =>
+                $allowedTargets,
 
-                [
-                    'key' =>
-                        'header_logo',
-
-                    'label' =>
-                        'Header Logo',
-
-                    'description' =>
-                        'Generate a website header logo using the recommended 180 × 60 px layout.',
-
-                    'outputs' => [
-                        'image',
-                    ],
-
-                    'targets' => [
-                        'header_logo',
-                    ],
-
-                    'meta' => [
-                        'asset_type' =>
-                            'logo',
-
-                        'recommended_width' =>
-                            180,
-
-                        'recommended_height' =>
-                            60,
-
-                        'recommended_format' =>
-                            'PNG',
-
-                        'storage_owner' =>
-                            'requesting_workspace',
-                    ],
-                ],
-
-                [
-                    'key' =>
-                        'footer_logo',
-
-                    'label' =>
-                        'Footer Logo',
-
-                    'description' =>
-                        'Generate a footer logo using the recommended 180 × 60 px layout.',
-
-                    'outputs' => [
-                        'image',
-                    ],
-
-                    'targets' => [
-                        'footer_logo',
-                    ],
-
-                    'meta' => [
-                        'asset_type' =>
-                            'logo',
-
-                        'recommended_width' =>
-                            180,
-
-                        'recommended_height' =>
-                            60,
-
-                        'recommended_format' =>
-                            'PNG',
-
-                        'storage_owner' =>
-                            'requesting_workspace',
-                    ],
-                ],
-
-                [
-                    'key' =>
-                        'favicon',
-
-                    'label' =>
-                        'Favicon',
-
-                    'description' =>
-                        'Generate a favicon using the recommended 64 × 64 px square format.',
-
-                    'outputs' => [
-                        'image',
-                    ],
-
-                    'targets' => [
-                        'favicon',
-                    ],
-
-                    'meta' => [
-                        'asset_type' =>
-                            'favicon',
-
-                        'recommended_width' =>
-                            64,
-
-                        'recommended_height' =>
-                            64,
-
-                        'recommended_format' =>
-                            'PNG',
-
-                        'storage_owner' =>
-                            'requesting_workspace',
-                    ],
-                ],
-
-                [
-                    'key' => 'hero',
-                    'label' => 'Hero',
-                    'description' =>
-                        'Generate or improve homepage hero content and imagery.',
-                    'outputs' => [
-                        'text',
-                        'image',
-                    ],
-                    'targets' => [
-                        'hero_badge',
-                        'hero_title',
-                        'hero_text',
-                        'hero_primary_button',
-                        'hero_secondary_button',
-                        'hero_image',
-                    ],
-                ],
-
-                [
-                    'key' => 'features',
-                    'label' => 'Features',
-                    'description' =>
-                        'Generate or improve homepage feature content.',
-                    'outputs' => [
-                        'text',
-                        'structured-data',
-                    ],
-                    'targets' => [
-                        'features_heading',
-                        'features_text',
-                        'features',
-                    ],
-                ],
-
-                [
-                    'key' => 'stats',
-                    'label' => 'Statistics',
-                    'description' =>
-                        'Generate or improve homepage statistics.',
-                    'outputs' => [
-                        'text',
-                        'structured-data',
-                    ],
-                    'targets' => [
-                        'stats',
-                    ],
-                ],
-
-                [
-                    'key' => 'about',
-                    'label' => 'About Us',
-                    'description' =>
-                        'Generate or improve About Us content and imagery.',
-                    'outputs' => [
-                        'text',
-                        'image',
-                    ],
-                    'targets' => [
-                        'about_heading',
-                        'about_text',
-                        'about_image',
-                    ],
-                ],
-
-                [
-                    'key' => 'testimonials',
-                    'label' => 'Testimonials',
-                    'description' =>
-                        'Generate or improve testimonial content.',
-                    'outputs' => [
-                        'text',
-                        'structured-data',
-                    ],
-                    'targets' => [
-                        'testimonials_heading',
-                        'testimonials',
-                    ],
-                ],
-
-                [
-                    'key' => 'cta',
-                    'label' => 'Final Call to Action',
-                    'description' =>
-                        'Generate or improve the homepage final call to action.',
-                    'outputs' => [
-                        'text',
-                    ],
-                    'targets' => [
-                        'cta_heading',
-                        'cta_text',
-                        'cta_button',
-                    ],
-                ],
-            ],
+            'functions' =>
+                $functions,
         ];
+    }
+
+
+    public function prepare(
+        array $payload,
+        array $context = []
+    ): array {
+        /*
+         * Preserve caller generation data.
+         *
+         * The manifest controls what AI is allowed to
+         * understand and target. The provider/engine
+         * continues to handle generation and vision.
+         */
+        return $payload;
+    }
+
+
+    public function normalizeResult(
+        array $result,
+        array $context = []
+    ): array {
+        /*
+         * Do not permit generated structured target data
+         * to escape the active theme's declared targets.
+         *
+         * Ordinary provider response fields remain intact.
+         * Proposal target enforcement will be strengthened
+         * further by the Proposal Engine.
+         */
+        $allowedTargets =
+            $this->allowedTargets(
+                $context
+            );
+
+        if (
+            isset($result['targets'])
+            && is_array($result['targets'])
+        ) {
+            $result['targets'] =
+                array_intersect_key(
+                    $result['targets'],
+                    array_flip(
+                        $allowedTargets
+                    )
+                );
+        }
+
+        if (
+            isset($result['changes'])
+            && is_array($result['changes'])
+        ) {
+            $result['changes'] =
+                array_values(
+                    array_filter(
+                        $result['changes'],
+                        static function ($change) use (
+                            $allowedTargets
+                        ): bool {
+                            if (!is_array($change)) {
+                                return false;
+                            }
+
+                            $target =
+                                (string) (
+                                    $change['target']
+                                    ?? ''
+                                );
+
+                            return in_array(
+                                $target,
+                                $allowedTargets,
+                                true
+                            );
+                        }
+                    )
+                );
+        }
+
+        return $result;
+    }
+
+
+    /**
+     * Return every target explicitly exposed by the
+     * currently active theme.
+     */
+    protected function allowedTargets(
+        array $context
+    ): array {
+        $manifest =
+            $this->manifest(
+                $context
+            );
+
+        $targets = [];
+
+        foreach (
+            (array) (
+                $manifest['functions']
+                ?? []
+            ) as $function
+        ) {
+            foreach (
+                (array) (
+                    $function['targets']
+                    ?? []
+                ) as $target
+            ) {
+                $targets[] =
+                    (string) $target;
+            }
+        }
+
+        return array_values(
+            array_unique(
+                array_filter(
+                    $targets
+                )
+            )
+        );
+    }
+
+
+    /**
+     * Sanitize functions supplied by a theme.
+     *
+     * Themes may expose different functions without any
+     * central Esubiz code change.
+     */
+    protected function sanitizeFunctions(
+        array $functions
+    ): array {
+        $clean = [];
+
+        foreach ($functions as $function) {
+            if (!is_array($function)) {
+                continue;
+            }
+
+            $key =
+                $this->safeIdentifier(
+                    $function['key']
+                        ?? null
+                );
+
+            if ($key === null) {
+                continue;
+            }
+
+            $targets = [];
+
+            foreach (
+                (array) (
+                    $function['targets']
+                    ?? []
+                ) as $target
+            ) {
+                $target =
+                    $this->safeIdentifier(
+                        $target
+                    );
+
+                if ($target !== null) {
+                    $targets[] =
+                        $target;
+                }
+            }
+
+            $outputs =
+                array_values(
+                    array_intersect(
+                        array_map(
+                            'strval',
+                            (array) (
+                                $function['outputs']
+                                ?? []
+                            )
+                        ),
+                        [
+                            'text',
+                            'image',
+                            'structured-data',
+                            'file',
+                        ]
+                    )
+                );
+
+            $cleanFunction = [
+                'key' =>
+                    $key,
+
+                'label' =>
+                    $this->safeText(
+                        $function['label']
+                            ?? $key,
+                        150
+                    ) ?? $key,
+
+                'description' =>
+                    $this->safeText(
+                        $function['description']
+                            ?? null,
+                        1000
+                    ),
+
+                'outputs' =>
+                    $outputs,
+
+                'targets' =>
+                    array_values(
+                        array_unique(
+                            $targets
+                        )
+                    ),
+            ];
+
+            /*
+             * Safe non-authoritative metadata may be
+             * supplied by themes for generation guidance.
+             */
+            if (
+                isset($function['meta'])
+                && is_array(
+                    $function['meta']
+                )
+            ) {
+                $cleanFunction['meta'] =
+                    $this->sanitizeMeta(
+                        $function['meta']
+                    );
+            }
+
+            $clean[] =
+                $cleanFunction;
+        }
+
+        return $clean;
+    }
+
+
+    protected function sanitizeMeta(
+        array $meta
+    ): array {
+        $clean = [];
+
+        foreach ($meta as $key => $value) {
+            $safeKey =
+                $this->safeIdentifier(
+                    $key
+                );
+
+            if ($safeKey === null) {
+                continue;
+            }
+
+            if (
+                is_string($value)
+                || is_int($value)
+                || is_float($value)
+                || is_bool($value)
+                || $value === null
+            ) {
+                $clean[$safeKey] =
+                    is_string($value)
+                        ? mb_substr(
+                            $value,
+                            0,
+                            1000
+                        )
+                        : $value;
+            }
+        }
+
+        return $clean;
+    }
+
+
+    protected function safeIdentifier(
+        mixed $value
+    ): ?string {
+        if (!is_scalar($value)) {
+            return null;
+        }
+
+        $value =
+            trim(
+                (string) $value
+            );
+
+        if (
+            $value === ''
+            || !preg_match(
+                '/^[A-Za-z0-9._:-]+$/',
+                $value
+            )
+        ) {
+            return null;
+        }
+
+        return mb_substr(
+            $value,
+            0,
+            190
+        );
+    }
+
+
+    protected function safeText(
+        mixed $value,
+        int $length
+    ): ?string {
+        if (!is_scalar($value)) {
+            return null;
+        }
+
+        $value =
+            trim(
+                (string) $value
+            );
+
+        if ($value === '') {
+            return null;
+        }
+
+        return mb_substr(
+            $value,
+            0,
+            $length
+        );
     }
 }

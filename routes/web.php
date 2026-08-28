@@ -14,6 +14,7 @@
 
 
 
+use App\Http\Controllers\TenantAiProposalController;
 use App\Http\Controllers\MarketplaceController;
 
 use App\Http\Controllers\Admin\FinancialReportController;
@@ -2097,4 +2098,69 @@ Route::patch(
     ->name(
         'admin.ai.settings.chat.update'
     );
+
+
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_TENANT_AI_PROPOSAL_ROUTES_V1
+|--------------------------------------------------------------------------
+|
+| Universal AI proposal preview / approval endpoints.
+|
+| The routes never write website content directly.
+| Approval delegates to the registered capability applier,
+| which persists into the tenant/off-server website's normal
+| editable destination.
+|
+*/
+
+/*
+ * ESUBIZ_TENANT_AI_PROPOSAL_DOMAIN_FIX_V1
+ *
+ * app.root_domain may be unset on installations that predate the
+ * central root-domain configuration. Never register tenant proposal
+ * routes against "{subdomain}.".
+ */
+Route::domain(
+    '{subdomain}.'
+    . (
+        config('app.root_domain')
+        ?: 'esubiz.com'
+    )
+)->middleware([
+    'web',
+    'auth',
+])->group(function () {
+
+    Route::get(
+        '/admin/ai/proposals/{uuid}',
+        [
+            TenantAiProposalController::class,
+            'show',
+        ]
+    )->name(
+        'tenant.ai.proposals.show'
+    );
+
+    Route::post(
+        '/admin/ai/proposals/{uuid}/approve',
+        [
+            TenantAiProposalController::class,
+            'approve',
+        ]
+    )->name(
+        'tenant.ai.proposals.approve'
+    );
+
+    Route::post(
+        '/admin/ai/proposals/{uuid}/reject',
+        [
+            TenantAiProposalController::class,
+            'reject',
+        ]
+    )->name(
+        'tenant.ai.proposals.reject'
+    );
+});
 

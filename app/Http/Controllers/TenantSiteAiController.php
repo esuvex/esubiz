@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Website;
 use App\Services\SiteAi\SiteAiEngine;
+use App\Services\SiteAi\SiteAiRegistry;
+use App\Services\SiteAi\Proposals\SiteAiProposalFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -246,6 +248,291 @@ $payload =
                 ] ?? []
             );
 
+        /*
+         * ESUBIZ_PROPOSAL_MODE_CONTEXT_FIX_V1
+         *
+         * proposal_mode is part of the request contract but the
+         * central Site AI provider reads it from Site AI context.
+         *
+         * Normalize it here so proposal generation always receives
+         * the strict structured {"changes":[...]} instruction.
+         */
+        $siteAiContext[
+            'proposal_mode'
+        ] =
+            filter_var(
+                $data[
+                    'proposal_mode'
+                ]
+                ?? $siteAiContext[
+                    'proposal_mode'
+                ]
+                ?? false,
+                FILTER_VALIDATE_BOOLEAN
+            );
+
+        /*
+         * ESUBIZ_ACTIVE_THEME_AI_CONTEXT_V1
+         *
+         * The tenant's active theme is authoritative.
+         *
+         * Each theme declares its own Site AI features in
+         * its ai-manifest.php file. Central Esubiz does not
+         * assume which sections/features a theme contains.
+         */
+        $activeThemeKey =
+            null;
+
+        $themeAiManifest =
+            [];
+
+        $tenantDatabaseService =
+            app(
+                \App\Services\Website\WebsiteTenantDatabaseService::class
+            );
+
+        $tenantDatabaseService
+            ->connect(
+                $website
+            );
+
+        try {
+            $activeThemeKey =
+                trim(
+                    (string) (
+                        $tenantDatabaseService
+                            ->connection()
+                            ->table(
+                                'site_settings'
+                            )
+                            ->where(
+                                'key',
+                                'theme.active'
+                            )
+                            ->value(
+                                'value'
+                            )
+                        ?? ''
+                    )
+                );
+        } finally {
+            $tenantDatabaseService
+                ->disconnect();
+        }
+
+        if ($activeThemeKey !== '') {
+            $themeAiManifest =
+                app(
+                    \App\Services\SiteAi\Support\ThemeAiManifest::class
+                )->load(
+                    $activeThemeKey
+                );
+        }
+
+        $siteAiContext[
+            'active_theme'
+        ] =
+            $activeThemeKey !== ''
+                ? $activeThemeKey
+                : null;
+
+        $siteAiContext[
+            'theme_ai_manifest'
+        ] =
+            $themeAiManifest;
+
+
+        /*
+         * ========================================================
+         * ESUBIZ_DYNAMIC_AI_FUNCTION_SCOPE_V1
+         * ========================================================
+         *
+         * Location establishes scope.
+         *
+         * Themes declare their own functions/features through
+         * ai-manifest.php. Central Esubiz does not hardcode Hero,
+         * About, Features or any future theme feature.
+         *
+         * If the caller selects one or more theme functions,
+         * only targets belonging to those declared functions are
+         * exposed to AI generation and proposal validation.
+         */
+
+        $selectedFunctions =
+            array_values(
+                array_unique(
+                    array_filter(
+                        array_map(
+                            static fn ($value) =>
+                                trim(
+                                    (string) $value
+                                ),
+
+                            (array) (
+                                $payload[
+                                    'selected_functions'
+                                ]
+                                ?? []
+                            )
+                        ),
+
+                        static fn ($value) =>
+                            $value !== ''
+                    )
+                )
+            );
+
+
+        $scopedThemeAiManifest =
+            $themeAiManifest;
+
+
+        if (
+            $data['capability']
+                === 'theme.homepage'
+            && !empty(
+                $selectedFunctions
+            )
+        ) {
+            $declaredFunctions =
+                (array) (
+                    $themeAiManifest[
+                        'functions'
+                    ]
+                    ?? []
+                );
+
+            $scopedFunctions =
+                [];
+
+
+            foreach (
+                $selectedFunctions
+                as $selectedFunction
+            ) {
+                if (
+                    !array_key_exists(
+                        $selectedFunction,
+                        $declaredFunctions
+                    )
+                ) {
+                    throw new RuntimeException(
+                        'The selected AI theme function "'
+                        . $selectedFunction
+                        . '" is not declared by the active theme.'
+                    );
+                }
+
+                $scopedFunctions[
+                    $selectedFunction
+                ] =
+                    $declaredFunctions[
+                        $selectedFunction
+                    ];
+            }
+
+
+            $scopedThemeAiManifest[
+                'functions'
+            ] =
+                $scopedFunctions;
+
+
+            /*
+             * Replace the context manifest too, so provider
+             * instructions and downstream proposal creation see
+             * the same authoritative scope.
+             */
+            $siteAiContext[
+                'theme_ai_manifest'
+            ] =
+                $scopedThemeAiManifest;
+
+
+            $siteAiContext[
+                'selected_functions'
+            ] =
+                $selectedFunctions;
+        }
+
+
+        /*
+         * Resolve the exact capability manifest BEFORE generation.
+         *
+         * This is also the authoritative manifest snapshot later
+         * passed into the global proposal factory.
+         */
+        $siteAiRegistry =
+            app(
+                SiteAiRegistry::class
+            );
+
+        $siteAiCapability =
+            $siteAiRegistry->get(
+                $data[
+                    'capability'
+                ]
+            );
+
+
+        $manifestContext =
+            $siteAiContext;
+
+        if (
+            $data['capability']
+                === 'theme.homepage'
+        ) {
+            $manifestContext[
+                'theme_ai_manifest'
+            ] =
+                $scopedThemeAiManifest;
+        }
+
+
+        $manifest =
+            $siteAiCapability->manifest(
+                $manifestContext
+            );
+
+
+        /*
+         * Pass the already-resolved authoritative manifest into
+         * the generation context. The engine may independently
+         * resolve its capability as usual; this value ensures
+         * proposal creation and provider context share the same
+         * scope snapshot.
+         */
+        $siteAiContext[
+            'capability_manifest'
+        ] =
+            $manifest;
+
+
+        /*
+         * ========================================================
+         * ESUBIZ_PROPOSAL_GENERATION_CONTEXT_V1
+         * ========================================================
+         *
+         * Proposal mode must be known BEFORE generation so the
+         * provider can request structured, previewable changes.
+         *
+         * Ordinary Site AI conversation remains false/default.
+         */
+        $proposalMode =
+            filter_var(
+                $request->input(
+                    'proposal_mode',
+                    false
+                ),
+                FILTER_VALIDATE_BOOLEAN
+            );
+
+        $siteAiContext[
+            'proposal_mode'
+        ] =
+            $proposalMode;
+
+
         $referenceImages =
             (array) (
                 $payload[
@@ -267,6 +554,18 @@ $payload =
 
         try {
 
+            /*
+             * ESUBIZ_AI_IDENTITY_CONTEXT_V1
+             *
+             * Resolve the exact same official persona used
+             * by the Esubiz Site AI interface.
+             */
+            $siteAiPersona =
+                app(
+                    \App\Services\SiteAi\Support\SiteAiPersona::class
+                )->current();
+
+
             $result =
                 $engine->generate(
                     $website,
@@ -281,18 +580,38 @@ $payload =
                         $siteAiContext,
                         [
                             /*
-                             * SITE_AI_IDENTITY_CONTEXT
+                             * ESUBIZ_AI_IDENTITY_CONTEXT_V1
                              *
-                             * Authoritative identity supplied by
-                             * the Central website configuration.
+                             * This identity is authoritative.
+                             * The model/provider name must never
+                             * become the public assistant identity.
                              */
+
+                            'platform_name' =>
+                                'ESUBIZ',
+
+                            'parent_company_name' =>
+                                'Esuvex Limited',
+
                             'assistant_name' =>
                                 trim(
                                     (string) (
-                                        $website->site_ai_name
-                                        ?: 'Esubiz AI'
+                                        $siteAiPersona['name']
+                                        ?? 'Esubiz AI'
                                     )
                                 ),
+
+                            'assistant_avatar_url' =>
+                                $siteAiPersona[
+                                    'avatar_url'
+                                ]
+                                ?? null,
+
+                            'assistant_persona_id' =>
+                                $siteAiPersona[
+                                    'id'
+                                ]
+                                ?? null,
 
                             'website_name' =>
                                 trim(
@@ -302,27 +621,205 @@ $payload =
                                     )
                                 ),
 
+                            /*
+                             * Current job context.
+                             *
+                             * Site AI capabilities define what the
+                             * assistant is working on in this request.
+                             */
+                            'current_capability' =>
+                                $data[
+                                    'capability'
+                                ],
+
+                            'current_action' =>
+                                $data[
+                                    'action'
+                                ],
+
                             'assistant_identity_instruction' =>
-                                'Your name is "'
+                                'You are "'
                                 . trim(
                                     (string) (
-                                        $website->site_ai_name
-                                        ?: 'Esubiz AI'
+                                        $siteAiPersona['name']
+                                        ?? 'Esubiz AI'
                                     )
                                 )
-                                . '". You are the AI assistant for "'
+                                . '", an official ESUBIZ AI assistant. '
+                                . 'ESUBIZ is a product of Esuvex Limited. '
+                                . 'You work for ESUBIZ and assist users inside the ESUBIZ platform and ESUBIZ-powered websites. '
+                                . 'Your public identity is always the configured Esubiz persona name "'
+                                . trim(
+                                    (string) (
+                                        $siteAiPersona['name']
+                                        ?? 'Esubiz AI'
+                                    )
+                                )
+                                . '". Never identify yourself as ChatGPT, GPT, OpenAI, or by the underlying model or provider name. '
+                                . 'If asked who you work for, say you work for ESUBIZ. '
+                                . 'If relevant, explain that ESUBIZ is a product of Esuvex Limited. '
+                                . 'You are currently assisting the website "'
                                 . trim(
                                     (string) (
                                         $website->name
                                         ?: 'this website'
                                     )
                                 )
-                                . '". Always use this configured assistant name when asked your name or identity. '
-                                . 'Never identify yourself as ChatGPT, GPT, OpenAI, or by the underlying model name. '
-                                . 'Keep this identity consistent throughout the conversation.',
+                                . '". Keep this identity consistent throughout the conversation.',
+
+                            'assistant_job_instruction' =>
+                                'Your current ESUBIZ job is defined by capability "'
+                                . (string) $data['capability']
+                                . '" and action "'
+                                . (string) $data['action']
+                                . '". Understand the current page or feature from the capability manifest and supplied context. '
+                                . 'Focus your response on that specific job. '
+                                . 'Do not invent website fields, theme settings, widgets, sections, actions, or capabilities that are not supplied by ESUBIZ. '
+                                . 'When working with a theme, page, section, widget, form, product, or other website feature, respect its supplied configuration and available fields. '
+                                . 'Generated content must be suitable for the exact website, page, section, or feature represented by the current capability and context.',
                         ]
                     )
                 );
+
+            /*
+             * ========================================================
+             * ESUBIZ_GLOBAL_AI_PROPOSAL_BRIDGE_V1
+             * ========================================================
+             *
+             * Ordinary AI conversation stays unchanged.
+             *
+             * Only explicitly requested proposal-mode operations
+             * enter the universal Preview / Approval workflow.
+             *
+             * Nothing is written to the tenant here.
+             */
+            if ($proposalMode) {
+                if (!is_array($result)) {
+                    throw new RuntimeException(
+                        'AI proposal generation must return structured output.'
+                    );
+                }
+
+                /*
+                 * Use the SAME capability manifest and SAME context
+                 * that authorized this generation.
+                 *
+                 * This preserves location scope:
+                 *
+                 * About AI -> About targets only.
+                 * Hero AI -> Hero targets only.
+                 * Theme generation -> Theme generation only.
+                 *
+                 * A proposal cannot widen itself into another
+                 * Esubiz capability after generation.
+                 */
+                $proposal =
+                    app(
+                        SiteAiProposalFactory::class
+                    )->createFromResult(
+                        website:
+                            $website,
+
+                        capability:
+                            $data[
+                                'capability'
+                            ],
+
+                        action:
+                            $data[
+                                'action'
+                            ],
+
+                        manifest:
+                            $manifest,
+
+                        context:
+                            $siteAiContext,
+
+                        result:
+                            $result,
+
+                        options: [
+                            'user_id' =>
+                                auth()->id(),
+
+                            'proposal_type' =>
+                                'change',
+                        ]
+                    );
+
+                /*
+                 * The frontend will use this payload for the
+                 * universal large Preview / Approval interface.
+                 */
+                return response()->json([
+                    'ok' =>
+                        true,
+
+                    /*
+                     * ESUBIZ_PROPOSAL_RESPONSE_COMPAT_V1
+                     *
+                     * Existing Site AI frontend uses success=true
+                     * as its standard successful-response contract.
+                     */
+                    'success' =>
+                        true,
+
+
+                    'mode' =>
+                        'proposal',
+
+                    'proposal' => [
+                        'uuid' =>
+                            $proposal->uuid,
+
+                        'status' =>
+                            $proposal->status,
+
+                        'capability' =>
+                            $proposal->capability,
+
+                        'action' =>
+                            $proposal->action,
+
+                        'title' =>
+                            $proposal->title,
+
+                        'summary' =>
+                            $proposal->summary,
+
+                        'destination' =>
+                            $proposal->destination,
+
+                        'items' =>
+                            $proposal->items
+                                ->map(
+                                    fn ($item) => [
+                                        'uuid' =>
+                                            $item->uuid,
+
+                                        'item_type' =>
+                                            $item->item_type,
+
+                                        'target_key' =>
+                                            $item->target_key,
+
+                                        'proposed_value' =>
+                                            $item->proposed_value,
+
+                                        'preview_payload' =>
+                                            $item->preview_payload,
+                                    ]
+                                )
+                                ->values()
+                                ->all(),
+                    ],
+
+                    'result' =>
+                        $result,
+                ]);
+            }
+
 
 
             return response()->json([
@@ -641,18 +1138,6 @@ $payload =
                     'boolean',
                 ],
 
-                'site_ai_name' => [
-                    'nullable',
-                    'string',
-                    'max:100',
-                ],
-
-                'site_ai_avatar' => [
-                    'nullable',
-                    'string',
-                    'max:255',
-                ],
-
                 'site_ai_color' => [
                     'nullable',
                     'regex:/^#[0-9A-Fa-f]{6}$/',
@@ -675,23 +1160,35 @@ $payload =
             ]);
 
 
+        /*
+         * Central Admin controls whether tenant/site admins
+         * may override global AI chat colors.
+         */
+        $allowSiteAiChatColorCustomization =
+            (bool) (
+                DB::table(
+                    'central_ai_chat_settings'
+                )
+                    ->orderBy('id')
+                    ->value(
+                        'allow_user_chat_color_customization'
+                    )
+                ?? true
+            );
+
+
+        if (!$allowSiteAiChatColorCustomization) {
+
+            unset(
+                $data['site_ai_color'],
+                $data['site_ai_text_color'],
+                $data['site_ai_user_color'],
+                $data['site_ai_user_text_color']
+            );
+        }
+
+
         $website->forceFill([
-            'site_ai_name' =>
-                trim(
-                    (string) (
-                        $data['site_ai_name']
-                        ?? ''
-                    )
-                ) ?: null,
-
-            'site_ai_avatar' =>
-                trim(
-                    (string) (
-                        $data['site_ai_avatar']
-                        ?? ''
-                    )
-                ) ?: null,
-
             'site_ai_color' =>
                 $data['site_ai_color']
                 ?? $website->site_ai_color

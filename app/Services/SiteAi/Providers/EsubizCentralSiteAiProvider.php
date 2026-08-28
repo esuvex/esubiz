@@ -666,6 +666,346 @@ class EsubizCentralSiteAiProvider implements SiteAiProvider
         ];
 
 
+        /*
+         * ESUBIZ_AUTHORITATIVE_AI_INSTRUCTIONS_V1
+         *
+         * Site AI context previously reached CentralAiEngine only
+         * as metadata. CentralAiEngine sends actual model-level
+         * instructions through $options['instructions'], so publish
+         * the authoritative Esubiz identity + current job there.
+         *
+         * Do not modify payload/reference_images here. The existing
+         * multimodal vision transport remains untouched.
+         */
+        $siteAiContext =
+            (array) (
+                $options['site_ai']['context']
+                ?? []
+            );
+
+        $identityInstruction =
+            trim(
+                (string) (
+                    $siteAiContext[
+                        'assistant_identity_instruction'
+                    ]
+                    ?? ''
+                )
+            );
+
+        $jobInstruction =
+            trim(
+                (string) (
+                    $siteAiContext[
+                        'assistant_job_instruction'
+                    ]
+                    ?? ''
+                )
+            );
+
+        $assistantName =
+            trim(
+                (string) (
+                    $siteAiContext[
+                        'assistant_name'
+                    ]
+                    ?? 'Esubiz AI'
+                )
+            );
+
+        $websiteName =
+            trim(
+                (string) (
+                    $siteAiContext[
+                        'website_name'
+                    ]
+                    ?? 'this website'
+                )
+            );
+
+        $capabilityInstruction =
+            'Current ESUBIZ Site AI capability: "'
+            . $capability
+            . '". Current action: "'
+            . $action
+            . '".';
+
+
+        /*
+         * ========================================================
+         * ESUBIZ_EXPLICIT_THEME_AI_SCOPE_V1
+         * ========================================================
+         *
+         * CentralAiEngine receives Site AI metadata separately from
+         * the actual model instructions. Publish the selected theme
+         * functions and their exact editable targets directly into
+         * the model instruction stream.
+         */
+        $selectedFunctions =
+            array_values(
+                array_filter(
+                    array_map(
+                        static fn ($value) =>
+                            trim((string) $value),
+                        (array) (
+                            data_get(
+                                $request,
+                                'payload.selected_functions'
+                            )
+                            ?? data_get(
+                                $options,
+                                'site_ai.payload.selected_functions'
+                            )
+                            ?? $siteAiContext[
+                                'selected_functions'
+                            ]
+                            ?? []
+                        )
+                    ),
+                    static fn ($value) =>
+                        $value !== ''
+                )
+            );
+
+
+        $themeAiManifest =
+            (array) (
+                $siteAiContext[
+                    'theme_ai_manifest'
+                ]
+                ?? data_get(
+                    $request,
+                    'context.theme_ai_manifest'
+                )
+                ?? []
+            );
+
+
+        $explicitTargets =
+            array_values(
+                array_unique(
+                    array_filter(
+                        array_map(
+                            static fn ($value) =>
+                                trim((string) $value),
+                            (array) (
+                                $themeAiManifest[
+                                    'targets'
+                                ]
+                                ?? []
+                            )
+                        ),
+                        static fn ($value) =>
+                            $value !== ''
+                    )
+                )
+            );
+
+
+        /*
+         * Fallback to targets declared inside the currently scoped
+         * functions if the manifest has not flattened them.
+         */
+        if (empty($explicitTargets)) {
+            foreach (
+                (array) (
+                    $themeAiManifest[
+                        'functions'
+                    ]
+                    ?? []
+                )
+                as $function
+            ) {
+                if (!is_array($function)) {
+                    continue;
+                }
+
+                foreach (
+                    (array) (
+                        $function[
+                            'targets'
+                        ]
+                        ?? []
+                    )
+                    as $target
+                ) {
+                    $target =
+                        trim(
+                            (string) $target
+                        );
+
+                    if (
+                        $target !== ''
+                        && !in_array(
+                            $target,
+                            $explicitTargets,
+                            true
+                        )
+                    ) {
+                        $explicitTargets[] =
+                            $target;
+                    }
+                }
+            }
+        }
+
+
+        $themeScopeInstruction = '';
+
+        if (
+            $capability === 'theme.homepage'
+            && !empty($explicitTargets)
+        ) {
+            $themeScopeInstruction =
+                'This is a website-edit generation request. '
+                . (
+                    !empty($selectedFunctions)
+                        ? (
+                            'The user selected these homepage functions: '
+                            . implode(
+                                ', ',
+                                $selectedFunctions
+                            )
+                            . '. '
+                        )
+                        : ''
+                )
+                . 'Generate useful proposed content for the requested job '
+                . 'using the applicable editable targets below. '
+                . 'Do NOT return an empty changes array when the request '
+                . 'can be fulfilled. '
+                . 'Editable targets: '
+                . implode(
+                    ', ',
+                    $explicitTargets
+                )
+                . '. '
+                . 'For every generated field, return one object in the '
+                . 'top-level changes array using the exact target name. '
+                . 'Do not invent any other target.';
+        }
+
+        $baseIdentityInstruction =
+            'You are "'
+            . $assistantName
+            . '", an official ESUBIZ AI assistant. '
+            . 'ESUBIZ is a product of Esuvex Limited. '
+            . 'You work for ESUBIZ. '
+            . 'Your public assistant identity is "'
+            . $assistantName
+            . '". '
+            . 'Always identify yourself using that Esubiz persona name. '
+            . 'Never identify yourself as ChatGPT, GPT, OpenAI, '
+            . 'or by an underlying AI model/provider name. '
+            . 'If asked who you work for, answer ESUBIZ. '
+            . 'When relevant, state that ESUBIZ is a product of '
+            . 'Esuvex Limited. '
+            . 'You are currently assisting the website "'
+            . $websiteName
+            . '".';
+
+        /*
+         * ========================================================
+         * ESUBIZ_STRUCTURED_PROPOSAL_INSTRUCTIONS_V1
+         * ========================================================
+         *
+         * Proposal-mode output is machine-readable so Esubiz can:
+         *
+         * validate -> preview -> approve -> apply.
+         *
+         * This does NOT apply to ordinary AI conversation.
+         */
+        /*
+         * ESUBIZ_THEME_HOMEPAGE_PROPOSAL_ENFORCEMENT_V1
+         *
+         * Theme homepage generation must always produce a pending
+         * structured proposal for Preview / Approve / Apply.
+         *
+         * Do not depend solely on proposal_mode surviving every
+         * transport/context layer.
+         */
+        $proposalMode =
+            (
+                $capability === 'theme.homepage'
+                && $action === 'generate'
+            )
+            || filter_var(
+                $siteAiContext[
+                    'proposal_mode'
+                ]
+                ?? false,
+                FILTER_VALIDATE_BOOLEAN
+            );
+
+
+        $proposalInstruction =
+            $proposalMode
+                ? (
+                    'This request is in ESUBIZ proposal mode. '
+                    . 'Return only a structured proposal result that '
+                    . 'Esubiz can validate and preview. '
+                    . 'Do not return conversational prose outside the '
+                    . 'structured result. '
+                    . 'Use a top-level "changes" array. '
+                    . 'Each change must contain exactly the applicable '
+                    . 'target, type, and value. '
+                    . 'The target must exactly match an editable target '
+                    . 'declared in the supplied capability manifest. '
+                    . 'Never invent, rename, broaden, or modify a target '
+                    . 'outside the supplied manifest. '
+                    . 'Use only targets required for the requested job; '
+                    . 'do not change unrelated fields. '
+                    . 'Valid change shape: '
+                    . '{"target":"declared_target","type":"text","value":"generated value"}. '
+                    . 'For structured values, place the structured data '
+                    . 'inside "value". '
+                    . 'For media or file proposals, use the applicable '
+                    . 'declared media/file type and include only references '
+                    . 'that Esubiz can later persist through its destination '
+                    . 'system. '
+                    . 'The complete response must be a JSON object shaped '
+                    . 'as {"changes":[...]}. '
+                    . 'Do not wrap the JSON in Markdown code fences.'
+                )
+                : '';
+
+
+        $instructions = array_values(
+            array_filter(
+                [
+                    $baseIdentityInstruction,
+                    $identityInstruction,
+                    $jobInstruction,
+                    $capabilityInstruction,
+                    $themeScopeInstruction,
+                    $proposalInstruction,
+
+                    'Treat the supplied ESUBIZ capability manifest, '
+                    . 'page context, website context, theme context, '
+                    . 'section context and action as authoritative. '
+                    . 'Perform the job of the page or feature where '
+                    . 'you are currently being used. Do not invent '
+                    . 'editable fields or capabilities that ESUBIZ '
+                    . 'has not supplied.',
+
+                    'When working on theme customization, respect the '
+                    . 'active theme configuration and the exact '
+                    . 'section or field supplied by ESUBIZ. Generated '
+                    . 'changes are proposals until the ESUBIZ '
+                    . 'application explicitly approves and applies them.',
+                ],
+                static fn ($value) =>
+                    trim((string) $value) !== ''
+            )
+        );
+
+        $options['instructions'] =
+            implode(
+                "\n\n",
+                $instructions
+            );
+
+
         $result =
             $this->engine->execute(
                 'site',
@@ -684,6 +1024,231 @@ class EsubizCentralSiteAiProvider implements SiteAiProvider
             throw new RuntimeException(
                 'Esubiz Central AI returned an invalid response.'
             );
+        }
+
+
+        /*
+         * ========================================================
+         * ESUBIZ_STRUCTURED_PROPOSAL_RESPONSE_NORMALIZATION_V2
+         * ========================================================
+         *
+         * Provider-independent structured proposal extraction.
+         *
+         * CentralAiEngine/provider adapters may nest generated model
+         * output differently. Recursively inspect the complete result
+         * and extract ONLY a valid structured object containing
+         * "changes" or "targets".
+         *
+         * Existing SiteAiProposalFactory manifest validation remains
+         * authoritative after this normalization.
+         */
+        if (
+            $proposalMode
+            && empty($result['changes'])
+            && empty($result['targets'])
+        ) {
+            $structuredProposal = null;
+
+            $decodeStructuredProposal =
+                static function ($value): ?array {
+                    if (!is_string($value)) {
+                        return null;
+                    }
+
+                    $value = trim($value);
+
+                    if ($value === '') {
+                        return null;
+                    }
+
+                    /*
+                     * Remove optional Markdown fences.
+                     */
+                    $value = preg_replace(
+                        '/^```(?:json)?\\s*/i',
+                        '',
+                        $value
+                    );
+
+                    $value = preg_replace(
+                        '/\\s*```$/',
+                        '',
+                        (string) $value
+                    );
+
+                    $value = trim(
+                        (string) $value
+                    );
+
+                    /*
+                     * First attempt: entire string is JSON.
+                     */
+                    $decoded =
+                        json_decode(
+                            $value,
+                            true
+                        );
+
+                    if (
+                        is_array($decoded)
+                        && (
+                            isset($decoded['changes'])
+                            || isset($decoded['targets'])
+                        )
+                    ) {
+                        return $decoded;
+                    }
+
+                    /*
+                     * Second attempt: provider wrapped JSON in other
+                     * textual content. Extract the widest JSON object
+                     * and validate it before accepting it.
+                     */
+                    $firstBrace =
+                        strpos(
+                            $value,
+                            '{'
+                        );
+
+                    $lastBrace =
+                        strrpos(
+                            $value,
+                            '}'
+                        );
+
+                    if (
+                        $firstBrace !== false
+                        && $lastBrace !== false
+                        && $lastBrace > $firstBrace
+                    ) {
+                        $candidate =
+                            substr(
+                                $value,
+                                $firstBrace,
+                                $lastBrace
+                                    - $firstBrace
+                                    + 1
+                            );
+
+                        $decoded =
+                            json_decode(
+                                $candidate,
+                                true
+                            );
+
+                        if (
+                            is_array($decoded)
+                            && (
+                                isset($decoded['changes'])
+                                || isset($decoded['targets'])
+                            )
+                        ) {
+                            return $decoded;
+                        }
+                    }
+
+                    return null;
+                };
+
+
+            $walkResult = null;
+
+            $walkResult =
+                static function ($value)
+                use (
+                    &$walkResult,
+                    $decodeStructuredProposal
+                ): ?array {
+                    if (is_string($value)) {
+                        return
+                            $decodeStructuredProposal(
+                                $value
+                            );
+                    }
+
+                    if (!is_array($value)) {
+                        return null;
+                    }
+
+                    /*
+                     * The current node itself may already be the
+                     * structured proposal.
+                     */
+                    if (
+                        isset($value['changes'])
+                        && is_array(
+                            $value['changes']
+                        )
+                    ) {
+                        return $value;
+                    }
+
+                    if (
+                        isset($value['targets'])
+                        && is_array(
+                            $value['targets']
+                        )
+                    ) {
+                        return $value;
+                    }
+
+                    foreach (
+                        $value
+                        as $nestedValue
+                    ) {
+                        $found =
+                            $walkResult(
+                                $nestedValue
+                            );
+
+                        if ($found !== null) {
+                            return $found;
+                        }
+                    }
+
+                    return null;
+                };
+
+
+            $structuredProposal =
+                $walkResult(
+                    $result
+                );
+
+
+            if ($structuredProposal !== null) {
+                if (
+                    isset($structuredProposal['changes'])
+                    && is_array(
+                        $structuredProposal['changes']
+                    )
+                ) {
+                    $result['changes'] =
+                        array_values(
+                            $structuredProposal['changes']
+                        );
+                }
+
+                if (
+                    isset($structuredProposal['targets'])
+                    && is_array(
+                        $structuredProposal['targets']
+                    )
+                ) {
+                    $result['targets'] =
+                        $structuredProposal['targets'];
+                }
+
+                if (
+                    isset($structuredProposal['summary'])
+                    && is_string(
+                        $structuredProposal['summary']
+                    )
+                ) {
+                    $result['summary'] =
+                        $structuredProposal['summary'];
+                }
+            }
         }
 
 

@@ -1086,6 +1086,122 @@
             \App\Services\SiteAi\Support\SiteAiPersona::class
         )->current();
 
+    /*
+     * ESUBIZ_DYNAMIC_THEME_AI_FLOATER_RECONNECT_V2
+     *
+     * Resolve the current SaaS website from either the
+     * layout variable or the tenant subdomain route.
+     *
+     * The active theme contributes its own declared
+     * functions through SiteAiContext.
+     */
+
+    if (!$chatWebsite) {
+
+        $routeSubdomain =
+            trim(
+                (string) (
+                    request()->route('subdomain')
+                    ?? ''
+                )
+            );
+
+        if ($routeSubdomain !== '') {
+
+            $chatWebsite =
+                \App\Models\Website::query()
+                    ->where(
+                        'subdomain',
+                        $routeSubdomain
+                    )
+                    ->first();
+        }
+    }
+
+    try {
+
+        if ($chatWebsite) {
+
+            $tenantDatabaseService =
+                app(
+                    \App\Services\Website\WebsiteTenantDatabaseService::class
+                );
+
+            $tenantDatabaseService->connect(
+                $chatWebsite
+            );
+
+            $activeThemeKey =
+                trim(
+                    (string) (
+                        $tenantDatabaseService
+                            ->connection()
+                            ->table('site_settings')
+                            ->where(
+                                'key',
+                                'theme.active'
+                            )
+                            ->value('value')
+                        ?? ''
+                    )
+                );
+
+            if ($activeThemeKey !== '') {
+
+                $themeAiManifest =
+                    app(
+                        \App\Services\SiteAi\Support\ThemeAiManifest::class
+                    )->load(
+                        $activeThemeKey
+                    );
+
+                $themeFunctions =
+                    array_values(
+                        array_filter(
+                            (array) (
+                                $themeAiManifest['functions']
+                                ?? []
+                            ),
+                            fn ($function) =>
+                                is_array($function)
+                                && !empty($function['key'])
+                        )
+                    );
+
+                if (!empty($themeFunctions)) {
+
+                    $aiRegistry->contribute([
+                        'source' =>
+                            'theme.homepage',
+
+                        'label' =>
+                            $themeAiManifest['label']
+                            ?? 'Theme Homepage',
+
+                        'functions' =>
+                            $themeFunctions,
+                    ]);
+                }
+            }
+        }
+
+    } catch (\Throwable $e) {
+
+        report($e);
+
+    } finally {
+
+        try {
+
+            if (isset($tenantDatabaseService)) {
+                $tenantDatabaseService->disconnect();
+            }
+
+        } catch (\Throwable $disconnectError) {
+            report($disconnectError);
+        }
+    }
+
     $aiFunctions =
         $aiRegistry->functions();
 
@@ -1094,6 +1210,35 @@
             $aiFunctions
         );
 @endphp
+
+{{-- ESUBIZ_SITE_AI_PERSONA_LIVE_SYNC_V2 --}}
+<script>
+    /*
+     * SiteAiPersona::current() is the authoritative
+     * human-facing AI identity for this workspace.
+     *
+     * The presentation renderer is declared earlier in
+     * this component, so synchronize its identity now that
+     * the selected tenant persona has been resolved.
+     *
+     * This changes presentation only. It does not modify
+     * sending, vision, billing or provider behavior.
+     */
+    window.EsubizSiteAiIdentity =
+        window.EsubizSiteAiIdentity || {};
+
+    window.EsubizSiteAiIdentity.aiName =
+        @json(
+            $aiPersona['name']
+            ?? 'Esubiz AI'
+        );
+
+    window.EsubizSiteAiIdentity.aiAvatar =
+        @json(
+            $aiPersona['avatar_url']
+            ?? null
+        );
+</script>
 
 
 <div
@@ -2298,8 +2443,27 @@
                         );
 
 
+                    /*
+                     * ESUBIZ_PERSONA_PRESET_INTRO_V1
+                     *
+                     * Reuse the authoritative persona already
+                     * synchronized with the Site AI interface.
+                     * This is a local preset message and therefore
+                     * does not make an AI request or consume credits.
+                     */
+                    const introAiName =
+                        (
+                            window.EsubizSiteAiIdentity
+                            && window.EsubizSiteAiIdentity.aiName
+                        )
+                            ? window.EsubizSiteAiIdentity.aiName
+                            : 'Esubiz AI';
+
                     let message =
-                        'I can generate or improve '
+                        'Hi, my name is '
+                        + introAiName
+                        + ' and I am your Esubiz AI assistant. '
+                        + 'I can generate or improve '
                         + selected
                             .map(
                                 item =>
@@ -4115,14 +4279,31 @@
 
 const requestPayload = {
 
+                    /*
+                     * ESUBIZ_THEME_AI_CAPABILITY_FUNCTION_FIX_V1
+                     *
+                     * theme.homepage is the registered capability.
+                     * hero/about/etc. remain dynamically selected
+                     * functions inside that capability.
+                     */
                     capability:
-                        capability,
+                        'theme.homepage',
 
                     action:
                         action,
 
                     prompt:
                         prompt,
+
+                    /*
+                     * ESUBIZ_THEME_AI_PROPOSAL_MODE_V1
+                     *
+                     * Scoped AI generation must create a proposal
+                     * first. The AI does not directly mutate the
+                     * website.
+                     */
+                    proposal_mode:
+                        true,
 
                     payload: {
 
@@ -4214,6 +4395,46 @@ const requestPayload = {
                             data.message
                             || 'AI request could not be completed.'
                         );
+                    }
+
+
+                    /*
+                     * ====================================================
+                     * ESUBIZ_AI_PROPOSAL_RESPONSE_INTERCEPT_V1
+                     * ====================================================
+                     *
+                     * Proposal-mode responses use the universal preview
+                     * workflow instead of the ordinary chat renderer.
+                     *
+                     * Normal conversation continues below unchanged.
+                     */
+                    if (
+                        data.mode === 'proposal'
+                        && data.proposal
+                    ) {
+                        if (
+                            !window.EsubizAiProposalPreview
+                            || typeof window
+                                .EsubizAiProposalPreview
+                                .open !== 'function'
+                        ) {
+                            throw new Error(
+                                'Esubiz AI proposal preview is unavailable.'
+                            );
+                        }
+
+                        window
+                            .EsubizAiProposalPreview
+                            .open(
+                                data.proposal
+                            );
+
+                        /*
+                         * Do not pass structured proposal data into
+                         * extractAiResponse() or the normal AI message
+                         * renderer.
+                         */
+                        return;
                     }
 
 
@@ -4333,3 +4554,8 @@ const requestPayload = {
 
 })();
 </script>
+
+
+{{-- ESUBIZ_GLOBAL_PROPOSAL_PREVIEW_MOUNT_V1 --}}
+<x-site-ai.proposal-preview />
+

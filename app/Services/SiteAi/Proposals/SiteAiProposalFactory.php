@@ -1,0 +1,692 @@
+<?php
+
+namespace App\Services\SiteAi\Proposals;
+
+use App\Models\Ai\AiProposal;
+use App\Models\Website;
+use InvalidArgumentException;
+use RuntimeException;
+
+class SiteAiProposalFactory
+{
+    public function __construct(
+        protected AiProposalService $proposals
+    ) {
+    }
+
+
+    /**
+     * Convert a normalized Site AI generation result into
+     * the universal Esubiz proposal format.
+     *
+     * IMPORTANT:
+     *
+     * This service does NOT apply anything.
+     *
+     * It only creates the pending proposal that will be shown
+     * in the universal Preview / Approve interface.
+     */
+    public function createFromResult(
+        ?Website $website,
+        string $capability,
+        string $action,
+        array $manifest,
+        array $context,
+        array $result,
+        array $options = []
+    ): AiProposal {
+        $destination =
+            $this->resolveDestination(
+                $capability,
+                $manifest,
+                $context,
+                $options
+            );
+
+        $items =
+            $this->extractItems(
+                $result,
+                $manifest
+            );
+
+        if (empty($items)) {
+            throw new RuntimeException(
+                'AI generation returned no proposal items.'
+            );
+        }
+
+
+        return $this->proposals->create(
+            website: $website,
+
+            contextType:
+                (string) (
+                    $options['context_type']
+                    ?? (
+                        $website
+                            ? 'website'
+                            : 'central'
+                    )
+                ),
+
+            contextId:
+                isset($options['context_id'])
+                    ? (string) $options['context_id']
+                    : (
+                        $website
+                            ? (string) (
+                                method_exists(
+                                    $website,
+                                    'centralWebsiteIdentity'
+                                )
+                                    ? $website
+                                        ->centralWebsiteIdentity()
+                                    : $website->id
+                            )
+                            : null
+                    ),
+
+            capability:
+                $capability,
+
+            action:
+                $action,
+
+            manifest:
+                $manifest,
+
+            context:
+                $context,
+
+            destination:
+                $destination,
+
+            items:
+                $items,
+
+            options: [
+                'installation_id' =>
+                    $options[
+                        'installation_id'
+                    ] ?? null,
+
+                'user_id' =>
+                    $options[
+                        'user_id'
+                    ] ?? null,
+
+                'workspace_id' =>
+                    $options[
+                        'workspace_id'
+                    ] ?? null,
+
+                'proposal_type' =>
+                    $options[
+                        'proposal_type'
+                    ] ?? 'change',
+
+                'title' =>
+                    $options[
+                        'title'
+                    ] ?? $this->proposalTitle(
+                        $manifest,
+                        $capability
+                    ),
+
+                'summary' =>
+                    $options[
+                        'summary'
+                    ]
+                    ?? (
+                        is_string(
+                            $result['summary']
+                            ?? null
+                        )
+                            ? $result['summary']
+                            : null
+                    ),
+
+                'preview_payload' =>
+                    $result[
+                        'preview'
+                    ]
+                    ?? $result[
+                        'preview_payload'
+                    ]
+                    ?? [],
+
+                'metadata' => [
+                    'source' =>
+                        'site_ai',
+
+                    'generation_action' =>
+                        $action,
+
+                    'result_metadata' =>
+                        is_array(
+                            $result[
+                                'metadata'
+                            ] ?? null
+                        )
+                            ? $result[
+                                'metadata'
+                            ]
+                            : [],
+                ],
+            ]
+        );
+    }
+
+
+    /**
+     * Resolve the real destination that invoked AI.
+     *
+     * Theme homepage is the first connected capability.
+     *
+     * Future capabilities can supply their own destination
+     * explicitly without changing the proposal schema.
+     */
+    protected function resolveDestination(
+        string $capability,
+        array $manifest,
+        array $context,
+        array $options
+    ): array {
+        if (
+            !empty(
+                $options['destination']
+            )
+            && is_array(
+                $options['destination']
+            )
+        ) {
+            return $options[
+                'destination'
+            ];
+        }
+
+        if (
+            $capability
+            === 'theme.homepage'
+        ) {
+            $activeTheme =
+                trim(
+                    (string) (
+                        $context[
+                            'active_theme'
+                        ] ?? ''
+                    )
+                );
+
+            if ($activeTheme === '') {
+                throw new RuntimeException(
+                    'Theme homepage proposal requires an active theme.'
+                );
+            }
+
+            /*
+             * Current Business theme runtime key is "business"
+             * while its existing editable settings use:
+             *
+             * theme.corporate.*
+             *
+             * The destination records the NORMAL editor storage,
+             * not an AI-specific location.
+             *
+             * Future theme manifests may declare their own
+             * setting_prefix so central code does not need to
+             * know their field names.
+             */
+            $settingPrefix =
+                trim(
+                    (string) (
+                        $manifest[
+                            'storage'
+                        ][
+                            'setting_prefix'
+                        ]
+                        ?? ''
+                    )
+                );
+
+            if (
+                $settingPrefix === ''
+                && in_array(
+                    $activeTheme,
+                    [
+                        'business',
+                        'corporate-default',
+                    ],
+                    true
+                )
+            ) {
+                $settingPrefix =
+                    'theme.corporate.';
+            }
+
+            if ($settingPrefix === '') {
+                throw new RuntimeException(
+                    'Active theme AI manifest does not declare its editable storage destination.'
+                );
+            }
+
+            return [
+                'type' =>
+                    'theme_settings',
+
+                'theme' =>
+                    $activeTheme,
+
+                'location' =>
+                    'homepage',
+
+                'setting_prefix' =>
+                    $settingPrefix,
+            ];
+        }
+
+        throw new RuntimeException(
+            'AI capability does not declare a proposal destination: '
+            . $capability
+        );
+    }
+
+
+    /**
+     * Extract only structured, manifest-authorized changes.
+     *
+     * Expected normalized AI formats:
+     *
+     * changes:
+     * [
+     *   [
+     *     target => about_title,
+     *     value => ...
+     *   ]
+     * ]
+     *
+     * or targets:
+     * [
+     *   about_title => ...
+     * ]
+     *
+     * Free-form assistant text is NOT silently converted into
+     * a website mutation.
+     */
+    protected function extractItems(
+        array $result,
+        array $manifest
+    ): array {
+        $allowedTargets =
+            $this->allowedTargets(
+                $manifest
+            );
+
+        if (empty($allowedTargets)) {
+            throw new RuntimeException(
+                'AI capability exposes no proposal targets.'
+            );
+        }
+
+        $items = [];
+
+
+        /*
+         * Format 1:
+         *
+         * changes: [
+         *   {
+         *     target: "...",
+         *     value: "...",
+         *     type: "text"
+         *   }
+         * ]
+         */
+        foreach (
+            (array) (
+                $result['changes']
+                ?? []
+            )
+            as $change
+        ) {
+            if (!is_array($change)) {
+                continue;
+            }
+
+            $target =
+                trim(
+                    (string) (
+                        $change['target']
+                        ?? $change['target_key']
+                        ?? ''
+                    )
+                );
+
+            if (
+                $target === ''
+                || !in_array(
+                    $target,
+                    $allowedTargets,
+                    true
+                )
+            ) {
+                continue;
+            }
+
+            $items[] = [
+                'item_type' =>
+                    $this->itemType(
+                        $change[
+                            'type'
+                        ]
+                        ?? $change[
+                            'item_type'
+                        ]
+                        ?? null,
+                        $target,
+                        $change
+                    ),
+
+                'target_key' =>
+                    $target,
+
+                'target_type' =>
+                    $change[
+                        'target_type'
+                    ] ?? null,
+
+                'target_id' =>
+                    $change[
+                        'target_id'
+                    ] ?? null,
+
+                'original_value' =>
+                    $change[
+                        'original_value'
+                    ] ?? null,
+
+                'proposed_value' =>
+                    $change[
+                        'value'
+                    ]
+                    ?? $change[
+                        'proposed_value'
+                    ]
+                    ?? null,
+
+                'asset_reference' =>
+                    is_array(
+                        $change[
+                            'asset_reference'
+                        ] ?? null
+                    )
+                        ? $change[
+                            'asset_reference'
+                        ]
+                        : [],
+
+                'preview_payload' =>
+                    is_array(
+                        $change[
+                            'preview'
+                        ]
+                        ?? $change[
+                            'preview_payload'
+                        ]
+                        ?? null
+                    )
+                        ? (
+                            $change[
+                                'preview'
+                            ]
+                            ?? $change[
+                                'preview_payload'
+                            ]
+                        )
+                        : [],
+
+                'metadata' =>
+                    is_array(
+                        $change[
+                            'metadata'
+                        ] ?? null
+                    )
+                        ? $change[
+                            'metadata'
+                        ]
+                        : [],
+            ];
+        }
+
+
+        /*
+         * Format 2:
+         *
+         * targets: {
+         *   about_title: "...",
+         *   about_text: "..."
+         * }
+         */
+        if (
+            empty($items)
+            && is_array(
+                $result[
+                    'targets'
+                ] ?? null
+            )
+        ) {
+            foreach (
+                $result['targets']
+                as $target => $value
+            ) {
+                $target =
+                    trim(
+                        (string) $target
+                    );
+
+                if (
+                    $target === ''
+                    || !in_array(
+                        $target,
+                        $allowedTargets,
+                        true
+                    )
+                ) {
+                    continue;
+                }
+
+                $items[] = [
+                    'item_type' =>
+                        $this->itemType(
+                            null,
+                            $target,
+                            [
+                                'value' =>
+                                    $value,
+                            ]
+                        ),
+
+                    'target_key' =>
+                        $target,
+
+                    'proposed_value' =>
+                        $value,
+                ];
+            }
+        }
+
+        return $items;
+    }
+
+
+    protected function allowedTargets(
+        array $manifest
+    ): array {
+        $targets = [];
+
+        foreach (
+            (array) (
+                $manifest['targets']
+                ?? []
+            )
+            as $target
+        ) {
+            $target =
+                trim(
+                    (string) $target
+                );
+
+            if ($target !== '') {
+                $targets[] =
+                    $target;
+            }
+        }
+
+        foreach (
+            (array) (
+                $manifest['functions']
+                ?? []
+            )
+            as $function
+        ) {
+            if (!is_array($function)) {
+                continue;
+            }
+
+            foreach (
+                (array) (
+                    $function['targets']
+                    ?? []
+                )
+                as $target
+            ) {
+                $target =
+                    trim(
+                        (string) $target
+                    );
+
+                if ($target !== '') {
+                    $targets[] =
+                        $target;
+                }
+            }
+        }
+
+        return array_values(
+            array_unique(
+                $targets
+            )
+        );
+    }
+
+
+    protected function itemType(
+        mixed $declaredType,
+        string $target,
+        array $change
+    ): string {
+        $declaredType =
+            trim(
+                (string) $declaredType
+            );
+
+        $allowed = [
+            'text',
+            'image',
+            'media',
+            'file',
+            'video',
+            'video_url',
+            'url',
+            'structured_data',
+            'setting',
+            'theme',
+        ];
+
+        if (
+            $declaredType !== ''
+            && in_array(
+                $declaredType,
+                $allowed,
+                true
+            )
+        ) {
+            return $declaredType;
+        }
+
+        if (
+            !empty(
+                $change[
+                    'asset_reference'
+                ]
+            )
+        ) {
+            return 'media';
+        }
+
+        if (
+            str_contains(
+                strtolower($target),
+                'image'
+            )
+        ) {
+            return 'image';
+        }
+
+        if (
+            str_contains(
+                strtolower($target),
+                'video'
+            )
+        ) {
+            return 'video_url';
+        }
+
+        $value =
+            $change[
+                'value'
+            ]
+            ?? $change[
+                'proposed_value'
+            ]
+            ?? null;
+
+        if (is_array($value)) {
+            return 'structured_data';
+        }
+
+        return 'text';
+    }
+
+
+    protected function proposalTitle(
+        array $manifest,
+        string $capability
+    ): string {
+        $label =
+            trim(
+                (string) (
+                    $manifest[
+                        'label'
+                    ] ?? ''
+                )
+            );
+
+        if ($label !== '') {
+            return $label
+                . ' AI Proposal';
+        }
+
+        return ucwords(
+            str_replace(
+                [
+                    '.',
+                    '_',
+                    '-',
+                ],
+                ' ',
+                $capability
+            )
+        ) . ' AI Proposal';
+    }
+}
