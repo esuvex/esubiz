@@ -1252,6 +1252,436 @@ class EsubizCentralSiteAiProvider implements SiteAiProvider
         }
 
 
+        /*
+         * ESUBIZ_THEME_HOMEPAGE_IMAGE_GENERATION_V1
+         *
+         * A theme function may expose image targets such as:
+         *
+         * hero_image_path
+         * about_image_path
+         *
+         * Text generation remains the first pass.
+         * Image-capable targets then use the central Esubiz AI
+         * engine and become normal proposal items.
+         *
+         * Nothing is persisted at generation time.
+         * The generated image exists only as proposal asset data
+         * until Approve & Apply.
+         */
+        if (
+            $capability === 'theme.homepage'
+            && $action === 'generate'
+        ) {
+            $result =
+                $this->attachThemeHomepageImages(
+                    $result,
+                    $request,
+                    $siteAiContext,
+                    $prompt,
+                    $userId,
+                    $websiteId
+                );
+        }
+
+
         return $result;
     }
+
+    /**
+     * Generate proposal-only images for image-capable
+     * Theme Homepage functions.
+     */
+    protected function attachThemeHomepageImages(
+        array $result,
+        array $request,
+        array $siteAiContext,
+        string $prompt,
+        ?int $userId,
+        ?int $websiteId
+    ): array {
+
+        $selectedFunctions =
+            (array) (
+                data_get(
+                    $request,
+                    'payload.selected_functions'
+                )
+                ?? data_get(
+                    $siteAiContext,
+                    'selected_functions'
+                )
+                ?? []
+            );
+
+
+        $manifest =
+            (array) (
+                data_get(
+                    $siteAiContext,
+                    'theme_ai_manifest'
+                )
+                ?? data_get(
+                    $request,
+                    'context.theme_ai_manifest'
+                )
+                ?? []
+            );
+
+
+        $functions =
+            (array) (
+                $manifest['functions']
+                ?? []
+            );
+
+
+        if (
+            empty($selectedFunctions)
+            || empty($functions)
+        ) {
+            return $result;
+        }
+
+
+        $existingTargets = [];
+
+        foreach (
+            (array) (
+                $result['changes']
+                ?? []
+            )
+            as $change
+        ) {
+            if (!is_array($change)) {
+                continue;
+            }
+
+            $existingTarget =
+                trim(
+                    (string) (
+                        $change['target']
+                        ?? $change['target_key']
+                        ?? ''
+                    )
+                );
+
+            if ($existingTarget !== '') {
+                $existingTargets[] =
+                    $existingTarget;
+            }
+        }
+
+
+        foreach (
+            $selectedFunctions
+            as $functionKey
+        ) {
+            $functionKey =
+                trim(
+                    (string) $functionKey
+                );
+
+            if ($functionKey === '') {
+                continue;
+            }
+
+
+            $function =
+                $functions[
+                    $functionKey
+                ]
+                ?? null;
+
+
+            if (!is_array($function)) {
+                continue;
+            }
+
+
+            foreach (
+                (array) (
+                    $function['targets']
+                    ?? []
+                )
+                as $target
+            ) {
+                $target =
+                    trim(
+                        (string) $target
+                    );
+
+
+                /*
+                 * ESUBIZ_THEME_AI_IMAGE_TARGETS_V2
+                 *
+                 * Standard section images continue to use *_image_path.
+                 * Theme-owned branding assets use their established
+                 * logo/favicon path keys.
+                 */
+                $isImageTarget =
+                    $target !== ''
+                    && (
+                        str_ends_with(
+                            $target,
+                            '_image_path'
+                        )
+                        || in_array(
+                            $target,
+                            [
+                                'logo_path',
+                                'footer_logo_path',
+                                'favicon_path',
+                            ],
+                            true
+                        )
+                    );
+
+                if (!$isImageTarget) {
+                    continue;
+                }
+
+
+                /*
+                 * ESUBIZ_THEME_AI_REAL_IMAGE_OVERRIDE_V2
+                 *
+                 * The text model may have returned a stock URL for the
+                 * same *_image_path target.
+                 *
+                 * Remove that proposal item before invoking the real image
+                 * generator. Image targets are owned exclusively by the
+                 * image-generation path.
+                 */
+                $result['changes'] =
+                    array_values(
+                        array_filter(
+                            (array) (
+                                $result['changes']
+                                ?? []
+                            ),
+                            function ($change) use ($target): bool {
+                                if (!is_array($change)) {
+                                    return true;
+                                }
+
+                                $changeTarget =
+                                    trim(
+                                        (string) (
+                                            $change['target']
+                                            ?? $change['target_key']
+                                            ?? ''
+                                        )
+                                    );
+
+                                return $changeTarget !== $target;
+                            }
+                        )
+                    );
+
+
+                /*
+                 * ESUBIZ_THEME_AI_TARGET_AWARE_IMAGE_PROMPT_V1
+                 */
+                if (
+                    in_array(
+                        $target,
+                        [
+                            'logo_path',
+                            'footer_logo_path',
+                        ],
+                        true
+                    )
+                ) {
+                    $imagePrompt =
+                        'Create one professional brand logo for this website. '
+                        . 'Use the business identity, industry and direction '
+                        . 'described in this website request: '
+                        . $prompt
+                        . '. '
+                        . 'The logo must be clean, distinctive, professional, '
+                        . 'simple enough for a website header and footer, and '
+                        . 'visually strong at small sizes. '
+                        . 'Do not create a photograph, mockup, website UI, '
+                        . 'watermark, background scene or unrelated decoration.';
+                } elseif (
+                    $target === 'favicon_path'
+                ) {
+                    $imagePrompt =
+                        'Create one simple favicon-style brand mark for this '
+                        . 'website based on this website request: '
+                        . $prompt
+                        . '. '
+                        . 'Use a bold, recognizable symbol or monogram that '
+                        . 'remains clear at very small sizes. '
+                        . 'Use a simple centered composition. '
+                        . 'Do not create a photograph, mockup, website UI, '
+                        . 'background scene, watermark or detailed illustration.';
+                } else {
+                    $imagePrompt =
+                        'Create one professional landscape website photograph '
+                        . 'for the "'
+                        . $functionKey
+                        . '" homepage section. '
+                        . 'It must visually support this website request: '
+                        . $prompt
+                        . '. '
+                        . 'The result must be suitable for a modern commercial '
+                        . 'website section, realistic, polished and naturally '
+                        . 'composed. '
+                        . 'Do not place words, typography, logos, UI elements, '
+                        . 'watermarks or fake branding inside the image.';
+                }
+
+
+                $imageResult =
+                    $this->engine->execute(
+                        'site',
+                        $imagePrompt,
+                        $userId,
+                        $websiteId,
+                        [
+                            /*
+                             * The host request continues through the
+                             * centrally routed Site AI model while the
+                             * image-generation tool delegates actual
+                             * rendering to the image model.
+                             */
+                            'tools' => [
+                                [
+                                    'type' =>
+                                        'image_generation',
+
+                                    'model' =>
+                                        'gpt-image-2',
+
+                                    'size' =>
+                                        '1536x1024',
+
+                                    'quality' =>
+                                        'medium',
+
+                                    'output_format' =>
+                                        'jpeg',
+                                ],
+                            ],
+
+                            'tool_choice' => [
+                                'type' =>
+                                    'image_generation',
+                            ],
+
+                            'timeout' =>
+                                240,
+
+                            'minimum_preflight_credits' =>
+                                1,
+                        ]
+                    );
+
+
+                $base64 = null;
+
+                foreach (
+                    (array) data_get(
+                        $imageResult,
+                        'raw.output',
+                        []
+                    )
+                    as $output
+                ) {
+                    if (
+                        !is_array($output)
+                        || (
+                            $output['type']
+                            ?? null
+                        ) !==
+                        'image_generation_call'
+                    ) {
+                        continue;
+                    }
+
+
+                    $candidate =
+                        trim(
+                            (string) (
+                                $output['result']
+                                ?? ''
+                            )
+                        );
+
+
+                    if ($candidate !== '') {
+                        $base64 =
+                            $candidate;
+
+                        break;
+                    }
+                }
+
+
+                if (!$base64) {
+                    throw new \RuntimeException(
+                        'Theme AI image generation returned no image.'
+                    );
+                }
+
+
+                $dataUrl =
+                    'data:image/jpeg;base64,'
+                    . $base64;
+
+
+                $result['changes'][] = [
+                    'target' =>
+                        $target,
+
+                    'target_key' =>
+                        $target,
+
+                    'type' =>
+                        'image',
+
+                    'item_type' =>
+                        'image',
+
+                    /*
+                     * proposed value doubles as preview data.
+                     * Persistence uses asset_reference instead.
+                     */
+                    'value' =>
+                        $dataUrl,
+
+                    'asset_reference' => [
+                        'kind' =>
+                            'base64',
+
+                        'mime_type' =>
+                            'image/jpeg',
+
+                        'extension' =>
+                            'jpg',
+
+                        'data' =>
+                            $base64,
+
+                        'data_url' =>
+                            $dataUrl,
+
+                        'source' =>
+                            'esubiz-central-ai',
+
+                        'target_key' =>
+                            $target,
+                    ],
+                ];
+
+
+                $existingTargets[] =
+                    $target;
+            }
+        }
+
+
+        return $result;
+    }
+
 }

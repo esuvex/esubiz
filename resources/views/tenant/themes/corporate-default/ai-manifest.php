@@ -1,8 +1,10 @@
 <?php
 
 /*
- * ESUBIZ_BUSINESS_THEME_AI_MANIFEST_V1
+ * ESUBIZ_BUSINESS_THEME_AI_MANIFEST_V2
  * ESUBIZ_THEME_AI_FUNCTION_KEY_MAP_FIX_V1
+ * ESUBIZ_BUSINESS_AI_BRANDING_CTA_V1
+ * ESUBIZ_BUSINESS_AI_STRUCTURED_WIDGETS_V1
  *
  * AI-editable homepage functions owned by the
  * Business / corporate-default theme.
@@ -25,6 +27,31 @@ return [
     'functions' => [
 
         /*
+         * BRANDING
+         */
+        'branding' => [
+            'key' =>
+                'branding',
+
+            'label' =>
+                'Branding',
+
+            'description' =>
+                'Generate or improve the website branding assets including the header logo, footer logo and favicon.',
+
+            'outputs' => [
+                'image',
+                'structured-data',
+            ],
+
+            'targets' => [
+                'logo_path',
+                'footer_logo_path',
+                'favicon_path',
+            ],
+        ],
+
+        /*
          * HERO
          */
         'hero' => [
@@ -35,7 +62,7 @@ return [
                 'Hero',
 
             'description' =>
-                'Generate or improve the homepage hero section.',
+                'Generate or improve the homepage hero section including its primary and secondary calls to action.',
 
             'outputs' => [
                 'text',
@@ -56,17 +83,31 @@ return [
         ],
 
         /*
-         * FEATURES
+         * FEATURES / CARDS
+         *
+         * Current structured card representation:
+         *
+         * enabled
+         * title
+         * text
+         * image_path
+         * show_image
+         * icon
+         * show_icon
+         * show_button
+         * button_label
+         * button_url
+         * button_url_active
          */
         'features' => [
             'key' =>
                 'features',
 
             'label' =>
-                'Features',
+                'Features / Cards',
 
             'description' =>
-                'Generate or improve the homepage features section.',
+                'Generate or improve the homepage feature cards. Each features_json item uses the current structured card format: enabled, title, text, image_path, show_image, icon, show_icon, show_button, button_label, button_url and button_url_active. Preserve this structure when generating cards.',
 
             'outputs' => [
                 'text',
@@ -142,6 +183,21 @@ return [
 
         /*
          * TESTIMONIALS
+         *
+         * Current structured testimonial representation:
+         *
+         * enabled
+         * name
+         * role
+         * text
+         * photo_path
+         * show_image
+         * icon
+         * show_icon
+         * show_button
+         * button_label
+         * button_url
+         * button_url_active
          */
         'testimonials' => [
             'key' =>
@@ -151,7 +207,7 @@ return [
                 'Testimonials',
 
             'description' =>
-                'Generate or improve the homepage testimonials section.',
+                'Generate or improve the homepage testimonials. Each testimonials_json item uses the current structured testimonial format: enabled, name, role, text, photo_path, show_image, icon, show_icon, show_button, button_label, button_url and button_url_active. Preserve this structure and use photo_path for generated testimonial photos.',
 
             'outputs' => [
                 'text',
@@ -164,6 +220,33 @@ return [
                 'testimonials_title',
                 'testimonials_subtitle',
                 'testimonials_json',
+            ],
+        ],
+
+        /*
+         * FINAL CTA
+         */
+        'final_cta' => [
+            'key' =>
+                'final_cta',
+
+            'label' =>
+                'Call To Action',
+
+            'description' =>
+                'Generate or improve the final homepage call-to-action section and its button.',
+
+            'outputs' => [
+                'text',
+                'structured-data',
+            ],
+
+            'targets' => [
+                'final_cta_badge',
+                'final_cta_title',
+                'final_cta_text',
+                'final_cta_label',
+                'final_cta_url',
             ],
         ],
 
