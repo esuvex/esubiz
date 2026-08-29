@@ -270,6 +270,7 @@
                         'Website UUID' => $detail['website']['website_uuid'],
                         'Type' => $detail['website']['type'],
                         'Edition' => $detail['website']['edition'],
+                        'Plan' => $website->plan?->name ?: 'No active plan',
                         'Domain' => $detail['website']['registered_domain'],
                         'Registry Status' => $detail['website']['registry_status'],
                         'Website Status' => $detail['website']['status'],

@@ -1238,12 +1238,33 @@
                                                     </div>
 
                                                     <div class="flex max-h-[65vh] min-h-[280px] items-center justify-center overflow-auto bg-slate-100 p-4">
-                                                        <x-media.image
-    src="open ? receiptUrl : ''"
-    alt="Payment receipt"
-    class="max-h-[58vh] max-w-full rounded-xl border border-slate-200 bg-white object-contain shadow-sm"
-    :src="open ? receiptUrl : ''"
-/>
+                                                        {{-- ESUBIZ_ADMIN_OFFLINE_RECEIPT_PREVIEW_IMAGE_PDF_V3 --}}
+                                                        @php
+                                                            $receiptName = strtolower(
+                                                                (string) (
+                                                                    $payment->metadata['receipt_original_name']
+                                                                    ?? $payment->metadata['receipt_path']
+                                                                    ?? ''
+                                                                )
+                                                            );
+
+                                                            $receiptIsPdf =
+                                                                str_ends_with($receiptName, '.pdf');
+                                                        @endphp
+
+                                                        @if($receiptIsPdf)
+                                                            <iframe
+                                                                x-bind:src="open ? receiptUrl : 'about:blank'"
+                                                                title="Payment receipt PDF"
+                                                                class="h-[58vh] w-full rounded-xl border border-slate-200 bg-white shadow-sm"
+                                                            ></iframe>
+                                                        @else
+                                                            <img
+                                                                x-bind:src="open ? receiptUrl : ''"
+                                                                alt="Payment receipt"
+                                                                class="max-h-[58vh] max-w-full rounded-xl border border-slate-200 bg-white object-contain shadow-sm"
+                                                            >
+                                                        @endif
                                                     </div>
 
                                                     <div class="flex justify-end border-t border-slate-200 bg-white px-5 py-4 sm:px-6">
