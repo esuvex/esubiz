@@ -228,39 +228,66 @@ class TenantCoreInitializer
         $db,
         Website $website
     ): void {
-        $pageId = $db->table('pages')->insertGetId([
-            'title' => $website->name,
-            'slug' => 'home',
-            'status' => 'published',
-            'content' => '',
-            /*
-             * The active theme owns the public landing page by default.
-             *
-             * This Core record exists only as a CMS placeholder and
-             * must NOT override the theme homepage until an admin
-             * explicitly selects a CMS page as homepage.
-             */
-            'is_homepage' => false,
-            'settings' => json_encode([
-                'core_default_home' => true,
-            ]),
-            'seo' => json_encode([]),
-            'published_at' => now(),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        /*
+         * ESUBIZ_CORE_DEFAULT_HOME_IDEMPOTENT_V1
+         *
+         * Deployment can be retried safely. Reuse an existing Core
+         * "home" page instead of inserting a duplicate slug.
+         */
+        $existingHome = $db->table('pages')
+            ->where('slug', 'home')
+            ->first();
 
-        $db->table('page_builder_documents')->insert([
-            'page_id' => $pageId,
-            'content' => json_encode([
-                'type' => 'core-default',
-                'version' => '1.0.0',
-                'sections' => [],
-            ]),
-            'builder_version' => '1.0.0',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        if ($existingHome) {
+            $pageId = (int) $existingHome->id;
+        } else {
+            $pageId = $db->table('pages')->insertGetId([
+                'title' => $website->name,
+                'slug' => 'home',
+                'status' => 'published',
+                'content' => '',
+
+                /*
+                 * The active theme owns the public landing page by default.
+                 *
+                 * This Core record exists only as a CMS placeholder and
+                 * must NOT override the theme homepage until an admin
+                 * explicitly selects a CMS page as homepage.
+                 */
+                'is_homepage' => false,
+
+                'settings' => json_encode([
+                    'core_default_home' => true,
+                ]),
+
+                'seo' => json_encode([]),
+                'published_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        /*
+         * Preserve any existing builder document/content.
+         * Only seed the empty default document when one does not exist.
+         */
+        $builderExists = $db->table('page_builder_documents')
+            ->where('page_id', $pageId)
+            ->exists();
+
+        if (!$builderExists) {
+            $db->table('page_builder_documents')->insert([
+                'page_id' => $pageId,
+                'content' => json_encode([
+                    'type' => 'core-default',
+                    'version' => '1.0.0',
+                    'sections' => [],
+                ]),
+                'builder_version' => '1.0.0',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
 
         /*
          * ESUBIZ_CORE_DEFAULT_PAGE_BUILDER_SEED_V1
@@ -350,12 +377,17 @@ class TenantCoreInitializer
 
 
             /*
-             * Never overwrite an existing builder document.
+             * ESUBIZ_CORE_DEFAULT_PAGE_PLACEHOLDER_UPGRADE_V1
              *
-             * This makes the operation safe if initialization is ever
-             * retried and protects any existing edited page.
+             * Earlier Core initialization stages may create an empty
+             * Page Builder placeholder for the standard page before
+             * this rich default-page seeder runs.
+             *
+             * Replace ONLY those untouched empty system placeholders.
+             * Never overwrite a document that already contains real
+             * Page Builder sections or user-edited content.
              */
-            $builderExists =
+            $builderDocument =
                 $db->table(
                     'page_builder_documents'
                 )
@@ -363,10 +395,202 @@ class TenantCoreInitializer
                         'page_id',
                         $pageId
                     )
-                    ->exists();
+                    ->first();
 
+            $seedBuilder = [
+                'type' =>
+                    'basic-page-builder',
 
-            if ($builderExists) {
+                'version' =>
+                    '1.0.0',
+
+                'sections' =>
+                    $definition[
+                        'sections'
+                    ],
+            ];
+
+            $seedContent =
+                json_encode(
+                    $seedBuilder
+                );
+
+            /*
+             * ESUBIZ_CORE_DEFAULT_PAGE_AUTHORITATIVE_BUILDER_V1
+             *
+             * pages.settings.basic_builder is the authoritative
+             * storage used by the current Basic Page Builder editor.
+             *
+             * Keep the compatibility page_builder_documents copy
+             * below, but seed the same structure into page settings
+             * so a brand-new Core page opens populated immediately.
+             *
+             * Never replace a populated Basic Builder.
+             */
+            $pageRecord =
+                $db->table('pages')
+                    ->where(
+                        'id',
+                        $pageId
+                    )
+                    ->first();
+
+            $pageSettings = [];
+
+            if (
+                $pageRecord
+                && !empty(
+                    $pageRecord->settings
+                )
+            ) {
+                $decodedSettings =
+                    json_decode(
+                        $pageRecord->settings,
+                        true
+                    );
+
+                if (
+                    is_array(
+                        $decodedSettings
+                    )
+                ) {
+                    $pageSettings =
+                        $decodedSettings;
+                }
+            }
+
+            $existingBasicBuilder =
+                $pageSettings[
+                    'basic_builder'
+                ]
+                ?? [];
+
+            $existingSections =
+                is_array(
+                    $existingBasicBuilder
+                )
+                    ? (
+                        isset(
+                            $existingBasicBuilder[
+                                'sections'
+                            ]
+                        )
+                        && is_array(
+                            $existingBasicBuilder[
+                                'sections'
+                            ]
+                        )
+                            ? $existingBasicBuilder[
+                                'sections'
+                            ]
+                            : (
+                                array_is_list(
+                                    $existingBasicBuilder
+                                )
+                                    ? $existingBasicBuilder
+                                    : []
+                            )
+                    )
+                    : [];
+
+            if (
+                empty(
+                    $existingSections
+                )
+            ) {
+                /*
+                 * ESUBIZ_CORE_DEFAULT_PAGE_EDITOR_ARRAY_FORMAT_V1
+                 *
+                 * The Page Builder editor's documentState is a
+                 * top-level array of sections. The structured
+                 * type/version wrapper belongs only to the
+                 * page_builder_documents compatibility record.
+                 */
+                $pageSettings[
+                    'basic_builder'
+                ] = $definition[
+                    'sections'
+                ];
+
+                $db->table('pages')
+                    ->where(
+                        'id',
+                        $pageId
+                    )
+                    ->update([
+                        'settings' =>
+                            json_encode(
+                                $pageSettings
+                            ),
+
+                        'updated_at' =>
+                            now(),
+                    ]);
+            }
+
+            if ($builderDocument) {
+
+                $current =
+                    json_decode(
+                        (string)
+                        $builderDocument->content,
+                        true
+                    );
+
+                $currentType =
+                    is_array($current)
+                        ? (
+                            $current['type']
+                            ?? null
+                        )
+                        : null;
+
+                $currentSections =
+                    is_array($current)
+                        ? (
+                            $current['sections']
+                            ?? null
+                        )
+                        : null;
+
+                $isEmptySystemPlaceholder =
+                    in_array(
+                        $currentType,
+                        [
+                            'core-page',
+                            'core-default',
+                        ],
+                        true
+                    )
+                    && is_array(
+                        $currentSections
+                    )
+                    && count(
+                        $currentSections
+                    ) === 0;
+
+                if (!$isEmptySystemPlaceholder) {
+                    continue;
+                }
+
+                $db->table(
+                    'page_builder_documents'
+                )
+                    ->where(
+                        'id',
+                        $builderDocument->id
+                    )
+                    ->update([
+                        'content' =>
+                            $seedContent,
+
+                        'builder_version' =>
+                            '1.0.0',
+
+                        'updated_at' =>
+                            now(),
+                    ]);
+
                 continue;
             }
 
@@ -379,18 +603,7 @@ class TenantCoreInitializer
                         $pageId,
 
                     'content' =>
-                        json_encode([
-                            'type' =>
-                                'basic-page-builder',
-
-                            'version' =>
-                                '1.0.0',
-
-                            'sections' =>
-                                $definition[
-                                    'sections'
-                                ],
-                        ]),
+                        $seedContent,
 
                     'builder_version' =>
                         '1.0.0',
@@ -643,20 +856,30 @@ class TenantCoreInitializer
                                     'heading' =>
                                         '',
 
+                                    /*
+                                     * ESUBIZ_CORE_ABOUT_UPDATED_CARD_WIDGET_V1
+                                     *
+                                     * Seed About with the current structured
+                                     * Card widget contract, including its
+                                     * native icon support.
+                                     */
                                     'items' => [
                                         $card(
                                             'Our Vision',
-                                            'To be trusted for thoughtful solutions, meaningful service and lasting value.'
+                                            'To be trusted for thoughtful solutions, meaningful service and lasting value.',
+                                            '◎'
                                         ),
 
                                         $card(
                                             'Our Mission',
-                                            'To serve people well through dependable work, clear communication and continuous improvement.'
+                                            'To serve people well through dependable work, clear communication and continuous improvement.',
+                                            '↗'
                                         ),
 
                                         $card(
                                             'Our Values',
-                                            'Integrity, consistency, thoughtful service and a commitment to creating real value.'
+                                            'Integrity, consistency, thoughtful service and a commitment to creating real value.',
+                                            '✦'
                                         ),
                                     ],
                                 ]

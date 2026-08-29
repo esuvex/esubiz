@@ -132,9 +132,37 @@ class WebsiteDraftService
                 );
             }
 
-            $website->update([
+            /*
+             * ESUBIZ_WIZARD_REGISTERED_DOMAIN_SYNC_V1
+             *
+             * A SaaS website's registered domain must follow the
+             * canonical wizard subdomain instead of retaining the
+             * temporary draft-* hostname.
+             */
+            $identity = [
                 'subdomain' => $subdomain,
-            ]);
+            ];
+
+            if (($website->deployment_type ?? 'saas') === 'saas') {
+                $centralHost = (string) (
+                    parse_url(
+                        config('app.url'),
+                        PHP_URL_HOST
+                    )
+                    ?: 'esubiz.com'
+                );
+
+                $centralHost = preg_replace(
+                    '/^www\./i',
+                    '',
+                    $centralHost
+                );
+
+                $identity['registered_domain'] =
+                    $subdomain . '.' . $centralHost;
+            }
+
+            $website->update($identity);
         }
 
         return $website->fresh();
