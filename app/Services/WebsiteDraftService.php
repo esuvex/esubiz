@@ -97,6 +97,46 @@ class WebsiteDraftService
             ]);
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | Canonical Subdomain
+        |--------------------------------------------------------------------------
+        |
+        | ESUBIZ_WIZARD_CANONICAL_SUBDOMAIN_SYNC_V1
+        |
+        | A draft begins with a temporary draft-* subdomain. Once the user has
+        | selected a real subdomain in the wizard, that value becomes part of
+        | the website's central identity and must be persisted to admin_core.
+        |
+        */
+
+        if (!empty($data['subdomain'])) {
+            $subdomain = \Illuminate\Support\Str::slug(
+                $data['subdomain']
+            );
+
+            if ($subdomain === '') {
+                throw new \InvalidArgumentException(
+                    'The selected website subdomain is invalid.'
+                );
+            }
+
+            $taken = Website::query()
+                ->where('subdomain', $subdomain)
+                ->where('id', '!=', $website->id)
+                ->exists();
+
+            if ($taken) {
+                throw new \RuntimeException(
+                    'The selected website subdomain is already in use.'
+                );
+            }
+
+            $website->update([
+                'subdomain' => $subdomain,
+            ]);
+        }
+
         return $website->fresh();
     }
 

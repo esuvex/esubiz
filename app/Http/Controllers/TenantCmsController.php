@@ -60,6 +60,15 @@ class TenantCmsController extends Controller
             $expires = (int) $request->query('expires');
             $signature = (string) $request->query('signature');
 
+            /*
+             * ESUBIZ_CENTRAL_ADMIN_TENANT_SUPPORT_LOGIN_V1
+             *
+             * Empty access preserves the original website-owner SSO
+             * signature format. admin_support uses a separate signed
+             * payload and authorization path.
+             */
+            $access = (string) $request->query('access', '');
+
             abort_if(
                 !$websiteId
                 || !$userId
@@ -75,11 +84,18 @@ class TenantCmsController extends Controller
                 'Website SSO request has expired.'
             );
 
-            $payload = implode('|', [
-                $websiteId,
-                $userId,
-                $expires,
-            ]);
+            $payload = $access === 'admin_support'
+                ? implode('|', [
+                    $websiteId,
+                    $userId,
+                    $expires,
+                    $access,
+                ])
+                : implode('|', [
+                    $websiteId,
+                    $userId,
+                    $expires,
+                ]);
 
             $expected = hash_hmac(
                 'sha256',
@@ -101,13 +117,28 @@ class TenantCmsController extends Controller
 
             $subdomain = explode('.', $host)[0] ?? null;
 
-            $website = \App\Models\Website::query()
+            $websiteQuery = \App\Models\Website::query()
                 ->where('id', $websiteId)
-                ->where('owner_id', $userId)
                 ->where('subdomain', $subdomain)
-                ->where('status', 'active')
-                ->where('user_enabled', true)
-                ->first();
+                ->where('status', 'active');
+
+            if ($access === 'admin_support') {
+                /*
+                 * The central route itself is protected by Admin Mode
+                 * and central permissions. The HMAC proves this request
+                 * originated from Esubiz Central.
+                 *
+                 * Support access is intentionally allowed even when the
+                 * owner has disabled the public website so Central Admin
+                 * can troubleshoot it.
+                 */
+                $website = $websiteQuery->first();
+            } else {
+                $website = $websiteQuery
+                    ->where('owner_id', $userId)
+                    ->where('user_enabled', true)
+                    ->first();
+            }
 
             abort_unless(
                 $website,
@@ -119,7 +150,12 @@ class TenantCmsController extends Controller
                 'tenant_cms_authenticated' => true,
                 'tenant_cms_user_id' => $userId,
                 'tenant_cms_website_id' => $websiteId,
-                'tenant_cms_auth_method' => 'esubiz_sso',
+                'tenant_cms_auth_method' =>
+                    $access === 'admin_support'
+                        ? 'esubiz_admin_support'
+                        : 'esubiz_sso',
+                'tenant_cms_support_access' =>
+                    $access === 'admin_support',
             ]);
 
             $request->session()->regenerate();

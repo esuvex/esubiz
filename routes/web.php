@@ -1275,6 +1275,47 @@ Route::middleware('auth')->group(function () {
         ->name('admin.websites.show');
 
 
+    /*
+     * ESUBIZ_SHARED_WEBSITE_MANAGEMENT_V1
+     */
+    Route::get(
+        '/admin/websites/{website}/edit',
+        [AdminWebsiteController::class, 'edit']
+    )
+        ->whereNumber('website')
+        ->middleware([
+            'permission:roles.view',
+            'account-mode:admin',
+        ])
+        ->name('admin.websites.edit');
+
+    Route::patch(
+        '/admin/websites/{website}',
+        [AdminWebsiteController::class, 'update']
+    )
+        ->whereNumber('website')
+        ->middleware([
+            'permission:roles.view',
+            'account-mode:admin',
+        ])
+        ->name('admin.websites.update');
+
+
+    /*
+     * ESUBIZ_CENTRAL_ADMIN_TENANT_SUPPORT_LOGIN_V1
+     */
+    Route::get(
+        '/admin/websites/{website}/login',
+        [AdminWebsiteController::class, 'loginToWebsite']
+    )
+        ->whereNumber('website')
+        ->middleware([
+            'permission:roles.view',
+            'account-mode:admin',
+        ])
+        ->name('admin.websites.login');
+
+
     Route::patch(
         '/admin/websites/{website}/toggle',
         [AdminWebsiteController::class, 'toggle']

@@ -375,70 +375,126 @@
                                 </td>
 
 
-                                <td class="px-6 py-5 text-right">
+                                <td
+                                    class="relative px-6 py-5 text-right"
+                                >
 
-                                    <div class="flex flex-wrap justify-end gap-2">
+                                    {{--
+                                        ESUBIZ_ADMIN_WEBSITE_COMPACT_ACTION_MENU_V1
+                                    --}}
 
-                                        <a
-                                            href="{{ route('admin.websites.show', $website->id) }}"
-                                            class="esubiz-admin-secondary whitespace-nowrap"
+                                    <div
+                                        class="relative inline-block text-left"
+                                        data-website-actions
+                                    >
+
+                                        <button
+                                            type="button"
+                                            data-website-actions-trigger
+                                            aria-label="Website actions"
+                                            aria-expanded="false"
+                                            class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-xl font-black leading-none text-slate-600 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
                                         >
-                                            View Website
-                                        </a>
+                                            &#8942;
+                                        </button>
 
-                                        <form
-                                            method="POST"
-                                            action="{{ route('admin.websites.toggle', $website->id) }}"
+
+                                        <div
+                                            data-website-actions-menu
+                                            class="absolute right-0 z-50 mt-2 hidden w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white py-2 text-left shadow-xl"
                                         >
-                                            @csrf
-                                            @method('PATCH')
 
-                                            <button
-                                                type="submit"
-                                                class="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black {{
-                                                    $website->user_enabled
-                                                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                                                        : 'border-slate-300 bg-slate-100 text-slate-600'
-                                                }}"
+                                            <a
+                                                href="{{ route('admin.websites.show', $website->id) }}"
+                                                class="block px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
                                             >
-                                                <span
-                                                    class="relative inline-flex h-5 w-9 rounded-full {{
+                                                View Website
+                                            </a>
+
+
+                                            @if(
+                                                $website->deployment_type === 'saas'
+                                                && !empty($website->subdomain)
+                                            )
+
+                                                <a
+                                                    href="{{ route('admin.websites.login', $website->id) }}"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    class="block px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                                                >
+                                                    Website Dashboard
+                                                </a>
+
+                                            @endif
+
+
+                                            <a
+                                                href="{{ route('admin.websites.edit', $website->id) }}"
+                                                class="block px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                                            >
+                                                Edit Website
+                                            </a>
+
+
+                                            <div
+                                                class="my-2 border-t border-slate-100"
+                                            ></div>
+
+
+                                            <form
+                                                method="POST"
+                                                action="{{ route('admin.websites.toggle', $website->id) }}"
+                                            >
+
+                                                @csrf
+                                                @method('PATCH')
+
+                                                <button
+                                                    type="submit"
+                                                    class="block w-full px-4 py-3 text-left text-sm font-bold {{
                                                         $website->user_enabled
-                                                            ? 'bg-emerald-500'
-                                                            : 'bg-slate-300'
+                                                            ? 'text-amber-700 hover:bg-amber-50'
+                                                            : 'text-emerald-700 hover:bg-emerald-50'
                                                     }}"
                                                 >
-                                                    <span
-                                                        class="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow {{
-                                                            $website->user_enabled
-                                                                ? 'left-[18px]'
-                                                                : 'left-0.5'
-                                                        }}"
-                                                    ></span>
-                                                </span>
+                                                    {{
+                                                        $website->user_enabled
+                                                            ? 'Disable Website'
+                                                            : 'Enable Website'
+                                                    }}
+                                                </button>
 
-                                                {{ $website->user_enabled ? 'Enabled' : 'Disabled' }}
-                                            </button>
-                                        </form>
+                                            </form>
 
-                                        <form
-                                            method="POST"
-                                            action="{{ route('admin.websites.destroy', $website->id) }}"
-                                            onsubmit="return confirm(
-                                                'PERMANENTLY DELETE {{ addslashes($website->name ?: 'this website') }}?\\n\\n'
-                                                + 'This cannot be undone. The tenant database and all operational website records will be removed immediately.'
-                                            );"
-                                        >
-                                            @csrf
-                                            @method('DELETE')
 
-                                            <button
-                                                type="submit"
-                                                class="inline-flex items-center justify-center rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-black text-red-700 hover:bg-red-100"
+                                            <div
+                                                class="my-2 border-t border-slate-100"
+                                            ></div>
+
+
+                                            <form
+                                                method="POST"
+                                                action="{{ route('admin.websites.destroy', $website->id) }}"
+                                                onsubmit="return confirm(
+                                                    'PERMANENTLY DELETE {{ addslashes($website->name ?: 'this website') }}?\n\n'
+                                                    + 'This cannot be undone. The tenant database and all operational website records will be removed immediately.'
+                                                );"
                                             >
-                                                Delete
-                                            </button>
-                                        </form>
+
+                                                @csrf
+                                                @method('DELETE')
+
+                                                <button
+                                                    type="submit"
+                                                    class="block w-full px-4 py-3 text-left text-sm font-black text-red-600 transition hover:bg-red-50"
+                                                >
+                                                    Delete Website
+                                                </button>
+
+                                            </form>
+
+                                        </div>
 
                                     </div>
 
@@ -490,5 +546,124 @@
     </div>
 
 </div>
+
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    const wrappers =
+        document.querySelectorAll(
+            '[data-website-actions]'
+        );
+
+    function closeAll(except = null) {
+
+        wrappers.forEach(function (wrapper) {
+
+            if (wrapper === except) {
+                return;
+            }
+
+            const menu =
+                wrapper.querySelector(
+                    '[data-website-actions-menu]'
+                );
+
+            const trigger =
+                wrapper.querySelector(
+                    '[data-website-actions-trigger]'
+                );
+
+            if (menu) {
+                menu.classList.add('hidden');
+            }
+
+            if (trigger) {
+                trigger.setAttribute(
+                    'aria-expanded',
+                    'false'
+                );
+            }
+
+        });
+
+    }
+
+
+    wrappers.forEach(function (wrapper) {
+
+        const trigger =
+            wrapper.querySelector(
+                '[data-website-actions-trigger]'
+            );
+
+        const menu =
+            wrapper.querySelector(
+                '[data-website-actions-menu]'
+            );
+
+        if (!trigger || !menu) {
+            return;
+        }
+
+        trigger.addEventListener(
+            'click',
+            function (event) {
+
+                event.stopPropagation();
+
+                const willOpen =
+                    menu.classList.contains(
+                        'hidden'
+                    );
+
+                closeAll(wrapper);
+
+                menu.classList.toggle(
+                    'hidden',
+                    !willOpen
+                );
+
+                trigger.setAttribute(
+                    'aria-expanded',
+                    willOpen
+                        ? 'true'
+                        : 'false'
+                );
+            }
+        );
+
+        menu.addEventListener(
+            'click',
+            function (event) {
+                event.stopPropagation();
+            }
+        );
+
+    });
+
+
+    document.addEventListener(
+        'click',
+        function () {
+            closeAll();
+        }
+    );
+
+
+    document.addEventListener(
+        'keydown',
+        function (event) {
+
+            if (event.key === 'Escape') {
+                closeAll();
+            }
+
+        }
+    );
+
+});
+</script>
 
 @endsection

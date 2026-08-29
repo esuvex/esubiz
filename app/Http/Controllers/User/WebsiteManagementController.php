@@ -26,8 +26,31 @@ class WebsiteManagementController extends Controller
             403
         );
 
+        $website->load([
+            'owner',
+            'developer',
+            'plan',
+            'workspace',
+        ]);
+
+        $entitlements = \Illuminate\Support\Facades\DB::table(
+            'product_entitlements'
+        )
+            ->where('website_id', $website->id)
+            ->whereNull('deleted_at')
+            ->orderByDesc('created_at')
+            ->get();
+
+        $plans = \App\Models\Plan::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
         return view('user.websites.edit', [
             'website' => $website,
+            'managementMode' => 'owner',
+            'entitlements' => $entitlements,
+            'plans' => $plans,
         ]);
     }
 
@@ -51,7 +74,7 @@ class WebsiteManagementController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        if ($request->has('name')) {
+        if ($request->input('section') === 'identity' || ($request->has('name') && !$request->has('section'))) {
 
             $validated = $request->validate([
                 'name' => [
@@ -151,11 +174,83 @@ class WebsiteManagementController extends Controller
 
         /*
         |--------------------------------------------------------------------------
+        | ESUBIZ_WEBSITE_MANAGEMENT_COMPLETE_UI_V1
+        | Website Administrator Credentials
+        |--------------------------------------------------------------------------
+        */
+
+        if ($request->input('section') === 'credentials') {
+
+            $validated = $request->validate([
+                'admin_name' => [
+                    'nullable',
+                    'string',
+                    'max:255',
+                ],
+                'admin_email' => [
+                    'required',
+                    'email',
+                    'max:255',
+                ],
+                'admin_password' => [
+                    'nullable',
+                    'string',
+                    'min:8',
+                    'max:255',
+                ],
+            ]);
+
+            $updates = [
+                'admin_name' =>
+                    trim(
+                        (string) (
+                            $validated['admin_name']
+                            ?? ''
+                        )
+                    ),
+
+                'admin_email' =>
+                    strtolower(
+                        trim(
+                            $validated['admin_email']
+                        )
+                    ),
+            ];
+
+            if (
+                !empty(
+                    $validated['admin_password']
+                )
+            ) {
+                $updates['admin_password'] =
+                    \Illuminate\Support\Facades\Hash::make(
+                        $validated['admin_password']
+                    );
+            }
+
+            $website->update(
+                $updates
+            );
+
+            return redirect()
+                ->route(
+                    'user.websites.edit',
+                    $website
+                )
+                ->with(
+                    'success',
+                    'Website login credentials updated successfully.'
+                );
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
         | Website Availability
         |--------------------------------------------------------------------------
         */
 
-        if ($request->has('user_enabled')) {
+        if ($request->input('section') === 'availability' || ($request->has('user_enabled') && !$request->has('section'))) {
 
             $validated = $request->validate([
                 'user_enabled' => [
