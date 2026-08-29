@@ -40,18 +40,60 @@
 
         <div class="flex items-center gap-3">
 
-            <div
-                class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-xl font-black"
-            >
-                {{ strtoupper(
-                    substr(
-                        $settings['website_name']
-                            ?? $website->name,
-                        0,
-                        1
-                    )
-                ) }}
-            </div>
+            {{-- ESUBIZ_TENANT_ADMIN_FOOTER_LOGO_BRANDING_V1 --}}
+            @php
+                $tenantAdminLogo =
+                    $settings['theme.corporate.footer_logo_path']
+                        ?? null;
+
+                $tenantAdminLogoUrl =
+                    !empty($tenantAdminLogo)
+                        ? request()->getSchemeAndHttpHost()
+                            . '/media/'
+                            . implode(
+                                '/',
+                                array_map(
+                                    'rawurlencode',
+                                    explode(
+                                        '/',
+                                        ltrim(
+                                            $tenantAdminLogo,
+                                            '/'
+                                        )
+                                    )
+                                )
+                            )
+                        : null;
+            @endphp
+
+            @if($tenantAdminLogoUrl)
+
+                <div
+                    class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white p-1"
+                >
+                    <img
+                        src="{{ $tenantAdminLogoUrl }}"
+                        alt="{{ $settings['website_name'] ?? $website->name }}"
+                        class="h-full w-full object-contain"
+                    >
+                </div>
+
+            @else
+
+                <div
+                    class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-xl font-black"
+                >
+                    {{ strtoupper(
+                        substr(
+                            $settings['website_name']
+                                ?? $website->name,
+                            0,
+                            1
+                        )
+                    ) }}
+                </div>
+
+            @endif
 
 
             <div class="min-w-0">

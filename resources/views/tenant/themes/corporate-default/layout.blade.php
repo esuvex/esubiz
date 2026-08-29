@@ -24,11 +24,12 @@
     >
 
 
+{{-- ESUBIZ_BUSINESS_FAVICON_MEDIA_ROUTE_FIX_V1 --}}
     @if(!empty($theme['favicon_path']))
         <link
             rel="icon"
             href="{{ request()->getSchemeAndHttpHost()
-                . '/theme-assets/'
+                . '/media/'
                 . implode(
                     '/',
                     array_map(

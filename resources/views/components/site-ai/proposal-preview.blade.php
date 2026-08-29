@@ -736,6 +736,53 @@
             'esubiz-ai-proposal-reject'
         );
 
+    /*
+     * ESUBIZ_AI_FOOTER_CLOSE_BUTTON_V2
+     *
+     * Dedicated footer Close button.
+     * It occupies the same primary-action position as
+     * Approve & Apply after successful application.
+     */
+    const footerCloseButton =
+        approveButton.cloneNode(
+            true
+        );
+
+    footerCloseButton.id =
+        'esubiz-ai-proposal-footer-close';
+
+    footerCloseButton.type =
+        'button';
+
+    footerCloseButton.textContent =
+        'Close';
+
+    footerCloseButton.hidden =
+        true;
+
+    footerCloseButton.disabled =
+        false;
+
+    footerCloseButton.removeAttribute(
+        'data-applied'
+    );
+
+    approveButton.insertAdjacentElement(
+        'afterend',
+        footerCloseButton
+    );
+
+    footerCloseButton.addEventListener(
+        'click',
+        (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+
+            window.location.reload();
+        }
+    );
+
+
 
     let currentProposal = null;
     let previousOverflow = '';
@@ -865,9 +912,319 @@
             value
         );
     }
+    /*
+     * ESUBIZ_AI_PROPOSAL_IMAGE_PREVIEW_V2
+     *
+     * Generated images must be visible before approval.
+     * This renderer accepts object, JSON-string, data URL,
+     * raw base64 and nested provider image representations.
+     */
+    function normalizeProposalImageValue(
+        value,
+        mime = 'image/jpeg',
+        depth = 0
+    ) {
+        if (
+            value === null
+            || value === undefined
+            || depth > 6
+        ) {
+            return '';
+        }
+
+        if (typeof value === 'string') {
+            const trimmed =
+                value.trim();
+
+            if (!trimmed) {
+                return '';
+            }
+
+            if (
+                trimmed.startsWith('data:image/')
+                || trimmed.startsWith('https://')
+                || trimmed.startsWith('http://')
+                || trimmed.startsWith('/')
+            ) {
+                return trimmed;
+            }
+
+            if (
+                (
+                    trimmed.startsWith('{')
+                    && trimmed.endsWith('}')
+                )
+                || (
+                    trimmed.startsWith('[')
+                    && trimmed.endsWith(']')
+                )
+            ) {
+                try {
+                    return normalizeProposalImageValue(
+                        JSON.parse(trimmed),
+                        mime,
+                        depth + 1
+                    );
+                } catch (error) {
+                    // Continue to base64 detection.
+                }
+            }
+
+            const compact =
+                trimmed.replace(/\s+/g, '');
+
+            if (
+                compact.length > 1000
+                && /^[A-Za-z0-9+/]+={0,2}$/.test(
+                    compact
+                )
+            ) {
+                return (
+                    'data:'
+                    + String(
+                        mime || 'image/jpeg'
+                    )
+                    + ';base64,'
+                    + compact
+                );
+            }
+
+            return '';
+        }
+
+        if (Array.isArray(value)) {
+            for (const entry of value) {
+                const found =
+                    normalizeProposalImageValue(
+                        entry,
+                        mime,
+                        depth + 1
+                    );
+
+                if (found) {
+                    return found;
+                }
+            }
+
+            return '';
+        }
+
+        if (typeof value === 'object') {
+            const detectedMime =
+                value.mime_type
+                ?? value.mime
+                ?? mime
+                ?? 'image/jpeg';
+
+            const preferredKeys = [
+                'data_url',
+                'preview_url',
+                'url',
+                'result',
+                'data',
+                'base64',
+                'asset_reference',
+                'proposed_value',
+                'value',
+                'reference'
+            ];
+
+            for (const key of preferredKeys) {
+                if (
+                    !Object.prototype.hasOwnProperty.call(
+                        value,
+                        key
+                    )
+                ) {
+                    continue;
+                }
+
+                const found =
+                    normalizeProposalImageValue(
+                        value[key],
+                        detectedMime,
+                        depth + 1
+                    );
+
+                if (found) {
+                    return found;
+                }
+            }
+
+            for (
+                const nested of Object.values(value)
+            ) {
+                const found =
+                    normalizeProposalImageValue(
+                        nested,
+                        detectedMime,
+                        depth + 1
+                    );
+
+                if (found) {
+                    return found;
+                }
+            }
+        }
+
+        return '';
+    }
+
+
+    function renderGeneratedProposalImages(
+        proposal
+    ) {
+        const container =
+            document.getElementById(
+                'esubiz-ai-proposal-preview'
+            );
+
+        if (!container) {
+            return;
+        }
+
+        const items =
+            Array.isArray(proposal?.items)
+                ? proposal.items
+                : [];
+
+        const cards =
+            container.querySelectorAll(
+                '.esubiz-ai-proposal-item'
+            );
+
+        items.forEach(
+            (item, index) => {
+                const target =
+                    String(
+                        item?.target_key
+                        ?? item?.target
+                        ?? ''
+                    ).toLowerCase();
+
+                const type =
+                    String(
+                        item?.item_type
+                        ?? item?.type
+                        ?? ''
+                    ).toLowerCase();
+
+                const looksLikeImage =
+                    type === 'image'
+                    || target.endsWith(
+                        '_image_path'
+                    )
+                    || target.includes(
+                        'image'
+                    )
+                    || target.includes(
+                        'photo'
+                    );
+
+                if (!looksLikeImage) {
+                    return;
+                }
+
+                const source =
+                    normalizeProposalImageValue(
+                        item,
+                        item?.asset_reference
+                            ?.mime_type
+                            ?? 'image/jpeg'
+                    );
+
+                if (!source) {
+                    return;
+                }
+
+                const card =
+                    cards[index];
+
+                if (!card) {
+                    return;
+                }
+
+                const value =
+                    card.querySelector(
+                        '.esubiz-ai-proposal-item-value'
+                    );
+
+                if (!value) {
+                    return;
+                }
+
+                value.innerHTML =
+                    '';
+
+                const image =
+                    document.createElement(
+                        'img'
+                    );
+
+                image.src =
+                    source;
+
+                image.alt =
+                    String(
+                        item?.label
+                        ?? item?.target_key
+                        ?? item?.target
+                        ?? 'AI generated image'
+                    );
+
+                image.loading =
+                    'eager';
+
+                image.decoding =
+                    'async';
+
+                image.style.display =
+                    'block';
+
+                image.style.width =
+                    '100%';
+
+                image.style.height =
+                    'auto';
+
+                image.style.maxHeight =
+                    '420px';
+
+                image.style.objectFit =
+                    'cover';
+
+                image.style.borderRadius =
+                    '12px';
+
+                value.appendChild(
+                    image
+                );
+            }
+        );
+    }
+
+
 
 
     function renderProposal(proposal) {
+
+        /*
+         * Every newly opened proposal starts with the ordinary
+         * pending action state.
+         */
+        footerCloseButton.hidden =
+            true;
+
+        footerCloseButton.disabled =
+            false;
+
+        approveButton.textContent =
+            'Approve & Apply';
+
+        approveButton.removeAttribute(
+            'data-applied'
+        );
+
         currentProposal =
             proposal || null;
 
@@ -943,6 +1300,11 @@
                     )
                     .join('');
         }
+        renderGeneratedProposalImages(
+            proposal
+        );
+
+
 
 
         const pending =
@@ -1229,6 +1591,21 @@
     approveButton.addEventListener(
         'click',
         async () => {
+
+        /*
+         * ESUBIZ_AI_APPROVE_TO_CLOSE_BUTTON_V1
+         *
+         * Once application succeeds, the primary footer action
+         * becomes Close in the exact former Approve position.
+         */
+        if (
+            approveButton.dataset.applied
+            === '1'
+        ) {
+            window.location.reload();
+            return;
+        }
+
             if (
                 busy
                 || !currentProposal
@@ -1265,11 +1642,54 @@
                  */
                 reloadOnClose = true;
 
+                /*
+                 * Successful apply:
+                 *
+                 * Approve & Apply disappears and a real,
+                 * independent Close button takes its exact place.
+                 */
                 approveButton.hidden =
+                    true;
+
+                approveButton.disabled =
                     true;
 
                 rejectButton.hidden =
                     true;
+
+                rejectButton.disabled =
+                    true;
+
+                footerCloseButton.hidden =
+                    false;
+
+                footerCloseButton.disabled =
+                    false;
+                /*
+                 * ESUBIZ_AI_APPROVED_ACTION_STATE_V3
+                 *
+                 * The proposal has been applied successfully.
+                 * Approve and Discard must remain hidden.
+                 * The dedicated footer Close button becomes the
+                 * only primary action.
+                 */
+                approveButton.hidden =
+                    true;
+
+                approveButton.disabled =
+                    true;
+
+                rejectButton.hidden =
+                    true;
+
+                rejectButton.disabled =
+                    true;
+
+                footerCloseButton.hidden =
+                    false;
+
+                footerCloseButton.disabled =
+                    false;
 
                 closeButton.hidden =
                     false;
@@ -1281,6 +1701,7 @@
                     'aria-label',
                     'Close and refresh'
                 );
+
 
                 /*
                  * Other Esubiz interfaces can listen for this
@@ -1321,7 +1742,9 @@
                     !pending;
 
                 rejectButton.disabled =
-                    !pending;
+                    rejectButton.dataset.discardComplete === 'true'
+                        ? false
+                        : !pending;
             }
         }
     );
@@ -1330,6 +1753,25 @@
     rejectButton.addEventListener(
         'click',
         async () => {
+            /*
+             * ESUBIZ_AI_REGENERATE_ANOTHER_CLICK_V3
+             *
+             * Once discard has completed, this same button becomes
+             * the return-to-chat action instead of rejecting again.
+             */
+            if (
+                rejectButton.dataset.discardComplete === 'true'
+            ) {
+                /*
+                 * ESUBIZ_AI_REGENERATE_ANOTHER_CLOSE_FIX_V4
+                 *
+                 * Return directly to the existing AI conversation
+                 * after a proposal has been discarded.
+                 */
+                close();
+                return;
+            }
+
             if (
                 busy
                 || !currentProposal
@@ -1355,6 +1797,46 @@
                 progress.textContent =
                     data.message
                     || 'Proposal discarded.';
+
+                /*
+                 * ESUBIZ_AI_DISCARDED_REGENERATE_ANOTHER_V1
+                 *
+                 * A discarded proposal stays visible long enough for
+                 * the user to confirm the result. The former Discard
+                 * action then becomes Regenerate Another.
+                 *
+                 * Regenerate Another does not submit a new AI request.
+                 * It simply closes this preview and returns the user
+                 * to the existing AI conversation so they can continue.
+                 */
+                approveButton.hidden =
+                    true;
+
+                approveButton.disabled =
+                    true;
+
+                rejectButton.hidden =
+                    false;
+
+                rejectButton.disabled =
+                    false;
+
+                /*
+                 * ESUBIZ_AI_REGENERATE_ANOTHER_ACTIVE_BUTTON_V3
+                 */
+                rejectButton.classList.remove(
+                    'esubiz-ai-proposal-button-secondary'
+                );
+
+                rejectButton.classList.add(
+                    'esubiz-ai-proposal-button-primary'
+                );
+
+                rejectButton.textContent =
+                    'Regenerate Another';
+
+                rejectButton.dataset.discardComplete =
+                    'true';
 
                 window.dispatchEvent(
                     new CustomEvent(
@@ -1387,7 +1869,9 @@
                     !pending;
 
                 rejectButton.disabled =
-                    !pending;
+                    rejectButton.dataset.discardComplete === 'true'
+                        ? false
+                        : !pending;
             }
         }
     );

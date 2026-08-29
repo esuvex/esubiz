@@ -1479,43 +1479,151 @@ class EsubizCentralSiteAiProvider implements SiteAiProvider
 
 
                 /*
-                 * ESUBIZ_THEME_AI_TARGET_AWARE_IMAGE_PROMPT_V1
+                 * ESUBIZ_AI_STRICT_BRANDING_REFERENCE_CHAIN_V1
+                 *
+                 * STRICT BRANDING DEPENDENCY
+                 * --------------------------
+                 *
+                 * Header Logo is generated first and becomes the
+                 * actual image reference for the remaining assets.
+                 *
+                 * Footer Logo and Favicon are never allowed to
+                 * generate independently.
+                 *
+                 * This intentionally reuses the existing Site AI
+                 * reference-image transport. It does not alter the
+                 * existing media persistence/optimization pipeline.
                  */
+                if (!isset($brandingMasterDataUrl)) {
+                    $brandingMasterDataUrl = null;
+                }
+
+                if ($target === 'logo_path') {
+                    /*
+                     * A new Branding run always starts with a fresh
+                     * authoritative master identity.
+                     */
+                    $brandingMasterDataUrl = null;
+                }
+
                 if (
                     in_array(
                         $target,
                         [
-                            'logo_path',
                             'footer_logo_path',
+                            'favicon_path',
                         ],
                         true
                     )
+                    && (
+                        !is_string($brandingMasterDataUrl)
+                        || trim($brandingMasterDataUrl) === ''
+                    )
                 ) {
+                    throw new \RuntimeException(
+                        'Branding generation stopped because the '
+                        . 'master Header Logo reference is unavailable. '
+                        . 'Footer Logo and Favicon cannot be generated '
+                        . 'independently from the master identity.'
+                    );
+                }
+
+
+                /*
+                 * ESUBIZ_AI_UNIFIED_BRANDING_LIBRARY_V3
+                 *
+                 * CENTRAL SITE AI BRANDING CONTRACT
+                 * ---------------------------------
+                 *
+                 * Branding assets always belong to ONE identity.
+                 *
+                 * Header Logo:
+                 * - master identity
+                 * - clean white background
+                 * - horizontal website composition
+                 * - intended maximum area 1200 x 600
+                 *
+                 * Footer Logo:
+                 * - same identity as Header Logo
+                 * - white/monochrome variant
+                 * - intended for a dark/coloured footer
+                 * - intended maximum area 1200 x 600
+                 *
+                 * Favicon:
+                 * - derived from the Header Logo symbol/icon
+                 * - never an unrelated logo
+                 * - square 512 x 512 composition
+                 *
+                 * The existing JPEG optimization pipeline is
+                 * intentionally retained. Transparent output can
+                 * be introduced later as a separate media-pipeline
+                 * enhancement without risking current persistence.
+                 */
+                if ($target === 'logo_path') {
+
                     $imagePrompt =
-                        'Create one professional brand logo for this website. '
-                        . 'Use the business identity, industry and direction '
-                        . 'described in this website request: '
+                        'Create the MASTER Header Logo for this website. '
+                        . 'This is the authoritative visual identity from which '
+                        . 'the Footer Logo and Favicon must be derived. '
+                        . 'Use the business name, industry, personality and '
+                        . 'direction from this website request: '
                         . $prompt
                         . '. '
-                        . 'The logo must be clean, distinctive, professional, '
-                        . 'simple enough for a website header and footer, and '
-                        . 'visually strong at small sizes. '
-                        . 'Do not create a photograph, mockup, website UI, '
-                        . 'watermark, background scene or unrelated decoration.';
-                } elseif (
-                    $target === 'favicon_path'
-                ) {
+                        . 'Create a clean, distinctive and professional logo '
+                        . 'suitable for ordinary business users. '
+                        . 'Use a clean pure white background. '
+                        . 'Use a horizontal website-header composition designed '
+                        . 'for a final maximum area of 1200 x 600 pixels. '
+                        . 'Keep the symbol, typography and proportions simple '
+                        . 'enough to create a matching white Footer Logo variant '
+                        . 'and a recognizable favicon icon. '
+                        . 'Do not create a photograph, mockup, wall sign, paper '
+                        . 'presentation, website UI, watermark, decorative scene '
+                        . 'or multiple logo options. Generate one usable logo.';
+
+                } elseif ($target === 'footer_logo_path') {
+
                     $imagePrompt =
-                        'Create one simple favicon-style brand mark for this '
-                        . 'website based on this website request: '
+                        'Create the FOOTER LOGO variant for this website. '
+                        . 'It must represent exactly the SAME brand identity, '
+                        . 'symbol, typography, proportions and visual language '
+                        . 'as the master Header Logo requested for this branding '
+                        . 'set. Do not invent a second brand or alternative logo. '
+                        . 'Use this website/business direction: '
                         . $prompt
                         . '. '
-                        . 'Use a bold, recognizable symbol or monogram that '
-                        . 'remains clear at very small sizes. '
-                        . 'Use a simple centered composition. '
-                        . 'Do not create a photograph, mockup, website UI, '
-                        . 'background scene, watermark or detailed illustration.';
+                        . 'The visible logo artwork must be a clean WHITE or '
+                        . 'white-monochrome version designed to remain readable '
+                        . 'against the website footer background. '
+                        . 'Use a horizontal composition designed for a final '
+                        . 'maximum area of 1200 x 600 pixels. '
+                        . 'Do not create a photograph, mockup, wall sign, '
+                        . 'website UI, watermark, decorative scene or multiple '
+                        . 'logo options. Generate one usable footer variant.';
+
+                } elseif ($target === 'favicon_path') {
+
+                    $imagePrompt =
+                        'Create the FAVICON for the SAME brand identity as the '
+                        . 'master Header Logo requested for this branding set. '
+                        . 'Derive the favicon from the Header Logo icon, symbol, '
+                        . 'monogram or strongest recognizable brand mark. '
+                        . 'Never invent an unrelated symbol or new brand. '
+                        . 'Use this website/business direction: '
+                        . $prompt
+                        . '. '
+                        . 'Do not use a long full wordmark when the recognizable '
+                        . 'symbol can be used instead. '
+                        . 'Center the mark with safe space in a clean square '
+                        . 'composition intended for 512 x 512 pixels. '
+                        . 'Use a clean white background for compatibility with '
+                        . 'the current optimized JPEG media pipeline. '
+                        . 'The mark must remain recognizable at browser-tab size. '
+                        . 'Do not create a photograph, mockup, UI, watermark '
+                        . 'or detailed illustration.';
+
                 } else {
+
                     $imagePrompt =
                         'Create one professional landscape website photograph '
                         . 'for the "'
@@ -1539,6 +1647,34 @@ class EsubizCentralSiteAiProvider implements SiteAiProvider
                         $userId,
                         $websiteId,
                         [
+
+                            /*
+                             * ESUBIZ_AI_STRICT_BRANDING_REFERENCE_OPTIONS_V1
+                             *
+                             * Only dependent Branding assets receive the
+                             * generated Header Logo as multimodal input.
+                             * All ordinary website image generation remains
+                             * exactly on its previous execution path.
+                             */
+                            'payload' =>
+                                in_array(
+                                    $target,
+                                    [
+                                        'footer_logo_path',
+                                        'favicon_path',
+                                    ],
+                                    true
+                                )
+                                    ? [
+                                        'reference_images' => [
+                                            [
+                                                'data_url' =>
+                                                    $brandingMasterDataUrl,
+                                            ],
+                                        ],
+                                    ]
+                                    : [],
+
                             /*
                              * The host request continues through the
                              * centrally routed Site AI model while the
@@ -1553,8 +1689,44 @@ class EsubizCentralSiteAiProvider implements SiteAiProvider
                                     'model' =>
                                         'gpt-image-2',
 
+                                    /*
+                                     * ESUBIZ_THEME_AI_RECOMMENDED_IMAGE_DIMENSIONS_V3
+                                     *
+                                     * CENTRAL SITE AI IMAGE SHAPE RULES
+                                     *
+                                     * OpenAI standard canvases are used as the
+                                     * generation source. Theme-specific prompts
+                                     * define the intended final composition.
+                                     *
+                                     * Branding:
+                                     * Header Logo  -> intended max 1200 x 600
+                                     * Footer Logo  -> intended max 1200 x 600
+                                     * Favicon      -> intended 512 x 512
+                                     *
+                                     * Website photography:
+                                     * Hero/Footer backgrounds use landscape.
+                                     * About currently uses landscape.
+                                     *
+                                     * Repeatable Cards and Testimonials receive
+                                     * their own dimensions in the structured
+                                     * generation pass.
+                                     */
                                     'size' =>
-                                        '1536x1024',
+                                        match ($target) {
+
+                                            'favicon_path' =>
+                                                '1024x1024',
+
+                                            'logo_path',
+                                            'footer_logo_path',
+                                            'hero_image_path',
+                                            'about_image_path',
+                                            'footer_background_path' =>
+                                                '1536x1024',
+
+                                            default =>
+                                                '1536x1024',
+                                        },
 
                                     'quality' =>
                                         'medium',
@@ -1628,6 +1800,32 @@ class EsubizCentralSiteAiProvider implements SiteAiProvider
                 $dataUrl =
                     'data:image/jpeg;base64,'
                     . $base64;
+
+
+                /*
+                 * ESUBIZ_AI_STRICT_BRANDING_MASTER_CAPTURE_V1
+                 *
+                 * Preserve the ACTUAL generated Header Logo image
+                 * for Footer Logo and Favicon reference generation.
+                 */
+                if ($target === 'logo_path') {
+
+                    if (
+                        !str_starts_with(
+                            $dataUrl,
+                            'data:image/'
+                        )
+                    ) {
+                        throw new \RuntimeException(
+                            'Branding generation stopped because the '
+                            . 'generated Header Logo could not become '
+                            . 'the master branding image reference.'
+                        );
+                    }
+
+                    $brandingMasterDataUrl =
+                        $dataUrl;
+                }
 
 
                 $result['changes'][] = [

@@ -27,7 +27,14 @@ return [
     'functions' => [
 
         /*
-         * BRANDING
+         * ESUBIZ_BUSINESS_AI_UNIFIED_BRANDING_V3
+         *
+         * One simple Branding function creates one coherent
+         * visual identity set:
+         *
+         * Header Logo = master identity.
+         * Footer Logo = matching white variant.
+         * Favicon = icon derived from the master identity.
          */
         'branding' => [
             'key' =>
@@ -37,11 +44,17 @@ return [
                 'Branding',
 
             'description' =>
-                'Generate or improve the website branding assets including the header logo, footer logo and favicon.',
+                'Generate one complete and consistent website branding set. '
+                . 'Create the Header Logo as the master identity, '
+                . 'create the Footer Logo as the same logo in a white variant, '
+                . 'and create the Favicon from the icon or symbol of that same '
+                . 'Header Logo. Never create three unrelated identities. '
+                . 'Header and Footer Logos must fit the recommended maximum '
+                . '1200 x 600 pixel area. The Favicon must use a square '
+                . '512 x 512 pixel composition.',
 
             'outputs' => [
                 'image',
-                'structured-data',
             ],
 
             'targets' => [
@@ -50,6 +63,7 @@ return [
                 'favicon_path',
             ],
         ],
+
 
         /*
          * HERO

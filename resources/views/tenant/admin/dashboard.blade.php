@@ -14,6 +14,35 @@
         Dashboard - {{ $website->name }}
     </title>
 
+
+    {{-- ESUBIZ_TENANT_ADMIN_FAVICON_V1 --}}
+    @php
+        $tenantAdminFavicon =
+            $settings['theme.corporate.favicon_path']
+                ?? null;
+    @endphp
+
+    @if(!empty($tenantAdminFavicon))
+        <link
+            rel="icon"
+            href="{{ request()->getSchemeAndHttpHost()
+                . '/media/'
+                . implode(
+                    '/',
+                    array_map(
+                        'rawurlencode',
+                        explode(
+                            '/',
+                            ltrim(
+                                $tenantAdminFavicon,
+                                '/'
+                            )
+                        )
+                    )
+                ) }}"
+        >
+    @endif
+
     <script src="https://cdn.tailwindcss.com"></script>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
