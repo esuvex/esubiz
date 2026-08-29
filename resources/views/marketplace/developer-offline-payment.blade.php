@@ -1,16 +1,39 @@
-@extends('frontend.layouts.app')
+@extends('admin.layouts.app')
+{{-- ESUBIZ_OFFLINE_PAYMENT_LAYOUT_FIX_V1 --}}
 
 @section('content')
 
 <div class="min-h-screen bg-slate-50 py-16">
     <div class="mx-auto max-w-3xl px-6 lg:px-8">
 
+        {{-- ESUBIZ_UNIFIED_OFFLINE_PAYMENT_FRONTEND_V1 --}}
         <div class="mb-6">
+            @php
+                $offlineBackUrl =
+                    !empty($order?->id)
+                        ? route(
+                            'marketplace.checkout',
+                            ['order' => $order->id]
+                        )
+                        : (
+                            !empty($metadata['product_id'])
+                                ? route(
+                                    'marketplace.developer.checkout',
+                                    [
+                                        'productType' =>
+                                            $metadata['product_type']
+                                            ?? 'addon',
+
+                                        'productId' =>
+                                            $metadata['product_id'],
+                                    ]
+                                )
+                                : url()->previous()
+                        );
+            @endphp
+
             <a
-                href="{{ route('marketplace.developer.checkout', [
-                    'productType' => $metadata['product_type'] ?? 'addon',
-                    'productId' => $metadata['product_id'] ?? 0,
-                ]) }}"
+                href="{{ $offlineBackUrl }}"
                 class="text-sm font-bold text-blue-600 hover:text-blue-700"
             >
                 ← Back to Checkout
@@ -105,7 +128,99 @@
                                 ?? 'Upload your payment receipt or proof of payment.' }}
                         </p>
 
-                        <div class="mt-5">
+                        {{-- ESUBIZ_OFFLINE_RECEIPT_CONFIRMATION_MODAL_V4 --}}
+                        @if(session('offline_payment_success') || !empty($metadata['receipt_path']))
+
+                            @php
+                                $isDeveloperMode =
+                                    session('account_mode') === 'developer';
+
+                                $dashboardUrl = $isDeveloperMode
+                                    ? route('developer.dashboard')
+                                    : route('user.dashboard');
+
+                                $websitesUrl = $isDeveloperMode
+                                    ? route('developer.dashboard')
+                                    : route('user.websites.index');
+                            @endphp
+
+                            <div
+                                class="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/60 px-4"
+                                role="dialog"
+                                aria-modal="true"
+                                aria-labelledby="offline-payment-confirmation-title"
+                            >
+                                <div class="w-full max-w-md rounded-3xl bg-white p-7 shadow-2xl">
+
+                                    <div class="flex h-14 w-14 items-center justify-center rounded-full bg-amber-100">
+                                        <svg
+                                            class="h-7 w-7 text-amber-700"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                        >
+                                            <path
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                d="M12 6v6l4 2"
+                                            />
+                                            <circle cx="12" cy="12" r="9"/>
+                                        </svg>
+                                    </div>
+
+                                    <h2
+                                        id="offline-payment-confirmation-title"
+                                        class="mt-5 text-2xl font-black text-slate-900"
+                                    >
+                                        Awaiting Admin Verification
+                                    </h2>
+
+                                    <p class="mt-3 text-sm leading-6 text-slate-600">
+                                        {{ session(
+                                            'offline_payment_success',
+                                            'Your payment receipt has been submitted successfully and is awaiting administrator verification.'
+                                        ) }}
+                                    </p>
+
+                                    @if(!empty($metadata['receipt_original_name']))
+                                        <p class="mt-3 text-xs font-semibold text-slate-500">
+                                            Receipt:
+                                            {{ $metadata['receipt_original_name'] }}
+                                        </p>
+                                    @endif
+
+                                    <div class="mt-7 grid grid-cols-2 gap-3">
+
+                                        <a
+                                            href="{{ $websitesUrl }}"
+                                            class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-800 transition hover:bg-slate-50"
+                                        >
+                                            Websites
+                                        </a>
+
+                                        <a
+                                            href="{{ $dashboardUrl }}"
+                                            class="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
+                                        >
+                                            Dashboard
+                                        </a>
+
+                                    </div>
+
+                                </div>
+                            </div>
+
+                        @endif
+
+                        {{-- ESUBIZ_OFFLINE_RECEIPT_UPLOAD_V1 --}}
+                        <form
+                            method="POST"
+                            action="{{ route('marketplace.developer.offline-payment.receipt', $attempt->id) }}"
+                            enctype="multipart/form-data"
+                            class="mt-5"
+                        >
+                            @csrf
 
                             <label class="block text-sm font-bold text-slate-700">
                                 {{ $paymentMethod->receipt_upload_label
@@ -114,15 +229,29 @@
 
                             <input
                                 type="file"
-                                disabled
-                                class="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500"
+                                name="receipt"
+                                accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                                required
+                                class="mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"
                             >
 
+                            @error('receipt')
+                                <p class="mt-2 text-sm font-semibold text-red-600">
+                                    {{ $message }}
+                                </p>
+                            @enderror
+
                             <p class="mt-2 text-xs text-slate-400">
-                                Receipt submission will be connected next.
+                                JPG, JPEG, PNG or PDF. Maximum file size: 10 MB.
                             </p>
 
-                        </div>
+                            <button
+                                type="submit"
+                                class="mt-4 inline-flex items-center justify-center rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
+                            >
+                                Submit Payment Receipt
+                            </button>
+                        </form>
 
                     </div>
 

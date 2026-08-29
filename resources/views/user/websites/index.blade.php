@@ -379,12 +379,7 @@
                                     class="col-span-2 flex justify-center"
                                 >
 
-                                    <a
-                                        href="#"
-                                        class="inline-flex min-h-[52px] w-[calc(50%-0.375rem)] min-w-[180px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-center text-sm font-bold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
-                                    >
-                                        Add Features
-                                    </a>
+
 
                                 </div>
 

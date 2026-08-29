@@ -1088,22 +1088,12 @@ class MarketplaceController extends Controller
                 ]);
         }
 
-        $deploymentType = $metadata['deployment_type']
-            ?? $payload['deployment_type']
-            ?? (
-                session('account_mode') === 'developer'
-                    ? 'off_server'
-                    : 'saas'
-            );
-
-        $destination = $deploymentType === 'off_server'
-            ? route('developer.dashboard')
-            : route('user.dashboard');
-
         /*
-         * Keep the buyer on the shared offline-payment page long enough
-         * to show a clear confirmation popup. The popup Close button
-         * performs the final redirect to the appropriate dashboard.
+         * ESUBIZ_OFFLINE_RECEIPT_AWAITING_VERIFICATION_V3
+         *
+         * Receipt submission is not payment completion.
+         * Keep the buyer on the verification page and let them
+         * choose where to continue next.
          */
         return redirect()
             ->route(
@@ -1113,10 +1103,6 @@ class MarketplaceController extends Controller
             ->with(
                 'offline_payment_success',
                 'Payment receipt submitted successfully. Your payment is awaiting administrator verification.'
-            )
-            ->with(
-                'offline_payment_redirect',
-                $destination
             );
     }
 
