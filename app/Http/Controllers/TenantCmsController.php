@@ -337,6 +337,20 @@ class TenantCmsController extends Controller
         |--------------------------------------------------------------------------
         */
 
+        /*
+         * ESUBIZ_TENANT_DASHBOARD_RESOURCE_METERS_V1
+         *
+         * Website-specific resource usage.
+         * Additional quota-based resources can be added to this
+         * same resource-card structure later.
+         */
+        $resourceUsage =
+            app(
+                \App\Services\Website\WebsiteResourceUsageService::class
+            )->summary(
+                $website
+            );
+
         $dashboardStats = [];
 
 
@@ -400,34 +414,108 @@ class TenantCmsController extends Controller
         }
 
 
-        $clients = $countTable([
-            'crm_contacts',
-            'clients',
-            'customers',
-        ]);
+        /*
+         * Storage replaces the former Clients overview card.
+         */
+        $storageUsage =
+            $resourceUsage['storage'];
 
-        if ($clients !== null) {
-            $dashboardStats[] = [
-                'label' => 'Clients',
-                'value' => number_format($clients),
-                'icon' => 'clients',
-            ];
-        }
+        $dashboardStats[] = [
+            'label' => 'Storage',
+            'value' =>
+                $storageUsage['used_mb'] >= 1024
+                    ? number_format(
+                        $storageUsage['used_gb'],
+                        2
+                    ) . ' GB'
+                    : number_format(
+                        $storageUsage['used_mb'],
+                        2
+                    ) . ' MB',
+            'icon' => 'storage',
+            'resource' => true,
+            'percentage' =>
+                $storageUsage['percentage'],
+            'resource_detail' =>
+                'of '
+                . number_format(
+                    $storageUsage['limit_gb'],
+                    2
+                )
+                . ' GB',
+        ];
 
 
-        $staff = $countTable([
-            'hr_employees',
-            'employees',
-            'staff',
-        ]);
+        /*
+         * Bandwidth replaces the former Staff overview card.
+         *
+         * Real transfer accounting is added separately; until then
+         * this card exposes the website allocation without inventing
+         * usage data.
+         */
+        $bandwidthUsage =
+            $resourceUsage['bandwidth'];
 
-        if ($staff !== null) {
-            $dashboardStats[] = [
-                'label' => 'Staff',
-                'value' => number_format($staff),
-                'icon' => 'staff',
-            ];
-        }
+        $bandwidthLimitMb =
+            (int) $bandwidthUsage['limit_mb'];
+
+        /*
+         * ESUBIZ_BANDWIDTH_DASHBOARD_THRESHOLD_STATE_V1
+         *
+         * Add-on recommendation is advisory only. Esubiz Admin will
+         * later configure the actual trigger Add-on attached to this
+         * resource/threshold.
+         */
+        $bandwidthPercentage =
+            (float) $bandwidthUsage['percentage'];
+
+        $bandwidthStatus =
+            $bandwidthPercentage >= 90
+                ? 'critical'
+                : (
+                    $bandwidthPercentage >= 80
+                        ? 'warning'
+                        : 'normal'
+                );
+
+        $dashboardStats[] = [
+            'label' => 'Bandwidth',
+            'value' =>
+                !empty($bandwidthUsage['tracking'])
+                    ? number_format(
+                        min(
+                            (float) $bandwidthUsage['used_mb'],
+                            (float) $bandwidthLimitMb
+                        ) / 1024,
+                        2
+                    ) . ' GB'
+                    : 'Not tracked yet',
+            'icon' => 'bandwidth',
+            'resource' => true,
+            'percentage' =>
+                $bandwidthPercentage,
+            'resource_status' =>
+                $bandwidthStatus,
+            'resource_detail' =>
+                'of '
+                . number_format(
+                    $bandwidthLimitMb / 1024,
+                    2
+                )
+                . ' GB monthly',
+            'resource_warning' =>
+                $bandwidthPercentage >= 100
+                    ? 'Your monthly bandwidth is exhausted. Increase your limit with a Bandwidth Add-on.'
+                    : (
+                        $bandwidthPercentage >= 90
+                            ? 'Your bandwidth is almost exhausted. Consider increasing your limit with a Bandwidth Add-on.'
+                            : (
+                                $bandwidthPercentage >= 80
+                                    ? 'You are approaching your monthly bandwidth limit.'
+                                    : null
+                            )
+                    ),
+        ];
 
 
         $tickets = $countTable([

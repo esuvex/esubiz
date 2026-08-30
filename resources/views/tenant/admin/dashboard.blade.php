@@ -398,6 +398,75 @@
                                 {{ $stat['value'] }}
                             </div>
 
+                            @if(!empty($stat['resource']))
+
+                                <div class="mt-3">
+
+                                    <div
+                                        class="mb-2 flex items-center justify-between gap-3 text-[11px] font-bold text-slate-500"
+                                    >
+                                        <span>
+                                            {{ $stat['resource_detail'] ?? '' }}
+                                        </span>
+
+                                        <span>
+                                            {{ number_format(
+                                                (float) ($stat['percentage'] ?? 0),
+                                                1
+                                            ) }}%
+                                        </span>
+                                    </div>
+
+                                    @php
+                                        /*
+                                         * ESUBIZ_RESOURCE_METER_THRESHOLD_UI_V1
+                                         */
+                                        $resourceStatus =
+                                            $stat['resource_status']
+                                            ?? 'normal';
+
+                                        $resourceBarClass =
+                                            $resourceStatus === 'critical'
+                                                ? 'bg-red-600'
+                                                : (
+                                                    $resourceStatus === 'warning'
+                                                        ? 'bg-amber-500'
+                                                        : 'bg-blue-600'
+                                                );
+                                    @endphp
+
+                                    <div
+                                        class="h-2 overflow-hidden rounded-full bg-slate-100"
+                                    >
+                                        <div
+                                            class="h-full rounded-full {{ $resourceBarClass }} transition-all"
+                                            style="width: {{ min(
+                                                100,
+                                                max(
+                                                    0,
+                                                    (float) ($stat['percentage'] ?? 0)
+                                                )
+                                            ) }}%"
+                                        ></div>
+                                    </div>
+
+                                    @if(!empty($stat['resource_warning']))
+                                        <div
+                                            class="mt-3 rounded-xl border px-3 py-2 text-xs font-semibold leading-5
+                                                {{
+                                                    ($stat['resource_status'] ?? '') === 'critical'
+                                                        ? 'border-red-200 bg-red-50 text-red-700'
+                                                        : 'border-amber-200 bg-amber-50 text-amber-700'
+                                                }}"
+                                        >
+                                            {{ $stat['resource_warning'] }}
+                                        </div>
+                                    @endif
+
+                                </div>
+
+                            @endif
+
                         </div>
 
 
@@ -405,6 +474,14 @@
                             class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-lg font-black text-blue-600"
                         >
                             @switch($stat['icon'])
+
+                                @case('storage')
+                                    ▣
+                                    @break
+
+                                @case('bandwidth')
+                                    ↕
+                                    @break
 
                                 @case('orders')
                                     ≡

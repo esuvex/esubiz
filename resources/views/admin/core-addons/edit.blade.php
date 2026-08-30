@@ -185,6 +185,200 @@
 
 
 
+            {{-- ESUBIZ_ADDON_RESOURCE_SALES_TRIGGER_FORM_V1 --}}
+            @php
+                $addonMetadata =
+                    json_decode(
+                        (string) ($addon->metadata ?? ''),
+                        true
+                    ) ?: [];
+
+                $salesTrigger =
+                    $addonMetadata['sales_trigger']
+                    ?? [];
+
+                $triggerDeployments =
+                    $salesTrigger['deployment_types']
+                    ?? [];
+            @endphp
+
+            <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+
+                <div>
+                    <h2 class="text-lg font-black text-slate-900">
+                        Resource Sales Trigger
+                    </h2>
+
+                    <p class="mt-1 text-sm text-slate-500">
+                        Recommend this Add-on when a website approaches the selected Core resource limit.
+                    </p>
+                </div>
+
+                <div class="mt-6 grid gap-5 md:grid-cols-2">
+
+                    <div class="md:col-span-2">
+                        <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+
+                            <input type="hidden"
+                                   name="sales_trigger_enabled"
+                                   value="0">
+
+                            <input type="checkbox"
+                                   name="sales_trigger_enabled"
+                                   value="1"
+                                   {{ old(
+                                       'sales_trigger_enabled',
+                                       $salesTrigger['enabled'] ?? false
+                                   ) ? 'checked' : '' }}>
+
+                            <span>
+                                <span class="block text-sm font-bold text-slate-700">
+                                    Enable resource sales trigger
+                                </span>
+
+                                <span class="block text-xs text-slate-500">
+                                    Shows this Add-on as an upgrade recommendation when its configured resource reaches the trigger level.
+                                </span>
+                            </span>
+
+                        </label>
+                    </div>
+
+
+                    <div>
+                        <label class="text-sm font-bold text-slate-700">
+                            Core Resource
+                        </label>
+
+                        <select
+                            name="sales_trigger_resource"
+                            class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3">
+
+                            <option value="">
+                                No resource selected
+                            </option>
+
+                            @foreach($capabilities as $capability)
+
+                                @php
+                                    $triggerKey =
+                                        $capability->limit_key
+                                        ?? $capability->capability_key
+                                        ?? $capability->feature_key
+                                        ?? $capability->key
+                                        ?? $capability->name;
+
+                                    $triggerType =
+                                        $capability->type
+                                        ?? $capability->entitlement_type
+                                        ?? 'feature';
+
+                                    $selectedTrigger =
+                                        old(
+                                            'sales_trigger_resource',
+                                            $salesTrigger['resource'] ?? ''
+                                        );
+                                @endphp
+
+                                <option
+                                    value="{{ $triggerKey }}"
+                                    {{ (string) $selectedTrigger === (string) $triggerKey ? 'selected' : '' }}
+                                >
+                                    {{ ucwords(str_replace(['.', '_'], ' ', $triggerKey)) }}
+                                    — {{ ucfirst($triggerType) }}
+                                </option>
+
+                            @endforeach
+
+                        </select>
+
+                        <p class="mt-2 text-xs text-slate-500">
+                            Resources come directly from the Core capability registry.
+                        </p>
+                    </div>
+
+
+                    <div>
+                        <label class="text-sm font-bold text-slate-700">
+                            Trigger At
+                        </label>
+
+                        <div class="mt-2 flex items-center gap-2">
+
+                            <input
+                                type="number"
+                                name="sales_trigger_threshold"
+                                min="0"
+                                max="100"
+                                step="1"
+                                value="{{ old(
+                                    'sales_trigger_threshold',
+                                    $salesTrigger['threshold_percentage'] ?? 80
+                                ) }}"
+                                class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3">
+
+                            <span class="flex h-[50px] items-center rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-500">
+                                %
+                            </span>
+
+                        </div>
+                    </div>
+
+
+                    <div class="md:col-span-2">
+
+                        <div class="grid gap-4 md:grid-cols-2">
+
+                            <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+
+                                <input type="hidden"
+                                       name="sales_trigger_saas"
+                                       value="0">
+
+                                <input type="checkbox"
+                                       name="sales_trigger_saas"
+                                       value="1"
+                                       {{ old(
+                                           'sales_trigger_saas',
+                                           in_array('saas', $triggerDeployments, true)
+                                       ) ? 'checked' : '' }}>
+
+                                <span class="text-sm font-bold text-slate-700">
+                                    Trigger for SaaS websites
+                                </span>
+
+                            </label>
+
+
+                            <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+
+                                <input type="hidden"
+                                       name="sales_trigger_off_server"
+                                       value="0">
+
+                                <input type="checkbox"
+                                       name="sales_trigger_off_server"
+                                       value="1"
+                                       {{ old(
+                                           'sales_trigger_off_server',
+                                           in_array('off_server', $triggerDeployments, true)
+                                       ) ? 'checked' : '' }}>
+
+                                <span class="text-sm font-bold text-slate-700">
+                                    Trigger for off-server websites
+                                </span>
+
+                            </label>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
             <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 
                 <h2 class="text-lg font-black text-slate-900">
@@ -207,14 +401,51 @@
                                 ?? $capability->key
                                 ?? $capability->name;
 
-                            $allocation = $allocations->get($key);
+                            /*
+                             * ESUBIZ_ADDON_ALLOCATION_EDIT_VALUE_V1
+                             *
+                             * Allocation rows are authoritative.
+                             * Match the resolved Core key first, with
+                             * capability aliases as safe fallbacks.
+                             */
+                            $allocationKeys = array_values(
+                                array_unique(
+                                    array_filter([
+                                        $key,
+                                        $capability->limit_key ?? null,
+                                        $capability->capability_key ?? null,
+                                        $capability->feature_key ?? null,
+                                        $capability->key ?? null,
+                                    ])
+                                )
+                            );
 
-                            $allocationValue = $allocation
-                                ? ($allocation->allocation ?? 0)
-                                : 0;
+                            $allocation = null;
 
-                            $isAddonUnlimited = $allocation
-                                && (bool) $allocation->is_unlimited;
+                            foreach ($allocationKeys as $allocationKey) {
+                                if ($allocations->has($allocationKey)) {
+                                    $allocation =
+                                        $allocations->get($allocationKey);
+
+                                    break;
+                                }
+                            }
+
+                            $allocationValue =
+                                $allocation
+                                    ? ($allocation->allocation ?? 0)
+                                    : 0;
+
+                            /*
+                             * ESUBIZ_ADDON_UNLIMITED_EDIT_STATE_V1
+                             *
+                             * Retain the saved unlimited state from the
+                             * authoritative allocation record on edit.
+                             */
+                            $isAddonUnlimited =
+                                $allocation
+                                ? (bool) ($allocation->is_unlimited ?? false)
+                                : false;
 
                             $type = $capability->type
                                 ?? $capability->entitlement_type
@@ -227,8 +458,18 @@
                                 ?? $capability->limit
                                 ?? null;
 
+                            /*
+                             * ESUBIZ_ADDON_SAVED_UNLIMITED_SUPPORT_V1
+                             *
+                             * A capability explicitly marked as supporting
+                             * Unlimited can show the control normally.
+                             *
+                             * On edit, an existing allocation already saved
+                             * as Unlimited must also keep that control visible.
+                             */
                             $supportsUnlimited =
-                                (bool) ($capability->supports_unlimited ?? false)
+                                $isAddonUnlimited
+                                || (bool) ($capability->supports_unlimited ?? false)
                                 || (bool) ($capability->allow_unlimited ?? false)
                                 || (bool) ($capability->is_unlimited ?? false)
                                 || strtolower((string) $type) === 'unlimited';
@@ -298,7 +539,18 @@
                                                 type="checkbox"
                                                 name="capability_unlimited[{{ $key }}]"
                                                 value="1"
-                                                {{ $isAddonUnlimited ? 'checked' : '' }}
+                                                {{-- ESUBIZ_ADDON_UNLIMITED_DIRECT_DB_STATE_V1 --}}
+                                                {{
+                                                    (
+                                                        $allocations->has($key)
+                                                        && (int) (
+                                                            $allocations->get($key)->is_unlimited
+                                                            ?? 0
+                                                        ) === 1
+                                                    )
+                                                        ? 'checked'
+                                                        : ''
+                                                }}
                                                 class="h-4 w-4 rounded border-slate-300">
 
                                             <span>
@@ -543,55 +795,8 @@ document.addEventListener('DOMContentLoaded', function () {
 @endsection
 
 
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    document
-        .querySelectorAll('input[name^="capability_allocations["]')
-        .forEach(function (input) {
-
-            if (
-                input.parentElement &&
-                input.parentElement.querySelector(
-                    '.esubiz-unlimited-control'
-                )
-            ) {
-                return;
-            }
-
-            const name = input.getAttribute('name');
-
-            if (!name) {
-                return;
-            }
-
-            const unlimitedName = name.replace(
-                'capability_allocations',
-                'capability_unlimited'
-            );
-
-            const wrapper = document.createElement('div');
-
-            wrapper.className =
-                'esubiz-unlimited-control mt-3 flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3';
-
-            wrapper.innerHTML = `
-                <input
-                    type="checkbox"
-                    name="${unlimitedName}"
-                    value="1"
-                    class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                >
-                <div>
-                    <div class="text-sm font-semibold text-slate-800">
-                        Unlimited allocation
-                    </div>
-                    <div class="text-xs text-slate-500">
-                        No quantity limit for this function from this add-on.
-                    </div>
-                </div>
-            `;
-
-            input.closest('div')?.appendChild(wrapper);
-        });
-});
-</script>
+{{-- ESUBIZ_DUPLICATE_UNLIMITED_JS_REMOVED_V1
+The Function Allocations section already renders its Unlimited checkbox
+server-side using the saved allocation record. The former JavaScript
+duplicate control was intentionally removed.
+--}}

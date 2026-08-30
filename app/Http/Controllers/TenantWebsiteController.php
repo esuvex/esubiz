@@ -27,7 +27,7 @@ class TenantWebsiteController extends Controller
      * This deliberately ignores the empty Core "home" placeholder
      * created when a tenant is initialized.
      */
-    public function home(Request $request): View
+    public function home(Request $request): \Illuminate\Http\Response
     {
         $website = $this->currentWebsite();
 
@@ -62,12 +62,17 @@ class TenantWebsiteController extends Controller
          * No explicit/custom CMS homepage.
          * Preserve the active theme landing page.
          */
-        return view(
+        /*
+         * ESUBIZ_TENANT_HOMEPAGE_BANDWIDTH_ACCOUNTING_V1
+         */
+        return $this->bandwidthTrackedView(
+            $website,
             'tenant.themes.corporate-default.home',
             compact(
                 'website',
                 'theme'
-            )
+            ),
+            '/'
         );
     }
 
@@ -86,7 +91,7 @@ class TenantWebsiteController extends Controller
         Request $request,
         string $subdomain,
         string $slug
-    ): View {
+    ): \Illuminate\Http\Response {
         $website = $this->currentWebsite();
 
         $slug = strtolower(
@@ -109,7 +114,8 @@ class TenantWebsiteController extends Controller
                 $payload['builderContent']
             )
         ) {
-            return view(
+            return $this->bandwidthTrackedView(
+                $website,
                 'tenant.themes.corporate-default.page',
                 [
                     'website' => $website,
@@ -117,7 +123,8 @@ class TenantWebsiteController extends Controller
                     'page' => $payload['page'],
                     'builderContent' =>
                         $payload['builderContent'],
-                ]
+                ],
+                $slug
             );
         }
 
@@ -140,13 +147,15 @@ class TenantWebsiteController extends Controller
                 true
             )
         ) {
-            return view(
+            return $this->bandwidthTrackedView(
+                $website,
                 'tenant.themes.corporate-default.'
                 . $slug,
                 compact(
                     'website',
                     'theme'
-                )
+                ),
+                $slug
             );
         }
 
@@ -156,7 +165,8 @@ class TenantWebsiteController extends Controller
          * falling back to the old Esubiz placeholder template.
          */
         if ($payload) {
-            return view(
+            return $this->bandwidthTrackedView(
+                $website,
                 'tenant.themes.corporate-default.page',
                 [
                     'website' => $website,
@@ -164,7 +174,8 @@ class TenantWebsiteController extends Controller
                     'page' => $payload['page'],
                     'builderContent' =>
                         $payload['builderContent'],
-                ]
+                ],
+                $slug
             );
         }
 
@@ -173,6 +184,53 @@ class TenantWebsiteController extends Controller
             'Published page not found.'
         );
     }
+
+    /*
+     * ESUBIZ_TENANT_PUBLIC_HTML_BANDWIDTH_ACCOUNTING_V1
+     *
+     * Records actual generated public tenant HTML bytes.
+     * Tenant admin traffic is intentionally excluded.
+     */
+    protected function bandwidthTrackedView(
+        Website $website,
+        string $view,
+        array $data,
+        string $slug
+    ): \Illuminate\Http\Response {
+        $html =
+            view(
+                $view,
+                $data
+            )->render();
+
+        try {
+            app(
+                \App\Services\Website\TenantBandwidthUsageService::class
+            )->recordBytes(
+                $website,
+                strlen($html),
+                'tenant_public_html',
+                null,
+                [
+                    'slug' => $slug,
+                ]
+            );
+        } catch (\Throwable $e) {
+            /*
+             * Bandwidth accounting must never block a public page.
+             */
+        }
+
+        return response(
+            $html,
+            200,
+            [
+                'Content-Type' =>
+                    'text/html; charset=UTF-8',
+            ]
+        );
+    }
+
 
     protected function currentWebsite(): Website
     {

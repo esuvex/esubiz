@@ -415,6 +415,19 @@ return view('admin.core-addons.index', [
             'capabilities.*' => ['string', 'max:150'],
             'capability_allocations' => ['nullable', 'array'],
             'capability_unlimited' => ['nullable', 'array'],
+
+            /*
+             * ESUBIZ_ADDON_RESOURCE_SALES_TRIGGER_V1
+             *
+             * Generic resource recommendation trigger.
+             * This does not grant entitlement; the existing
+             * Add-on allocation/fulfilment remains authoritative.
+             */
+            'sales_trigger_enabled' => ['nullable', 'boolean'],
+            'sales_trigger_resource' => ['nullable', 'string', 'max:150'],
+            'sales_trigger_threshold' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'sales_trigger_saas' => ['nullable', 'boolean'],
+            'sales_trigger_off_server' => ['nullable', 'boolean'],
         ]);
 
         $data['key'] = $data['key'] ?? $addon->key;
@@ -444,16 +457,57 @@ return view('admin.core-addons.index', [
                 'off_server_currency' => $data['off_server_currency'] ?? null,
                 'is_active' => $request->boolean('is_active'),
                 'capabilities' => $this->jsonArray($request->input('capabilities')),
-                'metadata' => json_encode([
-                    'deployment_types' => array_values(array_filter([
-                        $request->boolean('saas_available') ? 'saas' : null,
-                        $request->boolean('off_server_available') ? 'off_server' : null,
-                    ])),
-                    'commercial_models' => array_values(array_filter([
-                        $request->boolean('saas_available') ? 'rental_or_subscription' : null,
-                        $request->boolean('off_server_available') ? 'license' : null,
-                    ])),
-                ]),
+                /*
+                 * ESUBIZ_ADDON_RESOURCE_SALES_TRIGGER_METADATA_V1
+                 */
+                'metadata' => json_encode(array_merge(
+                    (array) (
+                        json_decode(
+                            (string) ($addon->metadata ?? ''),
+                            true
+                        ) ?: []
+                    ),
+                    [
+                        'deployment_types' => array_values(array_filter([
+                            $request->boolean('saas_available') ? 'saas' : null,
+                            $request->boolean('off_server_available') ? 'off_server' : null,
+                        ])),
+                        'commercial_models' => array_values(array_filter([
+                            $request->boolean('saas_available') ? 'rental_or_subscription' : null,
+                            $request->boolean('off_server_available') ? 'license' : null,
+                        ])),
+
+                        /*
+                         * Generic sales recommendation rule.
+                         * Marketplace fulfilment remains unchanged.
+                         */
+                        'sales_trigger' => [
+                            'enabled' =>
+                                $request->boolean('sales_trigger_enabled'),
+
+                            'resource' =>
+                                $data['sales_trigger_resource']
+                                ?? null,
+
+                            'threshold_percentage' =>
+                                isset($data['sales_trigger_threshold'])
+                                && $data['sales_trigger_threshold'] !== null
+                                    ? (float) $data['sales_trigger_threshold']
+                                    : 80,
+
+                            'deployment_types' =>
+                                array_values(array_filter([
+                                    $request->boolean('sales_trigger_saas')
+                                        ? 'saas'
+                                        : null,
+
+                                    $request->boolean('sales_trigger_off_server')
+                                        ? 'off_server'
+                                        : null,
+                                ])),
+                        ],
+                    ]
+                )),
                 'updated_at' => now(),
             ]);
 

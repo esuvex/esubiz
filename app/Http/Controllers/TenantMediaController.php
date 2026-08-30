@@ -591,6 +591,40 @@ class TenantMediaController extends Controller
         );
 
 
+        /*
+         * ESUBIZ_TENANT_MEDIA_BANDWIDTH_ACCOUNTING_V1
+         *
+         * Count the actual stored file size whenever this tenant
+         * media endpoint successfully serves a file.
+         */
+        try {
+            $bytes =
+                (int) $disk->size(
+                    $path
+                );
+
+            app(
+                \App\Services\Website\TenantBandwidthUsageService::class
+            )->recordBytes(
+                $website,
+                $bytes,
+                'tenant_media',
+                null,
+                [
+                    'path' => $path,
+                    'mime' =>
+                        $disk->mimeType(
+                            $path
+                        ),
+                ]
+            );
+        } catch (\Throwable $e) {
+            /*
+             * Bandwidth accounting must never prevent a valid
+             * tenant asset from being delivered.
+             */
+        }
+
         return response()->file(
             $disk->path(
                 $path

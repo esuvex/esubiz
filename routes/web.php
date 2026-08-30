@@ -316,7 +316,11 @@ Route::domain('{subdomain}.esubiz.com')
         'subdomain' =>
             '(?!www$)(?!esubiz$)[a-zA-Z0-9-]+'
     ])
-    ->middleware('website-tenant')
+    ->middleware([
+        'website-tenant',
+        \App\Http\Middleware\EnforceTenantBandwidthLimit::class,
+        \App\Http\Middleware\TrackTenantAdminBandwidth::class,
+    ])
     ->group(function () {
 
         /*

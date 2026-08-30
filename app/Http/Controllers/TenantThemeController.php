@@ -2360,6 +2360,35 @@ $this->tenantDatabaseService
 
 
         /*
+         * ESUBIZ_TENANT_THEME_ASSET_BANDWIDTH_ACCOUNTING_V1
+         *
+         * Count the actual theme asset bytes served for this
+         * tenant website.
+         */
+        try {
+            $bytes =
+                (int) filesize(
+                    $file
+                );
+
+            app(
+                \App\Services\Website\TenantBandwidthUsageService::class
+            )->recordBytes(
+                $website,
+                $bytes,
+                'tenant_theme_asset',
+                null,
+                [
+                    'path' => $path,
+                ]
+            );
+        } catch (\Throwable $e) {
+            /*
+             * Accounting must never block a valid theme asset.
+             */
+        }
+
+        /*
          * Laravel determines the correct MIME type from
          * the actual stored file.
          */

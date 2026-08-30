@@ -96,8 +96,18 @@ class WebsiteService
                 'ai_credits'      => 0,
                 'sms_credits'     => 0,
 
-                'storage_mb'     => 0,
-                'bandwidth_mb'   => 0,
+                /*
+                 * ESUBIZ_CORE_RESOURCE_DEFAULTS_V1
+                 *
+                 * Base Core allocation:
+                 * Storage   = 1 GB
+                 * Bandwidth = 40 GB
+                 *
+                 * Plans and Add-ons may increase these website-level
+                 * allocations after provisioning.
+                 */
+                'storage_mb'     => 1024,
+                'bandwidth_mb'   => 40960,
 
                 'enabled_modules'  => [],
                 'enabled_features' => [],
