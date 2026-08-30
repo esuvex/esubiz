@@ -176,7 +176,11 @@ class FinancialReportController
                     'type' => 'credit',
                     'source' => $row->source_module ?: 'other',
 
-                    'payment_source' => $this->resolvePaymentSource($row),
+                    'payment_source' => (
+                        ($row->event_type ?? null) === 'admin_grant'
+                            ? 'admin_grant'
+                            : $this->resolvePaymentSource($row)
+                    ),
                     'category' => $row->source_module
  ?: 'other',
                     'amount' => (float) $row->net_amount,
@@ -258,6 +262,7 @@ class FinancialReportController
                 'category',
                 'source',
                 'source_module',
+                'expense_type',
                 'status',
                 'item_type',
                 'item_id',
@@ -288,6 +293,11 @@ class FinancialReportController
                         'id' => $row->id,
                         'type' => 'debit',
                         'source' => $source ?: 'other',
+                        'payment_source' => (
+                            ($row->expense_type ?? null) === 'admin_grant'
+                                ? 'admin_grant'
+                                : null
+                        ),
                         'category' => $row->category ?? $source ?: 'other',
                         'amount' => (float) $row->report_amount,
                         'currency' => $row->currency ?? 'NGN',

@@ -377,7 +377,7 @@
                             <th>Item</th>
                         <th class="px-5 py-4 text-left">User</th>
                         <th class="px-5 py-4 text-left">Website</th>
-                        <th class="px-5 py-4 text-left">Status</th>
+                        <th class="px-5 py-4 text-left">Gateway</th>
                         <th class="px-5 py-4 text-right">Amount</th>
                     </tr>
                 </thead>
@@ -433,9 +433,12 @@
                                 @endif
                             </td>
 
+                            {{-- ESUBIZ_FINANCIAL_LEDGER_GATEWAY_COLUMN_V1 --}}
                             <td class="px-5 py-4">
                                 <span class="rounded-full bg-slate-100 px-3 py-1 text-xs">
-                                    {{ ucfirst($entry['status']) }}
+                                    {{ !empty($entry['payment_source'])
+                                        ? ucwords(str_replace('_', ' ', $entry['payment_source']))
+                                        : '—' }}
                                 </span>
                             </td>
 
