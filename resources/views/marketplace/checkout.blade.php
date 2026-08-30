@@ -432,22 +432,192 @@
 
                 </div>
 
+                {{-- ESUBIZ_CHECKOUT_GIFTCARD_VALIDATION_V1 --}}
                 <div
                     x-show="paymentMethod === 'giftcard'"
                     x-cloak
                     class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                    x-data="{
+                        validatingGiftCard: false,
+                        giftCardValid: false,
+                        giftCardMessage: '',
+                        giftCardBalance: null,
+                        giftCardCurrency: @js($currency ?? 'NGN'),
+                        giftCardCanCover: false,
+
+                        resetGiftCardValidation() {
+                            this.giftCardValid = false;
+                            this.giftCardMessage = '';
+                            this.giftCardBalance = null;
+                            this.giftCardCanCover = false;
+                        },
+
+                        async validateGiftCard() {
+                            const input =
+                                this.$refs.giftCardCode;
+
+                            const code =
+                                (input?.value || '').trim();
+
+                            this.resetGiftCardValidation();
+
+                            if (!code) {
+                                this.giftCardMessage =
+                                    'Enter a Gift Card code first.';
+                                return;
+                            }
+
+                            this.validatingGiftCard = true;
+
+                            try {
+                                const response = await fetch(
+                                    @js(route('gift-card.validate.checkout')),
+                                    {
+                                        method: 'POST',
+                                        headers: {
+                                            'Accept': 'application/json',
+                                            'Content-Type': 'application/json',
+                                            'X-CSRF-TOKEN':
+                                                document.querySelector(
+                                                    'meta[name=csrf-token]'
+                                                )?.content
+                                                || @js(csrf_token()),
+                                        },
+                                        body: JSON.stringify({
+                                            code: code,
+                                            amount:
+                                                Number(
+                                                    @js((float) ($price ?? 0))
+                                                )
+                                                * Number(
+                                                    quantity || 1
+                                                ),
+                                            currency:
+                                                @js($currency ?? 'NGN'),
+                                        }),
+                                    }
+                                );
+
+                                const result =
+                                    await response.json();
+
+                                this.giftCardValid =
+                                    response.ok
+                                    && result.valid === true;
+
+                                this.giftCardMessage =
+                                    result.message
+                                    || (
+                                        this.giftCardValid
+                                            ? 'Gift Card is valid.'
+                                            : 'Unable to validate Gift Card.'
+                                    );
+
+                                this.giftCardBalance =
+                                    result.balance ?? null;
+
+                                this.giftCardCurrency =
+                                    result.currency
+                                    || @js($currency ?? 'NGN');
+
+                                this.giftCardCanCover =
+                                    result.can_cover_order === true;
+
+                            } catch (error) {
+                                this.giftCardValid = false;
+                                this.giftCardMessage =
+                                    'Unable to validate Gift Card. Please try again.';
+                            } finally {
+                                this.validatingGiftCard = false;
+                            }
+                        }
+                    }"
                 >
                     <label class="text-xs font-black uppercase tracking-wider text-slate-500">
                         Gift Card Code
                     </label>
 
-                    <input
-                        type="text"
-                        name="gift_card_code"
-                        form="marketplace-payment-form"
-                        placeholder="Enter gift card code"
-                        class="mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-blue-500"
+                    <div class="mt-3 flex flex-col gap-3 sm:flex-row">
+                        <input
+                            x-ref="giftCardCode"
+                            x-on:input="resetGiftCardValidation()"
+                            type="text"
+                            name="gift_card_code"
+                            form="marketplace-payment-form"
+                            placeholder="Enter gift card code"
+                            autocomplete="off"
+                            class="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-blue-500"
+                        >
+
+                        <button
+                            type="button"
+                            x-on:click="validateGiftCard()"
+                            x-bind:disabled="validatingGiftCard"
+                            class="shrink-0 rounded-xl bg-slate-900 px-5 py-3 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            <span x-show="!validatingGiftCard">
+                                Validate Gift Card
+                            </span>
+
+                            <span
+                                x-show="validatingGiftCard"
+                                x-cloak
+                            >
+                                Validating...
+                            </span>
+                        </button>
+                    </div>
+
+                    <div
+                        x-show="giftCardMessage"
+                        x-cloak
+                        class="mt-3 rounded-xl border p-3 text-sm font-bold"
+                        x-bind:class="
+                            giftCardValid
+                                ? (
+                                    giftCardCanCover
+                                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                        : 'border-amber-200 bg-amber-50 text-amber-700'
+                                )
+                                : 'border-red-200 bg-red-50 text-red-700'
+                        "
                     >
+                        <div x-text="giftCardMessage"></div>
+
+                        <div
+                            x-show="giftCardValid && giftCardBalance !== null"
+                            class="mt-1 text-xs"
+                        >
+                            Available balance:
+                            <span
+                                x-text="
+                                    giftCardCurrency
+                                    + ' '
+                                    + Number(giftCardBalance || 0)
+                                        .toLocaleString(
+                                            undefined,
+                                            {
+                                                minimumFractionDigits: 2,
+                                                maximumFractionDigits: 2
+                                            }
+                                        )
+                                "
+                            ></span>
+                        </div>
+
+                        <div
+                            x-show="giftCardValid && !giftCardCanCover"
+                            class="mt-1 text-xs"
+                        >
+                            This Gift Card does not have enough balance
+                            to cover this checkout.
+                        </div>
+                    </div>
+
+                    <p class="mt-3 text-xs text-slate-400">
+                        Validation does not redeem the Gift Card.
+                        Redemption occurs only when you continue with payment.
+                    </p>
                 </div>
 
                 <form

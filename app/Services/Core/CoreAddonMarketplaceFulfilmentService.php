@@ -208,11 +208,36 @@ class CoreAddonMarketplaceFulfilmentService
         );
     }
 
+    /*
+     * ESUBIZ_CORE_FULFILMENT_CANONICAL_PRODUCT_TYPES_V1
+     *
+     * Canonical product identities used across Admin, User,
+     * Developer and Marketplace fulfilment.
+     *
+     * Legacy aliases remain supported for backwards compatibility.
+     */
     protected function resolveProduct(
         int $productId,
         string $productType
     ): array {
-        if ($productType === 'addon') {
+        $productType = match (
+            strtolower(trim($productType))
+        ) {
+            'addon',
+            'core-addon',
+            'core_addon'
+                => 'core_addon',
+
+            'bundle',
+            'core-bundle',
+            'core_bundle'
+                => 'core_bundle',
+
+            default =>
+                strtolower(trim($productType)),
+        };
+
+        if ($productType === 'core_addon') {
             $addon = DB::table('core_addons')
                 ->where('id', $productId)
                 ->where('is_active', true)
@@ -229,17 +254,27 @@ class CoreAddonMarketplaceFulfilmentService
                 : [];
         }
 
-        if ($productType === 'bundle') {
-            $rows = DB::table('core_addon_bundle_items as items')
+        if ($productType === 'core_bundle') {
+            $rows = DB::table(
+                'core_addon_bundle_items as items'
+            )
                 ->join(
                     'core_addons as addons',
                     'addons.id',
                     '=',
                     'items.addon_id'
                 )
-                ->where('items.bundle_id', $productId)
-                ->where('addons.is_active', true)
-                ->whereNull('addons.deleted_at')
+                ->where(
+                    'items.bundle_id',
+                    $productId
+                )
+                ->where(
+                    'addons.is_active',
+                    true
+                )
+                ->whereNull(
+                    'addons.deleted_at'
+                )
                 ->select(
                     'addons.*',
                     'items.bundle_id',
@@ -248,12 +283,21 @@ class CoreAddonMarketplaceFulfilmentService
                 )
                 ->get();
 
-            return $rows->map(fn ($row) => [
-                'addon' => $row,
-                'bundle_id' => $row->bundle_id,
-                'allocation' => $row->allocation,
-                'is_unlimited' => (bool) $row->is_unlimited,
-            ])->all();
+            return $rows->map(
+                fn ($row) => [
+                    'addon' =>
+                        $row,
+
+                    'bundle_id' =>
+                        $row->bundle_id,
+
+                    'allocation' =>
+                        $row->allocation,
+
+                    'is_unlimited' =>
+                        (bool) $row->is_unlimited,
+                ]
+            )->all();
         }
 
         return [];
