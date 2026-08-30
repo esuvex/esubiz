@@ -715,559 +715,97 @@
 
                 @else
 
-                    <div
-                        class="mt-6 rounded-2xl bg-slate-50 p-5"
-                    >
+                      {{-- ESUBIZ_USER_WEBSITE_PLAN_SELECTOR_V1 --}}
+                      <form
+                          method="POST"
+                          action="{{ $updateRoute }}"
+                          class="mt-6"
+                      >
+                          @csrf
+                          @method('PATCH')
 
-                        <div
-                            class="text-xs font-black uppercase tracking-wide text-slate-400"
-                        >
-                            Current Plan
-                        </div>
+                          <input
+                              type="hidden"
+                              name="section"
+                              value="plan"
+                          >
 
-                        <div
-                            class="mt-2 text-lg font-black text-slate-900"
-                        >
-                            {{
-                                $website->plan?->name
-                                    ?: 'No active plan'
-                            }}
-                        </div>
+                          <label
+                              class="text-sm font-black text-slate-700"
+                          >
+                              Select Plan
+                          </label>
 
-                    </div>
+                          <select
+                              name="plan_id"
+                              required
+                              class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                          >
+                              <option value="">
+                                  Select Plan
+                              </option>
 
-                    <a
-                        href="{{ $marketplaceBase }}?website_id={{ $website->id }}&product_type=plan"
-                        class="mt-5 inline-flex items-center rounded-xl border border-blue-200 bg-blue-50 px-5 py-3 text-sm font-black text-blue-700 hover:bg-blue-100"
-                    >
-                        View Plans
-                    </a>
+                              @foreach(
+                                  $plans ?? []
+                                  as $plan
+                              )
+                                  <option
+                                      value="{{ $plan->id }}"
+                                      @selected(
+                                          (int) $website->plan_id
+                                          ===
+                                          (int) $plan->id
+                                      )
+                                  >
+                                      {{ $plan->name }}
+                                  </option>
+                              @endforeach
+                          </select>
 
-                @endif
+                          <div
+                              class="mt-4 rounded-2xl bg-slate-50 p-4"
+                          >
+                              <div
+                                  class="text-xs font-black uppercase tracking-wide text-slate-400"
+                              >
+                                  Current Plan
+                              </div>
+
+                              <div
+                                  class="mt-1 text-lg font-black text-slate-900"
+                              >
+                                  {{
+                                      $website->plan?->name
+                                          ?: 'No active plan'
+                                  }}
+                              </div>
+                          </div>
+
+                          <button
+                              type="submit"
+                              class="mt-5 inline-flex items-center rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white hover:bg-blue-700"
+                          >
+                              Continue With Plan
+                          </button>
+                      </form>
+
+                  @endif
 
             </section>
 
 
             {{-- ================================================== --}}
-            {{-- CREDITS --}}
-            {{-- ================================================== --}}
-
-            <section
-                class="rounded-3xl border border-slate-200 bg-white p-7 shadow-sm"
-            >
-
-                <div
-                    class="border-b border-slate-100 pb-5"
-                >
-
-                    <div
-                        class="text-xs font-black uppercase tracking-widest text-blue-600"
-                    >
-                        Usage Credits
-                    </div>
-
-                    <h2
-                        class="mt-2 text-xl font-black text-slate-900"
-                    >
-                        Credits
-                    </h2>
-
-                    <p
-                        class="mt-2 text-sm leading-6 text-slate-500"
-                    >
-                        Central Esubiz balances used by this website.
-                    </p>
-
-                </div>
-
-
-                @if($isCentralAdmin)
-
-                    <form
-                        method="POST"
-                        action="{{ $updateRoute }}"
-                        class="mt-6"
-                    >
-
-                        @csrf
-                        @method('PATCH')
-
-                        <input
-                            type="hidden"
-                            name="section"
-                            value="credits"
-                        >
-
-                        <div
-                            class="grid gap-4 sm:grid-cols-2"
-                        >
-
-                            @foreach([
-                                'ai_credits' =>
-                                    'AI Credits',
-                                'sms_credits' =>
-                                    'SMS Credits',
-                                'email_credits' =>
-                                    'Email Credits',
-                                'whatsapp_credits' =>
-                                    'WhatsApp Credits',
-                            ] as $field => $label)
-
-                                <div>
-
-                                    <label
-                                        class="text-sm font-black text-slate-700"
-                                    >
-                                        {{ $label }}
-                                    </label>
-
-                                    <input
-                                        type="number"
-                                        name="{{ $field }}"
-                                        min="0"
-                                        required
-                                        value="{{ old($field, (int) $website->{$field}) }}"
-                                        class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                                    >
-
-                                </div>
-
-                            @endforeach
-
-                        </div>
-
-                        <button
-                            type="submit"
-                            class="mt-5 inline-flex items-center rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white hover:bg-blue-700"
-                        >
-                            Update Credit Balances
-                        </button>
-
-                    </form>
-
-                @else
-
-                    <div
-                        class="mt-6 grid grid-cols-2 gap-4"
-                    >
-
-                        @foreach([
-                            'AI' =>
-                                $website->ai_credits,
-                            'SMS' =>
-                                $website->sms_credits,
-                            'Email' =>
-                                $website->email_credits,
-                            'WhatsApp' =>
-                                $website->whatsapp_credits,
-                        ] as $label => $balance)
-
-                            <div
-                                class="rounded-2xl bg-slate-50 p-4"
-                            >
-
-                                <div
-                                    class="text-xs font-black uppercase tracking-wide text-slate-400"
-                                >
-                                    {{ $label }}
-                                </div>
-
-                                <div
-                                    class="mt-2 text-xl font-black text-slate-900"
-                                >
-                                    {{
-                                        number_format(
-                                            (int)
-                                            $balance
-                                        )
-                                    }}
-                                </div>
-
-                            </div>
-
-                        @endforeach
-
-                    </div>
-
-                    <a
-                        href="{{ $marketplaceBase }}?website_id={{ $website->id }}&product_type=credits"
-                        class="mt-5 inline-flex items-center rounded-xl border border-blue-200 bg-blue-50 px-5 py-3 text-sm font-black text-blue-700 hover:bg-blue-100"
-                    >
-                        Buy Credits
-                    </a>
-
-                @endif
-
-            </section>
-
-        </div>
-
-
-        {{-- ====================================================== --}}
-        {{-- PRODUCTS / ENTITLEMENTS --}}
-        {{-- ====================================================== --}}
-
-        <section
-            class="mt-7 rounded-3xl border border-slate-200 bg-white p-7 shadow-sm"
-        >
-
-            <div
-                class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-100 pb-5"
-            >
-
-                <div>
-
-                    <div
-                        class="text-xs font-black uppercase tracking-widest text-blue-600"
-                    >
-                        Products
-                    </div>
-
-                    <h2
-                        class="mt-2 text-xl font-black text-slate-900"
-                    >
-                        Add-ons, Themes & Modules
-                    </h2>
-
-                    <p
-                        class="mt-2 text-sm leading-6 text-slate-500"
-                    >
-                        Products listed here come from the website's central Esubiz entitlement records.
-                    </p>
-
-                </div>
-
-
-                <a
-                    href="{{ $marketplaceBase }}?website_id={{ $website->id }}"
-                    class="inline-flex items-center rounded-xl border border-blue-200 bg-blue-50 px-5 py-3 text-sm font-black text-blue-700 hover:bg-blue-100"
-                >
-                    {{
-                        $isCentralAdmin
-                            ? 'Manage Products'
-                            : 'Add Products'
-                    }}
-                </a>
-
-            </div>
-
-
-            <div
-                class="mt-6 grid gap-6 lg:grid-cols-3"
-            >
-
-
-                {{-- ADD-ONS --}}
-
-                <div
-                    class="rounded-2xl border border-slate-200 p-5"
-                >
-
-                    <div
-                        class="flex items-center justify-between gap-3"
-                    >
-
-                        <h3
-                            class="font-black text-slate-900"
-                        >
-                            Add-ons
-                        </h3>
-
-                        <span
-                            class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600"
-                        >
-                            {{ $addons->count() }}
-                        </span>
-
-                    </div>
-
-
-                    <div class="mt-4 space-y-3">
-
-                        @forelse(
-                            $addons
-                            as $item
-                        )
-
-                            <div
-                                class="rounded-xl bg-slate-50 p-4"
-                            >
-
-                                <div
-                                    class="font-bold text-slate-900"
-                                >
-                                    {{
-                                        $item->product_name
-                                            ?: 'Add-on'
-                                    }}
-                                </div>
-
-                                <div
-                                    class="mt-1 text-xs font-semibold text-slate-500"
-                                >
-                                    {{
-                                        ucfirst(
-                                            $item->status
-                                                ?: 'active'
-                                        )
-                                    }}
-                                </div>
-
-                            </div>
-
-                        @empty
-
-                            <div
-                                class="rounded-xl bg-slate-50 p-4 text-sm text-slate-500"
-                            >
-                                No Add-ons assigned.
-                            </div>
-
-                        @endforelse
-
-                    </div>
-
-
-                    <a
-                        href="{{ $marketplaceBase }}?website_id={{ $website->id }}&product_type=addon"
-                        class="mt-4 inline-flex text-sm font-black text-blue-600 hover:text-blue-700"
-                    >
-                        Browse Add-ons →
-                    </a>
-
-                </div>
-
-
-                {{-- THEMES --}}
-
-                <div
-                    class="rounded-2xl border border-slate-200 p-5"
-                >
-
-                    <div
-                        class="flex items-center justify-between gap-3"
-                    >
-
-                        <h3
-                            class="font-black text-slate-900"
-                        >
-                            Themes
-                        </h3>
-
-                        <span
-                            class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600"
-                        >
-                            {{ $themes->count() }}
-                        </span>
-
-                    </div>
-
-
-                    <div class="mt-4 space-y-3">
-
-                        @forelse(
-                            $themes
-                            as $item
-                        )
-
-                            <div
-                                class="rounded-xl bg-slate-50 p-4"
-                            >
-
-                                <div
-                                    class="font-bold text-slate-900"
-                                >
-                                    {{
-                                        $item->product_name
-                                            ?: 'Theme'
-                                    }}
-                                </div>
-
-                                <div
-                                    class="mt-1 text-xs font-semibold text-slate-500"
-                                >
-                                    {{
-                                        ucfirst(
-                                            $item->status
-                                                ?: 'active'
-                                        )
-                                    }}
-                                </div>
-
-                            </div>
-
-                        @empty
-
-                            <div
-                                class="rounded-xl bg-slate-50 p-4 text-sm text-slate-500"
-                            >
-                                No purchased Theme entitlement.
-                            </div>
-
-                        @endforelse
-
-                    </div>
-
-
-                    <a
-                        href="{{ $marketplaceBase }}?website_id={{ $website->id }}&product_type=theme"
-                        class="mt-4 inline-flex text-sm font-black text-blue-600 hover:text-blue-700"
-                    >
-                        Browse Themes →
-                    </a>
-
-                </div>
-
-
-                {{-- MODULES --}}
-
-                <div
-                    class="rounded-2xl border border-slate-200 p-5"
-                >
-
-                    <div
-                        class="flex items-center justify-between gap-3"
-                    >
-
-                        <h3
-                            class="font-black text-slate-900"
-                        >
-                            Modules
-                        </h3>
-
-                        <span
-                            class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600"
-                        >
-                            {{ $modules->count() }}
-                        </span>
-
-                    </div>
-
-
-                    <div class="mt-4 space-y-3">
-
-                        @forelse(
-                            $modules
-                            as $item
-                        )
-
-                            <div
-                                class="rounded-xl bg-slate-50 p-4"
-                            >
-
-                                <div
-                                    class="font-bold text-slate-900"
-                                >
-                                    {{
-                                        $item->product_name
-                                            ?: 'Module'
-                                    }}
-                                </div>
-
-                                <div
-                                    class="mt-1 text-xs font-semibold text-slate-500"
-                                >
-                                    {{
-                                        ucfirst(
-                                            $item->status
-                                                ?: 'active'
-                                        )
-                                    }}
-                                </div>
-
-                            </div>
-
-                        @empty
-
-                            <div
-                                class="rounded-xl bg-slate-50 p-4 text-sm text-slate-500"
-                            >
-                                No Modules assigned.
-                            </div>
-
-                        @endforelse
-
-                    </div>
-
-
-                    <a
-                        href="{{ $marketplaceBase }}?website_id={{ $website->id }}&product_type=module"
-                        class="mt-4 inline-flex text-sm font-black text-blue-600 hover:text-blue-700"
-                    >
-                        Browse Modules →
-                    </a>
-
-                </div>
-
-            </div>
-
-
-            @if($otherProducts->isNotEmpty())
-
-                <div
-                    class="mt-6 border-t border-slate-100 pt-6"
-                >
-
-                    <h3
-                        class="font-black text-slate-900"
-                    >
-                        Other Website Products
-                    </h3>
-
-                    <div
-                        class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
-                    >
-
-                        @foreach(
-                            $otherProducts
-                            as $item
-                        )
-
-                            <div
-                                class="rounded-xl bg-slate-50 p-4"
-                            >
-
-                                <div
-                                    class="font-bold text-slate-900"
-                                >
-                                    {{
-                                        $item->product_name
-                                            ?: ucfirst(
-                                                str_replace(
-                                                    '_',
-                                                    ' ',
-                                                    $item->product_type
-                                                )
-                                            )
-                                    }}
-                                </div>
-
-                                <div
-                                    class="mt-1 text-xs font-semibold text-slate-500"
-                                >
-                                    {{
-                                        ucfirst(
-                                            $item->status
-                                                ?: 'active'
-                                        )
-                                    }}
-                                </div>
-
-                            </div>
-
-                        @endforeach
-
-                    </div>
-
-                </div>
-
-            @endif
-
-        </section>
-
-
-        {{-- ====================================================== --}}
-        {{-- WEBSITE INFORMATION --}}
+            {{-- CREDITS / PRODUCT SELECTOR --}}
+@include(
+    'user.websites.partials.product-selector',
+    [
+        'selectorMode' => request()->routeIs('admin.websites.*')
+            ? 'admin'
+            : 'user',
+    ]
+)
+
+{{-- WEBSITE INFORMATION --}}
         {{-- ====================================================== --}}
 
         <section

@@ -70,14 +70,17 @@ class WebsiteTypeController extends Controller
                 );
 
             $optimized =
+                /* ESUBIZ_WEBSITE_TYPE_UNIVERSAL_MEDIA_STORE_V1 */
                 app(
                     \App\Services\Media\CentralMediaService::class
-                )->storeOptimizedToDisk(
+                )->storeMediaToDisk(
                     $file,
                     'public',
                     'website-types',
-                    1920,
-                    82
+                    [
+                        'maximum_edge' => 1920,
+                        'image_quality' => 82,
+                    ]
                 );
 
             $validated['image'] =
@@ -146,12 +149,14 @@ class WebsiteTypeController extends Controller
             $optimized =
                 app(
                     \App\Services\Media\CentralMediaService::class
-                )->storeOptimizedToDisk(
+                )->storeMediaToDisk(
                     $file,
                     'public',
                     'website-types',
-                    1920,
-                    82
+                    [
+                        'maximum_edge' => 1920,
+                        'image_quality' => 82,
+                    ]
                 );
 
             $newImage =

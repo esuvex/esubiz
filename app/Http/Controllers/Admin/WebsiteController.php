@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
+use Illuminate\Support\Facades\DB;
+
 use App\Http\Controllers\Controller;
 use App\Models\Website;
 use App\Services\CentralApi\CentralWebsiteDetailService;
@@ -242,11 +244,65 @@ class WebsiteController extends Controller
             ->orderBy('name')
             ->get();
 
+        /*
+         * ESUBIZ_ADMIN_GENERIC_PRODUCT_GRANTS_V1
+         *
+         * Display authoritative Central service-credit balances rather
+         * than the legacy websites.*_credits columns.
+         */
+        $creditBalances = app(
+            \App\Services\Core\AdminProductGrantService::class
+        )->serviceCreditBalances($website->id);
+
+
+        $creditPackages = DB::table('credit_packages')
+            ->where('is_active', true)
+            ->orderBy('credit_type')
+            ->orderBy('sort_order')
+            ->orderBy('credit_quantity')
+            ->get()
+            ->groupBy(function ($package) {
+                return preg_replace(
+                    '/_credits?$/',
+                    '',
+                    strtolower(trim($package->credit_type))
+                );
+            });
+
+        /*
+         * ESUBIZ_ADMIN_DYNAMIC_PRODUCT_SELECTOR_V1
+         *
+         * Shared catalogue tree for Admin/User website management.
+         */
+        $websiteProductTree = app(
+            \App\Services\Core\WebsiteProductSelectorService::class
+        )->tree();
+
+
+        $website->setAttribute(
+            'ai_credits',
+            $creditBalances['ai'] ?? 0
+        );
+        $website->setAttribute(
+            'sms_credits',
+            $creditBalances['sms'] ?? 0
+        );
+        $website->setAttribute(
+            'email_credits',
+            $creditBalances['email'] ?? 0
+        );
+        $website->setAttribute(
+            'whatsapp_credits',
+            $creditBalances['whatsapp'] ?? 0
+        );
+
         return view('user.websites.edit', [
             'website' => $website,
             'managementMode' => 'admin',
             'entitlements' => $entitlements,
             'plans' => $plans,
+            'creditPackages' => $creditPackages,
+            'websiteProductTree' => $websiteProductTree,
         ]);
     }
 
@@ -400,25 +456,114 @@ class WebsiteController extends Controller
         }
 
         /*
-         * Central credit balances.
+         * Central service-credit authority.
+         *
+         * Admin credit changes use the same Central balances consumed
+         * by SaaS/off-server service APIs and are financially/audit
+         * recorded with source=admin.
          */
         if ($request->input('section') === 'credits') {
             $validated = $request->validate([
-                'ai_credits' => ['required', 'integer', 'min:0'],
-                'sms_credits' => ['required', 'integer', 'min:0'],
-                'email_credits' => ['required', 'integer', 'min:0'],
-                'whatsapp_credits' => ['required', 'integer', 'min:0'],
+                'credit_package_id' => [
+                    'required',
+                    'integer',
+                    'exists:credit_packages,id',
+                ],
             ]);
 
-            $website->update($validated);
+            $admin = $request->user();
+
+            abort_unless($admin, 401);
+
+            $result = app(
+                \App\Services\Core\AdminProductGrantService::class
+            )->grantCreditPackage(
+                $website,
+                (int) $validated['credit_package_id'],
+                (int) $admin->id
+            );
 
             return redirect()
                 ->route('admin.websites.edit', $website)
                 ->with(
                     'success',
-                    'Website credit balances updated successfully.'
+                    sprintf(
+                        '%s granted successfully. New %s balance: %s.',
+                        $result['package_name'],
+                        strtoupper($result['service']),
+                        number_format($result['balance_after'])
+                    )
                 );
         }
+
+        /*
+         * ESUBIZ_GENERIC_ADMIN_WEBSITE_PRODUCT_GRANT_V2
+         *
+         * One permanent Admin Website Edit product endpoint.
+         *
+         * Add-ons, Bundles, Themes, Modules and future registered
+         * product families all enter through this dispatcher.
+         */
+        if (
+            $request->input('section')
+            === 'product_grant'
+        ) {
+            $validated =
+                $request->validate([
+                    'product_type' => [
+                        'required',
+                        'string',
+                        'max:100',
+                    ],
+
+                    'product_id' => [
+                        'required',
+                        'integer',
+                        'min:1',
+                    ],
+
+                    'quantity' => [
+                        'nullable',
+                        'integer',
+                        'min:1',
+                        'max:1000',
+                    ],
+                ]);
+
+            $admin =
+                $request->user();
+
+            abort_unless(
+                $admin,
+                401
+            );
+
+            $result = app(
+                \App\Services\Core\WebsiteProductGrantDispatcher::class
+            )->grant(
+                $website,
+                (string) $validated['product_type'],
+                (int) $validated['product_id'],
+                (int) $admin->id,
+                (int) ($validated['quantity'] ?? 1)
+            );
+
+            return redirect()
+                ->route(
+                    'admin.websites.edit',
+                    $website
+                )
+                ->with(
+                    'success',
+                    (
+                        $result['product_name']
+                        ?? $result['package_name']
+                        ?? 'Product'
+                    )
+                    . ' granted successfully.'
+                );
+        }
+
 
         return redirect()
             ->route('admin.websites.edit', $website);

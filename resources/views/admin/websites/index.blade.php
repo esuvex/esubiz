@@ -408,8 +408,62 @@
                                                 href="{{ route('admin.websites.show', $website->id) }}"
                                                 class="block px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
                                             >
-                                                View Website
+                                                View Website Info
                                             </a>
+
+
+                                            {{--
+                                                ESUBIZ_ADMIN_WEBSITE_VISIT_ACTION_V1
+                                            --}}
+
+                                            @php
+                                                $visitHost =
+                                                    trim(
+                                                        (string) (
+                                                            $website->registered_domain
+                                                            ?: (
+                                                                !empty($website->subdomain)
+                                                                    ? $website->subdomain
+                                                                        . '.'
+                                                                        . preg_replace(
+                                                                            '/^www\./i',
+                                                                            '',
+                                                                            parse_url(
+                                                                                config('app.url'),
+                                                                                PHP_URL_HOST
+                                                                            )
+                                                                                ?: 'esubiz.com'
+                                                                        )
+                                                                    : ''
+                                                            )
+                                                        )
+                                                    );
+
+                                                $visitUrl =
+                                                    $visitHost !== ''
+                                                        ? (
+                                                            preg_match(
+                                                                '#^https?://#i',
+                                                                $visitHost
+                                                            )
+                                                                ? $visitHost
+                                                                : 'https://' . $visitHost
+                                                        )
+                                                        : null;
+                                            @endphp
+
+                                            @if($visitUrl)
+
+                                                <a
+                                                    href="{{ $visitUrl }}"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    class="block px-4 py-3 text-sm font-bold text-blue-700 transition hover:bg-blue-50"
+                                                >
+                                                    Visit Website
+                                                </a>
+
+                                            @endif
 
 
                                             @if(
