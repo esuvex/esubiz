@@ -713,9 +713,10 @@
                     AI Credits
                 </a>
 
-                <a href="{{ url('/admin/ai/history') }}"
+                {{-- ESUBIZ_TENANT_AI_USAGE_PRICING_SIDEBAR_V1 --}}
+                <a href="{{ url('/admin/ai/usage') }}"
                    class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white">
-                    Usage History
+                    Usage & Pricing
                 </a>
 
             </div>

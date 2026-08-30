@@ -775,24 +775,6 @@
 
             </div>
 
-            <input
-                type="number"
-                step="0.000001"
-                min="0"
-                name="input_cost_per_million"
-                placeholder="Input cost / 1M"
-                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
-            >
-
-            <input
-                type="number"
-                step="0.000001"
-                min="0"
-                name="output_cost_per_million"
-                placeholder="Output cost / 1M"
-                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
-            >
-
             <label class="flex items-center gap-2 text-sm font-bold">
                 <input
                     type="checkbox"
@@ -1169,75 +1151,71 @@
 
     </div>
 
+    {{-- ESUBIZ_PROVIDER_MODEL_COSTS_READ_ONLY_V1 --}}
     <div class="mt-8">
-        <h3 class="text-lg font-black text-slate-900">
-            OpenAI Model Costs
-        </h3>
+        <div class="flex flex-wrap items-end justify-between gap-4">
+            <div>
+                <h3 class="text-lg font-black text-slate-900">
+                    OpenAI Model Costs
+                </h3>
 
-        <div class="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-3">
-            @foreach($openAiModels as $model)
-                <div class="rounded-2xl border border-slate-200 p-5">
-                    <div class="text-sm font-black text-slate-900">
-                        {{ $model->name }}
-                    </div>
+                <p class="mt-1 max-w-3xl text-xs leading-5 text-slate-500">
+                    Official upstream model pricing used internally by the
+                    Esubiz billing engine. These costs are system controlled
+                    and cannot be changed from Admin.
+                </p>
+            </div>
 
-                    <div class="mt-1 font-mono text-[11px] text-slate-400">
-                        {{ $model->model_key }}
-                    </div>
+            <div class="rounded-xl bg-slate-100 px-3 py-2 text-[11px] font-black uppercase tracking-wide text-slate-500">
+                Read Only
+            </div>
+        </div>
 
-                    <div class="mt-5 space-y-4">
+        <div class="mt-5 overflow-x-auto">
+            <table class="w-full min-w-[760px] text-left text-sm">
+                <thead class="border-b border-slate-200 text-xs uppercase text-slate-400">
+                    <tr>
+                        <th class="px-3 py-3">Model</th>
+                        <th class="px-3 py-3">Input / 1M</th>
+                        <th class="px-3 py-3">Cached Input / 1M</th>
+                        <th class="px-3 py-3">Output / 1M</th>
+                        <th class="px-3 py-3">Type</th>
+                    </tr>
+                </thead>
 
-                        <div>
-                            <label class="text-[11px] font-black text-slate-600">
-                                Input / 1M tokens ($)
-                            </label>
+                <tbody>
+                    @foreach($openAiModels as $model)
+                        <tr class="border-b border-slate-100">
+                            <td class="px-3 py-4">
+                                <div class="font-black text-slate-900">
+                                    {{ $model->name }}
+                                </div>
+                                <div class="mt-1 font-mono text-[10px] text-slate-400">
+                                    {{ $model->model_key }}
+                                </div>
+                            </td>
 
-                            <input
-                                type="number"
-                                min="0"
-                                step="0.000001"
-                                value="{{ (float) $model->input_cost_per_million }}"
-                                data-autosave-url="{{ route('admin.ai.models.pricing.update', $model) }}"
-                                data-autosave-field="input_cost_per_million"
-                                class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm"
-                            >
-                        </div>
+                            <td class="px-3 py-4 font-bold text-slate-700">
+                                ${{ number_format((float) $model->input_cost_per_million, 6) }}
+                            </td>
 
-                        <div>
-                            <label class="text-[11px] font-black text-slate-600">
-                                Cached Input / 1M ($)
-                            </label>
+                            <td class="px-3 py-4 font-bold text-slate-700">
+                                ${{ number_format((float) $model->cached_input_cost_per_million, 6) }}
+                            </td>
 
-                            <input
-                                type="number"
-                                min="0"
-                                step="0.000001"
-                                value="{{ (float) $model->cached_input_cost_per_million }}"
-                                data-autosave-url="{{ route('admin.ai.models.pricing.update', $model) }}"
-                                data-autosave-field="cached_input_cost_per_million"
-                                class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm"
-                            >
-                        </div>
+                            <td class="px-3 py-4 font-bold text-slate-700">
+                                ${{ number_format((float) $model->output_cost_per_million, 6) }}
+                            </td>
 
-                        <div>
-                            <label class="text-[11px] font-black text-slate-600">
-                                Output / 1M tokens ($)
-                            </label>
-
-                            <input
-                                type="number"
-                                min="0"
-                                step="0.000001"
-                                value="{{ (float) $model->output_cost_per_million }}"
-                                data-autosave-url="{{ route('admin.ai.models.pricing.update', $model) }}"
-                                data-autosave-field="output_cost_per_million"
-                                class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm"
-                            >
-                        </div>
-
-                    </div>
-                </div>
-            @endforeach
+                            <td class="px-3 py-4">
+                                {{ in_array('image', $model->capabilities ?? [], true)
+                                    ? 'Image'
+                                    : 'Text' }}
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
         </div>
     </div>
 

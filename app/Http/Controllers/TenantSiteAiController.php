@@ -1768,4 +1768,300 @@ $payload =
             );
     }
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | ESUBIZ_TENANT_AI_USAGE_PRICING_V1
+    |--------------------------------------------------------------------------
+    |
+    | Customer-facing AI pricing guide and consumption history.
+    |
+    | Provider/model/token/commercial internals deliberately never leave
+    | this controller. Customer prices are expressed only in AI Credits.
+    |
+    */
+    public function usagePricing(
+        string $subdomain
+    ): \Illuminate\View\View {
+
+        $website =
+            \App\Models\Website::query()
+                ->where(
+                    'subdomain',
+                    $subdomain
+                )
+                ->firstOrFail();
+
+
+        $pricing =
+            app(
+                \App\Services\Ai\AiPricingService::class
+            );
+
+
+        /*
+         * Internal provider-cost envelopes.
+         *
+         * These are NOT customer prices.
+         * They represent approximate underlying AI work envelopes and
+         * are converted to credits by the same central pricing authority
+         * used by Esubiz billing.
+         *
+         * Final credit ranges therefore respond automatically to:
+         * - Esubiz markup
+         * - USD/NGN billing rate
+         * - Naira per AI Credit
+         */
+        $taskDefinitions = collect([
+            [
+                'task' => 'Short Text & Titles',
+                'description' =>
+                    'Titles, subtitles, labels and short website copy.',
+                'min_usd' => 0.001,
+                'max_usd' => 0.004,
+            ],
+            [
+                'task' => 'Paragraph & Website Copy',
+                'description' =>
+                    'Paragraphs, descriptions and general website content.',
+                'min_usd' => 0.003,
+                'max_usd' => 0.012,
+            ],
+            [
+                'task' => 'Call to Action',
+                'description' =>
+                    'CTA headings, supporting text and button copy.',
+                'min_usd' => 0.003,
+                'max_usd' => 0.012,
+            ],
+            [
+                'task' => 'Hero Content',
+                'description' =>
+                    'Hero headline, supporting copy and call to action.',
+                'min_usd' => 0.005,
+                'max_usd' => 0.020,
+            ],
+            [
+                'task' => 'Product or Service Description',
+                'description' =>
+                    'AI-written product and service descriptions.',
+                'min_usd' => 0.003,
+                'max_usd' => 0.015,
+            ],
+            [
+                'task' => 'Features / Cards — Text',
+                'description' =>
+                    'Structured feature or service cards without generated photos.',
+                'min_usd' => 0.008,
+                'max_usd' => 0.030,
+            ],
+            [
+                'task' => 'Testimonials — Text',
+                'description' =>
+                    'Structured testimonial content without generated photos.',
+                'min_usd' => 0.008,
+                'max_usd' => 0.030,
+            ],
+            [
+                'task' => 'Full Website Section',
+                'description' =>
+                    'A complete website section with structured content.',
+                'min_usd' => 0.010,
+                'max_usd' => 0.040,
+            ],
+            [
+                'task' => 'Multi-section Website Content',
+                'description' =>
+                    'Larger requests covering several website sections.',
+                'min_usd' => 0.025,
+                'max_usd' => 0.100,
+            ],
+            [
+                'task' => 'Single AI Image',
+                'description' =>
+                    'One generated website image.',
+                'min_usd' => 0.035,
+                'max_usd' => 0.060,
+            ],
+            [
+                'task' => 'Hero + AI Image',
+                'description' =>
+                    'Hero content with one generated website image.',
+                'min_usd' => 0.040,
+                'max_usd' => 0.080,
+            ],
+            [
+                'task' => 'Features / Cards + Images',
+                'description' =>
+                    'Structured feature cards with generated supporting images.',
+                'min_usd' => 0.080,
+                'max_usd' => 0.250,
+            ],
+            [
+                'task' => 'Testimonials + Headshots',
+                'description' =>
+                    'Structured testimonials with generated profile photos.',
+                'min_usd' => 0.080,
+                'max_usd' => 0.250,
+            ],
+            [
+                'task' => 'Branding',
+                'description' =>
+                    'Website logo, footer logo and website icon generation.',
+                'min_usd' => 0.120,
+                'max_usd' => 0.220,
+            ],
+            [
+                'task' => 'Theme Generation',
+                'description' =>
+                    'Complete AI-assisted website theme generation. Usage varies with theme complexity, sections, content and generated images.',
+                'min_usd' => 0.180,
+                'max_usd' => 0.890,
+            ],
+            [
+                'task' => 'Advanced Website Generation',
+                'description' =>
+                    'Complex website generation requiring multiple AI operations.',
+                'min_usd' => 0.080,
+                'max_usd' => 0.300,
+            ],
+        ])->map(
+            function (array $task) use ($pricing) {
+
+                $minimum =
+                    $pricing->quote(
+                        (float) $task['min_usd']
+                    );
+
+                $maximum =
+                    $pricing->quote(
+                        (float) $task['max_usd']
+                    );
+
+                return [
+                    'task' =>
+                        $task['task'],
+
+                    'description' =>
+                        $task['description'],
+
+                    'minimum_credits' =>
+                        (int) (
+                            $minimum['credits']
+                            ?? 0
+                        ),
+
+                    'maximum_credits' =>
+                        max(
+                            (int) (
+                                $minimum['credits']
+                                ?? 0
+                            ),
+                            (int) (
+                                $maximum['credits']
+                                ?? 0
+                            )
+                        ),
+                ];
+            }
+        );
+
+
+        /*
+         * Separate paginator name prevents pricing navigation from
+         * interfering with usage-history navigation.
+         */
+        $pricingPage =
+            max(
+                1,
+                (int) request(
+                    'pricing_page',
+                    1
+                )
+            );
+
+        $pricingPerPage = 10;
+
+        $pricingGuide =
+            new \Illuminate\Pagination\LengthAwarePaginator(
+                $taskDefinitions
+                    ->forPage(
+                        $pricingPage,
+                        $pricingPerPage
+                    )
+                    ->values(),
+                $taskDefinitions->count(),
+                $pricingPerPage,
+                $pricingPage,
+                [
+                    'path' =>
+                        request()->url(),
+
+                    'pageName' =>
+                        'pricing_page',
+
+                    'query' =>
+                        request()->except(
+                            'pricing_page'
+                        ),
+                ]
+            );
+
+
+        /*
+         * Customer history comes from the authoritative central
+         * AI-credit ledger, not from provider-facing usage details.
+         */
+        $usageHistory =
+            \App\Models\Ai\AiCreditTransaction::query()
+                ->where(
+                    'website_id',
+                    $website->id
+                )
+                ->where(
+                    'direction',
+                    'debit'
+                )
+                ->where(
+                    'type',
+                    'ai_usage'
+                )
+                ->latest('id')
+                ->paginate(
+                    10,
+                    [
+                        'id',
+                        'route_key',
+                        'credits',
+                        'balance_after',
+                        'status',
+                        'description',
+                        'metadata',
+                        'created_at',
+                    ],
+                    'history_page'
+                )
+                ->withQueryString();
+
+
+        $aiCreditBalance =
+            app(
+                \App\Services\Ai\AiCreditService::class
+            )->balance(
+                $website
+            );
+
+
+        return view(
+            'tenant.admin.ai.usage',
+            compact(
+                'website',
+                'pricingGuide',
+                'usageHistory',
+                'aiCreditBalance'
+            )
+        );
+    }
+
+
 }

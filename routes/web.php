@@ -435,6 +435,23 @@ Route::domain('{subdomain}.esubiz.com')
             'tenant.cms.site-ai.generate'
         );
 
+        /*
+         * ESUBIZ_TENANT_AI_USAGE_PRICING_ROUTE_V1
+         *
+         * Separate customer-facing AI economics page.
+         * AI Settings remains dedicated to configuration.
+         */
+        Route::get(
+            '/admin/ai/usage',
+            [
+                \App\Http\Controllers\TenantSiteAiController::class,
+                'usagePricing',
+            ]
+        )->name(
+            'tenant.cms.ai.usage'
+        );
+
+
         Route::get(
             '/admin/esubiz-ai/settings',
             [

@@ -859,17 +859,6 @@ $persona->delete();
                     'array',
                 ],
 
-                'input_cost_per_million' => [
-                    'nullable',
-                    'numeric',
-                    'min:0',
-                ],
-
-                'output_cost_per_million' => [
-                    'nullable',
-                    'numeric',
-                    'min:0',
-                ],
             ]);
 
 
@@ -896,18 +885,6 @@ $persona->delete();
                     ]
                     ?? []
                 ),
-
-            'input_cost_per_million' =>
-                $data[
-                    'input_cost_per_million'
-                ]
-                ?? null,
-
-            'output_cost_per_million' =>
-                $data[
-                    'output_cost_per_million'
-                ]
-                ?? null,
 
             'is_active' =>
                 $request->boolean(

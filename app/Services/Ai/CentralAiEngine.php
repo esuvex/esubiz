@@ -332,6 +332,39 @@ class CentralAiEngine
         }
 
 
+        /*
+         * ESUBIZ_CENTRAL_AI_IMAGE_TOOL_SUPPORT_V1
+         *
+         * Image generation remains inside the same Central AI
+         * authority as text generation:
+         *
+         * routing -> provider -> website credits -> usage log
+         * -> pricing -> debit.
+         *
+         * Normal text requests are completely unaffected because
+         * tools are only forwarded when explicitly requested.
+         */
+        if (
+            !empty($options['tools'])
+            && is_array($options['tools'])
+        ) {
+            $payload['tools'] =
+                array_values(
+                    $options['tools']
+                );
+        }
+
+
+        if (
+            isset($options['tool_choice'])
+            && $options['tool_choice'] !== ''
+            && $options['tool_choice'] !== null
+        ) {
+            $payload['tool_choice'] =
+                $options['tool_choice'];
+        }
+
+
         $response =
             Http::withToken(
                 $apiKey
@@ -417,6 +450,37 @@ class CentralAiEngine
             );
 
 
+        /*
+         * ESUBIZ_GPT_IMAGE_2_ACCOUNTING_CONTEXT_V1
+         *
+         * A Responses API request may be hosted by the centrally routed
+         * text model while its image_generation tool performs the actual
+         * image work with GPT-Image-2.
+         *
+         * Never silently price that image work as Luna/Terra/Sol.
+         * Preserve the existing text calculation for ordinary requests
+         * and capture the provider's complete usage payload for exact
+         * GPT-Image-2 accounting.
+         */
+        $imageToolModelKey = null;
+
+        foreach (
+            (array) ($options['tools'] ?? [])
+            as $tool
+        ) {
+            if (
+                is_array($tool)
+                && ($tool['type'] ?? null) === 'image_generation'
+                && !empty($tool['model'])
+            ) {
+                $imageToolModelKey =
+                    (string) $tool['model'];
+
+                break;
+            }
+        }
+
+
         $providerCost =
             $this->calculateProviderCost(
                 $model,
@@ -424,6 +488,204 @@ class CentralAiEngine
                 $cachedInputTokens,
                 $outputTokens
             );
+
+
+        $providerUsageSnapshot =
+            is_array(
+                data_get(
+                    $data,
+                    'usage'
+                )
+            )
+                ? data_get(
+                    $data,
+                    'usage'
+                )
+                : [];
+
+
+        /*
+         * ESUBIZ_GPT_IMAGE_2_FINAL_BILLING_V1
+         *
+         * GPT-Image-2 economics are independent of the host text model.
+         *
+         * Verified Esubiz/OpenAI billing export rates:
+         *
+         * text input   = $5 / 1M
+         * image input  = $8 / 1M
+         * image output = $30 / 1M
+         *
+         * The export also establishes the historical average provider
+         * cost of $4.192988 / 96 = $0.0436770833 per generated image.
+         *
+         * When explicit image-generation token usage is available in the
+         * Responses output, calculate the exact provider cost.
+         *
+         * Otherwise use the verified historical average PER GENERATED
+         * IMAGE rather than charging zero or pretending Luna/Terra
+         * performed the image generation.
+         */
+        if ($imageToolModelKey === 'gpt-image-2') {
+
+            $imageTextInputTokens = 0;
+            $imageInputTokens = 0;
+            $imageOutputTokens = 0;
+            $generatedImageCount = 0;
+
+
+            foreach (
+                (array) data_get(
+                    $data,
+                    'output',
+                    []
+                )
+                as $outputItem
+            ) {
+                if (!is_array($outputItem)) {
+                    continue;
+                }
+
+
+                $outputType =
+                    (string) (
+                        $outputItem['type']
+                        ?? ''
+                    );
+
+
+                if (
+                    $outputType
+                    === 'image_generation_call'
+                ) {
+                    $generatedImageCount++;
+
+
+                    $imageTextInputTokens +=
+                        (int) (
+                            data_get(
+                                $outputItem,
+                                'usage.text_input_tokens',
+                                data_get(
+                                    $outputItem,
+                                    'usage.input_tokens_details.text_tokens',
+                                    0
+                                )
+                            )
+                            ?? 0
+                        );
+
+
+                    $imageInputTokens +=
+                        (int) (
+                            data_get(
+                                $outputItem,
+                                'usage.image_input_tokens',
+                                data_get(
+                                    $outputItem,
+                                    'usage.input_tokens_details.image_tokens',
+                                    0
+                                )
+                            )
+                            ?? 0
+                        );
+
+
+                    $imageOutputTokens +=
+                        (int) (
+                            data_get(
+                                $outputItem,
+                                'usage.image_output_tokens',
+                                data_get(
+                                    $outputItem,
+                                    'usage.output_tokens',
+                                    0
+                                )
+                            )
+                            ?? 0
+                        );
+                }
+            }
+
+
+            if (
+                $imageTextInputTokens > 0
+                || $imageInputTokens > 0
+                || $imageOutputTokens > 0
+            ) {
+                $providerCost =
+                    (
+                        $imageTextInputTokens
+                        / 1000000
+                        * 5.00
+                    )
+                    +
+                    (
+                        $imageInputTokens
+                        / 1000000
+                        * 8.00
+                    )
+                    +
+                    (
+                        $imageOutputTokens
+                        / 1000000
+                        * 30.00
+                    );
+
+
+                $imagePricingSource =
+                    'exact_image_token_usage';
+            } else {
+
+                /*
+                 * Historical provider-billing fallback derived from the
+                 * Esubiz OpenAI cost export:
+                 *
+                 * $4.192988 total GPT-Image-2 cost
+                 * / 96 requests
+                 * = $0.0436770833 average provider cost per image.
+                 */
+                $generatedImageCount =
+                    max(
+                        1,
+                        $generatedImageCount
+                    );
+
+
+                /*
+                 * ESUBIZ_GPT_IMAGE_2_HISTORICAL_BUFFER_V1
+                 *
+                 * Historical average provider cost:
+                 * $0.0436770833 per generated image.
+                 *
+                 * Apply a 20% estimation safety buffer while exact
+                 * live image-token usage is unavailable.
+                 *
+                 * This buffer is part of the temporary provider-cost
+                 * estimate. The normal Esubiz commercial markup is
+                 * applied separately afterwards by AiPricingService.
+                 */
+                $historicalImageCostUsd =
+                    0.0436770833;
+
+                $historicalImageSafetyMultiplier =
+                    1.20;
+
+                $providerCost =
+                    $generatedImageCount
+                    * $historicalImageCostUsd
+                    * $historicalImageSafetyMultiplier;
+
+
+                $imagePricingSource =
+                    'verified_historical_average_plus_20_percent';
+            }
+        } else {
+            $imageTextInputTokens = 0;
+            $imageInputTokens = 0;
+            $imageOutputTokens = 0;
+            $generatedImageCount = 0;
+            $imagePricingSource = null;
+        }
 
 
         /*
@@ -531,6 +793,27 @@ class CentralAiEngine
 
                                 'used_fallback' =>
                                     $usedFallback,
+
+                                'image_tool_model' =>
+                                    $imageToolModelKey,
+
+                                'provider_usage' =>
+                                    $providerUsageSnapshot,
+
+                                'image_pricing_source' =>
+                                    $imagePricingSource,
+
+                                'generated_image_count' =>
+                                    $generatedImageCount,
+
+                                'image_text_input_tokens' =>
+                                    $imageTextInputTokens,
+
+                                'image_input_tokens' =>
+                                    $imageInputTokens,
+
+                                'image_output_tokens' =>
+                                    $imageOutputTokens,
                             ],
                         ]
                     );

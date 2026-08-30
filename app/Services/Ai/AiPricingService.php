@@ -10,16 +10,16 @@ class AiPricingService
     /**
      * OpenAI provider cost -> Esubiz selling price.
      *
-     * 400% markup means:
+     * 300% markup means:
      *
-     * provider cost + 400% provider cost
-     * = provider cost x 5.
+     * provider cost + 300% provider cost
+     * = provider cost x 4.
      */
     public function markupPercent(): float
     {
         return AiCommercialSetting::number(
             'provider_markup_percent',
-            400
+            300
         );
     }
 
