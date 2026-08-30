@@ -185,7 +185,7 @@
 
 
 
-            {{-- ESUBIZ_ADDON_RESOURCE_SALES_TRIGGER_FORM_V1 --}}
+            {{-- ESUBIZ_ADDON_RESOURCE_SETTINGS_AND_SALES_TRIGGER_V1 --}}
             @php
                 $addonMetadata =
                     json_decode(
@@ -200,44 +200,100 @@
                 $triggerDeployments =
                     $salesTrigger['deployment_types']
                     ?? [];
+
+                /*
+                 * ESUBIZ_CENTRAL_RESOURCE_SETTINGS_FORM_READ_V1
+                 *
+                 * Resource Settings are central and keyed by Core
+                 * resource. Legacy Add-on metadata is fallback only.
+                 */
+                $legacyResourceSettings =
+                    $addonMetadata['resource_settings']
+                    ?? [];
+
+                $configuredResource =
+                    $salesTrigger['resource']
+                    ?? $legacyResourceSettings['resource']
+                    ?? '';
+
+                $centralResourceRow =
+                    $configuredResource
+                        ? \Illuminate\Support\Facades\DB::table(
+                            'core_resource_settings'
+                        )
+                            ->where(
+                                'resource_key',
+                                $configuredResource
+                            )
+                            ->first()
+                        : null;
+
+                $resourceSettings =
+                    $centralResourceRow
+                        ? [
+                            'enabled' =>
+                                (bool) $centralResourceRow->is_active,
+
+                            'resource' =>
+                                $centralResourceRow->resource_key,
+
+                            'dashboard_threshold_percentage' =>
+                                (float) $centralResourceRow
+                                    ->dashboard_threshold_percentage,
+
+                            'deployment_types' =>
+                                array_values(array_filter([
+                                    $centralResourceRow->saas_visible
+                                        ? 'saas'
+                                        : null,
+
+                                    $centralResourceRow->off_server_visible
+                                        ? 'off_server'
+                                        : null,
+                                ])),
+                        ]
+                        : $legacyResourceSettings;
+
+                $resourceDeployments =
+                    $resourceSettings['deployment_types']
+                    ?? [];
             @endphp
 
             <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 
                 <div>
                     <h2 class="text-lg font-black text-slate-900">
-                        Resource Sales Trigger
+                        Resource Settings &amp; Sales Trigger
                     </h2>
 
                     <p class="mt-1 text-sm text-slate-500">
-                        Recommend this Add-on when a website approaches the selected Core resource limit.
+                        Register this Add-on's Core capability as a managed resource and configure its independent dashboard and sales thresholds.
                     </p>
                 </div>
+
 
                 <div class="mt-6 grid gap-5 md:grid-cols-2">
 
                     <div class="md:col-span-2">
-                        <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <label class="flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
 
-                            <input type="hidden"
-                                   name="sales_trigger_enabled"
-                                   value="0">
-
+                            {{-- ESUBIZ_RESOURCE_ENABLED_CHECKBOX_FIX_V1 --}}
                             <input type="checkbox"
-                                   name="sales_trigger_enabled"
+                                   name="resource_enabled"
                                    value="1"
                                    {{ old(
-                                       'sales_trigger_enabled',
-                                       $salesTrigger['enabled'] ?? false
+                                       'resource_enabled',
+                                       $resourceSettings['enabled']
+                                           ?? !empty($salesTrigger['resource'])
                                    ) ? 'checked' : '' }}>
 
                             <span>
                                 <span class="block text-sm font-bold text-slate-700">
-                                    Enable resource sales trigger
+                                    Enable as managed resource
                                 </span>
 
                                 <span class="block text-xs text-slate-500">
-                                    Shows this Add-on as an upgrade recommendation when its configured resource reaches the trigger level.
+                                    Makes this capability available to the Resources system. Core remains responsible for its default allocation.
                                 </span>
                             </span>
 
@@ -251,41 +307,41 @@
                         </label>
 
                         <select
-                            name="sales_trigger_resource"
+                            name="resource_key"
                             class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3">
 
                             <option value="">
-                                No resource selected
+                                Select Core capability
                             </option>
 
                             @foreach($capabilities as $capability)
 
                                 @php
-                                    $triggerKey =
+                                    $resourceKey =
                                         $capability->limit_key
                                         ?? $capability->capability_key
                                         ?? $capability->feature_key
                                         ?? $capability->key
                                         ?? $capability->name;
 
-                                    $triggerType =
+                                    $resourceType =
                                         $capability->type
                                         ?? $capability->entitlement_type
                                         ?? 'feature';
 
-                                    $selectedTrigger =
+                                    $selectedResource =
                                         old(
-                                            'sales_trigger_resource',
-                                            $salesTrigger['resource'] ?? ''
+                                            'resource_key',
+                                            $configuredResource
                                         );
                                 @endphp
 
                                 <option
-                                    value="{{ $triggerKey }}"
-                                    {{ (string) $selectedTrigger === (string) $triggerKey ? 'selected' : '' }}
+                                    value="{{ $resourceKey }}"
+                                    {{ (string) $selectedResource === (string) $resourceKey ? 'selected' : '' }}
                                 >
-                                    {{ ucwords(str_replace(['.', '_'], ' ', $triggerKey)) }}
-                                    — {{ ucfirst($triggerType) }}
+                                    {{ ucwords(str_replace(['.', '_'], ' ', $resourceKey)) }}
+                                    — {{ ucfirst($resourceType) }}
                                 </option>
 
                             @endforeach
@@ -293,27 +349,28 @@
                         </select>
 
                         <p class="mt-2 text-xs text-slate-500">
-                            Resources come directly from the Core capability registry.
+                            Selecting a capability here does not change its Core default allocation.
                         </p>
                     </div>
 
 
                     <div>
                         <label class="text-sm font-bold text-slate-700">
-                            Trigger At
+                            Dashboard Display At
                         </label>
 
                         <div class="mt-2 flex items-center gap-2">
 
                             <input
                                 type="number"
-                                name="sales_trigger_threshold"
+                                name="resource_dashboard_threshold"
                                 min="0"
                                 max="100"
                                 step="1"
                                 value="{{ old(
-                                    'sales_trigger_threshold',
-                                    $salesTrigger['threshold_percentage'] ?? 80
+                                    'resource_dashboard_threshold',
+                                    $resourceSettings['dashboard_threshold_percentage']
+                                        ?? 50
                                 ) }}"
                                 class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3">
 
@@ -322,6 +379,10 @@
                             </span>
 
                         </div>
+
+                        <p class="mt-2 text-xs text-slate-500">
+                            The resource card appears on the website dashboard when usage reaches this percentage.
+                        </p>
                     </div>
 
 
@@ -332,19 +393,19 @@
                             <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
 
                                 <input type="hidden"
-                                       name="sales_trigger_saas"
+                                       name="resource_saas"
                                        value="0">
 
                                 <input type="checkbox"
-                                       name="sales_trigger_saas"
+                                       name="resource_saas"
                                        value="1"
                                        {{ old(
-                                           'sales_trigger_saas',
-                                           in_array('saas', $triggerDeployments, true)
+                                           'resource_saas',
+                                           in_array('saas', $resourceDeployments, true)
                                        ) ? 'checked' : '' }}>
 
                                 <span class="text-sm font-bold text-slate-700">
-                                    Trigger for SaaS websites
+                                    Resource visible for SaaS
                                 </span>
 
                             </label>
@@ -353,24 +414,335 @@
                             <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
 
                                 <input type="hidden"
-                                       name="sales_trigger_off_server"
+                                       name="resource_off_server"
                                        value="0">
 
                                 <input type="checkbox"
-                                       name="sales_trigger_off_server"
+                                       name="resource_off_server"
                                        value="1"
                                        {{ old(
-                                           'sales_trigger_off_server',
-                                           in_array('off_server', $triggerDeployments, true)
+                                           'resource_off_server',
+                                           in_array('off_server', $resourceDeployments, true)
                                        ) ? 'checked' : '' }}>
 
                                 <span class="text-sm font-bold text-slate-700">
-                                    Trigger for off-server websites
+                                    Resource visible for off-server
                                 </span>
 
                             </label>
 
                         </div>
+
+                    </div>
+
+
+                    {{-- ESUBIZ_GENERIC_MULTI_ADDON_SALES_TRIGGER_UI_V1 --}}
+                    <div class="md:col-span-2 border-t border-slate-200 pt-6">
+
+                        <div>
+                            <h3 class="text-base font-black text-slate-900">
+                                Add-on Sales Triggers
+                            </h3>
+
+                            <p class="mt-1 text-xs text-slate-500">
+                                Locations are submitted by the Core features and modules that own them. Enable this Add-on only at the locations where it should be recommended.
+                            </p>
+                        </div>
+
+                        <div class="mt-5 space-y-4">
+
+                            @forelse($triggerLocations as $triggerIndex => $triggerLocation)
+
+                                @php
+                                    $locationKey =
+                                        $triggerLocation['key']
+                                        ?? $triggerIndex;
+
+                                    $savedTrigger =
+                                        $salesTriggers
+                                            ->firstWhere(
+                                                'location_key',
+                                                $locationKey
+                                            );
+
+                                    $savedCondition =
+                                        old(
+                                            "sales_triggers.{$loop->index}.condition_type",
+                                            $savedTrigger->condition_type
+                                                ?? 'always'
+                                        );
+
+                                    $supportsResourceCondition =
+                                        (bool) (
+                                            $triggerLocation[
+                                                'supports_resource_condition'
+                                            ]
+                                            ?? false
+                                        );
+
+                                    $savedResourceKey =
+                                        old(
+                                            "sales_triggers.{$loop->index}.resource_key",
+                                            $savedTrigger->resource_key
+                                                ?? $triggerLocation['resource_key']
+                                                ?? ''
+                                        );
+                                @endphp
+
+                                <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+
+                                    <input
+                                        type="hidden"
+                                        name="sales_triggers[{{ $loop->index }}][location_key]"
+                                        value="{{ $locationKey }}">
+
+                                    <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+
+                                        <div>
+                                            <h4 class="text-sm font-black text-slate-900">
+                                                {{ $triggerLocation['label'] ?? $locationKey }}
+                                            </h4>
+
+                                            <div class="mt-2 flex flex-wrap gap-2">
+
+                                                <span class="rounded-full bg-white px-3 py-1 text-[11px] font-bold text-slate-600 ring-1 ring-slate-200">
+                                                    {{ $locationKey }}
+                                                </span>
+
+                                                <span class="rounded-full bg-white px-3 py-1 text-[11px] font-bold text-slate-600 ring-1 ring-slate-200">
+                                                    Owner: {{ $triggerLocation['feature_key'] ?? '—' }}
+                                                </span>
+
+                                                @if(!empty($triggerLocation['group']))
+                                                    <span class="rounded-full bg-white px-3 py-1 text-[11px] font-bold text-slate-600 ring-1 ring-slate-200">
+                                                        {{ $triggerLocation['group'] }}
+                                                    </span>
+                                                @endif
+
+                                            </div>
+                                        </div>
+
+                                        <label class="flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+
+                                            {{-- ESUBIZ_SALES_TRIGGER_ACTIVE_CHECKBOX_FIX_V1 --}}
+                                            <input
+                                                type="checkbox"
+                                                name="sales_triggers[{{ $loop->index }}][is_active]"
+                                                value="1"
+                                                {{ old(
+                                                    "sales_triggers.{$loop->index}.is_active",
+                                                    $savedTrigger
+                                                        ? (bool) $savedTrigger->is_active
+                                                        : false
+                                                ) ? 'checked' : '' }}>
+
+                                            <span class="text-sm font-bold text-slate-700">
+                                                Enable trigger
+                                            </span>
+
+                                        </label>
+
+                                    </div>
+
+                                    <div class="mt-5 grid gap-4 md:grid-cols-2">
+
+                                        <div>
+                                            <label class="text-sm font-bold text-slate-700">
+                                                Trigger Condition
+                                            </label>
+
+                                            <select
+                                                name="sales_triggers[{{ $loop->index }}][condition_type]"
+                                                class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3">
+
+                                                @foreach($triggerConditions as $conditionKey => $conditionLabel)
+                                                    <option
+                                                        value="{{ $conditionKey }}"
+                                                        {{ (string) $savedCondition === (string) $conditionKey ? 'selected' : '' }}>
+                                                        {{ $conditionLabel }}
+                                                    </option>
+                                                @endforeach
+
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label class="text-sm font-bold text-slate-700">
+                                                Priority
+                                            </label>
+
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                name="sales_triggers[{{ $loop->index }}][priority]"
+                                                value="{{ old(
+                                                    "sales_triggers.{$loop->index}.priority",
+                                                    $savedTrigger->priority ?? 100
+                                                ) }}"
+                                                class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3">
+                                        </div>
+
+                                        @if($supportsResourceCondition)
+
+                                            <div>
+                                                <label class="text-sm font-bold text-slate-700">
+                                                    Resource
+                                                </label>
+
+                                                <input
+                                                    type="text"
+                                                    name="sales_triggers[{{ $loop->index }}][resource_key]"
+                                                    value="{{ $savedResourceKey }}"
+                                                    placeholder="e.g. bandwidth"
+                                                    class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3">
+                                            </div>
+
+                                            <div>
+                                                <label class="text-sm font-bold text-slate-700">
+                                                    Trigger Threshold
+                                                </label>
+
+                                                <div class="mt-2 flex items-center gap-2">
+
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        max="100"
+                                                        step="1"
+                                                        name="sales_triggers[{{ $loop->index }}][threshold_percentage]"
+                                                        value="{{ old(
+                                                            "sales_triggers.{$loop->index}.threshold_percentage",
+                                                            $savedTrigger->threshold_percentage ?? 80
+                                                        ) }}"
+                                                        class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3">
+
+                                                    <span class="flex h-[50px] items-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-500">
+                                                        %
+                                                    </span>
+
+                                                </div>
+                                            </div>
+
+                                        @endif
+
+                                        <div>
+                                            <label class="text-sm font-bold text-slate-700">
+                                                Recommendation Title
+                                            </label>
+
+                                            <input
+                                                type="text"
+                                                name="sales_triggers[{{ $loop->index }}][title]"
+                                                value="{{ old(
+                                                    "sales_triggers.{$loop->index}.title",
+                                                    $savedTrigger->title ?? ''
+                                                ) }}"
+                                                placeholder="Optional"
+                                                class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3">
+                                        </div>
+
+                                        <div>
+                                            <label class="text-sm font-bold text-slate-700">
+                                                CTA Text
+                                            </label>
+
+                                            <input
+                                                type="text"
+                                                name="sales_triggers[{{ $loop->index }}][cta_text]"
+                                                value="{{ old(
+                                                    "sales_triggers.{$loop->index}.cta_text",
+                                                    $savedTrigger->cta_text ?? ''
+                                                ) }}"
+                                                placeholder="e.g. Upgrade to Pro"
+                                                class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3">
+                                        </div>
+
+                                        <div class="md:col-span-2">
+                                            <label class="text-sm font-bold text-slate-700">
+                                                Recommendation Message
+                                            </label>
+
+                                            <textarea
+                                                name="sales_triggers[{{ $loop->index }}][message]"
+                                                rows="2"
+                                                placeholder="Optional message shown with this recommendation."
+                                                class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3">{{ old(
+                                                    "sales_triggers.{$loop->index}.message",
+                                                    $savedTrigger->message ?? ''
+                                                ) }}</textarea>
+                                        </div>
+
+                                        <div class="md:col-span-2">
+
+                                            <div class="grid gap-4 md:grid-cols-2">
+
+                                                <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+
+                                                    <input
+                                                        type="hidden"
+                                                        name="sales_triggers[{{ $loop->index }}][saas_visible]"
+                                                        value="0">
+
+                                                    <input
+                                                        type="checkbox"
+                                                        name="sales_triggers[{{ $loop->index }}][saas_visible]"
+                                                        value="1"
+                                                        {{ old(
+                                                            "sales_triggers.{$loop->index}.saas_visible",
+                                                            $savedTrigger
+                                                                ? (bool) $savedTrigger->saas_visible
+                                                                : false
+                                                        ) ? 'checked' : '' }}>
+
+                                                    <span class="text-sm font-bold text-slate-700">
+                                                        Show for SaaS
+                                                    </span>
+
+                                                </label>
+
+                                                <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+
+                                                    <input
+                                                        type="hidden"
+                                                        name="sales_triggers[{{ $loop->index }}][off_server_visible]"
+                                                        value="0">
+
+                                                    <input
+                                                        type="checkbox"
+                                                        name="sales_triggers[{{ $loop->index }}][off_server_visible]"
+                                                        value="1"
+                                                        {{ old(
+                                                            "sales_triggers.{$loop->index}.off_server_visible",
+                                                            $savedTrigger
+                                                                ? (bool) $savedTrigger->off_server_visible
+                                                                : false
+                                                        ) ? 'checked' : '' }}>
+
+                                                    <span class="text-sm font-bold text-slate-700">
+                                                        Show for off-server
+                                                    </span>
+
+                                                </label>
+
+                                            </div>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                            @empty
+
+                                <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-6 text-sm text-slate-500">
+                                    No Core feature or module has submitted an Add-on sales-trigger location.
+                                </div>
+
+                            @endforelse
+
+                        </div>
+
+                    </div>
 
                     </div>
 

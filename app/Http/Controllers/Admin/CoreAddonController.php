@@ -423,11 +423,84 @@ return view('admin.core-addons.index', [
              * This does not grant entitlement; the existing
              * Add-on allocation/fulfilment remains authoritative.
              */
-            'sales_trigger_enabled' => ['nullable', 'boolean'],
-            'sales_trigger_resource' => ['nullable', 'string', 'max:150'],
-            'sales_trigger_threshold' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'sales_trigger_saas' => ['nullable', 'boolean'],
-            'sales_trigger_off_server' => ['nullable', 'boolean'],
+            /*
+             * ESUBIZ_ADDON_RESOURCE_SETTINGS_V1
+             *
+             * Resource registration is commercial/resource-management
+             * configuration. Core remains authoritative for the base
+             * allocation and Add-on allocations remain authoritative
+             * for purchased entitlement increases.
+             */
+            'resource_enabled' => ['nullable', 'boolean'],
+            'resource_key' => ['nullable', 'string', 'max:150'],
+            'resource_dashboard_threshold' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:100',
+            ],
+            'resource_saas' => ['nullable', 'boolean'],
+            'resource_off_server' => ['nullable', 'boolean'],
+
+            /*
+             * ESUBIZ_GENERIC_ADDON_SALES_TRIGGER_VALIDATION_V1
+             *
+             * Locations themselves are validated again against the
+             * feature/module-owned registry before persistence.
+             */
+            'sales_triggers' => ['nullable', 'array'],
+            'sales_triggers.*.location_key' => [
+                'required',
+                'string',
+                'max:150',
+            ],
+            'sales_triggers.*.condition_type' => [
+                'nullable',
+                'string',
+                'max:50',
+            ],
+            'sales_triggers.*.resource_key' => [
+                'nullable',
+                'string',
+                'max:150',
+            ],
+            'sales_triggers.*.threshold_percentage' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:100',
+            ],
+            'sales_triggers.*.saas_visible' => [
+                'nullable',
+                'boolean',
+            ],
+            'sales_triggers.*.off_server_visible' => [
+                'nullable',
+                'boolean',
+            ],
+            'sales_triggers.*.title' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'sales_triggers.*.message' => [
+                'nullable',
+                'string',
+            ],
+            'sales_triggers.*.cta_text' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
+            'sales_triggers.*.priority' => [
+                'nullable',
+                'integer',
+                'min:0',
+            ],
+            'sales_triggers.*.is_active' => [
+                'nullable',
+                'boolean',
+            ],
         ]);
 
         $data['key'] = $data['key'] ?? $addon->key;
@@ -456,7 +529,14 @@ return view('admin.core-addons.index', [
                 'off_server_price' => $data['off_server_price'] ?? null,
                 'off_server_currency' => $data['off_server_currency'] ?? null,
                 'is_active' => $request->boolean('is_active'),
-                'capabilities' => $this->jsonArray($request->input('capabilities')),
+                /*
+                 * ESUBIZ_ADDON_PRESERVE_CAPABILITIES_WHEN_ABSENT_V1
+                 * Preserve existing capability grants when the edit form
+                 * does not submit a capabilities field.
+                 */
+                'capabilities' => $request->has('capabilities')
+                    ? $this->jsonArray($request->input('capabilities'))
+                    : $addon->capabilities,
                 /*
                  * ESUBIZ_ADDON_RESOURCE_SALES_TRIGGER_METADATA_V1
                  */
@@ -476,40 +556,176 @@ return view('admin.core-addons.index', [
                             $request->boolean('saas_available') ? 'rental_or_subscription' : null,
                             $request->boolean('off_server_available') ? 'license' : null,
                         ])),
-
-                        /*
-                         * Generic sales recommendation rule.
-                         * Marketplace fulfilment remains unchanged.
-                         */
-                        'sales_trigger' => [
-                            'enabled' =>
-                                $request->boolean('sales_trigger_enabled'),
-
-                            'resource' =>
-                                $data['sales_trigger_resource']
-                                ?? null,
-
-                            'threshold_percentage' =>
-                                isset($data['sales_trigger_threshold'])
-                                && $data['sales_trigger_threshold'] !== null
-                                    ? (float) $data['sales_trigger_threshold']
-                                    : 80,
-
-                            'deployment_types' =>
-                                array_values(array_filter([
-                                    $request->boolean('sales_trigger_saas')
-                                        ? 'saas'
-                                        : null,
-
-                                    $request->boolean('sales_trigger_off_server')
-                                        ? 'off_server'
-                                        : null,
-                                ])),
-                        ],
                     ]
                 )),
                 'updated_at' => now(),
             ]);
+
+        /*
+         * ESUBIZ_CENTRAL_RESOURCE_SETTINGS_PERSISTENCE_V1
+         *
+         * One authoritative Resource Settings record per Core
+         * resource. Core owns base allocation. Add-ons own purchased
+         * allocation. Sales trigger remains Add-on-specific.
+         */
+        $resourceKey =
+            $data['resource_key']
+            ?? null;
+
+        if ($resourceKey) {
+
+            DB::table('core_resource_settings')
+                ->updateOrInsert(
+                    [
+                        'resource_key' => $resourceKey,
+                    ],
+                    [
+                        'dashboard_threshold_percentage' =>
+                            isset($data['resource_dashboard_threshold'])
+                            && $data['resource_dashboard_threshold'] !== null
+                                ? (float) $data['resource_dashboard_threshold']
+                                : 50,
+
+                        'saas_visible' =>
+                            $request->boolean('resource_saas'),
+
+                        'off_server_visible' =>
+                            $request->boolean('resource_off_server'),
+
+                        'is_active' =>
+                            $request->boolean('resource_enabled'),
+
+                        'updated_at' => now(),
+                        'created_at' => now(),
+                    ]
+                );
+        }
+
+
+        /*
+         * ESUBIZ_GENERIC_ADDON_SALES_TRIGGER_PERSISTENCE_V1
+         *
+         * The feature/module registry is authoritative for valid
+         * trigger locations.
+         *
+         * Admin configures Add-on recommendation behaviour only.
+         * Entitlement and Marketplace fulfilment remain unchanged.
+         */
+        $salesTriggerRegistry = app(
+            \App\Services\Core\CoreAddonSalesTriggerRegistry::class
+        );
+
+        $availableTriggerConditions =
+            $salesTriggerRegistry->conditions();
+
+        $submittedSalesTriggers =
+            $data['sales_triggers']
+            ?? [];
+
+        $validSalesTriggerRows = [];
+
+        foreach ($submittedSalesTriggers as $trigger) {
+
+            if (!is_array($trigger)) {
+                continue;
+            }
+
+            $locationKey =
+                $trigger['location_key']
+                ?? null;
+
+            if (
+                !$locationKey
+                || !$salesTriggerRegistry->hasLocation($locationKey)
+            ) {
+                continue;
+            }
+
+            $conditionType =
+                $trigger['condition_type']
+                ?? 'always';
+
+            if (!array_key_exists(
+                $conditionType,
+                $availableTriggerConditions
+            )) {
+                $conditionType = 'always';
+            }
+
+            $location =
+                $salesTriggerRegistry->location($locationKey)
+                ?? [];
+
+            $supportsResourceCondition =
+                (bool) (
+                    $location['supports_resource_condition']
+                    ?? false
+                );
+
+            $resourceKey =
+                $supportsResourceCondition
+                    ? (
+                        $trigger['resource_key']
+                        ?? $location['resource_key']
+                        ?? null
+                    )
+                    : null;
+
+            $thresholdPercentage =
+                $supportsResourceCondition
+                && isset($trigger['threshold_percentage'])
+                && $trigger['threshold_percentage'] !== null
+                    ? (float) $trigger['threshold_percentage']
+                    : null;
+
+            $validSalesTriggerRows[] = [
+                'addon_id' => $id,
+                'location_key' => $locationKey,
+                'condition_type' => $conditionType,
+                'resource_key' => $resourceKey,
+                'threshold_percentage' => $thresholdPercentage,
+                'saas_visible' =>
+                    !empty($trigger['saas_visible']),
+                'off_server_visible' =>
+                    !empty($trigger['off_server_visible']),
+                'title' =>
+                    $trigger['title']
+                    ?? null,
+                'message' =>
+                    $trigger['message']
+                    ?? null,
+                'cta_text' =>
+                    $trigger['cta_text']
+                    ?? null,
+                'priority' =>
+                    isset($trigger['priority'])
+                        ? (int) $trigger['priority']
+                        : 100,
+                'is_active' =>
+                    !empty($trigger['is_active']),
+                'condition_config' => null,
+                'metadata' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+
+        DB::transaction(function () use (
+            $id,
+            $validSalesTriggerRows
+        ): void {
+
+            DB::table('core_addon_sales_triggers')
+                ->where('addon_id', $id)
+                ->delete();
+
+            if ($validSalesTriggerRows) {
+                DB::table('core_addon_sales_triggers')
+                    ->insert($validSalesTriggerRows);
+            }
+        });
+
+
 
         /*
          * Persist each selected function independently.
@@ -614,10 +830,33 @@ public function editAddon(int $id)
             ->keyBy('limit_key')
             ->values();
 
+        /*
+         * ESUBIZ_GENERIC_ADDON_SALES_TRIGGER_EDIT_DATA_V1
+         *
+         * Trigger locations are supplied by the Core features/modules
+         * that own them. The Add-on controller only consumes the
+         * submitted registry.
+         */
+        $salesTriggerRegistry = app(
+            \App\Services\Core\CoreAddonSalesTriggerRegistry::class
+        );
+
+        $triggerLocations = $salesTriggerRegistry->locations();
+        $triggerConditions = $salesTriggerRegistry->conditions();
+
+        $salesTriggers = DB::table('core_addon_sales_triggers')
+            ->where('addon_id', $id)
+            ->orderBy('priority')
+            ->orderBy('id')
+            ->get();
+
         return view('admin.core-addons.edit', [
             'addon' => $addon,
             'capabilities' => $capabilities,
             'allocations' => $allocations,
+            'triggerLocations' => $triggerLocations,
+            'triggerConditions' => $triggerConditions,
+            'salesTriggers' => $salesTriggers,
         ]);
     }
 

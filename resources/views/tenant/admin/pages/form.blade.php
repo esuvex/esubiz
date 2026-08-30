@@ -686,6 +686,12 @@
                 class="grid grid-cols-2 gap-3"
             ></div>
 
+            {{-- ESUBIZ_GENERIC_SALES_TRIGGER_HOOK_BASIC_PAGE_BUILDER_WIDGETS_V1 --}}
+            <x-core-addon-sales-triggers
+                location="pages.basic_builder"
+                :website="$website"
+                class="mt-5"
+            />
 
             <div class="mt-6 rounded-2xl border border-blue-100 bg-blue-50 p-4">
 
@@ -877,6 +883,24 @@
 
     </div>
 </div>
+
+{{-- ESUBIZ_GENERIC_SALES_TRIGGER_TEMPLATE_PAGE_BUILDER_FORMS_V1 --}}
+<template id="esubiz-sales-trigger-page-builder-widgets-forms">
+    <x-core-addon-sales-triggers
+        location="page_builder.widgets.forms"
+        :website="$website"
+        class="mt-4"
+    />
+</template>
+
+{{-- ESUBIZ_GENERIC_SALES_TRIGGER_HOOK_PAGE_BUILDER_PANORAMA_V1 --}}
+<template id="esubiz-sales-trigger-page-builder-widgets-panorama">
+    <x-core-addon-sales-triggers
+        location="page_builder.widgets.panorama"
+        :website="$website"
+        class="mt-4"
+    />
+</template>
 
 <script>
 (() => {
@@ -3867,6 +3891,23 @@ section.columns.forEach(
                         </select>
                     </div>
                 `;
+
+                /*
+                 * ESUBIZ_GENERIC_SALES_TRIGGER_HOOK_PAGE_BUILDER_FORMS_V1
+                 * Forms owns this sales-trigger location.
+                 * No Form Builder Pro product or Add-on ID is hardcoded.
+                 */
+                {
+                    const formSalesTriggerTemplate =
+                        document.getElementById(
+                            'esubiz-sales-trigger-page-builder-widgets-forms'
+                        );
+
+                    if (formSalesTriggerTemplate) {
+                        content += formSalesTriggerTemplate.innerHTML;
+                    }
+                }
+
                 break;
 
 
@@ -3911,6 +3952,21 @@ section.columns.forEach(
                         </span>
                     </label>
                 `;
+                /*
+                 * Generic sales-trigger location hook.
+                 * No Panorama Pro/Add-on ID is hardcoded here.
+                 */
+                {
+                    const salesTriggerTemplate =
+                        document.getElementById(
+                            'esubiz-sales-trigger-page-builder-widgets-panorama'
+                        );
+
+                    if (salesTriggerTemplate) {
+                        content += salesTriggerTemplate.innerHTML;
+                    }
+                }
+
                 break;
 
 

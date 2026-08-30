@@ -92,12 +92,44 @@ class CoreCapabilityRegistry
             'feature_key' => 'form_builder',
             'owner' => 'cms',
             'entitlement' => 'feature',
+
+    /*
+     * ESUBIZ_FORM_BUILDER_SALES_TRIGGER_LOCATIONS_V1
+     *
+     * Forms owns these locations.
+     * Page Builder only consumes the Forms widget.
+     */
+    'sales_trigger_locations' => [
+        'forms.builder' => [
+            'label' => 'Form Builder',
+            'group' => 'Forms',
+            'supports_resource_condition' => false,
         ],
+        'page_builder.widgets.forms' => [
+            'label' => 'Form Widget',
+            'group' => 'Page Builder Widgets',
+            'supports_resource_condition' => false,
+        ],
+    ],
+],
 
         'page_builder' => [
             'feature_key' => 'page_builder',
             'owner' => 'cms',
             'entitlement' => 'feature',
+
+            /*
+             * ESUBIZ_PAGE_BUILDER_SALES_TRIGGER_LOCATIONS_V1
+             *
+             * Page Builder owns this location.
+             */
+            'sales_trigger_locations' => [
+                'pages.basic_builder' => [
+                    'label' => 'Basic Page Builder',
+                    'group' => 'Pages',
+                    'supports_resource_condition' => false,
+                ],
+            ],
         ],
 
         'media' => [
@@ -147,6 +179,32 @@ class CoreCapabilityRegistry
             'feature_key' => 'panorama_360',
             'owner' => 'media',
             'entitlement' => 'feature',
+
+            /*
+             * ESUBIZ_360_PANORAMA_SALES_TRIGGER_LOCATIONS_V1
+             *
+             * 360 Panorama owns this sales location even though
+             * it is rendered inside Page Builder.
+             */
+            /*
+             * ESUBIZ_360_PANORAMA_STANDALONE_TRIGGER_LOCATIONS_V2
+             *
+             * 360 Panorama is a standalone Core feature.
+             * It owns its management area and publishes a widget into
+             * Page Builder without Page Builder owning the feature.
+             */
+            'sales_trigger_locations' => [
+                'panorama.settings' => [
+                    'label' => '360 Panorama Settings',
+                    'group' => '360 Panorama',
+                    'supports_resource_condition' => false,
+                ],
+                'page_builder.widgets.panorama' => [
+                    'label' => '360 Panorama Widget',
+                    'group' => 'Page Builder Widgets',
+                    'supports_resource_condition' => false,
+                ],
+            ],
         ],
 
         'qr_generator' => [
@@ -165,6 +223,21 @@ class CoreCapabilityRegistry
             'feature_key' => 'resource_monitor',
             'owner' => 'resources',
             'entitlement' => 'feature',
+
+                /*
+                 * ESUBIZ_RESOURCE_MONITOR_SALES_TRIGGER_LOCATIONS_V1
+                 *
+                 * Resource Monitor owns the generic dashboard resource
+                 * recommendation location. Individual resources/Add-ons
+                 * select their own resource_key and trigger condition.
+                 */
+                'sales_trigger_locations' => [
+                    'dashboard.resources' => [
+                        'label' => 'Dashboard Resources',
+                        'group' => 'Dashboard',
+                        'supports_resource_condition' => true,
+                    ],
+                ],
         ],
 
         'storage' => [
@@ -287,4 +360,60 @@ class CoreCapabilityRegistry
             ->where('is_active', true)
             ->get();
     }
+
+    /*
+     * ESUBIZ_CORE_CAPABILITY_SALES_TRIGGER_LOCATIONS_V1
+     *
+     * Core capabilities may optionally declare application locations
+     * where Add-on recommendations belonging to that capability can
+     * appear.
+     *
+     * Example capability definition:
+     *
+     * 'page_builder' => [
+     *     ...
+     *     'sales_trigger_locations' => [
+     *         'pages.basic_builder' => [
+     *             'label' => 'Basic Page Builder',
+     *             'group' => 'Pages',
+     *         ],
+     *     ],
+     * ],
+     *
+     * This method contains NO product-specific locations itself.
+     * It only forwards locations declared by capability owners to the
+     * generic Add-on sales-trigger registry.
+     */
+    public function submitSalesTriggerLocations(
+        CoreAddonSalesTriggerRegistry $salesRegistry
+    ): void {
+        foreach ($this->all() as $capabilityKey => $definition) {
+
+            if (!is_array($definition)) {
+                continue;
+            }
+
+            $locations =
+                $definition['sales_trigger_locations']
+                ?? [];
+
+            if (!is_array($locations) || !$locations) {
+                continue;
+            }
+
+            $featureKey =
+                $definition['feature_key']
+                ?? $capabilityKey;
+
+            if (!$featureKey) {
+                continue;
+            }
+
+            $salesRegistry->submit(
+                (string) $featureKey,
+                $locations
+            );
+        }
+    }
+
 }

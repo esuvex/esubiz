@@ -463,6 +463,23 @@
                                         </div>
                                     @endif
 
+                                    {{-- ESUBIZ_GENERIC_SALES_TRIGGER_HOOK_DASHBOARD_RESOURCES_V1 --}}
+                                    <x-core-addon-sales-triggers
+                                        location="dashboard.resources"
+                                        :website="$website"
+                                        :context="[
+                                            'resources' => [
+                                                $stat['resource_key'] ?? ($stat['key'] ?? '') => [
+                                                    'percentage' => (float) ($stat['percentage'] ?? 0),
+                                                    'used_percentage' => (float) ($stat['percentage'] ?? 0),
+                                                    'usage_percentage' => (float) ($stat['percentage'] ?? 0),
+                                                    'status' => $stat['resource_status'] ?? 'normal',
+                                                ],
+                                            ],
+                                        ]"
+                                        class="mt-4"
+                                    />
+
                                 </div>
 
                             @endif
