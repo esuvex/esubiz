@@ -122,14 +122,51 @@
 
                     <div class="grid gap-3 sm:grid-cols-2">
 
-                                                <input
-                            type="text"
+                                                {{-- ESUBIZ_BUSINESS_TEMPLATE_ICON_SELECT_V1 --}}
+                        <select
                             data-field="icon"
-                            list="businessBasicIconList"
-                            placeholder="Choose or search icon"
-                            autocomplete="off"
-                            class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                            class="mt-2 w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
                         >
+
+                            <option value="">No icon</option>
+                            <option value="★">★ Star</option>
+                            <option value="✓">✓ Check</option>
+                            <option value="♥">♥ Heart</option>
+                            <option value="☎">☎ Phone</option>
+                            <option value="✉">✉ Email / Message</option>
+                            <option value="⌖">⌖ Location</option>
+                            <option value="⌂">⌂ Home</option>
+                            <option value="♙">♙ User</option>
+                            <option value="♟">♟ Users</option>
+                            <option value="▣">▣ Calendar</option>
+                            <option value="◷">◷ Clock</option>
+                            <option value="◎">◎ Globe</option>
+                            <option value="↗">↗ Link</option>
+                            <option value="⌕">⌕ Search</option>
+                            <option value="⚙">⚙ Settings</option>
+                            <option value="⚒">⚒ Tools</option>
+                            <option value="◆">◆ Shield</option>
+                            <option value="⚿">⚿ Key</option>
+                            <option value="🛒">🛒 Cart</option>
+                            <option value="🎁">🎁 Gift</option>
+                            <option value="📷">📷 Camera</option>
+                            <option value="▧">▧ Image</option>
+                            <option value="▶">▶ Video / Play</option>
+                            <option value="♪">♪ Music</option>
+                            <option value="❝">❝ Quote</option>
+                            <option value="💡">💡 Idea</option>
+                            <option value="⚡">⚡ Bolt</option>
+                            <option value="❧">❧ Leaf</option>
+                            <option value="▥">▥ Building</option>
+                            <option value="▣">▣ Briefcase</option>
+                            <option value="⚑">⚑ Flag</option>
+                            <option value="◇">◇ Tag</option>
+                            <option value="↓">↓ Download</option>
+                            <option value="↑">↑ Upload</option>
+                            <option value="ⓘ">ⓘ Info</option>
+                            <option value="?">? Question</option>
+                            <option value="⚠">⚠ Warning</option>
+                        </select>
 
                         <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700">
 
@@ -336,14 +373,51 @@
 
                 <div class="grid gap-3 sm:grid-cols-2">
 
-                                            <input
-                            type="text"
+                                            {{-- ESUBIZ_BUSINESS_TEMPLATE_ICON_SELECT_V1 --}}
+                        <select
                             data-field="icon"
-                            list="businessBasicIconList"
-                            placeholder="Choose or search icon"
-                            autocomplete="off"
-                            class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                            class="mt-2 w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
                         >
+
+                            <option value="">No icon</option>
+                            <option value="★">★ Star</option>
+                            <option value="✓">✓ Check</option>
+                            <option value="♥">♥ Heart</option>
+                            <option value="☎">☎ Phone</option>
+                            <option value="✉">✉ Email / Message</option>
+                            <option value="⌖">⌖ Location</option>
+                            <option value="⌂">⌂ Home</option>
+                            <option value="♙">♙ User</option>
+                            <option value="♟">♟ Users</option>
+                            <option value="▣">▣ Calendar</option>
+                            <option value="◷">◷ Clock</option>
+                            <option value="◎">◎ Globe</option>
+                            <option value="↗">↗ Link</option>
+                            <option value="⌕">⌕ Search</option>
+                            <option value="⚙">⚙ Settings</option>
+                            <option value="⚒">⚒ Tools</option>
+                            <option value="◆">◆ Shield</option>
+                            <option value="⚿">⚿ Key</option>
+                            <option value="🛒">🛒 Cart</option>
+                            <option value="🎁">🎁 Gift</option>
+                            <option value="📷">📷 Camera</option>
+                            <option value="▧">▧ Image</option>
+                            <option value="▶">▶ Video / Play</option>
+                            <option value="♪">♪ Music</option>
+                            <option value="❝">❝ Quote</option>
+                            <option value="💡">💡 Idea</option>
+                            <option value="⚡">⚡ Bolt</option>
+                            <option value="❧">❧ Leaf</option>
+                            <option value="▥">▥ Building</option>
+                            <option value="▣">▣ Briefcase</option>
+                            <option value="⚑">⚑ Flag</option>
+                            <option value="◇">◇ Tag</option>
+                            <option value="↓">↓ Download</option>
+                            <option value="↑">↑ Upload</option>
+                            <option value="ⓘ">ⓘ Info</option>
+                            <option value="?">? Question</option>
+                            <option value="⚠">⚠ Warning</option>
+                        </select>
 
                     <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700">
 
@@ -486,6 +560,8 @@
     <option value="?">Question</option>
     <option value="⚠">Warning</option>
 </datalist>
+
+
 
 <script>
         document.addEventListener(

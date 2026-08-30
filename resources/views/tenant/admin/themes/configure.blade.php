@@ -17,7 +17,7 @@
         $siteAiCapability =
             app(
                 \App\Services\SiteAi\Capabilities\ThemeHomepageCapability::class
-            )->definition();
+            )->manifest();
 
 
         app(

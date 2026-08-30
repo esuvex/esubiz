@@ -353,16 +353,49 @@
 
                                 <div class="grid gap-3 sm:grid-cols-2">
 
-                                    <input
-                                        type="text"
-                                        {{-- ESUBIZ_BUSINESS_EXISTING_ICON_LIST_V4 --}}
-
-                                    name="features[{{ $index }}][icon]"
-                                    list="businessBasicIconList"
-                                        value="{{ $feature['icon'] ?? '' }}"
-                                        placeholder="Icon"
-                                        class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                                    {{-- ESUBIZ_BUSINESS_EXISTING_NATIVE_ICON_SELECT_V2 --}}
+                                    <select
+                                        name="features[{{ $index }}][icon]"
+                                        class="w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
                                     >
+                                        <option value="" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '')>No icon</option>
+                                        <option value="★" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '★')>★ Star</option>
+                                        <option value="✓" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '✓')>✓ Check</option>
+                                        <option value="♥" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '♥')>♥ Heart</option>
+                                        <option value="☎" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '☎')>☎ Phone</option>
+                                        <option value="✉" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '✉')>✉ Email / Message</option>
+                                        <option value="⌖" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '⌖')>⌖ Location</option>
+                                        <option value="⌂" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '⌂')>⌂ Home</option>
+                                        <option value="♙" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '♙')>♙ User</option>
+                                        <option value="♟" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '♟')>♟ Users</option>
+                                        <option value="▣" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '▣')>▣ Calendar</option>
+                                        <option value="◷" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '◷')>◷ Clock</option>
+                                        <option value="◎" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '◎')>◎ Globe</option>
+                                        <option value="↗" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '↗')>↗ Link</option>
+                                        <option value="⌕" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '⌕')>⌕ Search</option>
+                                        <option value="⚙" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '⚙')>⚙ Settings</option>
+                                        <option value="⚒" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '⚒')>⚒ Tools</option>
+                                        <option value="◆" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '◆')>◆ Shield</option>
+                                        <option value="⚿" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '⚿')>⚿ Key</option>
+                                        <option value="🛒" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '🛒')>🛒 Cart</option>
+                                        <option value="🎁" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '🎁')>🎁 Gift</option>
+                                        <option value="📷" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '📷')>📷 Camera</option>
+                                        <option value="▧" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '▧')>▧ Image</option>
+                                        <option value="▶" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '▶')>▶ Video / Play</option>
+                                        <option value="♪" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '♪')>♪ Music</option>
+                                        <option value="❝" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '❝')>❝ Quote</option>
+                                        <option value="💡" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '💡')>💡 Idea</option>
+                                        <option value="⚡" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '⚡')>⚡ Bolt</option>
+                                        <option value="❧" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '❧')>❧ Leaf</option>
+                                        <option value="▥" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '▥')>▥ Building</option>
+                                        <option value="⚑" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '⚑')>⚑ Flag</option>
+                                        <option value="◇" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '◇')>◇ Tag</option>
+                                        <option value="↓" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '↓')>↓ Download</option>
+                                        <option value="↑" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '↑')>↑ Upload</option>
+                                        <option value="ⓘ" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === 'ⓘ')>ⓘ Info</option>
+                                        <option value="?" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '?')>? Question</option>
+                                        <option value="⚠" @selected((string) (old("features.$index.icon", $feature['icon'] ?? '')) === '⚠')>⚠ Warning</option>
+                                    </select>
 
                                     <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700">
                                         <input
@@ -1038,14 +1071,49 @@
 
                                 <div class="grid gap-3 sm:grid-cols-2">
 
-                                    <input
-                                        type="text"
+                                    {{-- ESUBIZ_BUSINESS_EXISTING_NATIVE_ICON_SELECT_V2 --}}
+                                    <select
                                         name="testimonials[{{ $index }}][icon]"
-                                    list="businessBasicIconList"
-                                        value="{{ $testimonial['icon'] ?? '' }}"
-                                        placeholder="Icon"
-                                        class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                                        class="w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
                                     >
+                                        <option value="" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '')>No icon</option>
+                                        <option value="★" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '★')>★ Star</option>
+                                        <option value="✓" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '✓')>✓ Check</option>
+                                        <option value="♥" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '♥')>♥ Heart</option>
+                                        <option value="☎" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '☎')>☎ Phone</option>
+                                        <option value="✉" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '✉')>✉ Email / Message</option>
+                                        <option value="⌖" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '⌖')>⌖ Location</option>
+                                        <option value="⌂" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '⌂')>⌂ Home</option>
+                                        <option value="♙" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '♙')>♙ User</option>
+                                        <option value="♟" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '♟')>♟ Users</option>
+                                        <option value="▣" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '▣')>▣ Calendar</option>
+                                        <option value="◷" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '◷')>◷ Clock</option>
+                                        <option value="◎" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '◎')>◎ Globe</option>
+                                        <option value="↗" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '↗')>↗ Link</option>
+                                        <option value="⌕" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '⌕')>⌕ Search</option>
+                                        <option value="⚙" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '⚙')>⚙ Settings</option>
+                                        <option value="⚒" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '⚒')>⚒ Tools</option>
+                                        <option value="◆" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '◆')>◆ Shield</option>
+                                        <option value="⚿" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '⚿')>⚿ Key</option>
+                                        <option value="🛒" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '🛒')>🛒 Cart</option>
+                                        <option value="🎁" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '🎁')>🎁 Gift</option>
+                                        <option value="📷" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '📷')>📷 Camera</option>
+                                        <option value="▧" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '▧')>▧ Image</option>
+                                        <option value="▶" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '▶')>▶ Video / Play</option>
+                                        <option value="♪" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '♪')>♪ Music</option>
+                                        <option value="❝" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '❝')>❝ Quote</option>
+                                        <option value="💡" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '💡')>💡 Idea</option>
+                                        <option value="⚡" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '⚡')>⚡ Bolt</option>
+                                        <option value="❧" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '❧')>❧ Leaf</option>
+                                        <option value="▥" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '▥')>▥ Building</option>
+                                        <option value="⚑" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '⚑')>⚑ Flag</option>
+                                        <option value="◇" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '◇')>◇ Tag</option>
+                                        <option value="↓" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '↓')>↓ Download</option>
+                                        <option value="↑" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '↑')>↑ Upload</option>
+                                        <option value="ⓘ" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === 'ⓘ')>ⓘ Info</option>
+                                        <option value="?" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '?')>? Question</option>
+                                        <option value="⚠" @selected((string) (old("testimonials.$index.icon", $testimonial['icon'] ?? '')) === '⚠')>⚠ Warning</option>
+                                    </select>
 
                                     <label class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700">
 
