@@ -44,14 +44,7 @@ return [
                 'Branding',
 
             'description' =>
-                'Generate one complete and consistent website branding set. '
-                . 'Create the Header Logo as the master identity, '
-                . 'create the Footer Logo as the same logo in a white variant, '
-                . 'and create the Favicon from the icon or symbol of that same '
-                . 'Header Logo. Never create three unrelated identities. '
-                . 'Header and Footer Logos must fit the recommended maximum '
-                . '1200 x 600 pixel area. The Favicon must use a square '
-                . '512 x 512 pixel composition.',
+                'Create your logo, footer logo and website icon.',
 
             'outputs' => [
                 'image',
@@ -76,7 +69,7 @@ return [
                 'Hero',
 
             'description' =>
-                'Generate or improve the homepage hero section including its primary and secondary calls to action.',
+                'Create or improve the main welcome section of your homepage.',
 
             'outputs' => [
                 'text',
@@ -121,7 +114,7 @@ return [
                 'Features / Cards',
 
             'description' =>
-                'Generate or improve the homepage feature cards. Each features_json item uses the current structured card format: enabled, title, text, image_path, show_image, icon, show_icon, show_button, button_label, button_url and button_url_active. Preserve this structure when generating cards.',
+                'Create or improve your service and feature cards.',
 
             'outputs' => [
                 'text',
@@ -221,7 +214,7 @@ return [
                 'Testimonials',
 
             'description' =>
-                'Generate or improve the homepage testimonials. Each testimonials_json item uses the current structured testimonial format: enabled, name, role, text, photo_path, show_image, icon, show_icon, show_button, button_label, button_url and button_url_active. Preserve this structure and use photo_path for generated testimonial photos.',
+                'Create or improve customer reviews and testimonials.',
 
             'outputs' => [
                 'text',
@@ -248,7 +241,7 @@ return [
                 'Call To Action',
 
             'description' =>
-                'Generate or improve the final homepage call-to-action section and its button.',
+                'Create or improve the final call-to-action section.',
 
             'outputs' => [
                 'text',

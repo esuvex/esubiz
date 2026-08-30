@@ -91,10 +91,46 @@ class SiteAiEngine
             );
 
 
-        $manifest =
-            $capability->manifest(
-                $context
-            );
+        /*
+         * ========================================================
+         * ESUBIZ_AUTHORITATIVE_SCOPED_MANIFEST_V1
+         * ========================================================
+         *
+         * A caller may provide an already-authorized capability
+         * manifest in context.
+         *
+         * This is used by tenant Site AI after location/function
+         * scope has been validated against the active theme.
+         *
+         * Example:
+         * About invocation -> About targets only.
+         *
+         * Other callers continue using the capability's normal
+         * manifest resolver exactly as before.
+         */
+        $authorizedManifest =
+            $context[
+                'capability_manifest'
+            ]
+            ?? null;
+
+
+        if (
+            is_array(
+                $authorizedManifest
+            )
+            && !empty(
+                $authorizedManifest
+            )
+        ) {
+            $manifest =
+                $authorizedManifest;
+        } else {
+            $manifest =
+                $capability->manifest(
+                    $context
+                );
+        }
 
 
         $allowedActions =

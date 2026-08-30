@@ -17,6 +17,16 @@ class CentralMediaService
         string $folder = 'general'
     ): string {
 
+        /*
+         * ESUBIZ_CENTRAL_STORE_UNIVERSAL_BRIDGE_V1
+         *
+         * Existing CentralMediaService callers automatically inherit
+         * the universal MIME-aware storage pipeline.
+         *
+         * Central landlord assets remain isolated under:
+         * public / central-media / {folder}
+         */
+
         $folder =
             $this->sanitizeFolder(
                 $folder
@@ -24,18 +34,11 @@ class CentralMediaService
 
 
         /*
-        |--------------------------------------------------------------------------
-        | AI AVATARS
-        |--------------------------------------------------------------------------
-        |
-        | Official avatars are displayed as small profile images across
-        | Central Esubiz and tenant websites.
-        |
-        | Store them as optimized 512x512 WEBP rather than retaining
-        | multi-megabyte PNG uploads.
-        |
-        */
-
+         * AI avatars retain their dedicated small-profile policy.
+         *
+         * Keep the existing 512 x 512 WEBP behaviour rather than
+         * treating avatars like ordinary full-size media.
+         */
         if (
             $folder === 'ai/avatars'
             && $this->canOptimizeImage(
@@ -60,133 +63,30 @@ class CentralMediaService
 
 
         /*
-        |--------------------------------------------------------------------------
-        | ESUBIZ_GLOBAL_IMAGE_OPTIMIZATION_V1
-        |--------------------------------------------------------------------------
-        |
-        | Every ordinary JPEG, PNG or WEBP image entering the Central
-        | Media service is normalized and optimized before storage.
-        |
-        | Large source images are reduced to a maximum long edge of
-        | 1920px while preserving their original aspect ratio.
-        |
-        | Smaller images are never enlarged.
-        |
-        | storeOptimizedImage() handles the final WEBP encoding and
-        | metadata-free optimized output.
-        |
-        */
-
-        if (
-            $this->canOptimizeImage(
-                $file
-            )
-        ) {
-
-            $sourcePath =
-                $file->getRealPath();
-
-            $imageInfo =
-                $sourcePath
-                    ? @getimagesize(
-                        $sourcePath
-                    )
-                    : false;
-
-            if (
-                is_array(
-                    $imageInfo
-                )
-                && isset(
-                    $imageInfo[0],
-                    $imageInfo[1]
-                )
-                && $imageInfo[0] > 0
-                && $imageInfo[1] > 0
-            ) {
-
-                $sourceWidth =
-                    (int) $imageInfo[0];
-
-                $sourceHeight =
-                    (int) $imageInfo[1];
-
-                $maximumEdge =
-                    1920;
-
-                $largestEdge =
-                    max(
-                        $sourceWidth,
-                        $sourceHeight
-                    );
-
-                $scale =
-                    min(
-                        1,
-                        $maximumEdge
-                        / $largestEdge
-                    );
-
-                $targetWidth =
-                    max(
-                        1,
-                        (int) round(
-                            $sourceWidth
-                            * $scale
-                        )
-                    );
-
-                $targetHeight =
-                    max(
-                        1,
-                        (int) round(
-                            $sourceHeight
-                            * $scale
-                        )
-                    );
-
-                $optimized =
-                    $this->storeOptimizedImage(
-                        $file,
-                        $folder,
-                        $targetWidth,
-                        $targetHeight,
-                        82
-                    );
-
-                if ($optimized) {
-                    return $optimized;
-                }
-            }
-        }
-
-
-        /*
-         * Generic Central media fallback.
+         * Everything else now enters the single universal pipeline.
          *
-         * Non-image files and images that GD cannot process
-         * retain the original storage behaviour.
+         * Raster images:
+         *   optimized WEBP / max edge 1920
+         *
+         * SVG:
+         *   preserved
+         *
+         * Video/audio:
+         *   FFmpeg automatically when central transcoders are installed
+         *
+         * Other permitted files:
+         *   stored unchanged
          */
-        $extension =
-            strtolower(
-                $file->getClientOriginalExtension()
-                ?: $file->extension()
-                ?: 'bin'
-            );
-
-
-        $filename =
-            Str::uuid()->toString()
-            . '.'
-            . $extension;
-
-
-        return $file->storeAs(
+        return $this->storeMediaToDisk(
+            $file,
+            'public',
             $this->root
-            . '/'
-            . $folder,
-            $filename,
-            'public'
+                . '/'
+                . $folder,
+            [
+                'maximum_edge' => 1920,
+                'image_quality' => 82,
+            ]
         );
     }
 
@@ -872,4 +772,953 @@ class CentralMediaService
         )
         ?: 'general';
     }
+
+    /*
+     * ESUBIZ_CENTRAL_MEDIA_UNIVERSAL_STORE_V1
+     *
+     * Universal media-storage entry point for Esubiz.
+     *
+     * IMPORTANT:
+     * - The caller remains responsible for choosing the disk and directory.
+     * - This preserves landlord/tenant storage isolation.
+     * - Raster images are optimized centrally.
+     * - SVG is preserved as SVG.
+     * - Video/audio can transparently use FFmpeg once those central
+     *   transcoders are installed.
+     * - Other files retain their original format.
+     */
+    /*
+     * ESUBIZ_FFMPEG_MEDIA_OPTIMIZATION_V1
+     *
+     * Universal video/audio optimization.
+     *
+     * VIDEO
+     * - MP4 / H.264
+     * - AAC audio
+     * - maximum 1920 x 1080
+     * - aspect ratio preserved
+     * - never upscale
+     * - CRF 27
+     * - faster preset
+     * - faststart enabled
+     *
+     * AUDIO
+     * - M4A / AAC
+     * - 128 kbps
+     *
+     * If FFmpeg fails for any reason, the original upload is preserved
+     * rather than blocking the user's upload.
+     */
+
+    protected function storeOptimizedVideoToDisk(
+        UploadedFile $file,
+        string $disk,
+        string $directory
+    ): string {
+
+        $ffmpeg =
+            $this->ffmpegBinary();
+
+
+        if (!$ffmpeg) {
+            return $this->storeOriginalMediaToDisk(
+                $file,
+                $disk,
+                $directory
+            );
+        }
+
+
+        $source =
+            $file->getRealPath();
+
+
+        if (
+            !$source
+            || !is_file(
+                $source
+            )
+        ) {
+            return $this->storeOriginalMediaToDisk(
+                $file,
+                $disk,
+                $directory
+            );
+        }
+
+
+        $temporaryOutput =
+            sys_get_temp_dir()
+            . '/'
+            . 'esubiz-video-'
+            . Str::uuid()
+            . '.mp4';
+
+
+        $filter =
+            "scale="
+            . "'trunc(min(1920,iw)/2)*2':"
+            . "'trunc(min(1080,ih)/2)*2':"
+            . "force_original_aspect_ratio=decrease";
+
+
+        $command =
+            escapeshellarg(
+                $ffmpeg
+            )
+            . ' -y'
+            . ' -hide_banner'
+            . ' -loglevel error'
+            . ' -i '
+            . escapeshellarg(
+                $source
+            )
+            . ' -map 0:v:0'
+            . ' -map 0:a?'
+            . ' -vf '
+            . escapeshellarg(
+                $filter
+            )
+            . ' -c:v libx264'
+            . ' -preset faster'
+            . ' -crf 27'
+            . ' -pix_fmt yuv420p'
+            . ' -c:a aac'
+            . ' -b:a 128k'
+            . ' -movflags +faststart'
+            . ' -map_metadata -1 '
+            . escapeshellarg(
+                $temporaryOutput
+            );
+
+
+        $output = [];
+        $exitCode = 1;
+
+
+        @exec(
+            $command . ' 2>&1',
+            $output,
+            $exitCode
+        );
+
+
+        if (
+            $exitCode !== 0
+            || !is_file(
+                $temporaryOutput
+            )
+            || filesize(
+                $temporaryOutput
+            ) < 1
+        ) {
+
+            @unlink(
+                $temporaryOutput
+            );
+
+
+            return $this->storeOriginalMediaToDisk(
+                $file,
+                $disk,
+                $directory
+            );
+        }
+
+
+        $path =
+            trim(
+                $directory,
+                '/'
+            )
+            . '/'
+            . Str::uuid()
+            . '.mp4';
+
+
+        $stream =
+            @fopen(
+                $temporaryOutput,
+                'rb'
+            );
+
+
+        if (!$stream) {
+
+            @unlink(
+                $temporaryOutput
+            );
+
+
+            return $this->storeOriginalMediaToDisk(
+                $file,
+                $disk,
+                $directory
+            );
+        }
+
+
+        try {
+
+            $stored =
+                Storage::disk(
+                    $disk
+                )->put(
+                    $path,
+                    $stream
+                );
+
+        } finally {
+
+            if (
+                is_resource(
+                    $stream
+                )
+            ) {
+                fclose(
+                    $stream
+                );
+            }
+
+
+            @unlink(
+                $temporaryOutput
+            );
+        }
+
+
+        if (!$stored) {
+            return $this->storeOriginalMediaToDisk(
+                $file,
+                $disk,
+                $directory
+            );
+        }
+
+
+        return $path;
+    }
+
+
+    protected function storeOptimizedAudioToDisk(
+        UploadedFile $file,
+        string $disk,
+        string $directory
+    ): string {
+
+        $ffmpeg =
+            $this->ffmpegBinary();
+
+
+        if (!$ffmpeg) {
+            return $this->storeOriginalMediaToDisk(
+                $file,
+                $disk,
+                $directory
+            );
+        }
+
+
+        $source =
+            $file->getRealPath();
+
+
+        if (
+            !$source
+            || !is_file(
+                $source
+            )
+        ) {
+            return $this->storeOriginalMediaToDisk(
+                $file,
+                $disk,
+                $directory
+            );
+        }
+
+
+        $temporaryOutput =
+            sys_get_temp_dir()
+            . '/'
+            . 'esubiz-audio-'
+            . Str::uuid()
+            . '.m4a';
+
+
+        $command =
+            escapeshellarg(
+                $ffmpeg
+            )
+            . ' -y'
+            . ' -hide_banner'
+            . ' -loglevel error'
+            . ' -i '
+            . escapeshellarg(
+                $source
+            )
+            . ' -vn'
+            . ' -c:a aac'
+            . ' -b:a 128k'
+            . ' -movflags +faststart'
+            . ' -map_metadata -1 '
+            . escapeshellarg(
+                $temporaryOutput
+            );
+
+
+        $output = [];
+        $exitCode = 1;
+
+
+        @exec(
+            $command . ' 2>&1',
+            $output,
+            $exitCode
+        );
+
+
+        if (
+            $exitCode !== 0
+            || !is_file(
+                $temporaryOutput
+            )
+            || filesize(
+                $temporaryOutput
+            ) < 1
+        ) {
+
+            @unlink(
+                $temporaryOutput
+            );
+
+
+            return $this->storeOriginalMediaToDisk(
+                $file,
+                $disk,
+                $directory
+            );
+        }
+
+
+        $path =
+            trim(
+                $directory,
+                '/'
+            )
+            . '/'
+            . Str::uuid()
+            . '.m4a';
+
+
+        $stream =
+            @fopen(
+                $temporaryOutput,
+                'rb'
+            );
+
+
+        if (!$stream) {
+
+            @unlink(
+                $temporaryOutput
+            );
+
+
+            return $this->storeOriginalMediaToDisk(
+                $file,
+                $disk,
+                $directory
+            );
+        }
+
+
+        try {
+
+            $stored =
+                Storage::disk(
+                    $disk
+                )->put(
+                    $path,
+                    $stream
+                );
+
+        } finally {
+
+            if (
+                is_resource(
+                    $stream
+                )
+            ) {
+                fclose(
+                    $stream
+                );
+            }
+
+
+            @unlink(
+                $temporaryOutput
+            );
+        }
+
+
+        if (!$stored) {
+            return $this->storeOriginalMediaToDisk(
+                $file,
+                $disk,
+                $directory
+            );
+        }
+
+
+        return $path;
+    }
+
+
+    protected function ffmpegBinary(): ?string
+    {
+        if (
+            !function_exists(
+                'exec'
+            )
+        ) {
+            return null;
+        }
+
+
+        $disabled =
+            array_map(
+                'trim',
+                explode(
+                    ',',
+                    (string) ini_get(
+                        'disable_functions'
+                    )
+                )
+            );
+
+
+        if (
+            in_array(
+                'exec',
+                $disabled,
+                true
+            )
+        ) {
+            return null;
+        }
+
+
+        foreach (
+            [
+                '/usr/bin/ffmpeg',
+                '/usr/local/bin/ffmpeg',
+                '/bin/ffmpeg',
+            ]
+            as $binary
+        ) {
+
+            if (
+                is_file(
+                    $binary
+                )
+                && is_executable(
+                    $binary
+                )
+            ) {
+                return $binary;
+            }
+        }
+
+
+        $output = [];
+        $exitCode = 1;
+
+
+        @exec(
+            'command -v ffmpeg 2>/dev/null',
+            $output,
+            $exitCode
+        );
+
+
+        if (
+            $exitCode === 0
+            && !empty(
+                $output[0]
+            )
+        ) {
+
+            $binary =
+                trim(
+                    $output[0]
+                );
+
+
+            if (
+                is_file(
+                    $binary
+                )
+                && is_executable(
+                    $binary
+                )
+            ) {
+                return $binary;
+            }
+        }
+
+
+        return null;
+    }
+
+
+    /*
+     * ESUBIZ_BINARY_IMAGE_OPTIMIZATION_V1
+     *
+     * Handles image bytes that do not originate from UploadedFile,
+     * including AI-generated images.
+     *
+     * - WEBP output
+     * - maximum long edge 1920
+     * - preserve aspect ratio
+     * - never upscale
+     * - quality 82
+     */
+    public function storeBinaryImageToDisk(
+        string $binary,
+        string $disk,
+        string $directory,
+        array $options = []
+    ): ?string {
+
+        if (
+            $binary === ''
+            || !function_exists(
+                'imagecreatefromstring'
+            )
+        ) {
+            return null;
+        }
+
+
+        $image =
+            @imagecreatefromstring(
+                $binary
+            );
+
+
+        if (!$image) {
+            return null;
+        }
+
+
+        $sourceWidth =
+            imagesx(
+                $image
+            );
+
+        $sourceHeight =
+            imagesy(
+                $image
+            );
+
+
+        if (
+            $sourceWidth < 1
+            || $sourceHeight < 1
+        ) {
+
+            imagedestroy(
+                $image
+            );
+
+            return null;
+        }
+
+
+        $maximumEdge =
+            max(
+                1,
+                (int) (
+                    $options['maximum_edge']
+                    ?? 1920
+                )
+            );
+
+        $quality =
+            max(
+                1,
+                min(
+                    100,
+                    (int) (
+                        $options['image_quality']
+                        ?? 82
+                    )
+                )
+            );
+
+
+        $largestEdge =
+            max(
+                $sourceWidth,
+                $sourceHeight
+            );
+
+        $scale =
+            min(
+                1,
+                $maximumEdge
+                / $largestEdge
+            );
+
+
+        $targetWidth =
+            max(
+                1,
+                (int) round(
+                    $sourceWidth
+                    * $scale
+                )
+            );
+
+        $targetHeight =
+            max(
+                1,
+                (int) round(
+                    $sourceHeight
+                    * $scale
+                )
+            );
+
+
+        $target =
+            imagecreatetruecolor(
+                $targetWidth,
+                $targetHeight
+            );
+
+
+        if (!$target) {
+
+            imagedestroy(
+                $image
+            );
+
+            return null;
+        }
+
+
+        imagealphablending(
+            $target,
+            false
+        );
+
+        imagesavealpha(
+            $target,
+            true
+        );
+
+
+        $transparent =
+            imagecolorallocatealpha(
+                $target,
+                0,
+                0,
+                0,
+                127
+            );
+
+        imagefill(
+            $target,
+            0,
+            0,
+            $transparent
+        );
+
+
+        imagecopyresampled(
+            $target,
+            $image,
+            0,
+            0,
+            0,
+            0,
+            $targetWidth,
+            $targetHeight,
+            $sourceWidth,
+            $sourceHeight
+        );
+
+
+        ob_start();
+
+        $encoded =
+            imagewebp(
+                $target,
+                null,
+                $quality
+            );
+
+        $webp =
+            ob_get_clean();
+
+
+        imagedestroy(
+            $target
+        );
+
+        imagedestroy(
+            $image
+        );
+
+
+        if (
+            !$encoded
+            || !is_string(
+                $webp
+            )
+            || $webp === ''
+        ) {
+            return null;
+        }
+
+
+        $path =
+            trim(
+                $directory,
+                '/'
+            )
+            . '/'
+            . Str::uuid()
+            . '.webp';
+
+
+        $stored =
+            Storage::disk(
+                $disk
+            )->put(
+                $path,
+                $webp
+            );
+
+
+        return $stored
+            ? $path
+            : null;
+    }
+
+
+    public function storeMediaToDisk(
+        \Illuminate\Http\UploadedFile $file,
+        string $disk,
+        string $directory,
+        array $options = []
+    ): string {
+        $directory = trim($directory, '/');
+
+        if ($directory === '') {
+            throw new \InvalidArgumentException(
+                'A media storage directory is required.'
+            );
+        }
+
+        $mime = strtolower(
+            (string) (
+                $file->getMimeType()
+                ?: $file->getClientMimeType()
+                ?: 'application/octet-stream'
+            )
+        );
+
+        $maximumEdge = max(
+            1,
+            (int) ($options['maximum_edge'] ?? 1920)
+        );
+
+        $imageQuality = min(
+            100,
+            max(
+                1,
+                (int) ($options['image_quality'] ?? 82)
+            )
+        );
+
+        /*
+         * Raster image.
+         *
+         * Existing central image optimizer remains authoritative.
+         */
+        if (
+            in_array(
+                $mime,
+                [
+                    'image/jpeg',
+                    'image/jpg',
+                    'image/png',
+                    'image/webp',
+                ],
+                true
+            )
+        ) {
+            $optimized = $this->storeOptimizedToDisk(
+                $file,
+                $disk,
+                $directory,
+                $maximumEdge,
+                $imageQuality
+            );
+
+            if ($optimized) {
+                return $optimized;
+            }
+
+            /*
+             * Graceful fallback if GD/optimization is unavailable.
+             */
+            return $this->storeOriginalMediaToDisk(
+                $file,
+                $disk,
+                $directory
+            );
+        }
+
+        /*
+         * SVG remains vector.
+         *
+         * We deliberately do not rasterize it.
+         */
+        if (
+            $mime === 'image/svg+xml'
+            || strtolower(
+                (string) $file->getClientOriginalExtension()
+            ) === 'svg'
+        ) {
+            return $this->storeOriginalMediaToDisk(
+                $file,
+                $disk,
+                $directory
+            );
+        }
+
+        /*
+         * Video.
+         *
+         * Automatically delegates to the central FFmpeg implementation
+         * when that method is installed. Until then, the original media
+         * is stored without crossing the caller's storage boundary.
+         */
+        if (str_starts_with($mime, 'video/')) {
+            if (
+                method_exists(
+                    $this,
+                    'storeOptimizedVideoToDisk'
+                )
+            ) {
+                $optimized = $this->storeOptimizedVideoToDisk(
+                    $file,
+                    $disk,
+                    $directory
+                );
+
+                if ($optimized) {
+                    return $optimized;
+                }
+            }
+
+            return $this->storeOriginalMediaToDisk(
+                $file,
+                $disk,
+                $directory
+            );
+        }
+
+        /*
+         * Audio.
+         */
+        if (str_starts_with($mime, 'audio/')) {
+            if (
+                method_exists(
+                    $this,
+                    'storeOptimizedAudioToDisk'
+                )
+            ) {
+                $optimized = $this->storeOptimizedAudioToDisk(
+                    $file,
+                    $disk,
+                    $directory
+                );
+
+                if ($optimized) {
+                    return $optimized;
+                }
+            }
+
+            return $this->storeOriginalMediaToDisk(
+                $file,
+                $disk,
+                $directory
+            );
+        }
+
+        /*
+         * Documents and every other permitted file type.
+         *
+         * No transcoding.
+         */
+        return $this->storeOriginalMediaToDisk(
+            $file,
+            $disk,
+            $directory
+        );
+    }
+
+
+    /*
+     * Canonical raw-storage fallback.
+     *
+     * This method intentionally accepts disk + directory from the caller
+     * instead of deciding ownership itself.
+     */
+    protected function storeOriginalMediaToDisk(
+        \Illuminate\Http\UploadedFile $file,
+        string $disk,
+        string $directory
+    ): string {
+        $directory = trim($directory, '/');
+
+        $extension = strtolower(
+            (string) (
+                $file->getClientOriginalExtension()
+                ?: $file->extension()
+                ?: 'bin'
+            )
+        );
+
+        $extension = preg_replace(
+            '/[^a-z0-9]+/',
+            '',
+            $extension
+        ) ?: 'bin';
+
+        $filename =
+            (string) \Illuminate\Support\Str::uuid()
+            . '.'
+            . $extension;
+
+        $stored = \Illuminate\Support\Facades\Storage::disk(
+            $disk
+        )->putFileAs(
+            $directory,
+            $file,
+            $filename
+        );
+
+        if (!$stored) {
+            throw new \RuntimeException(
+                'Unable to store media file.'
+            );
+        }
+
+        return $stored;
+    }
+
 }

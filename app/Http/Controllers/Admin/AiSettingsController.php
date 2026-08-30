@@ -29,8 +29,19 @@ class AiSettingsController extends Controller
     public function updateChat(
         Request $request
     ) {
+        /*
+         * ESUBIZ_USER_CHAT_COLOR_PERMISSION_V1
+         *
+         * Central Admin decides whether tenant/site admins
+         * may override the global AI chat colors.
+         */
         $data =
             $request->validate([
+                'allow_user_chat_color_customization' => [
+                    'nullable',
+                    'boolean',
+                ],
+
                 'ai_bubble_color' => [
                     'required',
                     'regex:/^#[0-9A-Fa-f]{6}$/',
@@ -82,6 +93,18 @@ class AiSettingsController extends Controller
                     'max:50',
                 ],
             ]);
+
+        /*
+         * An unchecked HTML checkbox is not submitted.
+         * Normalize it explicitly so Central Admin can
+         * reliably switch this permission off.
+         */
+        $data[
+            'allow_user_chat_color_customization'
+        ] =
+            $request->boolean(
+                'allow_user_chat_color_customization'
+            );
 
         $existing =
             DB::table(

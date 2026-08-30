@@ -970,6 +970,65 @@ class EsubizCentralSiteAiProvider implements SiteAiProvider
                 : '';
 
 
+        /*
+         * ========================================================
+         * ESUBIZ_CURRENT_STRUCTURED_WIDGET_AI_CONTRACT_V1
+         * ========================================================
+         *
+         * Internal AI contract for the current Business theme.
+         */
+        $structuredWidgetInstruction = '';
+
+        if (
+            $capability === 'theme.homepage'
+            && $action === 'generate'
+        ) {
+            $structuredWidgetRules = [];
+
+            if (
+                in_array(
+                    'features',
+                    $selectedFunctions,
+                    true
+                )
+            ) {
+                $structuredWidgetRules[] =
+                    'For features_json return an actual array of cards. '
+                    . 'Every card must use these current fields: '
+                    . 'enabled, title, text, image_path, show_image, '
+                    . 'icon, show_icon, show_button, button_label, '
+                    . 'button_url, button_url_active. '
+                    . 'Do not use an older card structure. '
+                    . 'Do not encode the array as JSON text.';
+            }
+
+            if (
+                in_array(
+                    'testimonials',
+                    $selectedFunctions,
+                    true
+                )
+            ) {
+                $structuredWidgetRules[] =
+                    'For testimonials_json return an actual array. '
+                    . 'Every testimonial must use these current fields: '
+                    . 'enabled, name, role, text, photo_path, show_image, '
+                    . 'icon, show_icon, show_button, button_label, '
+                    . 'button_url, button_url_active. '
+                    . 'Do not use an older testimonial structure. '
+                    . 'Do not encode the array as JSON text.';
+            }
+
+            if (!empty($structuredWidgetRules)) {
+                $structuredWidgetInstruction =
+                    implode(
+                        ' ',
+                        $structuredWidgetRules
+                    );
+            }
+        }
+
+
         $instructions = array_values(
             array_filter(
                 [
@@ -979,6 +1038,7 @@ class EsubizCentralSiteAiProvider implements SiteAiProvider
                     $capabilityInstruction,
                     $themeScopeInstruction,
                     $proposalInstruction,
+                    $structuredWidgetInstruction,
 
                     'Treat the supplied ESUBIZ capability manifest, '
                     . 'page context, website context, theme context, '
@@ -1532,32 +1592,32 @@ class EsubizCentralSiteAiProvider implements SiteAiProvider
                 /*
                  * ESUBIZ_AI_UNIFIED_BRANDING_LIBRARY_V3
                  *
+                 * ESUBIZ_AI_BRANDING_FINAL_SLOT_DIMENSIONS_V1
+                 *
                  * CENTRAL SITE AI BRANDING CONTRACT
                  * ---------------------------------
                  *
                  * Branding assets always belong to ONE identity.
                  *
                  * Header Logo:
-                 * - master identity
-                 * - clean white background
-                 * - horizontal website composition
-                 * - intended maximum area 1200 x 600
+                 * - authoritative master identity
+                 * - actual website slot: 180 x 60
+                 * - 3:1 horizontal composition
+                 * - artwork fills the usable slot
                  *
                  * Footer Logo:
-                 * - same identity as Header Logo
-                 * - white/monochrome variant
-                 * - intended for a dark/coloured footer
-                 * - intended maximum area 1200 x 600
+                 * - derived from actual Header Logo reference
+                 * - actual website slot: 180 x 60
+                 * - white/high-contrast version
+                 * - standard Business footer context: #0f172a
                  *
                  * Favicon:
-                 * - derived from the Header Logo symbol/icon
-                 * - never an unrelated logo
-                 * - square 512 x 512 composition
+                 * - derived from actual Header Logo symbol/icon
+                 * - actual website slot: 128 x 128
+                 * - artwork fills the usable square
                  *
-                 * The existing JPEG optimization pipeline is
-                 * intentionally retained. Transparent output can
-                 * be introduced later as a separate media-pipeline
-                 * enhancement without risking current persistence.
+                 * Supported provider generation canvases and the
+                 * existing JPEG/media pipeline remain unchanged.
                  */
                 if ($target === 'logo_path') {
 
@@ -1569,14 +1629,19 @@ class EsubizCentralSiteAiProvider implements SiteAiProvider
                         . 'direction from this website request: '
                         . $prompt
                         . '. '
-                        . 'Create a clean, distinctive and professional logo '
-                        . 'suitable for ordinary business users. '
+                        . 'Create one clean, distinctive professional logo. '
+                        . 'ACTUAL FINAL WEBSITE SLOT: 180 x 60 pixels. '
+                        . 'Compose the logo specifically as a 3:1 horizontal '
+                        . '180 x 60 website-header logo. '
+                        . 'The visible symbol and wordmark must occupy most of '
+                        . 'the usable 180 x 60 area with only a small safe margin. '
+                        . 'Do not surround the logo with large empty margins. '
+                        . 'Do not make the visible logo tiny inside the generated '
+                        . 'image canvas. The logo should appear naturally large '
+                        . 'when the resulting image is displayed at 180 x 60. '
                         . 'Use a clean pure white background. '
-                        . 'Use a horizontal website-header composition designed '
-                        . 'for a final maximum area of 1200 x 600 pixels. '
-                        . 'Keep the symbol, typography and proportions simple '
-                        . 'enough to create a matching white Footer Logo variant '
-                        . 'and a recognizable favicon icon. '
+                        . 'Keep the identity simple enough for an exact Footer '
+                        . 'Logo variant and recognizable favicon symbol. '
                         . 'Do not create a photograph, mockup, wall sign, paper '
                         . 'presentation, website UI, watermark, decorative scene '
                         . 'or multiple logo options. Generate one usable logo.';
@@ -1584,19 +1649,27 @@ class EsubizCentralSiteAiProvider implements SiteAiProvider
                 } elseif ($target === 'footer_logo_path') {
 
                     $imagePrompt =
-                        'Create the FOOTER LOGO variant for this website. '
-                        . 'It must represent exactly the SAME brand identity, '
-                        . 'symbol, typography, proportions and visual language '
-                        . 'as the master Header Logo requested for this branding '
-                        . 'set. Do not invent a second brand or alternative logo. '
-                        . 'Use this website/business direction: '
-                        . $prompt
-                        . '. '
-                        . 'The visible logo artwork must be a clean WHITE or '
-                        . 'white-monochrome version designed to remain readable '
-                        . 'against the website footer background. '
-                        . 'Use a horizontal composition designed for a final '
-                        . 'maximum area of 1200 x 600 pixels. '
+                        'Create the FOOTER LOGO from the attached authoritative '
+                        . 'Header Logo reference. '
+                        . 'Preserve exactly the same recognizable brand identity, '
+                        . 'symbol, wordmark, typography and proportions. '
+                        . 'Do not redesign the brand and do not invent another logo. '
+                        . 'ACTUAL FINAL WEBSITE SLOT: 180 x 60 pixels. '
+                        . 'Compose it specifically as a 3:1 horizontal 180 x 60 '
+                        . 'footer logo. The visible logo artwork must occupy most '
+                        . 'of the usable area with only a small safe margin. '
+                        . 'Do not make the logo tiny or surround it with large '
+                        . 'empty margins. '
+                        . 'Convert the visible logo artwork to a clean WHITE or '
+                        . 'high-contrast white-monochrome version. '
+                        . 'The standard Business theme footer behind this logo is '
+                        . 'dark #0f172a, rgb(15,23,42). '
+                        . 'Use exactly #0f172a as the generated image background '
+                        . 'so the rectangular JPEG background visually merges '
+                        . 'with the standard footer instead of appearing as a '
+                        . 'separate box. '
+                        . 'Do not add a border, card, badge, frame, shadow or '
+                        . 'different background colour. '
                         . 'Do not create a photograph, mockup, wall sign, '
                         . 'website UI, watermark, decorative scene or multiple '
                         . 'logo options. Generate one usable footer variant.';
@@ -1604,21 +1677,20 @@ class EsubizCentralSiteAiProvider implements SiteAiProvider
                 } elseif ($target === 'favicon_path') {
 
                     $imagePrompt =
-                        'Create the FAVICON for the SAME brand identity as the '
-                        . 'master Header Logo requested for this branding set. '
-                        . 'Derive the favicon from the Header Logo icon, symbol, '
-                        . 'monogram or strongest recognizable brand mark. '
-                        . 'Never invent an unrelated symbol or new brand. '
-                        . 'Use this website/business direction: '
-                        . $prompt
-                        . '. '
-                        . 'Do not use a long full wordmark when the recognizable '
-                        . 'symbol can be used instead. '
-                        . 'Center the mark with safe space in a clean square '
-                        . 'composition intended for 512 x 512 pixels. '
+                        'Create the FAVICON from the attached authoritative '
+                        . 'Header Logo reference. '
+                        . 'Use the exact recognizable icon, symbol, monogram or '
+                        . 'strongest brand mark from that Header Logo. '
+                        . 'Do not invent a different icon or identity. '
+                        . 'ACTUAL FINAL WEBSITE SLOT: 128 x 128 pixels square. '
+                        . 'The recognizable symbol must occupy most of the '
+                        . '128 x 128 square with only a small safe margin. '
+                        . 'Do not place a tiny symbol in a large empty canvas. '
+                        . 'Avoid the full horizontal wordmark and avoid tiny text. '
                         . 'Use a clean white background for compatibility with '
-                        . 'the current optimized JPEG media pipeline. '
-                        . 'The mark must remain recognizable at browser-tab size. '
+                        . 'the existing JPEG media pipeline. '
+                        . 'The symbol must remain immediately recognizable at '
+                        . 'browser-tab size. '
                         . 'Do not create a photograph, mockup, UI, watermark '
                         . 'or detailed illustration.';
 
@@ -1879,7 +1951,573 @@ class EsubizCentralSiteAiProvider implements SiteAiProvider
         }
 
 
+
+        /*
+         * ========================================================
+         * ESUBIZ_STRUCTURED_WIDGET_PHOTO_GENERATION_V1
+         * ========================================================
+         *
+         * Individual Feature/Card and Testimonial images are
+         * generated as proposal-only assets. They are not persisted
+         * until the proposal is approved and applied.
+         */
+        $structuredPhotoFunctions = [
+            'features' => [
+                'target' =>
+                    'features_json',
+
+                'path_field' =>
+                    'image_path',
+
+                'size' =>
+                    '1536x1024',
+            ],
+
+            'testimonials' => [
+                'target' =>
+                    'testimonials_json',
+
+                'path_field' =>
+                    'photo_path',
+
+                'size' =>
+                    '1024x1024',
+            ],
+        ];
+
+
+        foreach (
+            $structuredPhotoFunctions
+            as $structuredFunction => $photoConfig
+        ) {
+            if (
+                !in_array(
+                    $structuredFunction,
+                    $selectedFunctions,
+                    true
+                )
+            ) {
+                continue;
+            }
+
+
+            $parentTarget =
+                $photoConfig['target'];
+
+            $parentIndex = null;
+
+
+            foreach (
+                (array) (
+                    $result['changes']
+                    ?? []
+                )
+                as $changeIndex => $change
+            ) {
+                if (!is_array($change)) {
+                    continue;
+                }
+
+                $changeTarget =
+                    trim(
+                        (string) (
+                            $change['target']
+                            ?? $change['target_key']
+                            ?? ''
+                        )
+                    );
+
+                if ($changeTarget === $parentTarget) {
+                    $parentIndex =
+                        $changeIndex;
+
+                    break;
+                }
+            }
+
+
+            /*
+             * Do not manufacture cards/testimonials merely for
+             * images. The structured text proposal must exist.
+             */
+            if ($parentIndex === null) {
+                continue;
+            }
+
+
+            $items =
+                $result['changes'][$parentIndex]['value']
+                ?? $result['changes'][$parentIndex]['proposed_value']
+                ?? [];
+
+
+            /*
+             * Accept legacy encoded-array output once and normalize
+             * it to the current real-array representation.
+             */
+            if (is_string($items)) {
+                $decoded =
+                    json_decode(
+                        $items,
+                        true
+                    );
+
+                if (is_array($decoded)) {
+                    $items =
+                        $decoded;
+                }
+            }
+
+
+            if (
+                !is_array($items)
+                || empty($items)
+            ) {
+                continue;
+            }
+
+
+            $normalized = [];
+
+
+            foreach (
+                array_values($items)
+                as $index => $item
+            ) {
+                if (!is_array($item)) {
+                    continue;
+                }
+
+
+                if ($structuredFunction === 'features') {
+
+                    $current = [
+                        'enabled' =>
+                            ($item['enabled'] ?? true)
+                            !== false,
+
+                        'title' =>
+                            trim(
+                                (string) (
+                                    $item['title']
+                                    ?? ''
+                                )
+                            ),
+
+                        'text' =>
+                            trim(
+                                (string) (
+                                    $item['text']
+                                    ?? $item['description']
+                                    ?? ''
+                                )
+                            ),
+
+                        'image_path' =>
+                            trim(
+                                (string) (
+                                    $item['image_path']
+                                    ?? ''
+                                )
+                            ),
+
+                        'show_image' =>
+                            true,
+
+                        'icon' =>
+                            trim(
+                                (string) (
+                                    $item['icon']
+                                    ?? ''
+                                )
+                            ),
+
+                        'show_icon' =>
+                            (bool) (
+                                $item['show_icon']
+                                ?? false
+                            ),
+
+                        'show_button' =>
+                            (bool) (
+                                $item['show_button']
+                                ?? false
+                            ),
+
+                        'button_label' =>
+                            trim(
+                                (string) (
+                                    $item['button_label']
+                                    ?? ''
+                                )
+                            ),
+
+                        'button_url' =>
+                            trim(
+                                (string) (
+                                    $item['button_url']
+                                    ?? ''
+                                )
+                            ),
+
+                        'button_url_active' =>
+                            (bool) (
+                                $item['button_url_active']
+                                ?? false
+                            ),
+                    ];
+
+
+                    $photoPrompt =
+                        'Create one realistic professional website '
+                        . 'photograph for this service or feature card. '
+                        . 'Website/business direction: '
+                        . $prompt
+                        . '. '
+                        . 'Feature title: '
+                        . (
+                            $current['title'] !== ''
+                                ? $current['title']
+                                : 'Business service'
+                        )
+                        . '. '
+                        . 'Feature description: '
+                        . (
+                            $current['text'] !== ''
+                                ? $current['text']
+                                : 'Professional business service'
+                        )
+                        . '. '
+                        . 'The photograph must clearly represent this '
+                        . 'specific service or feature. '
+                        . 'Use a natural professional commercial style. '
+                        . 'Do not place words, captions, logos, UI, '
+                        . 'watermarks or fake branding in the image.';
+
+
+                } else {
+
+                    $current = [
+                        'enabled' =>
+                            ($item['enabled'] ?? true)
+                            !== false,
+
+                        'name' =>
+                            trim(
+                                (string) (
+                                    $item['name']
+                                    ?? $item['author']
+                                    ?? ''
+                                )
+                            ),
+
+                        'role' =>
+                            trim(
+                                (string) (
+                                    $item['role']
+                                    ?? $item['position']
+                                    ?? $item['company']
+                                    ?? ''
+                                )
+                            ),
+
+                        'text' =>
+                            trim(
+                                (string) (
+                                    $item['text']
+                                    ?? $item['testimonial']
+                                    ?? $item['quote']
+                                    ?? ''
+                                )
+                            ),
+
+                        'photo_path' =>
+                            trim(
+                                (string) (
+                                    $item['photo_path']
+                                    ?? $item['image_path']
+                                    ?? ''
+                                )
+                            ),
+
+                        'show_image' =>
+                            true,
+
+                        'icon' =>
+                            trim(
+                                (string) (
+                                    $item['icon']
+                                    ?? ''
+                                )
+                            ),
+
+                        'show_icon' =>
+                            (bool) (
+                                $item['show_icon']
+                                ?? false
+                            ),
+
+                        'show_button' =>
+                            (bool) (
+                                $item['show_button']
+                                ?? false
+                            ),
+
+                        'button_label' =>
+                            trim(
+                                (string) (
+                                    $item['button_label']
+                                    ?? ''
+                                )
+                            ),
+
+                        'button_url' =>
+                            trim(
+                                (string) (
+                                    $item['button_url']
+                                    ?? ''
+                                )
+                            ),
+
+                        'button_url_active' =>
+                            (bool) (
+                                $item['button_url_active']
+                                ?? false
+                            ),
+                    ];
+
+
+                    $photoPrompt =
+                        'Create one realistic professional customer '
+                        . 'headshot for a website testimonial. '
+                        . 'Website/business direction: '
+                        . $prompt
+                        . '. '
+                        . 'Customer role/context: '
+                        . (
+                            $current['role'] !== ''
+                                ? $current['role']
+                                : 'Customer'
+                        )
+                        . '. '
+                        . 'Create a natural friendly head-and-shoulders '
+                        . 'portrait suitable for a professional customer '
+                        . 'testimonial card. Use a clean simple '
+                        . 'photographic background. '
+                        . 'Do not place names, words, logos, UI, labels, '
+                        . 'watermarks or fake branding in the image.';
+                }
+
+
+                $normalized[] =
+                    $current;
+
+
+                /*
+                 * Disabled cards/testimonials do not consume an
+                 * image generation call.
+                 */
+                if (!$current['enabled']) {
+                    continue;
+                }
+
+
+                $generated =
+                    $this->generateStructuredWidgetPhotoAsset(
+                        $photoPrompt,
+                        $photoConfig['size'],
+                        $userId,
+                        $websiteId
+                    );
+
+
+                $nestedField =
+                    $photoConfig['path_field'];
+
+
+                $result['changes'][] = [
+                    /*
+                     * Keep the manifest-authorized parent target.
+                     */
+                    'target' =>
+                        $parentTarget,
+
+                    'target_key' =>
+                        $parentTarget,
+
+                    'type' =>
+                        'image',
+
+                    'item_type' =>
+                        'image',
+
+                    'target_type' =>
+                        'structured_nested_media',
+
+                    /*
+                     * Exact location inside the parent collection.
+                     */
+                    'target_id' =>
+                        $index
+                        . ':'
+                        . $nestedField,
+
+                    'value' =>
+                        $generated['data_url'],
+
+                    'asset_reference' => [
+                        'kind' =>
+                            'base64',
+
+                        'mime_type' =>
+                            'image/jpeg',
+
+                        'extension' =>
+                            'jpg',
+
+                        'data' =>
+                            $generated['base64'],
+
+                        'data_url' =>
+                            $generated['data_url'],
+
+                        'source' =>
+                            'esubiz-central-ai',
+
+                        'target_key' =>
+                            $parentTarget,
+
+                        'nested_index' =>
+                            $index,
+
+                        'nested_field' =>
+                            $nestedField,
+
+                        'structured_widget' =>
+                            $structuredFunction,
+                    ],
+                ];
+            }
+
+
+            /*
+             * Parent collection now always uses the current
+             * Business-theme structure.
+             */
+            $result['changes'][$parentIndex]['value'] =
+                $normalized;
+        }
+
+
         return $result;
     }
+
+
+    /**
+     * Generate one proposal-only nested widget image.
+     */
+    protected function generateStructuredWidgetPhotoAsset(
+        string $imagePrompt,
+        string $size,
+        ?int $userId,
+        ?int $websiteId
+    ): array {
+        $imageResult =
+            $this->engine->execute(
+                'site',
+                $imagePrompt,
+                $userId,
+                $websiteId,
+                [
+                    'tools' => [
+                        [
+                            'type' =>
+                                'image_generation',
+
+                            'model' =>
+                                'gpt-image-2',
+
+                            'size' =>
+                                $size,
+
+                            'quality' =>
+                                'medium',
+
+                            'output_format' =>
+                                'jpeg',
+                        ],
+                    ],
+
+                    'tool_choice' => [
+                        'type' =>
+                            'image_generation',
+                    ],
+
+                    'timeout' =>
+                        240,
+
+                    'minimum_preflight_credits' =>
+                        1,
+                ]
+            );
+
+
+        $base64 = null;
+
+
+        foreach (
+            (array) data_get(
+                $imageResult,
+                'raw.output',
+                []
+            )
+            as $output
+        ) {
+            if (
+                !is_array($output)
+                || (
+                    $output['type']
+                    ?? null
+                ) !== 'image_generation_call'
+            ) {
+                continue;
+            }
+
+
+            $candidate =
+                trim(
+                    (string) (
+                        $output['result']
+                        ?? ''
+                    )
+                );
+
+
+            if ($candidate !== '') {
+                $base64 =
+                    $candidate;
+
+                break;
+            }
+        }
+
+
+        if (!$base64) {
+            throw new \RuntimeException(
+                'Structured widget photo generation returned no image.'
+            );
+        }
+
+
+        return [
+            'base64' =>
+                $base64,
+
+            'data_url' =>
+                'data:image/jpeg;base64,'
+                . $base64,
+        ];
+    }
+
 
 }
