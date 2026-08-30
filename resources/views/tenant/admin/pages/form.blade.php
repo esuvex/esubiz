@@ -4605,13 +4605,20 @@ section.columns.forEach(
                 );
             }
 
+            /*
+             * ESUBIZ_PAGE_BUILDER_VIDEO_PUBLIC_URL_PRIORITY_V2
+             *
+             * Prefer the tenant-public URL returned by the media
+             * endpoint. Fall back to an internal storage path only
+             * when no public URL is available.
+             */
             const uploadedPath =
-                payload?.path
-                || payload?.url
+                payload?.url
+                || payload?.data?.url
                 || payload?.src
                 || payload?.location
+                || payload?.path
                 || payload?.data?.path
-                || payload?.data?.url
                 || null;
 
             if (!uploadedPath) {
@@ -5157,17 +5164,12 @@ section.columns.forEach(
 
                     <select
                         data-simple-icon-select
+                        data-${scope}-key="icon"
+                        data-${scope}-index="${index}"
                         class="mt-2 w-full cursor-pointer rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
                     >
                         ${options}
                     </select>
-
-                    <input
-                        type="hidden"
-                        data-${scope}-key="icon"
-                        data-${scope}-index="${index}"
-                        value="${escapeHtml(selected || '')}"
-                    >
                 </div>
             `;
         }
@@ -5692,10 +5694,10 @@ section.columns.forEach(
                                     Show Icon
                                 </label>
 
-                                ${builderIconPickerHtml(
+                                ${builderSimpleItemIconPickerHtml(
                                     'card',
                                     index,
-                                    item.icon
+                                    item.icon || ''
                                 )}
 
 
@@ -6128,10 +6130,10 @@ section.columns.forEach(
                                     Show Icon
                                 </label>
 
-                                ${builderIconPickerHtml(
+                                ${builderSimpleItemIconPickerHtml(
                                     'testimonial',
                                     index,
-                                    item.icon
+                                    item.icon || ''
                                 )}
 
 

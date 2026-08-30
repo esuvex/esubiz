@@ -1402,6 +1402,197 @@
                                                 @break
 
 
+                                            @case('gallery')
+
+                                                @php
+                                                    /*
+                                                     * ESUBIZ_PAGE_BUILDER_PUBLIC_GALLERY_V1
+                                                     */
+                                                    $galleryItems =
+                                                        $data['items']
+                                                        ?? $data['media']
+                                                        ?? $data['images']
+                                                        ?? [];
+
+                                                    if (!is_array($galleryItems)) {
+                                                        $galleryItems = [];
+                                                    }
+                                                @endphp
+
+                                                @if(!empty($data['heading']))
+                                                    <h3 style="margin:0 0 18px;">
+                                                        {{ $data['heading'] }}
+                                                    </h3>
+                                                @endif
+
+                                                @if(count($galleryItems))
+                                                    <div
+                                                        class="builder-gallery"
+                                                        style="
+                                                            display:grid;
+                                                            grid-template-columns:
+                                                                repeat(
+                                                                    auto-fit,
+                                                                    minmax(180px, 1fr)
+                                                                );
+                                                            gap:16px;
+                                                        "
+                                                    >
+                                                        @foreach($galleryItems as $galleryItem)
+
+                                                            @php
+                                                                $galleryItem =
+                                                                    is_array($galleryItem)
+                                                                        ? $galleryItem
+                                                                        : [];
+
+                                                                $galleryType =
+                                                                    strtolower(
+                                                                        (string) (
+                                                                            $galleryItem['type']
+                                                                            ?? 'image'
+                                                                        )
+                                                                    );
+
+                                                                $gallerySrc =
+                                                                    $galleryItem['src']
+                                                                    ?? $galleryItem['url']
+                                                                    ?? $galleryItem['path']
+                                                                    ?? $galleryItem['value']
+                                                                    ?? '';
+
+                                                                $galleryAlt =
+                                                                    $galleryItem['alt']
+                                                                    ?? $galleryItem['caption']
+                                                                    ?? '';
+                                                            @endphp
+
+                                                            @if($gallerySrc !== '')
+
+                                                                @php
+                                                                    /*
+                                                                     * ESUBIZ_PAGE_BUILDER_PUBLIC_GALLERY_VIDEO_TYPES_V1
+                                                                     */
+                                                                    $galleryMime =
+                                                                        strtolower(
+                                                                            (string) (
+                                                                                $galleryItem['mime_type']
+                                                                                ?? $galleryItem['mime']
+                                                                                ?? ''
+                                                                            )
+                                                                        );
+
+                                                                    $galleryIsVideo =
+                                                                        in_array(
+                                                                            $galleryType,
+                                                                            [
+                                                                                'video',
+                                                                                'video_file',
+                                                                                'video-file',
+                                                                                'mp4',
+                                                                                'webm',
+                                                                                'mov',
+                                                                                'youtube',
+                                                                                'vimeo',
+                                                                            ],
+                                                                            true
+                                                                        )
+                                                                        || str_starts_with(
+                                                                            $galleryMime,
+                                                                            'video/'
+                                                                        )
+                                                                        || preg_match(
+                                                                            '/\.(mp4|webm|mov|m4v)(?:\?.*)?$/i',
+                                                                            $gallerySrc
+                                                                        );
+                                                                @endphp
+
+                                                                @if($galleryIsVideo)
+                                                                    @if(
+                                                                        $galleryType === 'youtube'
+                                                                        || $galleryType === 'vimeo'
+                                                                    )
+                                                                        <a
+                                                                            href="{{ $gallerySrc }}"
+                                                                            target="_blank"
+                                                                            rel="noopener"
+                                                                            style="
+                                                                                display:flex;
+                                                                                align-items:center;
+                                                                                justify-content:center;
+                                                                                min-height:180px;
+                                                                                border-radius:14px;
+                                                                                background:#0f172a;
+                                                                                color:#fff;
+                                                                                text-decoration:none;
+                                                                                padding:20px;
+                                                                            "
+                                                                        >
+                                                                            View Video
+                                                                        </a>
+                                                                    @else
+                                                                        {{-- ESUBIZ_PAGE_BUILDER_PUBLIC_GALLERY_LOCAL_VIDEO_V1 --}}
+                                                                        @php
+                                                                            /*
+                                                                             * ESUBIZ_GALLERY_STORED_TENANT_MEDIA_SRC_V3
+                                                                             *
+                                                                             * Preserve the exact media reference saved
+                                                                             * by the active tenant, matching the working
+                                                                             * Page Builder image behaviour.
+                                                                             */
+                                                                            $galleryVideoSrc =
+                                                                                $gallerySrc;
+                                                                        @endphp
+
+                                                                        <video
+                                                                            controls
+                                                                            playsinline
+                                                                            preload="metadata"
+                                                                            style="
+                                                                                display:block;
+                                                                                width:100%;
+                                                                                aspect-ratio:16/9;
+                                                                                object-fit:cover;
+                                                                                border-radius:14px;
+                                                                                background:#000;
+                                                                            "
+                                                                        >
+                                                                            <source
+                                                                                src="{{ $galleryVideoSrc }}"
+                                                                            >
+                                                                            Your browser does not support HTML5 video.
+                                                                        </video>
+                                                                    @endif
+                                                                @else
+                                                                    <figure style="margin:0;">
+                                                                        <x-media.image
+                                                                            src="{{ $gallerySrc }}"
+                                                                            alt="{{ $galleryAlt }}"
+                                                                        />
+
+                                                                        @if(!empty($galleryItem['caption']))
+                                                                            <figcaption
+                                                                                style="
+                                                                                    margin-top:8px;
+                                                                                    color:var(--muted);
+                                                                                    font-size:.85rem;
+                                                                                "
+                                                                            >
+                                                                                {{ $galleryItem['caption'] }}
+                                                                            </figcaption>
+                                                                        @endif
+                                                                    </figure>
+                                                                @endif
+
+                                                            @endif
+
+                                                        @endforeach
+                                                    </div>
+                                                @endif
+
+                                                @break
+
+
                                             @case('video')
 
                                                 @if(!empty($data['url']))
