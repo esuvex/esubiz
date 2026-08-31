@@ -329,6 +329,248 @@ class CoreCapabilityRegistry
         return $this->get($key)['feature_key'];
     }
 
+    /*
+     * ESUBIZ_CAPABILITY_AUTOMATIC_ENFORCEMENT_MODE_V1
+     *
+     * Enforcement is derived from the capability definition rather than
+     * from an Add-on, route or product.
+     *
+     * Feature/service capabilities are access gates.
+     *
+     * Quantities, resources, accounts and credits are allocation-backed
+     * capabilities whose usage/balance authority is supplied separately
+     * by the capability owner.
+     *
+     * This contract is shared by SaaS and off-server Core installations.
+     */
+    /*
+     * ESUBIZ_UNIVERSAL_ENTITLEMENT_CLASSIFICATION_V2
+     *
+     * Central plug-and-play entitlement classification for both SaaS
+     * and off-server Core installations.
+     *
+     * Classification comes from the existing Core feature/limit model.
+     * Add-ons only extend/unlock capabilities through Function Allocation.
+     *
+     * Families:
+     * - unlimited : permanent unlimited Core entitlement
+     * - feature   : boolean Core/Add-on feature entitlement
+     * - service   : centrally controlled service
+     * - quantity  : finite Core + Add-on quantity allocation
+     * - resource  : metered Core + Add-on resource allocation
+     * - credits   : centrally consumed credit balance
+     * - accounts  : account allocation, optionally paired with credits
+     */
+    public function enforcementFamily(string $key): string
+    {
+        $definition = $this->get($key);
+
+        if (!$definition) {
+            throw new RuntimeException(
+                "Unknown Core capability [{$key}]."
+            );
+        }
+
+        $entitlement =
+            strtolower(
+                trim(
+                    (string) ($definition['entitlement'] ?? 'feature')
+                )
+            );
+
+        /*
+         * Credits and account-backed products have their own central
+         * authorities and must not be mistaken for ordinary quantities.
+         */
+        if ($entitlement === 'credits') {
+            return 'credits';
+        }
+
+        if ($entitlement === 'credits/accounts') {
+            return 'accounts';
+        }
+
+        /*
+         * Metered resources use the universal usage/base-allocation
+         * registries. Add-ons simply extend their allocations.
+         */
+        if (
+            $entitlement === 'storage'
+            || $entitlement === 'bandwidth'
+        ) {
+            return 'resource';
+        }
+
+        $featureKey =
+            $definition['feature_key']
+            ?? $key;
+
+        $feature = null;
+
+        if ($featureKey) {
+            $feature =
+                DB::table('core_features')
+                    ->where('key', $featureKey)
+                    ->whereNull('deleted_at')
+                    ->first();
+        }
+
+        /*
+         * Registry-only platform services intentionally do not require
+         * a core_features row. Their implementation/service authority
+         * controls availability.
+         */
+        if (!$feature) {
+            return $entitlement === 'service'
+                ? 'service'
+                : 'feature';
+        }
+
+        $limits =
+            DB::table('core_feature_limits')
+                ->where('core_feature_id', $feature->id)
+                ->whereNull('deleted_at')
+                ->where('is_active', 1)
+                ->get();
+
+        /*
+         * Any active unlimited Core limit means the capability itself is
+         * permanently unlimited. No quantity enforcement is required.
+         *
+         * Examples currently include pages/media/menus/branches and any
+         * future Core capability configured the same way.
+         */
+        /*
+         * ESUBIZ_PERMANENT_CORE_UNLIMITED_CLASSIFICATION_V1
+         *
+         * Unlimited Core limits make quantity/service capabilities
+         * permanently unlimited.
+         *
+         * Feature parents are deliberately excluded: an unlimited child
+         * limit must never make the whole parent feature unlimited.
+         * Function Allocation continues to control Pro/child capabilities.
+         */
+        if (
+            in_array(
+                $entitlement,
+                [
+                    'quantity',
+                    'quantity/unlimited',
+                    'service',
+                ],
+                true
+            )
+            && $limits->contains(
+                fn ($limit) =>
+                    (bool) $limit->is_unlimited
+            )
+        ) {
+            return 'unlimited';
+        }
+
+        /*
+         * Finite quantity remains enforceable even when no Add-on currently
+         * upgrades it. If an Add-on is allocated later, the existing
+         * entitlement service automatically adds that allocation.
+         */
+        if (
+            $entitlement === 'quantity'
+            || $entitlement === 'quantity/unlimited'
+        ) {
+            return 'quantity';
+        }
+
+        if ($entitlement === 'service') {
+            return 'service';
+        }
+
+        return 'feature';
+    }
+
+    /*
+     * Compatibility bridge for existing middleware while the richer
+     * family contract remains the central source of truth.
+     */
+    /*
+     * ESUBIZ_UNIVERSAL_ACCOUNT_CAPABILITY_RESOLVER_V1
+     *
+     * Resolve the account-allocation child of any accounts-family
+     * capability from Core configuration.
+     *
+     * No Email/WhatsApp/product/Add-on names are hardcoded.
+     * Present and future account-backed capabilities only need an active
+     * Core feature limit whose unit is "accounts".
+     */
+    public function accountAllocationCapability(
+        string $key
+    ): ?array {
+        if ($this->enforcementFamily($key) !== 'accounts') {
+            return null;
+        }
+
+        $definition = $this->get($key);
+
+        if (!$definition) {
+            return null;
+        }
+
+        $featureKey =
+            $definition['feature_key']
+            ?? $key;
+
+        $feature =
+            DB::table('core_features')
+                ->where('key', $featureKey)
+                ->whereNull('deleted_at')
+                ->where('is_active', 1)
+                ->first();
+
+        if (!$feature) {
+            return null;
+        }
+
+        $limit =
+            DB::table('core_feature_limits')
+                ->where('core_feature_id', $feature->id)
+                ->whereNull('deleted_at')
+                ->where('is_active', 1)
+                ->whereRaw(
+                    'LOWER(COALESCE(unit, "")) = ?',
+                    ['accounts']
+                )
+                ->orderBy('id')
+                ->first();
+
+        if (!$limit) {
+            return null;
+        }
+
+        return [
+            'capability_key' => (string) $limit->limit_key,
+            'default' =>
+                (bool) $limit->is_unlimited
+                    ? null
+                    : (float) ($limit->default_value ?? 0),
+            'unlimited' => (bool) $limit->is_unlimited,
+            'unit' => (string) ($limit->unit ?? 'accounts'),
+        ];
+    }
+
+    public function enforcementMode(string $key): string
+    {
+        return match ($this->enforcementFamily($key)) {
+            'quantity',
+            'resource',
+            'credits',
+            'accounts' => 'allocation',
+
+            'unlimited' => 'unlimited',
+
+            default => 'feature',
+        };
+    }
+
+
     public function hasRegistryFeature(string $key): bool
     {
         $featureKey = $this->featureKey($key);

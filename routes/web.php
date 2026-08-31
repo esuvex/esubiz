@@ -320,7 +320,13 @@ Route::domain('{subdomain}.esubiz.com')
     ])
     ->middleware([
         'website-tenant',
-        \App\Http\Middleware\EnforceTenantBandwidthLimit::class,
+        /*
+         * ESUBIZ_UNIVERSAL_BANDWIDTH_ENFORCEMENT_ROUTE_V1
+         *
+         * Bandwidth enforcement now uses the universal entitlement engine.
+         * Metering remains handled by TrackTenantAdminBandwidth.
+         */
+        'core.entitlement:bandwidth',
         \App\Http\Middleware\TrackTenantAdminBandwidth::class,
     ])
     ->group(function () {
@@ -388,7 +394,8 @@ Route::domain('{subdomain}.esubiz.com')
                 \App\Http\Controllers\TenantMediaController::class,
                 'uploadImage',
             ]
-        )->name('tenant.cms.media.image.upload');
+        )->middleware('core.entitlement:storage')
+        ->name('tenant.cms.media.image.upload');
 
         /*
          * ESUBIZ_TENANT_VIDEO_UPLOAD_ROUTE_V1
@@ -399,7 +406,8 @@ Route::domain('{subdomain}.esubiz.com')
                 \App\Http\Controllers\TenantMediaController::class,
                 'uploadVideo',
             ]
-        )->name('tenant.cms.media.video.upload');
+        )->middleware('core.entitlement:storage')
+        ->name('tenant.cms.media.video.upload');
 
 
 

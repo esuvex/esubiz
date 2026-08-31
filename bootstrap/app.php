@@ -18,6 +18,19 @@ return Application::configure(basePath: dirname(__DIR__))
 
             'website-tenant' =>
                 \App\Http\Middleware\ResolveWebsiteTenant::class,
+
+            /*
+             * ESUBIZ_UNIVERSAL_ENTITLEMENT_MIDDLEWARE_ALIAS_V1
+             *
+             * Shared server-side entitlement enforcement for SaaS
+             * and off-server/API Core requests.
+             *
+             * Usage:
+             * core.entitlement:capability_key,feature
+             * core.entitlement:capability_key,allocation
+             */
+            'core.entitlement' =>
+                \App\Http\Middleware\EnforceCoreEntitlement::class,
         ]);
 
         /*

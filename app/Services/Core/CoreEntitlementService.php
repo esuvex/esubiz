@@ -156,6 +156,296 @@ class CoreEntitlementService
         }
     }
 
+    /*
+     * ESUBIZ_UNIVERSAL_ENTITLEMENT_ENFORCEMENT_V1
+     *
+     * Central plug-and-play entitlement enforcement for both SaaS and
+     * off-server websites.
+     *
+     * Add-ons declare capabilities/allocations. Feature implementations
+     * ask this service whether the website may use the capability.
+     * No Add-on-specific enforcement code is required.
+     */
+
+    /**
+     * Resolve a website ID safely from an explicit value or the current
+     * tenant route/request.
+     */
+    public function resolveWebsiteId(?int $websiteId = null): ?int
+    {
+        if ($websiteId !== null && $websiteId > 0) {
+            return $websiteId;
+        }
+
+        if (function_exists('request') && app()->bound('request')) {
+            $request = request();
+
+            $routeWebsite = $request->route('website');
+
+            if (is_object($routeWebsite) && isset($routeWebsite->id)) {
+                return (int) $routeWebsite->id;
+            }
+
+            if (is_numeric($routeWebsite) && (int) $routeWebsite > 0) {
+                return (int) $routeWebsite;
+            }
+
+            $requestWebsiteId = $request->integer('website_id');
+
+            if ($requestWebsiteId > 0) {
+                return $requestWebsiteId;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Determine whether a website owns a capability supplied by an
+     * active purchased Add-on.
+     */
+    public function addonCapabilityEnabled(
+        string $capabilityKey,
+        ?int $websiteId = null
+    ): bool {
+        $websiteId = $this->resolveWebsiteId($websiteId);
+
+        if ($websiteId === null) {
+            return false;
+        }
+
+        return app(CoreAddonEntitlementService::class)
+            ->capabilityEnabledForWebsite(
+                $websiteId,
+                $capabilityKey
+            );
+    }
+
+    /**
+     * Return the effective allocation for any registered capability.
+     *
+     * null = unlimited
+     * 0    = no allocation
+     * >0   = effective finite allocation
+     */
+    public function effectiveAllocation(
+        string $capabilityKey,
+        ?int $websiteId = null,
+        ?int $coreDefault = 0
+    ): ?int {
+        $websiteId = $this->resolveWebsiteId($websiteId);
+
+        if ($websiteId === null) {
+            return $coreDefault;
+        }
+
+        return app(CoreAddonEntitlementService::class)
+            ->effectiveCapabilityAllocation(
+                $websiteId,
+                $capabilityKey,
+                $coreDefault
+            );
+    }
+
+    /**
+     * Universal feature-lock check.
+     *
+     * A capability is allowed when it is part of active Core access or
+     * an active Add-on entitlement explicitly grants that capability.
+     */
+    /*
+     * ESUBIZ_UNIVERSAL_CHILD_CAPABILITY_ENFORCEMENT_V1
+     *
+     * Registered Core capabilities may be available directly from Core.
+     *
+     * Pro/child capabilities stored as Core feature limits are different:
+     * the parent Core feature being active must NOT automatically unlock
+     * the child capability. The website must own an entitlement that
+     * explicitly allocates that child capability.
+     */
+    public function allowsCapability(
+        string $capabilityKey,
+        ?int $websiteId = null
+    ): bool {
+        $websiteId = $this->resolveWebsiteId($websiteId);
+
+        $childCapability = DB::table(
+            'core_feature_limits as l'
+        )
+            ->join(
+                'core_features as f',
+                'f.id',
+                '=',
+                'l.core_feature_id'
+            )
+            ->where(
+                'l.limit_key',
+                $capabilityKey
+            )
+            ->where('l.is_active', true)
+            ->whereNull('l.deleted_at')
+            ->where('f.is_active', true)
+            ->whereNull('f.deleted_at')
+            ->exists();
+
+        if ($childCapability) {
+            return $this->addonCapabilityEnabled(
+                $capabilityKey,
+                $websiteId
+            );
+        }
+
+        try {
+            $definition = $this->capability(
+                $capabilityKey
+            );
+        } catch (\Throwable $e) {
+            return $this->addonCapabilityEnabled(
+                $capabilityKey,
+                $websiteId
+            );
+        }
+
+        $featureKey =
+            $definition['feature_key']
+            ?? null;
+
+        if (
+            $featureKey !== null
+            && $this->featureEnabled($featureKey)
+        ) {
+            return true;
+        }
+
+        if (
+            $featureKey === null
+            && !empty($definition)
+        ) {
+            return true;
+        }
+
+        return $this->addonCapabilityEnabled(
+            $capabilityKey,
+            $websiteId
+        );
+    }
+
+    /**
+     * Universal finite/unlimited resource or quantity check.
+     */
+    public function allowsAllocation(
+        string $capabilityKey,
+        int|float $currentUsage,
+        ?int $websiteId = null,
+        ?int $coreDefault = 0
+    ): bool {
+        $allocation = $this->effectiveAllocation(
+            $capabilityKey,
+            $websiteId,
+            $coreDefault
+        );
+
+        if ($allocation === null) {
+            return true;
+        }
+
+        return $currentUsage < $allocation;
+    }
+
+    /**
+     * Enforce a feature-locked capability.
+     */
+    public function enforceCapability(
+        string $capabilityKey,
+        ?int $websiteId = null
+    ): void {
+        if (
+            !$this->allowsCapability(
+                $capabilityKey,
+                $websiteId
+            )
+        ) {
+            throw new RuntimeException(
+                "Capability [{$capabilityKey}] is not available "
+                . "for this website."
+            );
+        }
+    }
+
+    /**
+     * Enforce a finite/unlimited resource or quantity capability.
+     */
+    public function enforceAllocation(
+        string $capabilityKey,
+        int|float $currentUsage,
+        ?int $websiteId = null,
+        ?int $coreDefault = 0
+    ): void {
+        if (
+            !$this->allowsAllocation(
+                $capabilityKey,
+                $currentUsage,
+                $websiteId,
+                $coreDefault
+            )
+        ) {
+            $allocation = $this->effectiveAllocation(
+                $capabilityKey,
+                $websiteId,
+                $coreDefault
+            );
+
+            throw new RuntimeException(
+                "The [{$capabilityKey}] allocation has been reached. "
+                . "Effective allocation: {$allocation}."
+            );
+        }
+    }
+
+    /**
+     * Universal enforcement entry point.
+     *
+     * mode=feature:
+     *   enforce locked/unlocked capability access.
+     *
+     * mode=allocation:
+     *   enforce quantity/resource allocation.
+     *
+     * Used identically by SaaS and off-server Core installations.
+     */
+    public function enforceEntitlement(
+        string $capabilityKey,
+        string $mode = 'feature',
+        int|float $currentUsage = 0,
+        ?int $websiteId = null,
+        ?int $coreDefault = 0
+    ): void {
+        if ($mode === 'feature') {
+            $this->enforceCapability(
+                $capabilityKey,
+                $websiteId
+            );
+
+            return;
+        }
+
+        if ($mode === 'allocation') {
+            $this->enforceAllocation(
+                $capabilityKey,
+                $currentUsage,
+                $websiteId,
+                $coreDefault
+            );
+
+            return;
+        }
+
+        throw new RuntimeException(
+            "Unsupported entitlement enforcement mode [{$mode}]."
+        );
+    }
+
+
     /**
      * Return the complete Core registry.
      */
