@@ -1,3 +1,134 @@
+
+{{-- ESUBIZ_RESOURCE_SALES_TRIGGER_DASHBOARD_STYLE_V1 --}}
+<style>
+    /*
+     * Dashboard-only compact Premium sales area.
+     * Shared sales-trigger component is intentionally untouched.
+     */
+
+    .esubiz-resource-sales-trigger {
+        margin-top: 12px;
+        width: 100%;
+    }
+
+    .esubiz-resource-sales-trigger > * {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .esubiz-resource-sales-trigger [class*="rounded"] {
+        border-radius: 10px !important;
+    }
+
+    .esubiz-resource-sales-trigger [class*="p-"] {
+        padding: 10px !important;
+    }
+
+    .esubiz-resource-sales-trigger h1,
+    .esubiz-resource-sales-trigger h2,
+    .esubiz-resource-sales-trigger h3,
+    .esubiz-resource-sales-trigger h4,
+    .esubiz-resource-sales-trigger h5,
+    .esubiz-resource-sales-trigger h6 {
+        margin: 0 0 3px !important;
+        font-size: 13px !important;
+        line-height: 18px !important;
+    }
+
+    .esubiz-resource-sales-trigger p {
+        margin: 0 0 7px !important;
+        font-size: 12px !important;
+        line-height: 17px !important;
+    }
+
+    .esubiz-resource-sales-trigger button,
+    .esubiz-resource-sales-trigger a {
+        min-height: 0 !important;
+        padding: 6px 10px !important;
+        font-size: 11px !important;
+        line-height: 15px !important;
+        border-radius: 7px !important;
+    }
+
+    /*
+     * ESUBIZ_RESOURCE_SALES_TRIGGER_ICON_HIDE_V1
+     *
+     * Dashboard resource cards do not need the generic
+     * Premium Feature globe/icon.
+     */
+    .esubiz-resource-sales-trigger svg {
+        display: none !important;
+    }
+
+    .esubiz-resource-sales-trigger [class*="w-"][class*="h-"]:has(svg) {
+        display: none !important;
+    }
+
+    .esubiz-resource-sales-trigger [class*="gap-"] {
+        gap: 7px !important;
+    }
+
+    /*
+     * ESUBIZ_RESOURCE_SALES_TRIGGER_STACK_FIX_V1
+     *
+     * Keep Premium content and CTA fully inside narrow
+     * Dashboard resource cards on desktop and mobile.
+     */
+    .esubiz-resource-sales-trigger [class*="flex"] {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+
+    .esubiz-resource-sales-trigger [class*="justify-"] {
+        justify-content: flex-start !important;
+    }
+
+    .esubiz-resource-sales-trigger [class*="items-"] {
+        align-items: stretch !important;
+    }
+
+    .esubiz-resource-sales-trigger button,
+    .esubiz-resource-sales-trigger a {
+        display: inline-flex !important;
+        width: auto !important;
+        max-width: 100% !important;
+        align-self: flex-start !important;
+        justify-content: center !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+        text-align: left !important;
+    }
+
+    .esubiz-resource-sales-trigger * {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    /*
+     * ESUBIZ_RESOURCE_SALES_BADGE_POSITION_FIX_V1
+     *
+     * Keep the PRO FEATURE badge in normal document flow so
+     * it cannot cover the Admin-configured Premium title.
+     */
+    .esubiz-resource-sales-trigger [class*="absolute"] {
+        position: static !important;
+        inset: auto !important;
+        top: auto !important;
+        right: auto !important;
+        bottom: auto !important;
+        left: auto !important;
+        transform: none !important;
+    }
+
+    .esubiz-resource-sales-trigger [class*="uppercase"] {
+        align-self: flex-start !important;
+        width: auto !important;
+        margin: 0 0 6px 0 !important;
+        white-space: nowrap !important;
+    }
+</style>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -376,6 +507,74 @@
 
             @foreach($dashboardStats as $stat)
 
+                @php
+                    /*
+                     * ESUBIZ_GENERIC_RESOURCE_CARD_DISPLAY_GATE_V1
+                     *
+                     * Normal dashboard statistics remain unchanged.
+                     * Resource cards obey Central Admin Resource Settings.
+                     */
+                    $showDashboardStat = true;
+
+                    if (!empty($stat['resource'])) {
+                        $dashboardStatResourceKey =
+                            $stat['resource_key']
+                            ?? $stat['key']
+                            ?? $stat['icon']
+                            ?? null;
+
+                        $dashboardStatResourceSetting =
+                            $dashboardStatResourceKey
+                                ? \Illuminate\Support\Facades\DB::table(
+                                    'core_resource_settings'
+                                )
+                                    ->where(
+                                        'resource_key',
+                                        $dashboardStatResourceKey
+                                    )
+                                    ->first()
+                                : null;
+
+                        $dashboardStatDeploymentVisible =
+                            $dashboardStatResourceSetting
+                            && (bool) (
+                                $dashboardStatResourceSetting
+                                    ->is_active
+                                ?? false
+                            )
+                            && (
+                                !empty($website->is_off_server)
+                                    ? (bool) (
+                                        $dashboardStatResourceSetting
+                                            ->off_server_visible
+                                        ?? false
+                                    )
+                                    : (bool) (
+                                        $dashboardStatResourceSetting
+                                            ->saas_visible
+                                        ?? false
+                                    )
+                            );
+
+                        $dashboardStatPercentage = (float) (
+                            $stat['percentage'] ?? 0
+                        );
+
+                        $dashboardStatDisplayThreshold = (float) (
+                            $dashboardStatResourceSetting
+                                ->dashboard_threshold_percentage
+                            ?? 100
+                        );
+
+                        $showDashboardStat =
+                            $dashboardStatDeploymentVisible
+                            && $dashboardStatPercentage
+                                >= $dashboardStatDisplayThreshold;
+                    }
+                @endphp
+
+                @if($showDashboardStat)
+
                 <div
                     class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
                 >
@@ -450,35 +649,10 @@
                                         ></div>
                                     </div>
 
-                                    @if(!empty($stat['resource_warning']))
-                                        <div
-                                            class="mt-3 rounded-xl border px-3 py-2 text-xs font-semibold leading-5
-                                                {{
-                                                    ($stat['resource_status'] ?? '') === 'critical'
-                                                        ? 'border-red-200 bg-red-50 text-red-700'
-                                                        : 'border-amber-200 bg-amber-50 text-amber-700'
-                                                }}"
-                                        >
-                                            {{ $stat['resource_warning'] }}
-                                        </div>
-                                    @endif
 
-                                    {{-- ESUBIZ_GENERIC_SALES_TRIGGER_HOOK_DASHBOARD_RESOURCES_V1 --}}
-                                    <x-core-addon-sales-triggers
-                                        location="dashboard.resources"
-                                        :website="$website"
-                                        :context="[
-                                            'resources' => [
-                                                $stat['resource_key'] ?? ($stat['key'] ?? '') => [
-                                                    'percentage' => (float) ($stat['percentage'] ?? 0),
-                                                    'used_percentage' => (float) ($stat['percentage'] ?? 0),
-                                                    'usage_percentage' => (float) ($stat['percentage'] ?? 0),
-                                                    'status' => $stat['resource_status'] ?? 'normal',
-                                                ],
-                                            ],
-                                        ]"
-                                        class="mt-4"
-                                    />
+
+
+
 
                                 </div>
 
@@ -540,9 +714,163 @@
 
                     </div>
 
+                @if(
+                    !empty($stat['resource'])
+                    && !empty(
+                        $stat['resource_key']
+                        ?? $stat['key']
+                        ?? $stat['icon']
+                        ?? null
+                    )
+                )
+                    @php
+                        /*
+                         * ESUBIZ_RESOURCE_CARD_SALES_TRIGGER_V2
+                         *
+                         * Sales Trigger belongs inside the resource card.
+                         * No Add-on/resource names are hardcoded.
+                         */
+                        $resourceSalesKey =
+                            $stat['resource_key']
+                            ?? $stat['key']
+                            ?? $stat['icon'];
+                    @endphp
+
+                    {{-- ESUBIZ_COMPACT_RESOURCE_SALES_TRIGGER_V1 --}}
+                    <div class="esubiz-resource-sales-trigger">
+                        <x-core-addon-sales-triggers
+                            location="dashboard"
+                            :website="$website"
+                            :context="[
+                                'resources' => [
+                                    $resourceSalesKey => [
+                                        'percentage' => (float) (
+                                            $stat['percentage'] ?? 0
+                                        ),
+                                        'used_percentage' => (float) (
+                                            $stat['percentage'] ?? 0
+                                        ),
+                                        'usage_percentage' => (float) (
+                                            $stat['percentage'] ?? 0
+                                        ),
+                                        'status' =>
+                                            $stat['resource_status']
+                                            ?? 'normal',
+                                    ],
+                                ],
+                            ]"
+                        />
+                    </div>
+                @endif
+
                 </div>
 
+                @endif
+
             @endforeach
+
+            {{-- ESUBIZ_UNIVERSAL_ADDON_PLACEMENT_DASHBOARD_V1 --}}
+            @php
+                /*
+                 * Universal Dashboard Add-on context.
+                 *
+                 * ESUBIZ_UNIVERSAL_DASHBOARD_RESOURCE_DISPLAY_GATE_V1
+                 *
+                 * No resource/Add-on is hardcoded here.
+                 *
+                 * A resource is exposed to Dashboard sales triggers only when:
+                 *  - Central Admin has an active resource setting;
+                 *  - it is visible for this deployment type;
+                 *  - its configured Dashboard display threshold is reached.
+                 *
+                 * The Add-on's own Dashboard sales threshold/limit is then
+                 * evaluated independently by the generic trigger resolver.
+                 */
+                $addonDashboardResources = [];
+
+                $dashboardDeploymentType =
+                    !empty($website->is_off_server)
+                        ? 'off_server'
+                        : 'saas';
+
+                $dashboardResourceSettings = \Illuminate\Support\Facades\DB::table(
+                    'core_resource_settings'
+                )
+                    ->where('is_active', 1)
+                    ->get()
+                    ->keyBy('resource_key');
+
+                foreach (($dashboardStats ?? []) as $dashboardResourceStat) {
+                    $dashboardResourceKey =
+                        $dashboardResourceStat['resource_key']
+                        ?? $dashboardResourceStat['key']
+                        ?? $dashboardResourceStat['icon']
+                        ?? null;
+
+                    if (empty($dashboardResourceKey)) {
+                        continue;
+                    }
+
+                    $dashboardResourceSetting =
+                        $dashboardResourceSettings->get(
+                            $dashboardResourceKey
+                        );
+
+                    if (!$dashboardResourceSetting) {
+                        continue;
+                    }
+
+                    $dashboardResourceVisible =
+                        $dashboardDeploymentType === 'off_server'
+                            ? (bool) (
+                                $dashboardResourceSetting->off_server_visible
+                                ?? false
+                            )
+                            : (bool) (
+                                $dashboardResourceSetting->saas_visible
+                                ?? false
+                            );
+
+                    if (!$dashboardResourceVisible) {
+                        continue;
+                    }
+
+                    $dashboardResourcePercentage = (float) (
+                        $dashboardResourceStat['percentage'] ?? 0
+                    );
+
+                    $dashboardDisplayThreshold = (float) (
+                        $dashboardResourceSetting
+                            ->dashboard_threshold_percentage
+                        ?? 100
+                    );
+
+                    if (
+                        $dashboardResourcePercentage
+                        < $dashboardDisplayThreshold
+                    ) {
+                        continue;
+                    }
+
+                    $addonDashboardResources[$dashboardResourceKey] = [
+                        'percentage' =>
+                            $dashboardResourcePercentage,
+
+                        'used_percentage' =>
+                            $dashboardResourcePercentage,
+
+                        'usage_percentage' =>
+                            $dashboardResourcePercentage,
+
+                        'status' =>
+                            $dashboardResourceStat[
+                                'resource_status'
+                            ]
+                            ?? 'normal',
+                    ];
+                }
+            @endphp
+
 
         </section>
 

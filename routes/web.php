@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\TenantAddonCheckoutController;
+
 
 
 
@@ -1077,6 +1079,24 @@ Route::middleware(['auth'])->prefix('admin/core-addons')->name('admin.core-addon
         ->name('bundles.destroy');
 
 });
+
+
+
+/*
+ * ESUBIZ_UNIVERSAL_ADDON_CHECKOUT_ROUTE_V1
+ *
+ * Authenticated SaaS tenant Add-on checkout handoff.
+ * Existing Marketplace checkout remains authoritative.
+ */
+Route::post(
+    '/websites/{website}/addon-checkout',
+    [
+        TenantAddonCheckoutController::class,
+        'create',
+    ]
+)
+    ->middleware('auth')
+    ->name('tenant.addons.checkout');
 
 Route::middleware(['auth'])->group(function () {
 

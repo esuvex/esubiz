@@ -125,13 +125,192 @@ return view('admin.core-addons.index', [
         $data['created_at'] = now();
         $data['updated_at'] = now();
 
-        $addonId = DB::table('core_addons')->insertGetId($data);
+        /*
+         * ESUBIZ_CREATE_ADDON_INSERT_PAYLOAD_FIX_V1
+         *
+         * Resource Settings and Placement fields are validated form
+         * configuration, not columns on core_addons. Keep $data intact
+         * for the persistence steps below, but remove those fields from
+         * the actual Add-on insert payload.
+         */
+        $addonInsertData = $data;
+
+        unset(
+            $addonInsertData['resource_enabled'],
+            $addonInsertData['resource_key'],
+            $addonInsertData['resource_dashboard_threshold'],
+            $addonInsertData['resource_saas'],
+            $addonInsertData['resource_off_server'],
+            $addonInsertData['addon_placements'],
+            $addonInsertData['dashboard_sales_trigger'],
+            $addonInsertData['placement_title'],
+            $addonInsertData['placement_description'],
+            $addonInsertData['placement_cta_text']
+        );
+
+        $addonId = DB::table('core_addons')
+            ->insertGetId($addonInsertData);
 
         $this->syncCapabilityAllocations(
             $addonId,
             $request->input('capability_allocations', []),
             $request->input('capability_unlimited', [])
         );
+
+        /*
+         * ESUBIZ_CREATE_ADDON_RESOURCE_SETTINGS_PERSISTENCE_V1
+         *
+         * Resource Settings remain central by resource_key.
+         * Core remains responsible for default allocations.
+         */
+        $resourceKey = trim(
+            (string) ($data['resource_key'] ?? '')
+        );
+
+        if ($resourceKey !== '') {
+            DB::table('core_resource_settings')->updateOrInsert(
+                [
+                    'resource_key' => $resourceKey,
+                ],
+                [
+                    'dashboard_threshold_percentage' =>
+                        (float) (
+                            $data['resource_dashboard_threshold']
+                            ?? 80
+                        ),
+
+                    'saas_visible' =>
+                        $request->boolean('resource_saas'),
+
+                    'off_server_visible' =>
+                        $request->boolean(
+                            'resource_off_server'
+                        ),
+
+                    'is_active' =>
+                        $request->boolean('resource_enabled'),
+
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ]
+            );
+        }
+
+
+        /*
+         * ESUBIZ_CREATE_ADDON_UNIVERSAL_PLACEMENT_MAPPING_V1
+         *
+         * One generic placement configuration for every Add-on:
+         *
+         * Dashboard:
+         *   resource threshold / limit reached
+         *   may retrigger after later resource usage
+         *
+         * Settings / Page Builder / Widgets:
+         *   feature locked
+         *   disappears after purchase
+         */
+        $selectedPlacements = array_values(
+            array_intersect(
+                [
+                    'dashboard',
+                    'settings',
+                    'page_builder',
+                    'widgets',
+                ],
+                (array) (
+                    $data['addon_placements']
+                    ?? []
+                )
+            )
+        );
+
+        $dashboardSalesTrigger = (array) (
+            $data['dashboard_sales_trigger']
+            ?? []
+        );
+
+        foreach ($selectedPlacements as $placementKey) {
+
+            if ($placementKey === 'dashboard') {
+
+                $conditionType = (string) (
+                    $dashboardSalesTrigger['condition_type']
+                    ?? 'resource_threshold'
+                );
+
+                if (!in_array(
+                    $conditionType,
+                    [
+                        'resource_threshold',
+                        'limit_reached',
+                    ],
+                    true
+                )) {
+                    $conditionType = 'resource_threshold';
+                }
+
+                $triggerResourceKey = trim(
+                    (string) (
+                        $dashboardSalesTrigger['resource_key']
+                        ?? $resourceKey
+                    )
+                );
+
+                $thresholdPercentage =
+                    $conditionType === 'resource_threshold'
+                        ? (float) (
+                            $dashboardSalesTrigger[
+                                'threshold_percentage'
+                            ]
+                            ?? $data[
+                                'resource_dashboard_threshold'
+                            ]
+                            ?? 80
+                        )
+                        : null;
+
+                $repeatPolicy = 'resource_retrigger';
+
+            } else {
+
+                $conditionType = 'feature_locked';
+                $triggerResourceKey = null;
+                $thresholdPercentage = null;
+                $repeatPolicy = 'once_until_purchased';
+            }
+
+            DB::table('core_addon_sales_triggers')->insert([
+                'addon_id' => $addonId,
+                'location_key' => $placementKey,
+                'condition_type' => $conditionType,
+                'repeat_policy' => $repeatPolicy,
+                'resource_key' =>
+                    $triggerResourceKey !== ''
+                        ? $triggerResourceKey
+                        : null,
+                'threshold_percentage' =>
+                    $thresholdPercentage,
+
+                'saas_visible' =>
+                    $request->boolean('saas_available'),
+
+                'off_server_visible' =>
+                    $request->boolean(
+                        'off_server_available'
+                    ),
+
+                'title' => $request->filled('placement_title') ? trim((string) $request->input('placement_title')) : null,
+                'message' => $request->filled('placement_description') ? trim((string) $request->input('placement_description')) : null,
+                'cta_text' => $request->filled('placement_cta_text') ? trim((string) $request->input('placement_cta_text')) : null,
+                'priority' => 100,
+                'is_active' => true,
+                'condition_config' => null,
+                'metadata' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
 
         return back()->with('success', 'Core add-on created successfully.');
     }
@@ -285,6 +464,50 @@ return view('admin.core-addons.index', [
 
             'capabilities' => ['nullable', 'array'],
             'capabilities.*' => ['string', 'max:150'],
+
+            /*
+             * ESUBIZ_CREATE_ADDON_UNIVERSAL_PLACEMENT_VALIDATION_V1
+             */
+            'resource_enabled' => ['nullable', 'boolean'],
+            'resource_key' => ['nullable', 'string', 'max:150'],
+            'resource_dashboard_threshold' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:100',
+            ],
+            'resource_saas' => ['nullable', 'boolean'],
+            'resource_off_server' => ['nullable', 'boolean'],
+
+            /*
+             * ESUBIZ_ADDON_PLACEMENT_ADMIN_CONTENT_VALIDATION_V1
+             */
+            'placement_title' => ['nullable', 'string', 'max:255'],
+            'placement_description' => ['nullable', 'string', 'max:1000'],
+            'placement_cta_text' => ['nullable', 'string', 'max:100'],
+
+            'addon_placements' => ['nullable', 'array'],
+            'addon_placements.*' => [
+                'string',
+                'in:dashboard,settings,page_builder,widgets',
+            ],
+
+            'dashboard_sales_trigger' => ['nullable', 'array'],
+            'dashboard_sales_trigger.condition_type' => [
+                'nullable',
+                'in:resource_threshold,limit_reached',
+            ],
+            'dashboard_sales_trigger.resource_key' => [
+                'nullable',
+                'string',
+                'max:150',
+            ],
+            'dashboard_sales_trigger.threshold_percentage' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:100',
+            ],
         ]);
     }
 
@@ -448,6 +671,36 @@ return view('admin.core-addons.index', [
              * Locations themselves are validated again against the
              * feature/module-owned registry before persistence.
              */
+            /*
+             * ESUBIZ_UNIVERSAL_ADDON_PLACEMENT_VALIDATION_V1
+             */
+            'addon_placements' => ['nullable', 'array'],
+            'addon_placements.*' => [
+                'string',
+                'in:dashboard,settings,page_builder,widgets',
+            ],
+
+            'dashboard_sales_trigger' => ['nullable', 'array'],
+            'dashboard_sales_trigger.condition_type' => [
+                'nullable',
+                'in:resource_threshold,limit_reached',
+            ],
+            'dashboard_sales_trigger.resource_key' => [
+                'nullable',
+                'string',
+                'max:150',
+            ],
+            'dashboard_sales_trigger.threshold_percentage' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:100',
+            ],
+            'dashboard_sales_trigger.repeat_policy' => [
+                'nullable',
+                'in:once_until_purchased,resource_retrigger',
+            ],
+
             'sales_triggers' => ['nullable', 'array'],
             'sales_triggers.*.location_key' => [
                 'required',
@@ -458,6 +711,13 @@ return view('admin.core-addons.index', [
                 'nullable',
                 'string',
                 'max:50',
+            ],
+            /*
+             * ESUBIZ_GENERIC_TRIGGER_REPEAT_POLICY_VALIDATION_V1
+             */
+            'sales_triggers.*.repeat_policy' => [
+                'nullable',
+                'in:once_until_purchased,resource_retrigger',
             ],
             'sales_triggers.*.resource_key' => [
                 'nullable',
@@ -618,9 +878,186 @@ return view('admin.core-addons.index', [
         $availableTriggerConditions =
             $salesTriggerRegistry->conditions();
 
-        $submittedSalesTriggers =
-            $data['sales_triggers']
-            ?? [];
+        /*
+         * ESUBIZ_UNIVERSAL_ADDON_PLACEMENT_MAPPING_V1
+         *
+         * Admin edits only:
+         *
+         *   1. Placement
+         *   2. Dashboard Sales Trigger
+         *
+         * They are translated here into the existing generic
+         * core_addon_sales_triggers rows.
+         *
+         * Add-on deployment availability automatically controls
+         * SaaS/off-server visibility. No duplicate visibility
+         * configuration is required in Placement settings.
+         */
+        /*
+         * ESUBIZ_UNIVERSAL_PLACEMENT_CONTENT_READBACK_V1
+         *
+         * Premium presentation content is stored on the universal
+         * placement trigger rows. Read it directly from those rows
+         * so Edit always displays exactly what Admin saved.
+         */
+        $universalPlacementContentTrigger =
+            DB::table('core_addon_sales_triggers')
+                ->where('addon_id', $id)
+                ->whereIn(
+                    'location_key',
+                    [
+                        'dashboard',
+                        'settings',
+                        'page_builder',
+                        'widgets',
+                    ]
+                )
+                ->orderBy('id')
+                ->first();
+
+        $universalPlacementContent = [
+            'title' =>
+                $universalPlacementContentTrigger->title
+                ?? null,
+
+            'description' =>
+                $universalPlacementContentTrigger->message
+                ?? null,
+
+            'cta_text' =>
+                $universalPlacementContentTrigger->cta_text
+                ?? null,
+        ];
+
+
+        $selectedPlacements = array_values(
+            array_unique(
+                array_intersect(
+                    (array) ($data['addon_placements'] ?? []),
+                    [
+                        'dashboard',
+                        'settings',
+                        'page_builder',
+                        'widgets',
+                    ]
+                )
+            )
+        );
+
+        $dashboardSalesTrigger =
+            (array) ($data['dashboard_sales_trigger'] ?? []);
+
+        $submittedSalesTriggers = [];
+
+        /*
+         * ESUBIZ_UNIVERSAL_ADDON_PLACEMENT_MAPPING_V2
+         *
+         * Settings, Page Builder and Widgets are normal feature
+         * placements. They disappear once the Add-on is purchased.
+         *
+         * Dashboard is the resource sales placement. Its configured
+         * Threshold/Limit condition determines when the recommendation
+         * appears. Resource Add-ons may retrigger after later usage.
+         *
+         * Removing a placement from Admin configuration removes its
+         * trigger row during persistence.
+         */
+        foreach ($selectedPlacements as $placementKey) {
+
+            if ($placementKey === 'dashboard') {
+
+                $conditionType =
+                    $dashboardSalesTrigger['condition_type']
+                    ?? 'resource_threshold';
+
+                if (!in_array(
+                    $conditionType,
+                    [
+                        'resource_threshold',
+                        'limit_reached',
+                    ],
+                    true
+                )) {
+                    $conditionType = 'resource_threshold';
+                }
+
+                $submittedSalesTriggers[] = [
+                    'location_key' => 'dashboard',
+
+                    'condition_type' =>
+                        $conditionType,
+
+                    'resource_key' =>
+                        $dashboardSalesTrigger['resource_key']
+                        ?? null,
+
+                    'threshold_percentage' =>
+                        $conditionType === 'resource_threshold'
+                            ? (
+                                $dashboardSalesTrigger[
+                                    'threshold_percentage'
+                                ]
+                                ?? 80
+                            )
+                            : null,
+
+                    /*
+                     * Dashboard resource selling is designed to
+                     * become eligible again after additional capacity
+                     * has been purchased and later consumed.
+                     */
+                    'repeat_policy' =>
+                        'resource_retrigger',
+
+                    'saas_visible' =>
+                        $request->boolean('saas_available'),
+
+                    'off_server_visible' =>
+                        $request->boolean('off_server_available'),
+
+                    'is_active' => true,
+
+                    'priority' => 100,
+                    'title' => $request->filled('placement_title') ? trim((string) $request->input('placement_title')) : null,
+                    'message' => $request->filled('placement_description') ? trim((string) $request->input('placement_description')) : null,
+                    'cta_text' => $request->filled('placement_cta_text') ? trim((string) $request->input('placement_cta_text')) : null,
+                ];
+
+                continue;
+            }
+
+            /*
+             * Normal feature placement.
+             * Purchase satisfies the requirement and stops the
+             * recommendation from appearing again.
+             */
+            $submittedSalesTriggers[] = [
+                'location_key' =>
+                    $placementKey,
+
+                'condition_type' =>
+                    'feature_locked',
+
+                'resource_key' => null,
+                'threshold_percentage' => null,
+
+                'repeat_policy' =>
+                    'once_until_purchased',
+
+                'saas_visible' =>
+                    $request->boolean('saas_available'),
+
+                'off_server_visible' =>
+                    $request->boolean('off_server_available'),
+
+                'is_active' => true,
+
+                'priority' => 100,
+                'title' => $request->filled('placement_title') ? trim((string) $request->input('placement_title')) : null,
+                'message' => $request->filled('placement_description') ? trim((string) $request->input('placement_description')) : null,
+                'cta_text' => $request->filled('placement_cta_text') ? trim((string) $request->input('placement_cta_text')) : null,
+            ];
+        }
 
         $validSalesTriggerRows = [];
 
@@ -682,6 +1119,23 @@ return view('admin.core-addons.index', [
                 'addon_id' => $id,
                 'location_key' => $locationKey,
                 'condition_type' => $conditionType,
+
+                /*
+                 * ESUBIZ_GENERIC_TRIGGER_REPEAT_POLICY_PERSISTENCE_V1
+                 *
+                 * Normal/feature Add-ons disappear after purchase.
+                 * Resource Add-ons may explicitly be configured to
+                 * retrigger when their usage condition becomes true again.
+                 */
+                'repeat_policy' =>
+                    (
+                        ($trigger['repeat_policy'] ?? null)
+                        === 'resource_retrigger'
+                        && $supportsResourceCondition
+                    )
+                        ? 'resource_retrigger'
+                        : 'once_until_purchased',
+
                 'resource_key' => $resourceKey,
                 'threshold_percentage' => $thresholdPercentage,
                 'saas_visible' =>
@@ -850,14 +1304,130 @@ public function editAddon(int $id)
             ->orderBy('id')
             ->get();
 
-        return view('admin.core-addons.edit', [
+        /*
+         * ESUBIZ_CENTRAL_RESOURCE_SETTINGS_FORM_READ_V3
+         *
+         * Resource Settings are central by resource_key.
+         *
+         * Resolve the resource from the Add-on's actual saved allocation
+         * records instead of depending only on the collection index/key.
+         * This keeps the managed-resource checkbox and settings correctly
+         * populated after save/reopen.
+         */
+        $resourceSetting = null;
+
+        foreach ($allocations as $allocationKey => $allocation) {
+
+            $candidateKeys = array_values(
+                array_unique(
+                    array_filter([
+                        is_string($allocationKey)
+                            ? $allocationKey
+                            : null,
+
+                        is_object($allocation)
+                            ? ($allocation->capability_key ?? null)
+                            : (
+                                is_array($allocation)
+                                    ? ($allocation['capability_key'] ?? null)
+                                    : null
+                            ),
+
+                        is_object($allocation)
+                            ? ($allocation->resource_key ?? null)
+                            : (
+                                is_array($allocation)
+                                    ? ($allocation['resource_key'] ?? null)
+                                    : null
+                            ),
+
+                        is_object($allocation)
+                            ? ($allocation->limit_key ?? null)
+                            : (
+                                is_array($allocation)
+                                    ? ($allocation['limit_key'] ?? null)
+                                    : null
+                            ),
+                    ])
+                )
+            );
+
+            foreach ($candidateKeys as $candidateKey) {
+
+                $matchedResourceSetting =
+                    DB::table('core_resource_settings')
+                        ->where('resource_key', $candidateKey)
+                        ->first();
+
+                if ($matchedResourceSetting) {
+                    $resourceSetting = $matchedResourceSetting;
+                    break 2;
+                }
+            }
+        }
+
+        $resourceSettings = $resourceSetting
+            ? [
+                'enabled' =>
+                    (bool) $resourceSetting->is_active,
+
+                'resource_key' =>
+                    $resourceSetting->resource_key,
+
+                'dashboard_threshold_percentage' =>
+                    (float) $resourceSetting
+                        ->dashboard_threshold_percentage,
+
+                'saas' =>
+                    (bool) $resourceSetting->saas_visible,
+
+                'off_server' =>
+                    (bool) $resourceSetting->off_server_visible,
+            ]
+            : [];
+
+                /*
+         * ESUBIZ_UNIVERSAL_PLACEMENT_CONTENT_EDIT_SCOPE_FIX_V1
+         *
+         * Premium content belongs to the saved universal placement rows.
+         * Define it in this exact Edit request scope before rendering.
+         */
+        $universalPlacementContentTrigger =
+            DB::table('core_addon_sales_triggers')
+                ->where('addon_id', $id)
+                ->whereIn(
+                    'location_key',
+                    [
+                        'dashboard',
+                        'settings',
+                        'page_builder',
+                        'widgets',
+                    ]
+                )
+                ->orderBy('id')
+                ->first();
+
+        $universalPlacementContent = [
+            'title' =>
+                $universalPlacementContentTrigger->title ?? null,
+
+            'description' =>
+                $universalPlacementContentTrigger->message ?? null,
+
+            'cta_text' =>
+                $universalPlacementContentTrigger->cta_text ?? null,
+        ];
+
+return view('admin.core-addons.edit', [
             'addon' => $addon,
             'capabilities' => $capabilities,
             'allocations' => $allocations,
             'triggerLocations' => $triggerLocations,
             'triggerConditions' => $triggerConditions,
             'salesTriggers' => $salesTriggers,
-        ]);
+            'resourceSettings' => $resourceSettings,
+        ])
+            ->with('universalPlacementContent', $universalPlacementContent);
     }
 
 

@@ -129,6 +129,350 @@
         <div id="addon-allocation-list" class="space-y-4"></div>
     </div>
 
+    {{-- ESUBIZ_CREATE_ADDON_PLACEMENT_ADMIN_CONTENT_V1 --}}
+<div class="mb-5 rounded-2xl border border-slate-200 bg-white p-5">
+    <div class="mb-4">
+        <div class="text-sm font-black text-slate-900">
+            Premium Feature Content
+        </div>
+        <div class="mt-1 text-xs text-slate-500">
+            Optional content shown with this Add-on in its selected placements.
+        </div>
+    </div>
+
+    <div class="grid gap-4 lg:grid-cols-2">
+        <div>
+            <label class="mb-1 block text-xs font-bold text-slate-700">
+                Premium Title
+            </label>
+            <input
+                type="text"
+                name="placement_title"
+                value="{{ old('placement_title') }}"
+                maxlength="255"
+                class="w-full rounded-xl border-slate-300 text-sm"
+                placeholder="Optional">
+        </div>
+
+        <div>
+            <label class="mb-1 block text-xs font-bold text-slate-700">
+                CTA Text
+            </label>
+            <input
+                type="text"
+                name="placement_cta_text"
+                value="{{ old('placement_cta_text') }}"
+                maxlength="100"
+                class="w-full rounded-xl border-slate-300 text-sm"
+                placeholder="Optional">
+        </div>
+
+        <div class="lg:col-span-2">
+            <label class="mb-1 block text-xs font-bold text-slate-700">
+                Premium Description
+            </label>
+            <textarea
+                name="placement_description"
+                rows="3"
+                maxlength="1000"
+                class="w-full rounded-xl border-slate-300 text-sm"
+                placeholder="Optional">{{ old('placement_description') }}</textarea>
+        </div>
+    </div>
+</div>
+
+{{-- ESUBIZ_CREATE_ADDON_UNIVERSAL_PLACEMENT_UI_V1 --}}
+    <div
+        class="mt-6 space-y-6"
+        x-data="{
+            placements: @js(old('addon_placements', [])),
+            dashboardCondition: @js(old(
+                'dashboard_sales_trigger.condition_type',
+                'resource_threshold'
+            ))
+        }">
+
+        {{-- Resource Settings --}}
+        <div class="rounded-2xl border border-slate-200 bg-white p-5">
+
+            <div>
+                <div class="font-bold text-slate-900">
+                    Resource Settings &amp; Sales Trigger
+                </div>
+
+                <p class="mt-1 text-xs text-slate-500">
+                    Register the selected Core function as a managed resource when this Add-on extends a measurable limit.
+                </p>
+            </div>
+
+            <label class="mt-5 flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+
+                <input
+                    type="checkbox"
+                    name="resource_enabled"
+                    value="1"
+                    {{ old('resource_enabled') ? 'checked' : '' }}>
+
+                <span>
+                    <span class="block text-sm font-bold text-slate-700">
+                        Enable as managed resource
+                    </span>
+
+                    <span class="block text-xs text-slate-500">
+                        Core remains responsible for the default allocation.
+                    </span>
+                </span>
+
+            </label>
+
+            <div class="mt-5 grid gap-5 md:grid-cols-2">
+
+                <div>
+                    <label class="text-sm font-bold text-slate-700">
+                        Core Resource
+                    </label>
+
+                    <select
+                        name="resource_key"
+                        class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm">
+
+                        <option value="">
+                            Select Core capability
+                        </option>
+
+                        @foreach($featureLimits as $capability)
+                            @php
+                                $createResourceKey =
+                                    $capability->limit_key
+                                    ?? $capability->capability_key
+                                    ?? $capability->key
+                                    ?? '';
+
+                                $createResourceType =
+                                    $capability->entitlement_type
+                                    ?? 'feature';
+                            @endphp
+
+                            @if($createResourceKey)
+                                <option
+                                    value="{{ $createResourceKey }}"
+                                    {{ (string) old('resource_key') === (string) $createResourceKey ? 'selected' : '' }}>
+                                    {{ ucwords(str_replace(['.', '_'], ' ', $createResourceKey)) }}
+                                    — {{ ucfirst($createResourceType) }}
+                                </option>
+                            @endif
+                        @endforeach
+
+                    </select>
+                </div>
+
+                <div>
+                    <label class="text-sm font-bold text-slate-700">
+                        Dashboard Threshold
+                    </label>
+
+                    <div class="mt-2 flex gap-2">
+                        <input
+                            type="number"
+                            name="resource_dashboard_threshold"
+                            min="0"
+                            max="100"
+                            step="1"
+                            value="{{ old('resource_dashboard_threshold', 80) }}"
+                            class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm">
+
+                        <span class="flex items-center rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-500">
+                            %
+                        </span>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="mt-5 flex flex-wrap gap-5">
+
+                <label class="flex items-center gap-2 text-sm text-slate-700">
+                    <input
+                        type="checkbox"
+                        name="resource_saas"
+                        value="1"
+                        {{ old('resource_saas') ? 'checked' : '' }}>
+                    SaaS visibility
+                </label>
+
+                <label class="flex items-center gap-2 text-sm text-slate-700">
+                    <input
+                        type="checkbox"
+                        name="resource_off_server"
+                        value="1"
+                        {{ old('resource_off_server') ? 'checked' : '' }}>
+                    Off-server visibility
+                </label>
+
+            </div>
+
+        </div>
+
+
+        {{-- Placement --}}
+        <div class="rounded-2xl border border-slate-200 bg-white p-5">
+
+            <div class="font-bold text-slate-900">
+                Placement
+            </div>
+
+            <p class="mt-1 text-xs text-slate-500">
+                Select every universal location where this Add-on should connect.
+            </p>
+
+            @php
+                $createSelectedPlacements =
+                    (array) old('addon_placements', []);
+
+                $createPlacements = [
+                    'dashboard' => [
+                        'label' => 'Dashboard',
+                        'description' => 'Resource sales recommendation.',
+                    ],
+                    'settings' => [
+                        'label' => 'Settings',
+                        'description' => 'Feature appears in Settings.',
+                    ],
+                    'page_builder' => [
+                        'label' => 'Page Builder',
+                        'description' => 'Feature appears in Page Builder.',
+                    ],
+                    'widgets' => [
+                        'label' => 'Widgets',
+                        'description' => 'Feature appears in Widgets.',
+                    ],
+                ];
+            @endphp
+
+            <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+
+                @foreach($createPlacements as $placementKey => $placement)
+
+                    <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+
+                        <input
+                            type="checkbox"
+                            name="addon_placements[]"
+                            value="{{ $placementKey }}"
+                            x-model="placements"
+                            {{ in_array(
+                                $placementKey,
+                                $createSelectedPlacements,
+                                true
+                            ) ? 'checked' : '' }}
+                            class="mt-0.5 h-4 w-4 rounded border-slate-300">
+
+                        <span>
+                            <span class="block text-sm font-bold text-slate-700">
+                                {{ $placement['label'] }}
+                            </span>
+
+                            <span class="mt-1 block text-xs leading-5 text-slate-500">
+                                {{ $placement['description'] }}
+                            </span>
+                        </span>
+
+                    </label>
+
+                @endforeach
+
+            </div>
+
+
+            {{-- Dashboard Sales Trigger --}}
+            <div
+                x-show="placements.includes('dashboard')"
+                x-cloak
+                class="mt-5 rounded-xl border border-blue-100 bg-blue-50 p-4">
+
+                <div class="font-bold text-blue-900">
+                    Dashboard Sales Trigger
+                </div>
+
+                <p class="mt-1 text-xs text-blue-700">
+                    Controls when the website owner sees the resource purchase recommendation.
+                </p>
+
+                <div class="mt-4 grid gap-4 md:grid-cols-3">
+
+                    <div>
+                        <label class="text-sm font-bold text-slate-700">
+                            Trigger
+                        </label>
+
+                        <select
+                            name="dashboard_sales_trigger[condition_type]"
+                            x-model="dashboardCondition"
+                            class="mt-2 w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-sm">
+
+                            <option value="resource_threshold">
+                                Resource Threshold
+                            </option>
+
+                            <option value="limit_reached">
+                                Limit Reached
+                            </option>
+
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="text-sm font-bold text-slate-700">
+                            Resource
+                        </label>
+
+                        <input
+                            type="text"
+                            name="dashboard_sales_trigger[resource_key]"
+                            value="{{ old(
+                                'dashboard_sales_trigger.resource_key'
+                            ) }}"
+                            placeholder="e.g. storage or bandwidth"
+                            class="mt-2 w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-sm">
+                    </div>
+
+                    <div
+                        x-show="dashboardCondition === 'resource_threshold'"
+                        x-cloak>
+
+                        <label class="text-sm font-bold text-slate-700">
+                            Threshold
+                        </label>
+
+                        <div class="mt-2 flex gap-2">
+                            <input
+                                type="number"
+                                name="dashboard_sales_trigger[threshold_percentage]"
+                                min="0"
+                                max="100"
+                                step="1"
+                                value="{{ old(
+                                    'dashboard_sales_trigger.threshold_percentage',
+                                    80
+                                ) }}"
+                                class="w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-sm">
+
+                            <span class="flex items-center rounded-xl border border-blue-200 bg-white px-3 text-sm font-bold text-slate-500">
+                                %
+                            </span>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
     <div class="mt-6">
         <label class="text-sm font-semibold text-slate-700">Allocation Unit</label>
         <input

@@ -48,9 +48,104 @@ class CoreAddonSalesTriggerResolver
             ? 'saas_visible'
             : 'off_server_visible';
 
+        /*
+         * ESUBIZ_UNIVERSAL_ADDON_RUNTIME_ROUTING_V1
+         *
+         * Admin stores only universal placements.
+         *
+         * Capability-owned runtime locations consume the appropriate
+         * universal placement automatically:
+         *
+         * settings     -> capability Settings/Overview
+         * page_builder -> capability Page Builder location
+         * widgets      -> capability Widget location
+         *
+         * Exact registered locations remain supported.
+         */
+        $locationDefinition = $this->registry->location($locationKey);
+
+        $universalPlacementKey = null;
+
+        /*
+         * ESUBIZ_DIRECT_UNIVERSAL_PLACEMENT_RESOLUTION_V1
+         *
+         * Universal hosts resolve themselves directly.
+         * Capability-owned child locations inherit their matching
+         * universal placement and are capability-filtered below.
+         */
+        if (
+            in_array(
+                $locationKey,
+                [
+                    'settings',
+                    'page_builder',
+                    'widgets',
+                ],
+                true
+            )
+        ) {
+            $universalPlacementKey = $locationKey;
+        } elseif (
+            str_starts_with(
+                $locationKey,
+                'page_builder.widgets.'
+            )
+        ) {
+            $universalPlacementKey = 'widgets';
+        } elseif (
+            str_ends_with($locationKey, '.settings')
+            || str_starts_with($locationKey, 'settings.')
+        ) {
+            $universalPlacementKey = 'settings';
+        } elseif (
+            str_starts_with($locationKey, 'page_builder.')
+            || str_starts_with($locationKey, 'pages.')
+        ) {
+            $universalPlacementKey = 'page_builder';
+        }
+
+        $isDirectUniversalLocation =
+            $universalPlacementKey === $locationKey
+            && in_array(
+                $locationKey,
+                [
+                    'settings',
+                    'page_builder',
+                    'widgets',
+                ],
+                true
+            );
+
+        $isCapabilityOwnedUniversalLocation =
+            !$isDirectUniversalLocation
+            && !empty($universalPlacementKey)
+            && !empty(
+                $locationDefinition['feature_key']
+                ?? null
+            );
+
         $triggers = DB::table('core_addon_sales_triggers as trigger')
             ->join('core_addons as addon', 'addon.id', '=', 'trigger.addon_id')
-            ->where('trigger.location_key', $locationKey)
+            ->where(function ($query) use (
+                $locationKey,
+                $universalPlacementKey,
+                $isCapabilityOwnedUniversalLocation
+            ) {
+                $query->where(
+                    'trigger.location_key',
+                    $locationKey
+                );
+
+                if (
+                    $isCapabilityOwnedUniversalLocation
+                    && !empty($universalPlacementKey)
+                ) {
+                    $query->orWhere(
+                        'trigger.location_key',
+                        $universalPlacementKey
+                    );
+                }
+            })
             ->where('trigger.is_active', 1)
             ->where("trigger.{$visibilityColumn}", 1)
             ->where('addon.is_active', 1)
@@ -69,40 +164,243 @@ class CoreAddonSalesTriggerResolver
             ->orderBy('trigger.id')
             ->get();
 
-        return $triggers
-            ->filter(function ($trigger) use ($website, $context, $deploymentType) {
-                if (!$this->addonAvailableForDeployment($trigger, $deploymentType)) {
-                    return false;
-                }
+        /*
+         * ESUBIZ_DASHBOARD_RESOURCE_TRIGGER_DEDUP_APPLIED_V1
+         *
+         * Dashboard renders one recommendation per resource while
+         * retaining every eligible Add-on in purchase_options.
+         */
+        return $this->collapseDashboardResourceTriggers(
+            $triggers
+                        ->filter(function ($trigger) use (
+                            $website,
+                            $context,
+                            $deploymentType,
+                            $locationKey,
+                            $locationDefinition,
+                            $universalPlacementKey,
+                            $isCapabilityOwnedUniversalLocation
+                        ) {
+                            if (!$this->addonAvailableForDeployment($trigger, $deploymentType)) {
+                                return false;
+                            }
 
-                return $this->conditionMatches($trigger, $website, $context);
+                            /*
+                             * ESUBIZ_UNIVERSAL_PLACEMENT_CAPABILITY_MATCH_V1
+                             *
+                             * Universal placements are routed only into locations
+                             * owned by a capability allocated by the Add-on.
+                             *
+                             * This keeps placement plug-and-play without Add-on
+                             * IDs, names or individual placement code.
+                             */
+                            if (
+                                $isCapabilityOwnedUniversalLocation
+                                && (string) $trigger->location_key
+                                    === (string) $universalPlacementKey
+                                && !$this->addonBelongsToPlacementCapability(
+                                    (int) $trigger->addon_id,
+                                    (string) (
+                                        $locationDefinition['feature_key']
+                                        ?? ''
+                                    )
+                                )
+                            ) {
+                                return false;
+                            }
+
+                            /*
+                             * ESUBIZ_GENERIC_TRIGGER_PURCHASE_POLICY_V1
+                             *
+                             * Admin is_active is already the master gate in the query.
+                             *
+                             * Normal/feature Add-ons stop being recommended once owned.
+                             * Resource Add-ons may explicitly retrigger after purchase;
+                             * their threshold/limit condition still has to match below.
+                             *
+                             * SaaS renewal notices are intentionally outside this engine
+                             * and remain with the existing invoice/reminder lifecycle.
+                             */
+                            if (
+                                $this->addonAlreadyPurchased($trigger, $website)
+                                && (string) ($trigger->repeat_policy ?? 'once_until_purchased')
+                                    !== 'resource_retrigger'
+                            ) {
+                                return false;
+                            }
+
+                            return $this->conditionMatches($trigger, $website, $context);
+                        })
+                        ->values()
+                        ->map(function ($trigger) use ($locationKey, $deploymentType) {
+                            /*
+                             * ESUBIZ_TRIGGER_ALTERNATIVE_PRODUCTS_PAYLOAD_V1
+                             *
+                             * The frontend can now decide:
+                             * one product = direct checkout,
+                             * multiple products = selection popup.
+                             */
+                            /*
+                             * ESUBIZ_DASHBOARD_ONLY_ALTERNATIVE_PRODUCTS_V1
+                             *
+                             * Multi-product discovery belongs to Dashboard
+                             * resource sales triggers only.
+                             *
+                             * Other placements keep their original single
+                             * Add-on recommendation and purchase identity.
+                             */
+                            $originalProduct = (object) [
+                                'id' => (int) $trigger->addon_id,
+                                'uuid' => $trigger->addon_uuid,
+                                'key' => $trigger->addon_key,
+                                'name' => $trigger->addon_name,
+                                'description' =>
+                                    $trigger->addon_description,
+                                'capability_key' =>
+                                    $trigger->resource_key ?? null,
+                                'allocation' => null,
+                                'is_unlimited' => false,
+                                'unit' => null,
+                            ];
+
+                            /*
+                             * ESUBIZ_DASHBOARD_PURCHASE_OPTIONS_FALLBACK_V1
+                             *
+                             * The configured Dashboard Add-on is always a
+                             * valid purchase option. Matching Add-ons are
+                             * then merged into the same resource selector.
+                             *
+                             * This prevents a failed/empty alternative
+                             * lookup from suppressing the Dashboard CTA.
+                             */
+                            if ($locationKey === 'dashboard') {
+                                $alternativeProducts =
+                                    collect([$originalProduct])
+                                        ->merge(
+                                            $this->alternativeProducts(
+                                                $trigger,
+                                                $deploymentType
+                                            )
+                                        )
+                                        ->unique('id')
+                                        ->values();
+                            } else {
+                                $alternativeProducts =
+                                    collect([$originalProduct]);
+                            }
+
+                            return [
+                                'trigger_id' => (int) $trigger->id,
+                                'location_key' => $locationKey,
+                                'condition_type' => (string) $trigger->condition_type,
+                                'priority' => (int) $trigger->priority,
+
+                                'addon_id' => (int) $trigger->addon_id,
+                                'addon_uuid' => $trigger->addon_uuid,
+                                'addon_key' => $trigger->addon_key,
+                                'addon_name' => $trigger->addon_name,
+                                'addon_description' => $trigger->addon_description,
+
+                                'purchase_options' =>
+                                    $alternativeProducts
+                                        ->map(function ($product) {
+                                            return [
+                                                'addon_id' =>
+                                                    (int) $product->id,
+
+                                                'addon_uuid' =>
+                                                    $product->uuid,
+
+                                                'addon_key' =>
+                                                    $product->key,
+
+                                                'name' =>
+                                                    $product->name,
+
+                                                'description' =>
+                                                    $product->description,
+
+                                                'capability_key' =>
+                                                    $product->capability_key,
+
+                                                'allocation' =>
+                                                    (float) (
+                                                        $product->allocation
+                                                        ?? 0
+                                                    ),
+
+                                                'is_unlimited' =>
+                                                    (bool) (
+                                                        $product->is_unlimited
+                                                        ?? false
+                                                    ),
+
+                                                /*
+                                                 * ESUBIZ_PURCHASE_OPTION_ALLOCATION_UNIT_V1
+                                                 *
+                                                 * Allows the selector to display:
+                                                 * 40 GB, 1 GB, 5 mailboxes, etc.
+                                                 */
+                                                'unit' =>
+                                                    $product->unit
+                                                    ?? null,
+                                            ];
+                                        })
+                                        ->values()
+                                        ->all(),
+
+                                'purchase_option_count' =>
+                                    $alternativeProducts->count(),
+
+                                /*
+                                 * ESUBIZ_ADMIN_CONTROLLED_TRIGGER_CONTENT_V1
+                                 *
+                                 * Premium placement content belongs to Admin.
+                                 * Empty title/message remain empty instead of falling
+                                 * back to the Add-on name/description.
+                                 */
+                                'title' => $trigger->title,
+                                'message' => $trigger->message,
+                                'cta_text' => $trigger->cta_text,
+
+                                'resource_key' => $trigger->resource_key,
+                                'threshold_percentage' => $trigger->threshold_percentage !== null
+                                    ? (float) $trigger->threshold_percentage
+                                    : null,
+
+                                'deployment_type' => $deploymentType,
+                            ];
+                        }),
+            $locationKey
+        );
+    }
+
+    /*
+     * ESUBIZ_GENERIC_TRIGGER_ADDON_OWNERSHIP_V1
+     *
+     * Uses the existing Marketplace/Admin entitlement authority.
+     * No Add-on-specific purchase checks are introduced.
+     */
+    protected function addonAlreadyPurchased(
+        object $trigger,
+        object $website
+    ): bool {
+        $websiteId = $website->id ?? null;
+        $addonId = $trigger->addon_id ?? null;
+
+        if (!$websiteId || !$addonId) {
+            return false;
+        }
+
+        return DB::table('product_entitlements')
+            ->where('website_id', $websiteId)
+            ->where('product_type', 'core_addon')
+            ->where('product_id', $addonId)
+            ->where(function ($query) {
+                $query->whereNull('status')
+                    ->orWhereIn('status', ['active', 'granted']);
             })
-            ->values()
-            ->map(function ($trigger) use ($locationKey, $deploymentType) {
-                return [
-                    'trigger_id' => (int) $trigger->id,
-                    'location_key' => $locationKey,
-                    'condition_type' => (string) $trigger->condition_type,
-                    'priority' => (int) $trigger->priority,
-
-                    'addon_id' => (int) $trigger->addon_id,
-                    'addon_uuid' => $trigger->addon_uuid,
-                    'addon_key' => $trigger->addon_key,
-                    'addon_name' => $trigger->addon_name,
-                    'addon_description' => $trigger->addon_description,
-
-                    'title' => $trigger->title ?: $trigger->addon_name,
-                    'message' => $trigger->message ?: $trigger->addon_description,
-                    'cta_text' => $trigger->cta_text ?: 'View Add-on',
-
-                    'resource_key' => $trigger->resource_key,
-                    'threshold_percentage' => $trigger->threshold_percentage !== null
-                        ? (float) $trigger->threshold_percentage
-                        : null,
-
-                    'deployment_type' => $deploymentType,
-                ];
-            });
+            ->exists();
     }
 
     protected function deploymentType(object $website, array $context): ?string
@@ -167,6 +465,81 @@ class CoreAddonSalesTriggerResolver
         };
     }
 
+    /*
+     * ESUBIZ_UNIVERSAL_WIDGET_CAPABILITY_OWNER_MATCH_V1
+     *
+     * Match an Add-on's Function Allocations to the capability that
+     * owns the current widget location.
+     *
+     * Direct matches are supported:
+     *   form_builder -> form_builder
+     *
+     * Pro/child capability matches are also supported through the
+     * existing core_feature_limits parent capability relationship:
+     *   panorama_360_pro -> panorama_360
+     *
+     * No Add-on IDs or widget product names are hardcoded.
+     */
+    protected function addonBelongsToPlacementCapability(
+        int $addonId,
+        string $widgetCapability
+    ): bool {
+        $widgetCapability = trim($widgetCapability);
+
+        if ($addonId <= 0 || $widgetCapability === '') {
+            return false;
+        }
+
+        $allocatedCapabilities = DB::table(
+            'core_addon_capability_allocations'
+        )
+            ->where('addon_id', $addonId)
+            ->where(function ($query) {
+                $query
+                    ->where('is_unlimited', 1)
+                    ->orWhere('allocation', '>', 0);
+            })
+            ->pluck('capability_key')
+            ->filter()
+            ->map(
+                fn ($key) => trim((string) $key)
+            )
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($allocatedCapabilities->isEmpty()) {
+            return false;
+        }
+
+        if ($allocatedCapabilities->contains($widgetCapability)) {
+            return true;
+        }
+
+        /*
+         * Function Allocations may point to a Pro/child limit while
+         * the widget is owned by its base Core capability.
+         *
+         * Resolve that relationship from the existing Core feature
+         * limit records rather than product-specific code.
+         */
+        $featureId = DB::table('core_features')
+            ->where('key', $widgetCapability)
+            ->value('id');
+
+        if (!$featureId) {
+            return false;
+        }
+
+        return DB::table('core_feature_limits')
+            ->where('core_feature_id', $featureId)
+            ->whereIn(
+                'limit_key',
+                $allocatedCapabilities->all()
+            )
+            ->exists();
+    }
+
     protected function featureLocked(
         object $trigger,
         object $website,
@@ -177,7 +550,42 @@ class CoreAddonSalesTriggerResolver
             true
         );
 
+        /*
+         * ESUBIZ_GENERIC_TRIGGER_ALLOCATION_CAPABILITY_FALLBACK_V1
+         *
+         * Function Allocations are the generic capability authority for
+         * Add-ons that do not store a legacy capabilities JSON array.
+         *
+         * This allows universal Settings, Page Builder and Widgets
+         * placements to work for every Add-on without product-specific
+         * placement code.
+         */
         if (!is_array($capabilities) || !$capabilities) {
+            $capabilities = DB::table(
+                'core_addon_capability_allocations'
+            )
+                ->where(
+                    'addon_id',
+                    (int) ($trigger->addon_id ?? 0)
+                )
+                ->where(function ($query) {
+                    $query
+                        ->where('is_unlimited', 1)
+                        ->orWhere('allocation', '>', 0);
+                })
+                ->pluck('capability_key')
+                ->filter()
+                ->map(
+                    fn ($capabilityKey) =>
+                        trim((string) $capabilityKey)
+                )
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+        }
+
+        if (!$capabilities) {
             return false;
         }
 
@@ -325,4 +733,211 @@ class CoreAddonSalesTriggerResolver
 
         return null;
     }
+
+    /**
+     * ESUBIZ_ADDON_ALTERNATIVE_PRODUCTS_V1
+     *
+     * Find all active Add-ons that can satisfy the same resource or
+     * capability as a sales-trigger recommendation.
+     *
+     * This allows:
+     *   1 eligible product  -> direct checkout
+     *   2+ eligible products -> product-selection popup
+     *
+     * Function Allocations are the authoritative product relationship.
+     * No Add-on names, IDs or resource names are hardcoded.
+     */
+    protected function alternativeProducts(
+        object $trigger,
+        string $deploymentType
+    ): Collection {
+        $resourceKey = trim(
+            (string) ($trigger->resource_key ?? '')
+        );
+
+        /*
+         * Resource triggers use resource_key directly.
+         * Feature placements fall back to the Add-on's allocations.
+         */
+        $capabilityKeys = collect();
+
+        if ($resourceKey !== '') {
+            $capabilityKeys->push($resourceKey);
+        }
+
+        if ($capabilityKeys->isEmpty()) {
+            $capabilityKeys = DB::table(
+                'core_addon_capability_allocations'
+            )
+                ->where(
+                    'addon_id',
+                    (int) $trigger->addon_id
+                )
+                ->where(function ($query) {
+                    $query
+                        ->where('is_unlimited', 1)
+                        ->orWhere('allocation', '>', 0);
+                })
+                ->pluck('capability_key')
+                ->filter()
+                ->values();
+        }
+
+        if ($capabilityKeys->isEmpty()) {
+            return collect();
+        }
+
+        $availabilityColumn =
+            $deploymentType === 'saas'
+                ? 'addon.saas_available'
+                : 'addon.off_server_available';
+
+        $triggerVisibilityColumn =
+            $deploymentType === 'saas'
+                ? 'candidate_trigger.saas_visible'
+                : 'candidate_trigger.off_server_visible';
+
+        /*
+         * ESUBIZ_DASHBOARD_SELECTOR_ADMIN_TRIGGER_ONLY_V1
+         *
+         * A same-resource Add-on is a checkout alternative only when
+         * Admin explicitly configured an active Dashboard sales trigger
+         * for that Add-on and the same resource.
+         *
+         * Function Allocation alone must never make an Add-on appear
+         * in the selector.
+         */
+        return DB::table(
+            'core_addon_capability_allocations as allocation'
+        )
+            ->join(
+                'core_addons as addon',
+                'addon.id',
+                '=',
+                'allocation.addon_id'
+            )
+            ->join(
+                'core_addon_sales_triggers as candidate_trigger',
+                'candidate_trigger.addon_id',
+                '=',
+                'addon.id'
+            )
+            ->whereIn(
+                'allocation.capability_key',
+                $capabilityKeys->all()
+            )
+            ->where('candidate_trigger.location_key', 'dashboard')
+            ->where('candidate_trigger.is_active', 1)
+            ->where($triggerVisibilityColumn, 1)
+            ->whereIn(
+                'candidate_trigger.condition_type',
+                [
+                    'resource_threshold',
+                    'limit_reached',
+                ]
+            )
+            ->when(
+                $resourceKey !== '',
+                function ($query) use ($resourceKey) {
+                    $query->where(
+                        'candidate_trigger.resource_key',
+                        $resourceKey
+                    );
+                }
+            )
+            ->where('addon.is_active', 1)
+            ->where($availabilityColumn, 1)
+            ->where(function ($query) {
+                $query
+                    ->where('allocation.is_unlimited', 1)
+                    ->orWhere('allocation.allocation', '>', 0);
+            })
+            ->select([
+                'addon.id',
+                'addon.uuid',
+                'addon.key',
+                'addon.name',
+                'addon.description',
+                'allocation.capability_key',
+                'allocation.allocation',
+                'allocation.is_unlimited',
+            ])
+            ->orderBy('addon.name')
+            ->get()
+            ->unique('id')
+            ->values();
+    }
+
+
+    /**
+     * ESUBIZ_DASHBOARD_RESOURCE_TRIGGER_DEDUP_V1
+     *
+     * Dashboard resource recommendations are resource-centric,
+     * not Add-on-centric.
+     *
+     * Two or more Add-ons serving the same resource therefore
+     * render as one recommendation containing all purchase options.
+     */
+    protected function collapseDashboardResourceTriggers(
+        Collection $recommendations,
+        string $locationKey
+    ): Collection {
+        if ($locationKey !== 'dashboard') {
+            return $recommendations;
+        }
+
+        return $recommendations
+            ->groupBy(function ($recommendation) {
+                $resourceKey =
+                    trim(
+                        (string) (
+                            $recommendation['resource_key']
+                            ?? ''
+                        )
+                    );
+
+                /*
+                 * Non-resource Dashboard recommendations remain
+                 * independently addressable.
+                 */
+                if ($resourceKey === '') {
+                    return 'trigger:'
+                        . (
+                            $recommendation['trigger_id']
+                            ?? $recommendation['addon_id']
+                            ?? uniqid('', true)
+                        );
+                }
+
+                return 'resource:' . $resourceKey;
+            })
+            ->map(function ($group) {
+                $primary = $group->first();
+
+                if ($group->count() === 1) {
+                    return $primary;
+                }
+
+                $purchaseOptions =
+                    $group
+                        ->flatMap(function ($recommendation) {
+                            return collect(
+                                $recommendation['purchase_options']
+                                ?? []
+                            );
+                        })
+                        ->unique('addon_id')
+                        ->values();
+
+                $primary['purchase_options'] =
+                    $purchaseOptions->all();
+
+                $primary['purchase_option_count'] =
+                    $purchaseOptions->count();
+
+                return $primary;
+            })
+            ->values();
+    }
+
 }

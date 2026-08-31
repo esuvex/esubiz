@@ -686,12 +686,13 @@
                 class="grid grid-cols-2 gap-3"
             ></div>
 
-            {{-- ESUBIZ_GENERIC_SALES_TRIGGER_HOOK_BASIC_PAGE_BUILDER_WIDGETS_V1 --}}
+            {{-- ESUBIZ_UNIVERSAL_ADDON_PLACEMENT_PAGE_BUILDER_V1 --}}
             <x-core-addon-sales-triggers
-                location="pages.basic_builder"
+                location="page_builder"
                 :website="$website"
                 class="mt-5"
             />
+
 
             <div class="mt-6 rounded-2xl border border-blue-100 bg-blue-50 p-4">
 

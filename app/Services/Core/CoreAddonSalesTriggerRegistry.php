@@ -31,6 +31,97 @@ use InvalidArgumentException;
  */
 class CoreAddonSalesTriggerRegistry
 {
+    /*
+     * ESUBIZ_UNIVERSAL_ADDON_PLACEMENTS_V1
+     *
+     * Central plug-and-play placements available to every Add-on.
+     *
+     * Add-ons do not create their own placement definitions.
+     * Admin chooses one or more placements on the Add/Edit page.
+     *
+     * Dashboard:
+     *   May display feature recommendations and resource sales triggers.
+     *
+     * Settings:
+     *   Places the Add-on in the appropriate settings/overview area.
+     *
+     * Page Builder:
+     *   Makes the Add-on available to the Page Builder integration layer.
+     *
+     * Widgets:
+     *   Makes widget-capable Add-ons available to the widget layer.
+     *
+     * Resource threshold/limit sales behaviour is a Dashboard concern.
+     */
+    private const UNIVERSAL_PLACEMENTS = [
+        'dashboard' => [
+            'label' => 'Dashboard',
+            'feature_key' => 'core',
+            'group' => 'Universal Placements',
+            'supports_resource_condition' => true,
+            'resource_key' => null,
+            'metadata' => [
+                'placement' => 'dashboard',
+                'supports_feature_locked' => true,
+                'supports_sales_trigger' => true,
+            ],
+        ],
+
+        'settings' => [
+            'label' => 'Settings',
+            'feature_key' => 'core',
+            'group' => 'Universal Placements',
+            'supports_resource_condition' => false,
+            'resource_key' => null,
+            'metadata' => [
+                'placement' => 'settings',
+                'supports_feature_locked' => true,
+                'supports_sales_trigger' => false,
+            ],
+        ],
+
+        'page_builder' => [
+            'label' => 'Page Builder',
+            'feature_key' => 'core',
+            'group' => 'Universal Placements',
+            'supports_resource_condition' => false,
+            'resource_key' => null,
+            'metadata' => [
+                'placement' => 'page_builder',
+                'supports_feature_locked' => true,
+                'supports_sales_trigger' => false,
+            ],
+        ],
+
+        'widgets' => [
+            'label' => 'Widgets',
+            'feature_key' => 'core',
+            'group' => 'Universal Placements',
+            'supports_resource_condition' => false,
+            'resource_key' => null,
+            'metadata' => [
+                'placement' => 'widgets',
+                'supports_feature_locked' => true,
+                'supports_sales_trigger' => false,
+            ],
+        ],
+    ];
+
+    public function __construct()
+    {
+        /*
+         * Register the four central placements first.
+         *
+         * Existing feature-submitted locations are temporarily retained
+         * for backward compatibility while their working render hooks are
+         * migrated to these universal placements.
+         */
+        $this->submit(
+            'core_addon_placements',
+            self::UNIVERSAL_PLACEMENTS
+        );
+    }
+
     /**
      * Request-lifetime submitted trigger locations.
      *
