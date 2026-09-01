@@ -96,9 +96,48 @@
     role="button"
     tabindex="0"
     class="cursor-pointer"
-    data-esubiz-addon-purchase-options='@json($recommendation['purchase_options'] ?? [])'
+                @php
+        /*
+         * ESUBIZ_FEATURE_PLACEMENT_PURCHASE_OPTION_V1
+         *
+         * Dashboard keeps its resolver-generated resource alternatives.
+         * Feature placements use the Add-on already resolved for their
+         * trigger. No resource context is fabricated.
+         */
+        $esubizPlacementPurchaseOptions =
+            $recommendation['purchase_options'] ?? [];
+
+        if (
+            (string) $location !== 'dashboard'
+            && empty($esubizPlacementPurchaseOptions)
+            && !empty($recommendation['addon_id'])
+        ) {
+            $esubizPlacementPurchaseOptions = [[
+                'id' => (int) $recommendation['addon_id'],
+                'addon_id' => (int) $recommendation['addon_id'],
+                'product_id' => (int) $recommendation['addon_id'],
+                'name' => $recommendation['addon_name']
+                    ?? $recommendation['title']
+                    ?? 'Add-on',
+                'description' => $recommendation['message'] ?? null,
+                'allocation' => $recommendation['allocation'] ?? 0,
+                'is_unlimited' => $recommendation['is_unlimited'] ?? false,
+                'unit' => $recommendation['unit'] ?? '',
+            ]];
+        }
+    @endphp
+    data-esubiz-addon-purchase-options='@json($esubizPlacementPurchaseOptions)'
     data-esubiz-addon-selector-title="{{ $recommendation['title'] ?? 'Choose an option' }}"
-    data-esubiz-checkout-url="{{ route('tenant.addons.checkout', ['website' => $website]) }}"
+    {{-- ESUBIZ_UNIVERSAL_PLACEMENT_CHECKOUT_RELATIVE_URL_V1 --}}
+    {{-- ESUBIZ_UNIVERSAL_TENANT_ADDON_CHECKOUT_URL_V1 --}}
+    {{-- ESUBIZ_UNIVERSAL_DASHBOARD_CHECKOUT_HANDOFF_V1 --}}
+{-- ESUBIZ_TENANT_ADMIN_ADDON_CHECKOUT_URL_V1 --}
+    data-esubiz-checkout-url="{{ route('tenant.admin.addons.checkout', [
+        'subdomain' => request()->route('subdomain'),
+        'website' => (int) $website->id,
+    ]) }}"
+    {{-- ESUBIZ_UNIVERSAL_START_RETURN_CURRENT_PAGE_V1 --}}
+    data-esubiz-start-url="{{ request()->fullUrl() }}"
     data-esubiz-return-url="{{ request()->fullUrl() }}"
     data-esubiz-return-area="{{ $location ?? '' }}"
     onclick="window.esubizAddonPurchaseSelect(this); return false;"
@@ -365,6 +404,12 @@
                                     'data-esubiz-checkout-url'
                                 )
                                 : null,
+                        startUrl:
+                            source
+                                ? source.getAttribute(
+                                    'data-esubiz-start-url'
+                                )
+                                : null,
                         returnUrl:
                             source
                                 ? source.getAttribute(
@@ -397,7 +442,7 @@
     };
 
     window.esubizAddonPurchaseSelect = function (element) {
-        let options = [];
+                let options = [];
 
         try {
             options = JSON.parse(
@@ -548,7 +593,23 @@
             const option = detail.option || {};
             const checkoutUrl = detail.checkoutUrl;
 
-            if (!checkoutUrl || !option.addon_id) {
+            /*
+             * ESUBIZ_SELECTED_ADDON_ID_NORMALIZATION_V1
+             *
+             * Universal selector options may expose the central Add-on
+             * identity as addon_id, product_id or id.
+             *
+             * Normalize that identity here without changing the resolver,
+             * placement rendering or Marketplace checkout.
+             */
+            const selectedAddonId = Number(
+                option.addon_id
+                || option.product_id
+                || option.id
+                || 0
+            );
+
+            if (!checkoutUrl || selectedAddonId <= 0) {
                 return;
             }
 
@@ -571,10 +632,15 @@
                         },
                         body: JSON.stringify({
                             addon_id:
-                                option.addon_id,
+                                selectedAddonId,
 
-                            return_url:
-                                detail.returnUrl || window.location.href,
+                            start_url:
+                            detail.startUrl || window.location.href,
+
+                        return_url:
+                            detail.returnUrl
+                                || detail.startUrl
+                                || window.location.href,
 
                             return_area:
                                 detail.returnArea || null
@@ -582,15 +648,40 @@
                     }
                 );
 
-                const payload = await response.json();
+                /*
+                 * ESUBIZ_CHECKOUT_EXACT_ERROR_V1
+                 *
+                 * Preserve checkout behavior but expose the actual HTTP
+                 * response instead of hiding it behind the generic popup.
+                 */
+                const responseText = await response.text();
 
-                if (
-                    !response.ok
-                    || !payload.url
-                ) {
+                let payload = {};
+
+                try {
+                    payload = responseText
+                        ? JSON.parse(responseText)
+                        : {};
+                } catch (e) {
+                    payload = {};
+                }
+
+                if (!response.ok || !payload.url) {
                     throw new Error(
-                        payload.message
-                        || 'Unable to start checkout.'
+                        'Checkout URL: ' + checkoutUrl + '\nHTTP ' + response.status +
+                        (
+                            payload.message
+                                ? ': ' + payload.message
+                                : (
+                                    responseText
+                                        ? ': ' + responseText
+                                            .replace(/<[^>]*>/g, ' ')
+                                            .replace(/\s+/g, ' ')
+                                            .trim()
+                                            .substring(0, 180)
+                                        : ''
+                                )
+                        )
                     );
                 }
 

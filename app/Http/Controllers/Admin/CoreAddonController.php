@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Services\Marketplace\CoreAddonMarketplaceListingSyncService;
 
 class CoreAddonController extends Controller
 {
@@ -1609,5 +1610,15 @@ return view('admin.core-addons.edit', [
         }
     }
 
+
+
+    /*
+     * ESUBIZ_CORE_ADDON_MARKETPLACE_AUTO_SYNC_V1
+     */
+    protected function syncMarketplaceListing(int $addonId): void
+    {
+        app(CoreAddonMarketplaceListingSyncService::class)
+            ->syncById($addonId);
+    }
 
 }

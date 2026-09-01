@@ -1,5 +1,49 @@
 <?php
 
+/*
+ * ESUBIZ_UNIVERSAL_TENANT_ADDON_CHECKOUT_ROUTE_V1
+ *
+ * Same Add-on checkout controller, exposed on every tenant/custom host.
+ * No new checkout implementation.
+ */
+\Route::post(
+    '/esubiz-addon-checkout/{website}',
+    [
+        \App\Http\Controllers\TenantAddonCheckoutController::class,
+        'create'
+    ]
+)->middleware('web');
+
+
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_UNIVERSAL_ADDON_CHECKOUT_HOST_ROUTE_V1
+|--------------------------------------------------------------------------
+|
+| Universal Add-on checkout starter.
+|
+| This route is intentionally registered before domain-specific route
+| groups so the same checkout endpoint works from:
+|
+| - SaaS tenant subdomains
+| - custom SaaS domains
+| - central Esubiz context
+| - authenticated off-server website context
+|
+| Placement never controls checkout routing.
+|
+*/
+\Route::post(
+    '/websites/{website}/addon-checkout',
+    [
+        \App\Http\Controllers\TenantAddonCheckoutController::class,
+        'create'
+    ]
+)->middleware('web');
+
+
+
 use App\Http\Controllers\TenantAddonCheckoutController;
 
 
@@ -705,7 +749,22 @@ Route::domain('{subdomain}.esubiz.com')
             ]
         )->name('tenant.cms.pages.store');
 
-        Route::get(
+        
+    /*
+     * ESUBIZ_TENANT_ADMIN_ADDON_CHECKOUT_ROUTE_V1
+     *
+     * Universal Add-on checkout endpoint inside the SAME routing
+     * context as tenant Admin/Page Builder routes.
+     */
+    Route::post(
+        'admin/addon-checkout/{website}',
+        [
+            \App\Http\Controllers\TenantAddonCheckoutController::class,
+            'create'
+        ]
+    )->name('tenant.admin.addons.checkout');
+
+Route::get(
             '/admin/pages/{page}/edit',
             [
                 \App\Http\Controllers\TenantPagesController::class,
@@ -1188,7 +1247,21 @@ Route::middleware(['auth'])->group(function () {
             'saasCheckoutHandoff'
         ]
     )
+        // ESUBIZ_SAAS_CHECKOUT_SIGNED_HANDOFF_AUTH_BYPASS_V1
+        // The controller validates the signed handoff first and then
+        // establishes/verifies the authoritative Central buyer session.
+        ->withoutMiddleware(\Illuminate\Auth\Middleware\Authenticate::class)
         ->name('marketplace.saas-checkout');
+
+
+
+/*
+ * ESUBIZ_CENTRAL_UNIVERSAL_ADDON_CHECKOUT_V1
+ *
+ * One central Add-on order starter for every placement.
+ * Dashboard, Settings, Page Builder and Widgets all create the
+ * Marketplace order first and receive /marketplace/checkout/{order}.
+ */
 
 
     Route::post('/marketplace/checkout', [\App\Http\Controllers\MarketplaceController::class, 'checkout'])
