@@ -82,6 +82,158 @@ class TenantCoreInitializer
              * tenant activation key is "business".
              */
             'theme.active' => 'business',
+
+            /*
+             * ESUBIZ_PLUGGABLE_TENANT_AUTH_SETTINGS_V1
+             *
+             * Universal website authentication configuration.
+             * Esubiz SSO is available by default. External providers
+             * remain disabled until configured by the site admin.
+             */
+
+            // General authentication
+            /*
+             * ESUBIZ_AUTH_BOT_PROTECTION_DEFAULTS_V1
+             *
+             * First-layer Core-native bot protection.
+             * Site Admin independently controls Login
+             * and Registration protection.
+             */
+            'auth.security.login_enabled' => '1',
+            'auth.security.register_enabled' => '1',
+
+            'auth.registration_enabled' => '1',
+            'auth.auto_login_after_registration' => '1',
+            'auth.registration_redirect' => '/admin/dashboard',
+
+            // Authentication providers
+            'auth.esubiz.enabled' => '1',
+
+            'auth.google.enabled' => '0',
+            'auth.google.client_id' => '',
+            'auth.google.client_secret' => '',
+
+            'auth.facebook.enabled' => '0',
+            'auth.facebook.client_id' => '',
+            'auth.facebook.client_secret' => '',
+
+            'auth.instagram.enabled' => '0',
+            'auth.instagram.client_id' => '',
+            'auth.instagram.client_secret' => '',
+
+            'auth.tiktok.enabled' => '0',
+            'auth.tiktok.client_key' => '',
+            'auth.tiktok.client_secret' => '',
+
+            'auth.x.enabled' => '0',
+            'auth.x.client_id' => '',
+            'auth.x.client_secret' => '',
+
+            // Login page branding
+            'auth.login.logo' => '',
+            'auth.login.heading' => 'Welcome back',
+            'auth.login.subheading' => '',
+            'auth.login.background_color' => '#f5f7fb',
+            'auth.login.card_color' => '#ffffff',
+            'auth.login.text_color' => '#111827',
+            'auth.login.button_color' => '#111827',
+
+            // Registration page branding
+            'auth.register.logo' => '',
+
+            /*
+             * ESUBIZ_SHARED_AUTH_LOGO_DEFAULTS_V1
+             *
+             * Shared across all Core authentication pages.
+             */
+            'auth.brand.logo_light' => '',
+            'auth.brand.logo_dark' => '',
+
+            /*
+             * ESUBIZ_SHARED_AUTH_APPEARANCE_DEFAULTS_V1
+             */
+            'auth.appearance.background_color' => '#f5f7fb',
+            'auth.appearance.card_color' => '#ffffff',
+            'auth.appearance.text_color' => '#111827',
+            'auth.appearance.button_color' => '#111827',
+            'auth.register.heading' => 'Create your account',
+            'auth.register.subheading' => '',
+            'auth.register.background_color' => '#f5f7fb',
+            'auth.register.card_color' => '#ffffff',
+            'auth.register.text_color' => '#111827',
+            'auth.register.button_color' => '#111827',
+
+            /*
+             * JSON configuration consumed by the universal
+             * registration renderer.
+             */
+            'auth.registration_fields' => [
+                [
+                    'key' => 'name',
+                    'label' => 'Name',
+                    'type' => 'text',
+                    'required' => true,
+                    'system' => true,
+                    'enabled' => true,
+                ],
+                [
+                    'key' => 'email',
+                    'label' => 'Email',
+                    'type' => 'email',
+                    'required' => true,
+                    'system' => true,
+                    'enabled' => true,
+                ],
+                [
+                    'key' => 'password',
+                    'label' => 'Password',
+                    'type' => 'password',
+                    'required' => true,
+                    'system' => true,
+                    'enabled' => true,
+                ],
+                [
+                    'key' => 'password_confirmation',
+                    'label' => 'Confirm Password',
+                    'type' => 'password',
+                    'required' => true,
+                    'system' => true,
+                    'enabled' => true,
+                ],
+            ],
+
+            /*
+             * Generic registration product references.
+             * Website Types/modules may resolve these against
+             * their own product/plan implementation.
+             */
+            'auth.registration_products' => [],
+
+            /*
+             * Display order is deliberately configuration-driven.
+             * Only enabled providers will be rendered.
+             */
+            /*
+             * ESUBIZ_OPTIONAL_ROLE_AUTH_PORTALS_V1
+             *
+             * Default /login and /register serve every
+             * website user role.
+             *
+             * Role-specific Login/Register pages are
+             * optional and are created only when the
+             * Site Admin explicitly configures them.
+             */
+            'auth.role_portals_enabled' => '0',
+            'auth.portals' => '[]',
+
+            'auth.provider_order' => [
+                'esubiz',
+                'google',
+                'facebook',
+                'instagram',
+                'tiktok',
+                'x',
+            ],
         ];
 
         foreach ($settings as $key => $value) {
