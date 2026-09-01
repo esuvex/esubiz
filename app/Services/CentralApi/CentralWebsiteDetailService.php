@@ -30,6 +30,8 @@ class CentralWebsiteDetailService
 
             'addons' => $this->addons($website),
 
+            'owned_resources' => $this->ownedResources($website),
+
             'theme' => $this->theme($website),
 
             'modules' => $this->modules($website),
@@ -432,4 +434,510 @@ class CentralWebsiteDetailService
                     ->first(),
         ];
     }
+
+
+    /**
+     * ESUBIZ_CENTRAL_WEBSITE_OWNED_RESOURCES_V2
+     *
+     * Effective Core resources/features owned by this website.
+     *
+     * Base allocation comes from CoreCapabilityBaseAllocationRegistry.
+     * Purchased extensions come from active product_entitlements and
+     * Function Allocation.
+     * Current usage comes only from CoreCapabilityUsageRegistry.
+     *
+     * No usage is fabricated when a capability has no trusted provider.
+     */
+    protected function ownedResources(Website $website): array
+    {
+        $baseRegistry = app(
+            \App\Services\Core\CoreCapabilityBaseAllocationRegistry::class
+        );
+
+        $usageRegistry = app(
+            \App\Services\Core\CoreCapabilityUsageRegistry::class
+        );
+
+        $entitlementService = app(
+            \App\Services\Core\CoreEntitlementService::class
+        );
+
+        /*
+         * ESUBIZ_CENTRAL_RESOURCE_DEFINITION_DISCOVERY_V1
+         *
+         * Discover active Core resource/limit definitions dynamically.
+         * This makes Website Info plug-and-play for future resources.
+         *
+         * Exact PHP base providers remain authoritative where registered
+         * because some resources (Storage/Bandwidth) can have a
+         * website-specific base allocation.
+         */
+        $coreResourceDefinitions = DB::table(
+            'core_feature_limits as l'
+        )
+            ->join(
+                'core_features as f',
+                'f.id',
+                '=',
+                'l.core_feature_id'
+            )
+            ->where(
+                'l.is_active',
+                1
+            )
+            ->whereNull(
+                'l.deleted_at'
+            )
+            ->where(
+                'f.is_active',
+                1
+            )
+            ->whereNull(
+                'f.deleted_at'
+            )
+            ->get([
+                'l.limit_key as capability_key',
+                'l.name as resource_name',
+                'l.value_type',
+                'l.default_value',
+                'l.unit',
+                'l.is_unlimited',
+                'f.key as feature_key',
+                'f.name as feature_name',
+            ])
+            ->keyBy(
+                'capability_key'
+            );
+
+        $resourceKeys = collect(
+            $baseRegistry->keys()
+        )
+            ->merge(
+                $coreResourceDefinitions->keys()
+            )
+            ->filter()
+            ->unique()
+            ->values();
+
+        $addonEntitlements = DB::table(
+            'product_entitlements as e'
+        )
+            ->join(
+                'core_addons as a',
+                'a.id',
+                '=',
+                'e.product_id'
+            )
+            ->where(
+                'e.website_id',
+                $website->id
+            )
+            ->where(
+                'e.product_type',
+                'core_addon'
+            )
+            ->where(
+                'e.status',
+                'active'
+            )
+            ->whereNull(
+                'e.deleted_at'
+            )
+            ->where(
+                'a.is_active',
+                1
+            )
+            ->whereNull(
+                'a.deleted_at'
+            )
+            ->orderByDesc(
+                'e.id'
+            )
+            ->get([
+                'e.id as entitlement_id',
+                'a.id as addon_id',
+                'a.key as addon_key',
+                'a.name as addon_name',
+                'a.description as addon_description',
+                'a.entitlement_type',
+                'a.parent_capability',
+                'a.capabilities',
+            ]);
+
+        $allocations = DB::table(
+            'core_addon_capability_allocations as ca'
+        )
+            ->join(
+                'product_entitlements as e',
+                function ($join) use ($website) {
+                    $join
+                        ->on(
+                            'e.product_id',
+                            '=',
+                            'ca.addon_id'
+                        )
+                        ->where(
+                            'e.website_id',
+                            '=',
+                            $website->id
+                        )
+                        ->where(
+                            'e.product_type',
+                            '=',
+                            'core_addon'
+                        )
+                        ->where(
+                            'e.status',
+                            '=',
+                            'active'
+                        )
+                        ->whereNull(
+                            'e.deleted_at'
+                        );
+                }
+            )
+            ->join(
+                'core_addons as a',
+                'a.id',
+                '=',
+                'ca.addon_id'
+            )
+            ->where(
+                'a.is_active',
+                1
+            )
+            ->whereNull(
+                'a.deleted_at'
+            )
+            ->get([
+                'ca.addon_id',
+                'ca.capability_key',
+                'ca.allocation',
+                'ca.is_unlimited',
+                'a.name as addon_name',
+            ]);
+
+        $resourceKeys = $resourceKeys
+            ->merge(
+                $allocations->pluck(
+                    'capability_key'
+                )
+            )
+            ->filter()
+            ->unique()
+            ->values();
+
+        /*
+         * Feature-only Add-ons may not have a numeric allocation row.
+         * Preserve their declared capabilities in the website snapshot.
+         */
+        foreach ($addonEntitlements as $addon) {
+            if (!empty($addon->parent_capability)) {
+                $resourceKeys->push(
+                    (string) $addon->parent_capability
+                );
+            }
+
+            if (!empty($addon->capabilities)) {
+                $decoded = json_decode(
+                    (string) $addon->capabilities,
+                    true
+                );
+
+                if (is_array($decoded)) {
+                    foreach ($decoded as $capability) {
+                        if (is_string($capability) && $capability !== '') {
+                            $resourceKeys->push($capability);
+                        }
+                    }
+                }
+            }
+        }
+
+        $resourceKeys = $resourceKeys
+            ->filter()
+            ->unique()
+            ->values();
+
+        $result = [];
+
+        foreach ($resourceKeys as $capabilityKey) {
+            $capabilityKey =
+                trim(
+                    (string) $capabilityKey
+                );
+
+            if ($capabilityKey === '') {
+                continue;
+            }
+
+            $definition =
+                $coreResourceDefinitions->get(
+                    $capabilityKey
+                );
+
+            $hasBaseProvider =
+                $baseRegistry->has(
+                    $capabilityKey
+                );
+
+            $hasConfiguredBase =
+                $definition !== null;
+
+            $hasBase =
+                $hasBaseProvider
+                || $hasConfiguredBase;
+
+            $baseAllocation = null;
+
+            /*
+             * Exact capability provider wins when present.
+             */
+            if ($hasBaseProvider) {
+                $baseAllocation =
+                    $baseRegistry->allocation(
+                        $capabilityKey,
+                        (int) $website->id
+                    );
+            } elseif (
+                $definition
+                && !(bool) $definition->is_unlimited
+                && $definition->default_value !== null
+                && is_numeric($definition->default_value)
+            ) {
+                $baseAllocation =
+                    (float) $definition->default_value;
+            }
+
+            $unit =
+                $definition?->unit;
+
+            $coreUnlimited =
+                (bool) (
+                    $definition?->is_unlimited
+                    ?? false
+                );
+
+            $upgradeRows =
+                $allocations
+                    ->where(
+                        'capability_key',
+                        $capabilityKey
+                    )
+                    ->values();
+
+            $upgradeAllocation = 0;
+
+            $isUnlimited =
+                $coreUnlimited
+                || $upgradeRows->contains(
+                    fn ($row) =>
+                        (bool) $row->is_unlimited
+                );
+
+            foreach ($upgradeRows as $row) {
+                if (
+                    !$row->is_unlimited
+                    && $row->allocation !== null
+                ) {
+                    $upgradeAllocation +=
+                        (float) $row->allocation;
+                }
+            }
+
+            $totalAllocation = null;
+
+            if ($isUnlimited) {
+                $totalAllocation = null;
+            } elseif ($hasBase || $upgradeRows->isNotEmpty()) {
+                $totalAllocation =
+                    (float) ($baseAllocation ?? 0)
+                    + $upgradeAllocation;
+            }
+
+            $used = null;
+            $remaining = null;
+            $percentage = null;
+            $hasUsageMeter =
+                $usageRegistry->has(
+                    $capabilityKey
+                );
+
+            if ($hasUsageMeter) {
+                try {
+                    $used =
+                        (float) $usageRegistry->usage(
+                            $capabilityKey,
+                            (int) $website->id
+                        );
+
+                    if (!$isUnlimited && $totalAllocation !== null) {
+                        $remaining =
+                            max(
+                                0,
+                                $totalAllocation - $used
+                            );
+
+                        $percentage =
+                            $totalAllocation > 0
+                                ? min(
+                                    100,
+                                    max(
+                                        0,
+                                        ($used / $totalAllocation) * 100
+                                    )
+                                )
+                                : 0;
+                    }
+                } catch (\Throwable $e) {
+                    /*
+                     * Website Info is observational.
+                     * A meter failure must not break Central management.
+                     */
+                    $used = null;
+                    $remaining = null;
+                    $percentage = null;
+                }
+            }
+
+            $upgradeSources = [];
+
+            foreach ($upgradeRows as $row) {
+                $upgradeSources[] = [
+                    'addon_id' =>
+                        (int) $row->addon_id,
+
+                    'name' =>
+                        $row->addon_name,
+
+                    'allocation' =>
+                        $row->allocation === null
+                            ? null
+                            : (float) $row->allocation,
+
+                    'is_unlimited' =>
+                        (bool) $row->is_unlimited,
+                ];
+            }
+
+            /*
+             * Feature-only identity fallback.
+             */
+            if (empty($upgradeSources)) {
+                foreach ($addonEntitlements as $addon) {
+                    $matches = false;
+
+                    if (
+                        (string) ($addon->parent_capability ?? '')
+                        === $capabilityKey
+                    ) {
+                        $matches = true;
+                    }
+
+                    if (!$matches && !empty($addon->capabilities)) {
+                        $decoded = json_decode(
+                            (string) $addon->capabilities,
+                            true
+                        );
+
+                        $matches =
+                            is_array($decoded)
+                            && in_array(
+                                $capabilityKey,
+                                $decoded,
+                                true
+                            );
+                    }
+
+                    if ($matches) {
+                        $upgradeSources[] = [
+                            'addon_id' =>
+                                (int) $addon->addon_id,
+
+                            'name' =>
+                                $addon->addon_name,
+
+                            'allocation' =>
+                                null,
+
+                            'is_unlimited' =>
+                                false,
+                        ];
+                    }
+                }
+            }
+
+            $result[] = [
+                'capability_key' =>
+                    $capabilityKey,
+
+                'name' =>
+                    $definition?->resource_name
+                    ?: ucwords(
+                        str_replace(
+                            ['_', '-'],
+                            ' ',
+                            $capabilityKey
+                        )
+                    ),
+
+                'unit' =>
+                    $unit,
+
+                'value_type' =>
+                    $definition?->value_type,
+
+                'base_allocation' =>
+                    $baseAllocation,
+
+                'upgrade_allocation' =>
+                    $upgradeAllocation,
+
+                'total_allocation' =>
+                    $totalAllocation,
+
+                'is_unlimited' =>
+                    $isUnlimited,
+
+                'used' =>
+                    $used,
+
+                'remaining' =>
+                    $remaining,
+
+                'percentage' =>
+                    $percentage,
+
+                'has_usage_meter' =>
+                    $hasUsageMeter,
+
+                'upgrades' =>
+                    $upgradeSources,
+
+                'enabled' =>
+                    $hasBase
+                    || !empty($upgradeSources)
+                    || $entitlementService->allowsCapability(
+                        $capabilityKey,
+                        (int) $website->id
+                    ),
+            ];
+        }
+
+        return collect($result)
+            ->filter(
+                fn (array $resource) =>
+                    $resource['enabled']
+            )
+            ->sortBy(
+                fn (array $resource) =>
+                    strtolower(
+                        (string) ($resource['name'] ?? '')
+                    ),
+                SORT_NATURAL
+            )
+            ->values()
+            ->all();
+    }
+
 }

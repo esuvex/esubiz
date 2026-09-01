@@ -228,6 +228,28 @@ class CoreEntitlementService
      * 0    = no allocation
      * >0   = effective finite allocation
      */
+    /**
+     * ESUBIZ_ACTIVE_ADDON_CAPABILITY_IDENTITY_BRIDGE_V1
+     *
+     * Universal active purchased Add-on identity for any capability.
+     */
+    public function activeAddonForCapability(
+        string $capabilityKey,
+        ?int $websiteId = null
+    ): ?object {
+        $websiteId = $this->resolveWebsiteId($websiteId);
+
+        if ($websiteId === null) {
+            return null;
+        }
+
+        return app(CoreAddonEntitlementService::class)
+            ->activeAddonForCapability(
+                $websiteId,
+                $capabilityKey
+            );
+    }
+
     public function effectiveAllocation(
         string $capabilityKey,
         ?int $websiteId = null,

@@ -291,6 +291,69 @@ class CoreAddonEntitlementService
      * Returns true when the capability is supplied by at least one
      * active Core add-on entitlement for the website.
      */
+    /**
+     * ESUBIZ_ACTIVE_ADDON_CAPABILITY_IDENTITY_V1
+     *
+     * Return the exact active purchased Core Add-on currently supplying
+     * a capability to a website.
+     *
+     * This is display/ownership identity only. Existing entitlement and
+     * allocation calculations remain authoritative.
+     */
+    public function activeAddonForCapability(
+        int $websiteId,
+        string $capabilityKey
+    ): ?object {
+        $entitlements = DB::table('product_entitlements')
+            ->where('website_id', $websiteId)
+            ->where('product_type', 'core_addon')
+            ->where('status', 'active')
+            ->orderByDesc('id')
+            ->get(['id', 'product_id', 'metadata']);
+
+        foreach ($entitlements as $entitlement) {
+            $metadata = $this->metadata($entitlement);
+
+            $capabilities = $metadata['capabilities'] ?? [];
+
+            $metadataMatch =
+                is_array($capabilities)
+                && in_array(
+                    $capabilityKey,
+                    $capabilities,
+                    true
+                );
+
+            $allocationMatch = DB::table(
+                'core_addon_capability_allocations'
+            )
+                ->where(
+                    'addon_id',
+                    (int) $entitlement->product_id
+                )
+                ->where(
+                    'capability_key',
+                    $capabilityKey
+                )
+                ->exists();
+
+            if (!$metadataMatch && !$allocationMatch) {
+                continue;
+            }
+
+            return DB::table('core_addons')
+                ->where(
+                    'id',
+                    (int) $entitlement->product_id
+                )
+                ->where('is_active', 1)
+                ->whereNull('deleted_at')
+                ->first();
+        }
+
+        return null;
+    }
+
     public function capabilityEnabledForWebsite(
         int $websiteId,
         string $capabilityKey

@@ -274,8 +274,22 @@
 
                     </div>
 
+                    {{-- ESUBIZ_PAGE_BUILDER_ACTIVE_ADDON_NAME_V1 --}}
+                    @php
+                        $pageBuilderAddon = app(
+                            \App\Services\Core\CoreEntitlementService::class
+                        )->activeAddonForCapability(
+                            'page_builder',
+                            (int) $website->id
+                        );
+
+                        $pageBuilderDisplayName =
+                            $pageBuilderAddon?->name
+                            ?? 'Basic Page Builder';
+                    @endphp
+
                     <div class="text-xs font-bold text-slate-400">
-                        Basic Page Builder
+                        {{ $pageBuilderDisplayName }}
                     </div>
 
                 </div>
