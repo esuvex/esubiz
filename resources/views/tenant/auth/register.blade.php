@@ -461,6 +461,115 @@ body[data-theme="dark"] .auth-logo-dark {
 
 </style>
 
+
+</head>
+
+<body>
+
+{{{-- ESUBIZ_AUTH_REAL_CARD_STRUCTURE_V18_1 --}}}
+<div class="auth-shell">
+<div class="auth-card">
+
+    {{-- ESUBIZ_SHARED_AUTH_LOGO_RENDER_V18_1 --}}
+    @php
+        $resolvedLightLogo =
+            $authPageConfig['logo_light_url']
+            ?? '';
+
+        $resolvedDarkLogo =
+            $authPageConfig['logo_dark_url']
+            ?? '';
+
+        $hasAuthLogo =
+            $resolvedLightLogo !== ''
+            || $resolvedDarkLogo !== '';
+
+        $authLogoUrl = function ($value) {
+            $value = trim((string) $value);
+
+            if ($value === '') {
+                return '';
+            }
+
+            if (
+                str_starts_with($value, 'http://')
+                || str_starts_with($value, 'https://')
+            ) {
+                return $value;
+            }
+
+            if (str_starts_with($value, '/')) {
+                return asset(
+                    ltrim($value, '/')
+                );
+            }
+
+            return asset(
+                'storage/' . ltrim($value, '/')
+            );
+        };
+
+        $resolvedLightLogoUrl =
+            $authLogoUrl(
+                $resolvedLightLogo
+            );
+
+        $resolvedDarkLogoUrl =
+            $authLogoUrl(
+                $resolvedDarkLogo
+            );
+    @endphp
+
+    <div class="brand-mark{{ $hasAuthLogo ? ' has-logo' : '' }}">
+        @if($hasAuthLogo)
+
+            @if($resolvedLightLogoUrl !== '')
+                <img
+                    class="auth-logo-light"
+                    src="{{ $resolvedLightLogoUrl }}"
+                    alt="{{ $website->name ?? 'Website' }}"
+                >
+            @endif
+
+            @if($resolvedDarkLogoUrl !== '')
+                <img
+                    class="auth-logo-dark"
+                    src="{{ $resolvedDarkLogoUrl }}"
+                    alt="{{ $website->name ?? 'Website' }}"
+                >
+            @endif
+
+        @else
+            {{
+                strtoupper(
+                    substr(
+                        $website->name
+                        ?? $website->subdomain
+                        ?? 'W',
+                        0,
+                        1
+                    )
+                )
+            }}
+        @endif
+    </div>
+
+    <div class="auth-heading">
+        <h1>
+            {{
+                $authPageConfig['heading']
+                ?? 'Create Your Account'
+            }}
+        </h1>
+
+        <p>
+            {{
+                $authPageConfig['subheading']
+                ?? 'Join us today'
+            }}
+        </p>
+    </div>
+
 {{-- ESUBIZ_PROVIDER_CIRCULAR_UI_V5 --}}
 @if(
     !empty(
@@ -492,6 +601,114 @@ body[data-theme="dark"] .auth-logo-dark {
 
     </div>
 @endif
+
+
+{{-- ESUBIZ_PUBLIC_AUTH_CSS_ONLY_V15 --}}
+<style>
+
+/* Public authentication form presentation */
+
+form{
+    width:min(100%,460px);
+    box-sizing:border-box;
+    margin:28px auto 0;
+    padding:30px;
+    border:1px solid rgba(148,163,184,.22);
+    border-radius:18px;
+    background:rgba(255,255,255,.98);
+    box-shadow:
+        0 18px 46px rgba(15,23,42,.08),
+        0 2px 8px rgba(15,23,42,.04);
+}
+
+form label{
+    display:block;
+    margin-bottom:7px;
+    font-size:13px;
+    font-weight:600;
+    line-height:1.4;
+}
+
+form input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+form select,
+form textarea{
+    width:100%;
+    min-height:48px;
+    box-sizing:border-box;
+    border-radius:10px;
+    transition:
+        border-color .16s ease,
+        box-shadow .16s ease,
+        background .16s ease;
+}
+
+form textarea{
+    min-height:105px;
+    resize:vertical;
+}
+
+form input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):focus,
+form select:focus,
+form textarea:focus{
+    outline:none;
+    border-color:#60a5fa;
+    box-shadow:0 0 0 3px rgba(37,99,235,.10);
+}
+
+form input[type="checkbox"]{
+    width:16px;
+    height:16px;
+    accent-color:#2563eb;
+}
+
+form button[type="submit"],
+form input[type="submit"]{
+    min-height:48px;
+    border-radius:10px;
+    font-weight:700;
+    cursor:pointer;
+    transition:
+        transform .15s ease,
+        box-shadow .15s ease,
+        opacity .15s ease;
+}
+
+form button[type="submit"]:hover,
+form input[type="submit"]:hover{
+    transform:translateY(-1px);
+    box-shadow:0 8px 20px rgba(15,23,42,.10);
+}
+
+form a{
+    text-underline-offset:3px;
+}
+
+form .invalid-feedback,
+form .text-danger,
+form .error{
+    font-size:12px;
+    line-height:1.45;
+}
+
+@media(max-width:560px){
+
+    form{
+        width:100%;
+        margin-top:20px;
+        padding:22px 18px;
+        border-radius:14px;
+        box-shadow:
+            0 10px 28px rgba(15,23,42,.06);
+    }
+
+    form input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+    form select,
+    form button[type="submit"]{
+        min-height:46px;
+    }
+}
+
+</style>
 
 <form
     method="POST"
@@ -965,6 +1182,806 @@ document.addEventListener(
 
 
 
+
+
+
+{{-- ESUBIZ_PUBLIC_AUTH_V17_VARIABLE_BRIDGE --}}
+@php
+    $authPublic =
+        $authPageConfig
+        ?? [];
+
+    $authBackground =
+        $authPublic[
+            'background_color'
+        ]
+        ?? '#f5f7fb';
+
+    $authCard =
+        $authPublic[
+            'card_color'
+        ]
+        ?? '#ffffff';
+
+    $authText =
+        $authPublic[
+            'text_color'
+        ]
+        ?? '#111827';
+
+    $authButton =
+        $authPublic[
+            'button_color'
+        ]
+        ?? '#111827';
+@endphp
+
+{{-- ESUBIZ_PUBLIC_AUTH_PREMIUM_CARD_V17 --}}
+
+
+
+
+<style>
+
+/* =========================================================
+   Shared premium authentication card
+   ========================================================= */
+
+.auth-shell{
+    width:100%;
+    min-height:100vh;
+    min-height:100dvh;
+    box-sizing:border-box;
+    padding:42px 20px;
+    background:{{ $authBackground }} !important;
+}
+
+.auth-card{
+    width:min(100%,520px);
+    margin:0 auto;
+    box-sizing:border-box;
+    padding:38px 38px 32px;
+    border:1px solid rgba(148,163,184,.20);
+    border-radius:22px;
+    background:{{ $authCard }} !important;
+    color:{{ $authText }} !important;
+    box-shadow:
+        0 24px 64px rgba(15,23,42,.10),
+        0 3px 12px rgba(15,23,42,.04);
+}
+
+
+/* Existing form must not become a second card */
+
+.auth-card form{
+    width:100% !important;
+    max-width:none !important;
+    margin:0 !important;
+    padding:0 !important;
+    border:0 !important;
+    border-radius:0 !important;
+    background:transparent !important;
+    box-shadow:none !important;
+}
+
+
+/* =========================================================
+   Logo
+   ========================================================= */
+
+.auth-card .brand-mark{
+    margin:0 auto 20px;
+    text-align:center;
+}
+
+.auth-card .brand-mark.has-logo{
+    width:auto;
+    height:auto;
+    background:transparent;
+    border-radius:0;
+    box-shadow:none;
+}
+
+.auth-card .brand-mark img{
+    display:block;
+    width:auto;
+    max-width:190px;
+    max-height:72px;
+    margin:0 auto;
+    object-fit:contain;
+}
+
+.auth-card .auth-logo-light{
+    display:block;
+}
+
+.auth-card .auth-logo-dark{
+    display:none;
+}
+
+@media (prefers-color-scheme:dark){
+
+    .auth-card .auth-logo-light{
+        display:none;
+    }
+
+    .auth-card .auth-logo-dark{
+        display:block;
+    }
+}
+
+
+/* =========================================================
+   Provider icons
+   ========================================================= */
+
+.esubiz-provider-cards{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    align-items:center;
+    gap:10px;
+    width:100%;
+    margin:5px 0 24px;
+}
+
+.esubiz-provider-card{
+    position:relative;
+    display:inline-flex !important;
+    align-items:center;
+    justify-content:center;
+    width:50px !important;
+    height:50px;
+    min-width:50px;
+    padding:0 !important;
+    border:1px solid rgba(148,163,184,.28) !important;
+    border-radius:14px !important;
+    background:{{ $authCard }} !important;
+    color:{{ $authText }} !important;
+    text-decoration:none !important;
+    box-shadow:
+        0 5px 14px rgba(15,23,42,.055);
+    transition:
+        transform .15s ease,
+        border-color .15s ease,
+        box-shadow .15s ease;
+}
+
+.esubiz-provider-card:hover{
+    transform:translateY(-2px);
+    border-color:{{ $authButton }} !important;
+    box-shadow:
+        0 9px 20px rgba(15,23,42,.09);
+}
+
+.esubiz-provider-logo{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:28px;
+    height:28px;
+    flex:0 0 28px;
+    font-size:15px;
+    font-weight:800;
+}
+
+.esubiz-provider-logo svg{
+    display:block;
+    width:22px;
+    height:22px;
+}
+
+.esubiz-provider-logo--esubiz{
+    border-radius:8px;
+    background:#0b1f3a;
+    color:#fff;
+}
+
+.esubiz-provider-copy{
+    position:absolute !important;
+    width:1px !important;
+    height:1px !important;
+    padding:0 !important;
+    margin:-1px !important;
+    overflow:hidden !important;
+    clip:rect(0,0,0,0) !important;
+    white-space:nowrap !important;
+    border:0 !important;
+}
+
+
+/* Divider */
+
+.esubiz-auth-divider-v17{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin:0 0 22px;
+    color:{{ $authText }};
+    opacity:.58;
+    font-size:11px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.07em;
+}
+
+.esubiz-auth-divider-v17::before,
+.esubiz-auth-divider-v17::after{
+    content:"";
+    height:1px;
+    flex:1;
+    background:currentColor;
+    opacity:.20;
+}
+
+
+/* =========================================================
+   Shared appearance
+   ========================================================= */
+
+.auth-card,
+.auth-card h1,
+.auth-card h2,
+.auth-card h3,
+.auth-card p,
+.auth-card label{
+    color:{{ $authText }} !important;
+}
+
+.auth-card input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+.auth-card select,
+.auth-card textarea{
+    width:100%;
+    min-height:48px;
+    box-sizing:border-box;
+    border-radius:10px;
+}
+
+.auth-card .btn-primary,
+.auth-card button[type="submit"],
+.auth-card input[type="submit"]{
+    background:{{ $authButton }} !important;
+    border-color:{{ $authButton }} !important;
+}
+
+.auth-card a{
+    color:{{ $authButton }};
+}
+
+
+/* Homepage / Esubiz footer */
+
+.auth-card .auth-home-link{
+    margin-top:24px;
+    text-align:center;
+}
+
+.auth-card .auth-home-link a{
+    color:{{ $authText }};
+    font-size:13px;
+    font-weight:700;
+    text-decoration:none;
+    opacity:.72;
+}
+
+.auth-card .site-note{
+    margin-top:14px;
+    text-align:center;
+}
+
+.auth-card .site-note a{
+    color:{{ $authText }};
+    font-size:12px;
+    opacity:.65;
+}
+
+
+/* Mobile */
+
+@media(max-width:560px){
+
+    .auth-shell{
+        padding:20px 14px;
+    }
+
+    .auth-card{
+        padding:28px 20px 25px;
+        border-radius:18px;
+    }
+
+    .auth-card .brand-mark img{
+        max-width:160px;
+        max-height:60px;
+    }
+
+    .esubiz-provider-card{
+        width:46px !important;
+        height:46px;
+        min-width:46px;
+    }
+}
+
+</style>
+
+<script>
+/* ESUBIZ_PUBLIC_AUTH_PREMIUM_RUNTIME_V17 */
+
+(function () {
+    'use strict';
+
+    const providers = [
+        'esubiz',
+        'google',
+        'facebook',
+        'instagram',
+        'tiktok',
+        'x'
+    ];
+
+    function normalizePath(path) {
+
+        return String(path || '')
+            .replace(/\/+$/, '') || '/';
+    }
+
+    function supported(path) {
+
+        path = normalizePath(path);
+
+        return (
+            path === '/login'
+            || path === '/register'
+            || path === '/forgot-password'
+            || path.indexOf('/reset-password/') === 0
+        );
+    }
+
+    function providerFrom(link) {
+
+        const text = String(
+            link.textContent || ''
+        ).toLowerCase();
+
+        const href = String(
+            link.getAttribute('href') || ''
+        ).toLowerCase();
+
+        if (
+            /\bwith\s+x\b/i.test(text)
+            || href.includes('provider=x')
+            || href.includes('provider%3dx')
+            || href.includes('/x/')
+        ) {
+            return 'x';
+        }
+
+        for (const provider of providers) {
+
+            if (provider === 'x') {
+                continue;
+            }
+
+            if (
+                text.includes(provider)
+                || href.includes(
+                    'provider=' + provider
+                )
+                || href.includes(
+                    '/' + provider + '/'
+                )
+                || (
+                    provider === 'esubiz'
+                    && href.includes('/admin?sso=1')
+                )
+            ) {
+                return provider;
+            }
+        }
+
+        return null;
+    }
+
+    function icon(provider) {
+
+        if (provider === 'esubiz') {
+            return 'E';
+        }
+
+        if (provider === 'google') {
+            return `
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <text
+                        x="12"
+                        y="17"
+                        text-anchor="middle"
+                        font-size="17"
+                        font-family="Arial,sans-serif"
+                        font-weight="700"
+                        fill="currentColor"
+                    >G</text>
+                </svg>
+            `;
+        }
+
+        if (provider === 'facebook') {
+            return `
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                        fill="currentColor"
+                        d="M13.7 22v-8h2.7l.4-3h-3.1V9.1c0-.9.3-1.5 1.6-1.5H17V4.9c-.3 0-1.3-.1-2.4-.1-2.4 0-4 1.4-4 4.1V11H8v3h2.6v8h3.1Z"
+                    />
+                </svg>
+            `;
+        }
+
+        if (provider === 'instagram') {
+            return `
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <rect
+                        x="3.5"
+                        y="3.5"
+                        width="17"
+                        height="17"
+                        rx="5"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    />
+                    <circle
+                        cx="12"
+                        cy="12"
+                        r="4"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    />
+                    <circle
+                        cx="17.4"
+                        cy="6.8"
+                        r="1.1"
+                        fill="currentColor"
+                    />
+                </svg>
+            `;
+        }
+
+        if (provider === 'tiktok') {
+            return `
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                        fill="currentColor"
+                        d="M15.3 3c.4 2.3 1.7 3.7 3.7 3.9v3a8.2 8.2 0 0 1-3.7-1.1v6.1a6 6 0 1 1-5.2-5.9v3.1a2.9 2.9 0 1 0 2.1 2.8V3h3.1Z"
+                    />
+                </svg>
+            `;
+        }
+
+        return `
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                    fill="currentColor"
+                    d="M5 4h3.8l3.7 5 4.2-5H19l-5.4 6.4L19.5 20h-3.8l-4-5.4L7.1 20H4.8l5.8-6.8L5 4Z"
+                />
+            </svg>
+        `;
+    }
+
+    function collect(source) {
+
+        if (!source) {
+            return [];
+        }
+
+        return Array.from(
+            source.querySelectorAll('a[href]')
+        ).filter(function (link) {
+            return providerFrom(link) !== null;
+        });
+    }
+
+    function prepare(card, source, path) {
+
+        if (!card) {
+            return;
+        }
+
+        path = normalizePath(
+            path || window.location.pathname
+        );
+
+        card.querySelectorAll(
+            '.esubiz-provider-cards, .esubiz-auth-divider-v17'
+        ).forEach(function (node) {
+            node.remove();
+        });
+
+        if (
+            path !== '/login'
+            && path !== '/register'
+        ) {
+            return;
+        }
+
+        const links = collect(
+            source || document
+        );
+
+        if (!links.length) {
+            return;
+        }
+
+        const container =
+            document.createElement('div');
+
+        container.className =
+            'esubiz-provider-cards';
+
+        const seen = new Set();
+
+        links.forEach(function (original) {
+
+            const provider =
+                providerFrom(original);
+
+            if (
+                !provider
+                || seen.has(provider)
+            ) {
+                return;
+            }
+
+            const href =
+                original.getAttribute('href');
+
+            if (!href) {
+                return;
+            }
+
+            seen.add(provider);
+
+            const link =
+                document.createElement('a');
+
+            link.href = href;
+
+            link.className =
+                'esubiz-provider-card';
+
+            const label =
+                provider === 'x'
+                    ? 'X'
+                    : provider.charAt(0).toUpperCase()
+                        + provider.slice(1);
+
+            link.setAttribute(
+                'aria-label',
+                (
+                    path === '/register'
+                        ? 'Register with '
+                        : 'Login with '
+                ) + label
+            );
+
+            link.innerHTML = `
+                <span
+                    class="esubiz-provider-logo esubiz-provider-logo--${provider}"
+                    aria-hidden="true"
+                >
+                    ${icon(provider)}
+                </span>
+
+                <span class="esubiz-provider-copy">
+                    ${
+                        path === '/register'
+                            ? 'Register'
+                            : 'Login'
+                    } with ${label}
+                </span>
+            `;
+
+            container.appendChild(
+                link
+            );
+        });
+
+        if (!container.children.length) {
+            return;
+        }
+
+        const form =
+            card.querySelector('form');
+
+        if (!form) {
+            return;
+        }
+
+        card.insertBefore(
+            container,
+            form
+        );
+
+        const divider =
+            document.createElement('div');
+
+        divider.className =
+            'esubiz-auth-divider-v17';
+
+        divider.textContent =
+            'or continue with email';
+
+        card.insertBefore(
+            divider,
+            form
+        );
+    }
+
+    prepare(
+        document.querySelector('.auth-card'),
+        document,
+        window.location.pathname
+    );
+
+    document.addEventListener(
+        'click',
+        async function (event) {
+
+            const link =
+                event.target.closest('a[href]');
+
+            if (!link) {
+                return;
+            }
+
+            if (
+                event.button !== 0
+                || event.metaKey
+                || event.ctrlKey
+                || event.shiftKey
+                || event.altKey
+                || link.target === '_blank'
+                || link.hasAttribute('download')
+            ) {
+                return;
+            }
+
+            let target;
+
+            try {
+
+                target = new URL(
+                    link.href,
+                    window.location.href
+                );
+
+            } catch (error) {
+
+                return;
+            }
+
+            if (
+                target.origin
+                !== window.location.origin
+                || !supported(
+                    target.pathname
+                )
+            ) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopImmediatePropagation();
+
+            try {
+
+                const response =
+                    await fetch(
+                        target.href,
+                        {
+                            method:'GET',
+                            credentials:'same-origin',
+                            headers:{
+                                'X-Requested-With':
+                                    'XMLHttpRequest'
+                            }
+                        }
+                    );
+
+                if (!response.ok) {
+                    throw new Error(
+                        'Authentication page could not be loaded.'
+                    );
+                }
+
+                const html =
+                    await response.text();
+
+                const parsed =
+                    new DOMParser()
+                        .parseFromString(
+                            html,
+                            'text/html'
+                        );
+
+                const fetched =
+                    parsed.querySelector(
+                        '.auth-card'
+                    );
+
+                const current =
+                    document.querySelector(
+                        '.auth-card'
+                    );
+
+                if (
+                    !fetched
+                    || !current
+                ) {
+                    window.location.href =
+                        target.href;
+                    return;
+                }
+
+                const imported =
+                    document.importNode(
+                        fetched,
+                        true
+                    );
+
+                prepare(
+                    imported,
+                    parsed,
+                    target.pathname
+                );
+
+                current.replaceWith(
+                    imported
+                );
+
+                if (parsed.title) {
+                    document.title =
+                        parsed.title;
+                }
+
+                window.history.pushState(
+                    {
+                        esubizAuthAjaxV17:true
+                    },
+                    '',
+                    target.pathname
+                    + target.search
+                    + target.hash
+                );
+
+                window.scrollTo({
+                    top:0,
+                    behavior:'smooth'
+                });
+
+            } catch (error) {
+
+                window.location.href =
+                    target.href;
+            }
+        },
+        true
+    );
+
+    window.addEventListener(
+        'popstate',
+        function () {
+
+            if (
+                supported(
+                    window.location.pathname
+                )
+            ) {
+                window.location.reload();
+            }
+        }
+    );
+
+})();
+</script>
 
 
 {{-- ESUBIZ_AUTH_AJAX_SWITCHING_ALL_FORMS_V2 --}}
@@ -1657,14 +2674,1224 @@ async function swapAuthPage(
         }
     );
 
-})();
-
 
     enhanceProviderCards(
         document.querySelector('.auth-card'),
         window.location.pathname
     );
 
+})();
+</script>
+
+
+{{-- ESUBIZ_PUBLIC_AUTH_SINGLE_CARD_V18 --}}
+<style id="esubiz-public-auth-single-card-v18">
+
+/* =========================================================
+   V18 — Login/Register authoritative single-card composition
+   ========================================================= */
+
+.auth-shell{
+    width:100% !important;
+    min-height:100vh !important;
+    min-height:100dvh !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    box-sizing:border-box !important;
+    padding:36px 20px !important;
+    background:{{ $authBackground }} !important;
+}
+
+.auth-card{
+    width:min(100%,520px) !important;
+    max-width:520px !important;
+    margin:0 auto !important;
+    padding:38px 38px 32px !important;
+    box-sizing:border-box !important;
+
+    display:flex !important;
+    flex-direction:column !important;
+    align-items:stretch !important;
+
+    border:1px solid rgba(148,163,184,.20) !important;
+    border-radius:22px !important;
+
+    background:{{ $authCard }} !important;
+    color:{{ $authText }} !important;
+
+    box-shadow:
+        0 24px 64px rgba(15,23,42,.10),
+        0 3px 12px rgba(15,23,42,.04) !important;
+}
+
+
+/* Logo belongs to the card */
+
+.auth-card .brand-mark{
+    order:1;
+    margin:0 auto 18px !important;
+    text-align:center !important;
+}
+
+.auth-card .brand-mark.has-logo{
+    width:auto !important;
+    height:auto !important;
+    min-height:0 !important;
+    background:transparent !important;
+    border-radius:0 !important;
+}
+
+.auth-card .brand-mark img{
+    display:block;
+    width:auto !important;
+    height:auto !important;
+    max-width:190px !important;
+    max-height:68px !important;
+    margin:0 auto !important;
+    object-fit:contain !important;
+}
+
+
+/* Heading */
+
+.auth-card .auth-heading{
+    order:2;
+    margin:0 0 22px !important;
+    text-align:center !important;
+}
+
+.auth-card .auth-heading h1{
+    margin:0 !important;
+    font-size:28px !important;
+    line-height:1.2 !important;
+    font-weight:800 !important;
+    letter-spacing:-.02em !important;
+}
+
+.auth-card .auth-heading p{
+    margin:8px 0 0 !important;
+    font-size:14px !important;
+    line-height:1.55 !important;
+    opacity:.68;
+}
+
+
+/* Validation/status messages */
+
+.auth-card .alert{
+    order:3;
+}
+
+
+/* Provider area */
+
+.auth-card .auth-provider-section,
+.auth-card .esubiz-provider-cards{
+    order:4;
+    width:100% !important;
+    margin:0 0 24px !important;
+}
+
+.auth-card .auth-provider-grid,
+.auth-card .esubiz-provider-cards{
+    display:flex !important;
+    align-items:flex-start !important;
+    justify-content:center !important;
+    flex-wrap:wrap !important;
+    gap:16px !important;
+}
+
+
+/* Existing form becomes content, NOT another card */
+
+.auth-card form{
+    order:5;
+
+    width:100% !important;
+    max-width:none !important;
+
+    margin:0 !important;
+    padding:0 !important;
+
+    border:0 !important;
+    border-radius:0 !important;
+
+    background:transparent !important;
+    box-shadow:none !important;
+}
+
+
+/* Fields */
+
+.auth-card .field{
+    margin-bottom:18px !important;
+}
+
+.auth-card form label{
+    margin-bottom:7px !important;
+    font-size:13px !important;
+    font-weight:600 !important;
+}
+
+.auth-card form input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+.auth-card form select,
+.auth-card form textarea{
+    width:100% !important;
+    min-height:48px !important;
+    box-sizing:border-box !important;
+    border-radius:10px !important;
+}
+
+
+/* Primary action */
+
+.auth-card .btn-primary,
+.auth-card form button[type="submit"],
+.auth-card form input[type="submit"]{
+    width:100% !important;
+    min-height:48px !important;
+    border-radius:10px !important;
+    font-weight:700 !important;
+}
+
+
+/* Register / Sign-in copy stays inside card */
+
+.auth-card .bottom-copy{
+    order:6;
+    margin:22px 0 0 !important;
+    text-align:center !important;
+    font-size:13px !important;
+    line-height:1.55 !important;
+}
+
+
+/*
+ * Reference design ends at the Login/Register switch.
+ * Keep existing elements in markup for compatibility,
+ * but don't render them on Login/Register.
+ */
+
+.auth-card .auth-home-link,
+.auth-card .site-note{
+    display:none !important;
+}
+
+
+/* Prevent legacy provider script from creating a second row */
+
+.auth-card .esubiz-provider-cards + .auth-provider-section,
+.auth-card .auth-provider-section + .esubiz-provider-cards{
+    display:none !important;
+}
+
+
+/* Mobile */
+
+@media(max-width:560px){
+
+    .auth-shell{
+        align-items:flex-start !important;
+        padding:20px 14px !important;
+    }
+
+    .auth-card{
+        padding:28px 20px 24px !important;
+        border-radius:18px !important;
+    }
+
+    .auth-card .auth-heading h1{
+        font-size:25px !important;
+    }
+
+    .auth-card .brand-mark img{
+        max-width:170px !important;
+        max-height:60px !important;
+    }
+}
+
+</style>
+
+
+{{-- ESUBIZ_PUBLIC_AUTH_CLEANUP_V18_2 --}}
+<style id="esubiz-public-auth-cleanup-v18-2">
+
+/*
+ * V18.2
+ * Keep the server-rendered provider row authoritative.
+ * AJAX may still enhance navigation, but its duplicate visual
+ * provider row/divider must not appear.
+ */
+
+.auth-card > .esubiz-provider-cards,
+.auth-card .esubiz-provider-cards,
+.auth-card > .esubiz-auth-divider-v17,
+.auth-card .esubiz-auth-divider-v17{
+    display:none !important;
+}
+
+
+/*
+ * Clean single divider immediately before the real provider row.
+ */
+
+.auth-card .auth-provider-section{
+    position:relative !important;
+    padding-top:24px !important;
+    margin-top:0 !important;
+}
+
+.auth-card .auth-provider-section::before{
+    content:"or";
+    position:absolute;
+    top:0;
+    left:50%;
+    transform:translateX(-50%);
+
+    padding:0 10px;
+
+    background:{{ $authCard }} !important;
+    color:{{ $authText }} !important;
+
+    font-size:11px;
+    font-weight:600;
+    line-height:1.2;
+
+    opacity:.50;
+    text-transform:lowercase;
+}
+
+
+/*
+ * Prevent provider divider pseudo-element from creating
+ * unwanted horizontal overflow.
+ */
+
+.auth-card .auth-provider-section::after{
+    content:"";
+    position:absolute;
+    top:6px;
+    left:0;
+    right:0;
+    height:1px;
+
+    background:rgba(148,163,184,.22);
+    z-index:-1;
+}
+
+
+/*
+ * Keep heading spacing aligned with Forgot Password.
+ */
+
+.auth-card .auth-heading{
+    margin-bottom:18px !important;
+}
+
+.auth-card .auth-provider-section{
+    margin-bottom:24px !important;
+}
+
+
+/*
+ * Provider is one clean circular option.
+ */
+
+.auth-card .auth-provider-grid{
+    gap:16px !important;
+}
+
+.auth-card .auth-provider-item{
+    width:100px !important;
+}
+
+.auth-card .auth-provider-circle{
+    width:48px !important;
+    height:48px !important;
+}
+
+.auth-card .auth-provider-caption{
+    margin-top:7px !important;
+    font-size:10px !important;
+}
+
+
+/*
+ * Keep the Login/Register switch neatly inside the card.
+ */
+
+.auth-card .bottom-copy{
+    margin-top:20px !important;
+}
+
+</style>
+
+
+{{-- ESUBIZ_PUBLIC_AUTH_PROVIDER_CANONICAL_V18_3 --}}
+<style id="esubiz-public-auth-provider-canonical-v18-3">
+
+/* Hide every legacy/generated provider presentation. */
+.auth-provider-section,
+.esubiz-provider-cards,
+.esubiz-auth-divider-v17{
+    display:none !important;
+}
+
+/* One authoritative provider area. */
+.esubiz-auth-provider-final{
+    width:100%;
+    margin:2px 0 24px;
+    text-align:center;
+}
+
+.esubiz-auth-provider-final__divider{
+    display:flex;
+    align-items:center;
+    gap:10px;
+
+    margin:0 0 18px;
+
+    color:{{ $authText }};
+    opacity:.48;
+
+    font-size:10px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+}
+
+.esubiz-auth-provider-final__divider::before,
+.esubiz-auth-provider-final__divider::after{
+    content:"";
+    flex:1;
+    height:1px;
+    background:rgba(148,163,184,.25);
+}
+
+.esubiz-auth-provider-final__items{
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    flex-wrap:wrap;
+    gap:18px;
+}
+
+.esubiz-auth-provider-final__item{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+
+    width:90px;
+
+    color:{{ $authText }} !important;
+    text-decoration:none !important;
+}
+
+.esubiz-auth-provider-final__circle{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    width:48px;
+    height:48px;
+
+    border-radius:50%;
+
+    background:#0b1f3a;
+    color:#fff;
+
+    border:1px solid rgba(148,163,184,.22);
+
+    box-shadow:
+        0 4px 14px rgba(15,23,42,.10);
+
+    font-size:16px;
+    font-weight:800;
+
+    transition:
+        transform .15s ease,
+        box-shadow .15s ease;
+}
+
+.esubiz-auth-provider-final__item:hover
+.esubiz-auth-provider-final__circle{
+    transform:translateY(-2px);
+
+    box-shadow:
+        0 7px 18px rgba(15,23,42,.14);
+}
+
+.esubiz-auth-provider-final__caption{
+    margin-top:7px;
+
+    font-size:10px;
+    font-weight:600;
+    line-height:1.3;
+
+    opacity:.72;
+}
+
+
+/* Keep homepage + Powered by inside the card like Forgot Password. */
+
+.auth-card .auth-home-link{
+    display:block !important;
+    margin-top:20px !important;
+    text-align:center !important;
+    font-size:12px !important;
+}
+
+.auth-card .site-note{
+    display:block !important;
+    margin-top:10px !important;
+    text-align:center !important;
+    font-size:11px !important;
+    opacity:.60;
+}
+
+</style>
+
+<script>
+(function () {
+
+    function providerName(link) {
+        const text =
+            (link.textContent || '')
+            .toLowerCase();
+
+        const href =
+            (link.getAttribute('href') || '')
+            .toLowerCase();
+
+        if (
+            text.includes('esubiz')
+            || href.includes('sso=1')
+        ) {
+            return 'Esubiz';
+        }
+
+        if (
+            text.includes('google')
+            || href.includes('google')
+        ) {
+            return 'Google';
+        }
+
+        if (
+            text.includes('facebook')
+            || href.includes('facebook')
+        ) {
+            return 'Facebook';
+        }
+
+        if (
+            text.includes('instagram')
+            || href.includes('instagram')
+        ) {
+            return 'Instagram';
+        }
+
+        if (
+            text.includes('tiktok')
+            || href.includes('tiktok')
+        ) {
+            return 'TikTok';
+        }
+
+        if (
+            text.includes('twitter')
+            || text.trim() === 'x'
+            || href.includes('twitter')
+        ) {
+            return 'X';
+        }
+
+        return '';
+    }
+
+
+    function renderFinalProviders() {
+
+        const card =
+            document.querySelector('.auth-card');
+
+        if (!card) {
+            return;
+        }
+
+        const form =
+            card.querySelector('form');
+
+        if (!form) {
+            return;
+        }
+
+        const candidates = Array.from(
+            document.querySelectorAll(
+                '.auth-provider-section a[href],'
+                + '.esubiz-provider-cards a[href]'
+            )
+        );
+
+        const providers = [];
+        const seen = new Set();
+
+        candidates.forEach(function (link) {
+
+            const href =
+                link.getAttribute('href') || '';
+
+            const name =
+                providerName(link);
+
+            if (!href || !name) {
+                return;
+            }
+
+            const key =
+                name + '|' + href;
+
+            if (seen.has(key)) {
+                return;
+            }
+
+            seen.add(key);
+
+            providers.push({
+                name: name,
+                href: href
+            });
+        });
+
+
+        /*
+         * Remove a previous canonical render,
+         * useful when AJAX swaps Login/Register.
+         */
+        card
+            .querySelectorAll(
+                '.esubiz-auth-provider-final'
+            )
+            .forEach(function (node) {
+                node.remove();
+            });
+
+
+        if (!providers.length) {
+            return;
+        }
+
+
+        const wrapper =
+            document.createElement('div');
+
+        wrapper.className =
+            'esubiz-auth-provider-final';
+
+
+        const divider =
+            document.createElement('div');
+
+        divider.className =
+            'esubiz-auth-provider-final__divider';
+
+        divider.textContent =
+            'or continue with';
+
+        wrapper.appendChild(divider);
+
+
+        const items =
+            document.createElement('div');
+
+        items.className =
+            'esubiz-auth-provider-final__items';
+
+
+        providers.forEach(function (provider) {
+
+            const link =
+                document.createElement('a');
+
+            link.className =
+                'esubiz-auth-provider-final__item';
+
+            link.href =
+                provider.href;
+
+
+            const circle =
+                document.createElement('span');
+
+            circle.className =
+                'esubiz-auth-provider-final__circle';
+
+            circle.textContent =
+                provider.name === 'X'
+                    ? 'X'
+                    : provider.name.charAt(0);
+
+
+            const caption =
+                document.createElement('span');
+
+            caption.className =
+                'esubiz-auth-provider-final__caption';
+
+            caption.textContent =
+                provider.name;
+
+
+            link.appendChild(circle);
+            link.appendChild(caption);
+
+            items.appendChild(link);
+        });
+
+
+        wrapper.appendChild(items);
+
+        form.parentNode.insertBefore(
+            wrapper,
+            form
+        );
+    }
+
+
+    /*
+     * Existing auth scripts finish first.
+     * Then V18.3 collapses their output into one row.
+     */
+    window.addEventListener(
+        'load',
+        function () {
+            setTimeout(
+                renderFinalProviders,
+                50
+            );
+        }
+    );
+
+
+    /*
+     * Re-run after Login/Register AJAX swaps.
+     */
+    window.addEventListener(
+        'popstate',
+        function () {
+            setTimeout(
+                renderFinalProviders,
+                100
+            );
+        }
+    );
+
+})();
+</script>
+
+
+{{-- ESUBIZ_PUBLIC_AUTH_FINAL_ORDER_V18_4 --}}
+<style id="esubiz-public-auth-final-order-v18-4">
+
+/*
+ * Keep footer navigation after the form/account switch.
+ */
+
+.auth-card .auth-home-link{
+    order:7 !important;
+    display:block !important;
+    width:100% !important;
+    margin:18px 0 0 !important;
+    text-align:center !important;
+}
+
+.auth-card .site-note{
+    order:8 !important;
+    display:block !important;
+    width:100% !important;
+    margin:8px 0 0 !important;
+    text-align:center !important;
+}
+
+
+/*
+ * Canonical provider row belongs between heading and form.
+ */
+
+.auth-card .esubiz-auth-provider-final{
+    order:4 !important;
+}
+
+.auth-card form{
+    order:5 !important;
+}
+
+.auth-card .bottom-copy{
+    order:6 !important;
+}
+
+</style>
+
+<script>
+(function () {
+
+    /*
+     * Remove accidental literal "{}" text emitted outside the
+     * authentication markup. This does not touch form data,
+     * Blade expressions or JavaScript objects.
+     */
+    function removeAuthStrayText() {
+
+        Array.from(document.body.childNodes)
+            .filter(function (node) {
+                return node.nodeType === Node.TEXT_NODE;
+            })
+            .forEach(function (node) {
+
+                const value =
+                    (node.textContent || '').trim();
+
+                if (
+                    value === '{}'
+                    || value === '{ }'
+                    || value === '{'
+                    || value === '}'
+                ) {
+                    node.remove();
+                }
+            });
+    }
+
+    removeAuthStrayText();
+
+    document.addEventListener(
+        'DOMContentLoaded',
+        removeAuthStrayText
+    );
+
+    window.addEventListener(
+        'load',
+        removeAuthStrayText
+    );
+
+})();
+</script>
+
+
+{{-- ESUBIZ_PUBLIC_AUTH_PROVIDER_PRESENTATION_V18_5 --}}
+<style id="esubiz-public-auth-provider-presentation-v18-5">
+
+.esubiz-auth-provider-final{
+    order:4 !important;
+    width:100% !important;
+    margin:0 0 24px !important;
+}
+
+.esubiz-auth-provider-final__title{
+    margin:0 0 14px !important;
+    text-align:center !important;
+    font-size:12px !important;
+    font-weight:700 !important;
+    color:{{ $authText }} !important;
+}
+
+.esubiz-auth-provider-final__items{
+    display:flex !important;
+    align-items:flex-start !important;
+    justify-content:center !important;
+    flex-wrap:wrap !important;
+    gap:14px !important;
+    margin:0 0 20px !important;
+}
+
+.esubiz-auth-provider-final__item{
+    width:62px !important;
+    display:flex !important;
+    flex-direction:column !important;
+    align-items:center !important;
+    gap:6px !important;
+    text-decoration:none !important;
+    color:{{ $authText }} !important;
+}
+
+.esubiz-auth-provider-final__circle{
+    width:46px !important;
+    height:46px !important;
+    padding:0 !important;
+
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+
+    border:1px solid rgba(148,163,184,.28) !important;
+    border-radius:50% !important;
+
+    background:#ffffff !important;
+    color:#111827 !important;
+
+    box-shadow:0 3px 10px rgba(15,23,42,.07) !important;
+
+    overflow:hidden !important;
+}
+
+.esubiz-auth-provider-final__circle img{
+    display:block !important;
+    width:24px !important;
+    height:24px !important;
+    max-width:24px !important;
+    max-height:24px !important;
+    object-fit:contain !important;
+}
+
+.esubiz-auth-provider-final__fallback{
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+
+    width:100% !important;
+    height:100% !important;
+
+    font-size:15px !important;
+    font-weight:800 !important;
+}
+
+.esubiz-auth-provider-final__caption{
+    margin:0 !important;
+    font-size:9px !important;
+    font-weight:600 !important;
+    line-height:1.2 !important;
+    text-align:center !important;
+    opacity:.72 !important;
+}
+
+.esubiz-auth-provider-final__divider{
+    display:flex !important;
+    align-items:center !important;
+    gap:10px !important;
+
+    margin:0 !important;
+
+    color:{{ $authText }} !important;
+
+    font-size:9px !important;
+    font-weight:700 !important;
+    letter-spacing:.04em !important;
+    text-transform:uppercase !important;
+
+    opacity:.45 !important;
+}
+
+.esubiz-auth-provider-final__divider::before,
+.esubiz-auth-provider-final__divider::after{
+    content:"" !important;
+    flex:1 !important;
+    height:1px !important;
+    background:rgba(148,163,184,.25) !important;
+}
+
+</style>
+
+{{-- ESUBIZ_PUBLIC_AUTH_PROVIDER_PRESENTATION_JS_V18_5 --}}
+
+<script>
+(function () {
+
+    const modeTitle = 'Register with';
+
+    const providerMeta = {
+        esubiz: {
+            name: 'Esubiz',
+            fallback: 'E'
+        },
+        google: {
+            name: 'Google',
+            fallback: 'G'
+        },
+        facebook: {
+            name: 'Facebook',
+            fallback: 'f'
+        },
+        instagram: {
+            name: 'Instagram',
+            fallback: '◎'
+        },
+        tiktok: {
+            name: 'TikTok',
+            fallback: '♪'
+        },
+        x: {
+            name: 'X',
+            fallback: 'X'
+        }
+    };
+
+
+    function detectProvider(link) {
+
+        const text =
+            (link.textContent || '').toLowerCase();
+
+        const href =
+            (link.getAttribute('href') || '').toLowerCase();
+
+        const haystack =
+            text + ' ' + href;
+
+        if (
+            haystack.includes('esubiz')
+            || haystack.includes('sso=1')
+        ) return 'esubiz';
+
+        if (haystack.includes('google'))
+            return 'google';
+
+        if (haystack.includes('facebook'))
+            return 'facebook';
+
+        if (haystack.includes('instagram'))
+            return 'instagram';
+
+        if (haystack.includes('tiktok'))
+            return 'tiktok';
+
+        if (
+            haystack.includes('twitter')
+            || /(^|[^a-z])x([^a-z]|$)/i.test(text)
+        ) return 'x';
+
+        return '';
+    }
+
+
+    function getProviderIcon(sourceLink) {
+
+        const image =
+            sourceLink.querySelector('img');
+
+        if (!image) {
+            return null;
+        }
+
+        const src =
+            image.getAttribute('src');
+
+        if (!src) {
+            return null;
+        }
+
+        return {
+            src: src,
+            alt:
+                image.getAttribute('alt')
+                || ''
+        };
+    }
+
+
+    function render() {
+
+        const card =
+            document.querySelector('.auth-card');
+
+        if (!card) return;
+
+        const form =
+            card.querySelector('form');
+
+        if (!form) return;
+
+
+        /*
+         * Read ONLY providers that already exist.
+         * No routes or destinations are invented here.
+         */
+        const sourceLinks =
+            Array.from(
+                document.querySelectorAll(
+                    '.auth-provider-section a[href],'
+                    + '.esubiz-provider-cards a[href]'
+                )
+            );
+
+
+        const providers = [];
+        const used = new Set();
+
+
+        sourceLinks.forEach(function (link) {
+
+            const provider =
+                detectProvider(link);
+
+            const href =
+                link.getAttribute('href');
+
+            if (
+                !provider
+                || !href
+                || used.has(provider)
+            ) {
+                return;
+            }
+
+            used.add(provider);
+
+            providers.push({
+                key: provider,
+                href: href,
+                icon: getProviderIcon(link)
+            });
+        });
+
+
+        card
+            .querySelectorAll(
+                '.esubiz-auth-provider-final'
+            )
+            .forEach(function (node) {
+                node.remove();
+            });
+
+
+        if (!providers.length) {
+            return;
+        }
+
+
+        const wrapper =
+            document.createElement('div');
+
+        wrapper.className =
+            'esubiz-auth-provider-final';
+
+
+        const title =
+            document.createElement('div');
+
+        title.className =
+            'esubiz-auth-provider-final__title';
+
+        title.textContent =
+            modeTitle;
+
+        wrapper.appendChild(title);
+
+
+        const items =
+            document.createElement('div');
+
+        items.className =
+            'esubiz-auth-provider-final__items';
+
+
+        providers.forEach(function (provider) {
+
+            const meta =
+                providerMeta[provider.key];
+
+            const link =
+                document.createElement('a');
+
+            link.className =
+                'esubiz-auth-provider-final__item';
+
+            link.href =
+                provider.href;
+
+            link.setAttribute(
+                'aria-label',
+                modeTitle + ' ' + meta.name
+            );
+
+
+            const circle =
+                document.createElement('span');
+
+            circle.className =
+                'esubiz-auth-provider-final__circle';
+
+
+            if (provider.icon) {
+
+                const img =
+                    document.createElement('img');
+
+                img.src =
+                    provider.icon.src;
+
+                img.alt =
+                    provider.icon.alt
+                    || meta.name;
+
+                circle.appendChild(img);
+
+            } else {
+
+                const fallback =
+                    document.createElement('span');
+
+                fallback.className =
+                    'esubiz-auth-provider-final__fallback';
+
+                fallback.textContent =
+                    meta.fallback;
+
+                circle.appendChild(fallback);
+            }
+
+
+            const caption =
+                document.createElement('span');
+
+            caption.className =
+                'esubiz-auth-provider-final__caption';
+
+            caption.textContent =
+                meta.name;
+
+
+            link.appendChild(circle);
+            link.appendChild(caption);
+
+            items.appendChild(link);
+        });
+
+
+        wrapper.appendChild(items);
+
+
+        const divider =
+            document.createElement('div');
+
+        divider.className =
+            'esubiz-auth-provider-final__divider';
+
+        divider.textContent =
+            'or continue with email';
+
+        wrapper.appendChild(divider);
+
+
+        form.parentNode.insertBefore(
+            wrapper,
+            form
+        );
+    }
+
+
+    window.addEventListener(
+        'load',
+        function () {
+            /*
+             * Run after the existing provider enhancer,
+             * then remain authoritative.
+             */
+            setTimeout(render, 150);
+        }
+    );
+
+})();
 </script>
 
 </body>

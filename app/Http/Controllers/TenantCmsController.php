@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+
+
+use App\Services\Website\TenantAuthFormService;
 use App\Models\Website;
 use App\Models\WebsiteTenant;
 use Illuminate\Http\Request;
@@ -266,6 +269,51 @@ class TenantCmsController extends Controller
 
     public function dashboard()
     {
+
+        
+        /*
+         * ESUBIZ_REAL_REGISTRATION_ROLE_VERIFICATION_V13
+         */
+        $registrationRoles =
+            \App\Models\Role::query()
+                ->orderBy('name')
+                ->get()
+                ->map(
+                    function ($role) {
+                        return [
+                            'value' =>
+                                (string) (
+                                    $role->slug
+                                    ?? $role->id
+                                ),
+                            'label' =>
+                                (string) (
+                                    $role->name
+                                    ?? $role->title
+                                    ?? $role->slug
+                                    ?? $role->id
+                                ),
+                        ];
+                    }
+                )
+                ->values()
+                ->all();
+
+/*
+         * ESUBIZ_MULTI_AUTH_FORMS_ADMIN_READ_V12
+         *
+         * Compatibility-safe Auth Forms registry.
+         *
+         * Existing authConfig remains authoritative for the current
+         * Default UI while the multi-form manager is introduced.
+         */
+        $authFormService =
+            app(TenantAuthFormService::class);
+
+        $authForms =
+            $authFormService->all();
+
+
         $website = $this->currentWebsite();
 
         /*
@@ -814,7 +862,19 @@ class TenantCmsController extends Controller
         }
 
 
-        return view(
+        
+        view()->share(
+            'authForms',
+            $authForms
+        );
+
+        view()->share(
+            'registrationRoles',
+            $registrationRoles
+        );
+
+
+return view(
             'tenant.admin.dashboard',
             compact(
                 'website',
@@ -1827,7 +1887,150 @@ class TenantCmsController extends Controller
             }
         }
 
-        return back()->with(
+        
+        
+        /*
+         * Registration defaults.
+         * The role is selected only by an administrator.
+         */
+        $registrationRequireEmailVerification =
+            $request->boolean(
+                'registration_require_email_verification'
+            );
+
+        $registrationDefaultRole =
+            trim(
+                (string) $request->input(
+                    'registration_default_role',
+                    ''
+                )
+            );
+
+        $validRegistrationRoleValues =
+            collect($registrationRoles ?? [])
+                ->pluck('value')
+                ->map(
+                    fn ($value) =>
+                        (string) $value
+                )
+                ->all();
+
+        if (
+            $registrationDefaultRole !== ''
+            && !in_array(
+                $registrationDefaultRole,
+                $validRegistrationRoleValues,
+                true
+            )
+        ) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'registration_default_role' =>
+                        'Please select a valid default role.',
+                ]);
+        }
+
+        DB::connection('tenant')
+            ->table('site_settings')
+            ->updateOrInsert(
+                [
+                    'key' =>
+                        'auth.registration_require_email_verification',
+                ],
+                [
+                    'value' =>
+                        $registrationRequireEmailVerification
+                            ? '1'
+                            : '0',
+                ]
+            );
+
+        DB::connection('tenant')
+            ->table('site_settings')
+            ->updateOrInsert(
+                [
+                    'key' =>
+                        'auth.registration_default_role',
+                ],
+                [
+                    'value' =>
+                        $registrationDefaultRole,
+                ]
+            );
+
+/*
+         * ESUBIZ_MULTI_AUTH_FORMS_ADMIN_PERSISTENCE_V12
+         *
+         * Keep the Default Auth Form synchronized with the existing
+         * authoritative Core authentication settings.
+         *
+         * This is intentionally performed AFTER the existing settings
+         * persistence logic so no old behaviour is replaced.
+         */
+        $authFormService =
+            app(TenantAuthFormService::class);
+
+        $authForms =
+            $authFormService->all();
+
+        $defaultAuthForm =
+            $authFormService->buildDefaultForm();
+
+        /*
+         * Preserve any form-level capability configuration already
+         * stored in the registry while refreshing legacy-backed
+         * Default settings.
+         */
+        if (
+            isset($authForms[
+                TenantAuthFormService::DEFAULT_FORM_ID
+            ])
+            && is_array(
+                $authForms[
+                    TenantAuthFormService::DEFAULT_FORM_ID
+                ]
+            )
+        ) {
+            $storedDefault =
+                $authForms[
+                    TenantAuthFormService::DEFAULT_FORM_ID
+                ];
+
+            foreach (
+                [
+                    'offers',
+                    'payment',
+                    'extensions',
+                ]
+                as $portableSection
+            ) {
+                if (
+                    array_key_exists(
+                        $portableSection,
+                        $storedDefault
+                    )
+                ) {
+                    $defaultAuthForm[
+                        $portableSection
+                    ] =
+                        $storedDefault[
+                            $portableSection
+                        ];
+                }
+            }
+        }
+
+        $authForms[
+            TenantAuthFormService::DEFAULT_FORM_ID
+        ] =
+            $defaultAuthForm;
+
+        $authFormService->saveAll(
+            $authForms
+        );
+
+return back()->with(
             'success',
             'Authentication settings updated successfully.'
         );
@@ -2332,6 +2535,34 @@ class TenantCmsController extends Controller
                     ) === '1',
             ],
 
+            /*
+             * ESUBIZ_PUBLIC_AUTH_LOGO_OUTPUT_V17
+             *
+             * Site Logo is the default authentication logo
+             * independently for Light and Dark modes.
+             */
+            'logo_light_url' =>
+                (string) (
+                    $settings[
+                        'auth.brand.logo_light'
+                    ]
+                    ?? $settings[
+                        'theme.corporate.logo_path'
+                    ]
+                    ?? ''
+                ),
+
+            'logo_dark_url' =>
+                (string) (
+                    $settings[
+                        'auth.brand.logo_dark'
+                    ]
+                    ?? $settings[
+                        'theme.corporate.logo_path'
+                    ]
+                    ?? ''
+                ),
+
             'providers' =>
                 $providers,
 
@@ -2358,9 +2589,16 @@ class TenantCmsController extends Controller
                     ?? ''
                 ),
 
+            /*
+             * ESUBIZ_PUBLIC_AUTH_SHARED_APPEARANCE_V16
+             * One shared Authentication Appearance configuration.
+             */
             'background_color' =>
                 (string) (
                     $settings[
+                        'auth.appearance.background_color'
+                    ]
+                    ?? $settings[
                         $prefix
                         . 'background_color'
                     ]
@@ -2370,6 +2608,9 @@ class TenantCmsController extends Controller
             'card_color' =>
                 (string) (
                     $settings[
+                        'auth.appearance.card_color'
+                    ]
+                    ?? $settings[
                         $prefix
                         . 'card_color'
                     ]
@@ -2379,6 +2620,9 @@ class TenantCmsController extends Controller
             'text_color' =>
                 (string) (
                     $settings[
+                        'auth.appearance.text_color'
+                    ]
+                    ?? $settings[
                         $prefix
                         . 'text_color'
                     ]
@@ -2388,6 +2632,9 @@ class TenantCmsController extends Controller
             'button_color' =>
                 (string) (
                     $settings[
+                        'auth.appearance.button_color'
+                    ]
+                    ?? $settings[
                         $prefix
                         . 'button_color'
                     ]

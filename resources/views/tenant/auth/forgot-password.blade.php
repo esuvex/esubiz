@@ -740,6 +740,114 @@ body {
     </div>
 @endif
 
+
+{{-- ESUBIZ_PUBLIC_AUTH_CSS_ONLY_V15 --}}
+<style>
+
+/* Public authentication form presentation */
+
+form{
+    width:min(100%,460px);
+    box-sizing:border-box;
+    margin:28px auto 0;
+    padding:30px;
+    border:1px solid rgba(148,163,184,.22);
+    border-radius:18px;
+    background:rgba(255,255,255,.98);
+    box-shadow:
+        0 18px 46px rgba(15,23,42,.08),
+        0 2px 8px rgba(15,23,42,.04);
+}
+
+form label{
+    display:block;
+    margin-bottom:7px;
+    font-size:13px;
+    font-weight:600;
+    line-height:1.4;
+}
+
+form input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+form select,
+form textarea{
+    width:100%;
+    min-height:48px;
+    box-sizing:border-box;
+    border-radius:10px;
+    transition:
+        border-color .16s ease,
+        box-shadow .16s ease,
+        background .16s ease;
+}
+
+form textarea{
+    min-height:105px;
+    resize:vertical;
+}
+
+form input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):focus,
+form select:focus,
+form textarea:focus{
+    outline:none;
+    border-color:#60a5fa;
+    box-shadow:0 0 0 3px rgba(37,99,235,.10);
+}
+
+form input[type="checkbox"]{
+    width:16px;
+    height:16px;
+    accent-color:#2563eb;
+}
+
+form button[type="submit"],
+form input[type="submit"]{
+    min-height:48px;
+    border-radius:10px;
+    font-weight:700;
+    cursor:pointer;
+    transition:
+        transform .15s ease,
+        box-shadow .15s ease,
+        opacity .15s ease;
+}
+
+form button[type="submit"]:hover,
+form input[type="submit"]:hover{
+    transform:translateY(-1px);
+    box-shadow:0 8px 20px rgba(15,23,42,.10);
+}
+
+form a{
+    text-underline-offset:3px;
+}
+
+form .invalid-feedback,
+form .text-danger,
+form .error{
+    font-size:12px;
+    line-height:1.45;
+}
+
+@media(max-width:560px){
+
+    form{
+        width:100%;
+        margin-top:20px;
+        padding:22px 18px;
+        border-radius:14px;
+        box-shadow:
+            0 10px 28px rgba(15,23,42,.06);
+    }
+
+    form input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+    form select,
+    form button[type="submit"]{
+        min-height:46px;
+    }
+}
+
+</style>
+
 <form
     method="POST"
     action="{{ route(
@@ -853,6 +961,771 @@ document.addEventListener(
             });
     }
 );
+</script>
+
+
+
+{{-- ESUBIZ_PUBLIC_AUTH_PREMIUM_CARD_V17 --}}
+<style>
+
+/* =========================================================
+   Shared premium authentication card
+   ========================================================= */
+
+.auth-shell{
+    width:100%;
+    min-height:100vh;
+    min-height:100dvh;
+    box-sizing:border-box;
+    padding:42px 20px;
+    background:{{ $authBackground }} !important;
+}
+
+.auth-card{
+    width:min(100%,520px);
+    margin:0 auto;
+    box-sizing:border-box;
+    padding:38px 38px 32px;
+    border:1px solid rgba(148,163,184,.20);
+    border-radius:22px;
+    background:{{ $authCard }} !important;
+    color:{{ $authText }} !important;
+    box-shadow:
+        0 24px 64px rgba(15,23,42,.10),
+        0 3px 12px rgba(15,23,42,.04);
+}
+
+
+/* Existing form must not become a second card */
+
+.auth-card form{
+    width:100% !important;
+    max-width:none !important;
+    margin:0 !important;
+    padding:0 !important;
+    border:0 !important;
+    border-radius:0 !important;
+    background:transparent !important;
+    box-shadow:none !important;
+}
+
+
+/* =========================================================
+   Logo
+   ========================================================= */
+
+.auth-card .brand-mark{
+    margin:0 auto 20px;
+    text-align:center;
+}
+
+.auth-card .brand-mark.has-logo{
+    width:auto;
+    height:auto;
+    background:transparent;
+    border-radius:0;
+    box-shadow:none;
+}
+
+.auth-card .brand-mark img{
+    display:block;
+    width:auto;
+    max-width:190px;
+    max-height:72px;
+    margin:0 auto;
+    object-fit:contain;
+}
+
+.auth-card .auth-logo-light{
+    display:block;
+}
+
+.auth-card .auth-logo-dark{
+    display:none;
+}
+
+@media (prefers-color-scheme:dark){
+
+    .auth-card .auth-logo-light{
+        display:none;
+    }
+
+    .auth-card .auth-logo-dark{
+        display:block;
+    }
+}
+
+
+/* =========================================================
+   Provider icons
+   ========================================================= */
+
+.esubiz-provider-cards{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    align-items:center;
+    gap:10px;
+    width:100%;
+    margin:5px 0 24px;
+}
+
+.esubiz-provider-card{
+    position:relative;
+    display:inline-flex !important;
+    align-items:center;
+    justify-content:center;
+    width:50px !important;
+    height:50px;
+    min-width:50px;
+    padding:0 !important;
+    border:1px solid rgba(148,163,184,.28) !important;
+    border-radius:14px !important;
+    background:{{ $authCard }} !important;
+    color:{{ $authText }} !important;
+    text-decoration:none !important;
+    box-shadow:
+        0 5px 14px rgba(15,23,42,.055);
+    transition:
+        transform .15s ease,
+        border-color .15s ease,
+        box-shadow .15s ease;
+}
+
+.esubiz-provider-card:hover{
+    transform:translateY(-2px);
+    border-color:{{ $authButton }} !important;
+    box-shadow:
+        0 9px 20px rgba(15,23,42,.09);
+}
+
+.esubiz-provider-logo{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:28px;
+    height:28px;
+    flex:0 0 28px;
+    font-size:15px;
+    font-weight:800;
+}
+
+.esubiz-provider-logo svg{
+    display:block;
+    width:22px;
+    height:22px;
+}
+
+.esubiz-provider-logo--esubiz{
+    border-radius:8px;
+    background:#0b1f3a;
+    color:#fff;
+}
+
+.esubiz-provider-copy{
+    position:absolute !important;
+    width:1px !important;
+    height:1px !important;
+    padding:0 !important;
+    margin:-1px !important;
+    overflow:hidden !important;
+    clip:rect(0,0,0,0) !important;
+    white-space:nowrap !important;
+    border:0 !important;
+}
+
+
+/* Divider */
+
+.esubiz-auth-divider-v17{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin:0 0 22px;
+    color:{{ $authText }};
+    opacity:.58;
+    font-size:11px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.07em;
+}
+
+.esubiz-auth-divider-v17::before,
+.esubiz-auth-divider-v17::after{
+    content:"";
+    height:1px;
+    flex:1;
+    background:currentColor;
+    opacity:.20;
+}
+
+
+/* =========================================================
+   Shared appearance
+   ========================================================= */
+
+.auth-card,
+.auth-card h1,
+.auth-card h2,
+.auth-card h3,
+.auth-card p,
+.auth-card label{
+    color:{{ $authText }} !important;
+}
+
+.auth-card input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+.auth-card select,
+.auth-card textarea{
+    width:100%;
+    min-height:48px;
+    box-sizing:border-box;
+    border-radius:10px;
+}
+
+.auth-card .btn-primary,
+.auth-card button[type="submit"],
+.auth-card input[type="submit"]{
+    background:{{ $authButton }} !important;
+    border-color:{{ $authButton }} !important;
+}
+
+.auth-card a{
+    color:{{ $authButton }};
+}
+
+
+/* Homepage / Esubiz footer */
+
+.auth-card .auth-home-link{
+    margin-top:24px;
+    text-align:center;
+}
+
+.auth-card .auth-home-link a{
+    color:{{ $authText }};
+    font-size:13px;
+    font-weight:700;
+    text-decoration:none;
+    opacity:.72;
+}
+
+.auth-card .site-note{
+    margin-top:14px;
+    text-align:center;
+}
+
+.auth-card .site-note a{
+    color:{{ $authText }};
+    font-size:12px;
+    opacity:.65;
+}
+
+
+/* Mobile */
+
+@media(max-width:560px){
+
+    .auth-shell{
+        padding:20px 14px;
+    }
+
+    .auth-card{
+        padding:28px 20px 25px;
+        border-radius:18px;
+    }
+
+    .auth-card .brand-mark img{
+        max-width:160px;
+        max-height:60px;
+    }
+
+    .esubiz-provider-card{
+        width:46px !important;
+        height:46px;
+        min-width:46px;
+    }
+}
+
+</style>
+
+<script>
+/* ESUBIZ_PUBLIC_AUTH_PREMIUM_RUNTIME_V17 */
+
+(function () {
+    'use strict';
+
+    const providers = [
+        'esubiz',
+        'google',
+        'facebook',
+        'instagram',
+        'tiktok',
+        'x'
+    ];
+
+    function normalizePath(path) {
+
+        return String(path || '')
+            .replace(/\/+$/, '') || '/';
+    }
+
+    function supported(path) {
+
+        path = normalizePath(path);
+
+        return (
+            path === '/login'
+            || path === '/register'
+            || path === '/forgot-password'
+            || path.indexOf('/reset-password/') === 0
+        );
+    }
+
+    function providerFrom(link) {
+
+        const text = String(
+            link.textContent || ''
+        ).toLowerCase();
+
+        const href = String(
+            link.getAttribute('href') || ''
+        ).toLowerCase();
+
+        if (
+            /\bwith\s+x\b/i.test(text)
+            || href.includes('provider=x')
+            || href.includes('provider%3dx')
+            || href.includes('/x/')
+        ) {
+            return 'x';
+        }
+
+        for (const provider of providers) {
+
+            if (provider === 'x') {
+                continue;
+            }
+
+            if (
+                text.includes(provider)
+                || href.includes(
+                    'provider=' + provider
+                )
+                || href.includes(
+                    '/' + provider + '/'
+                )
+                || (
+                    provider === 'esubiz'
+                    && href.includes('/admin?sso=1')
+                )
+            ) {
+                return provider;
+            }
+        }
+
+        return null;
+    }
+
+    function icon(provider) {
+
+        if (provider === 'esubiz') {
+            return 'E';
+        }
+
+        if (provider === 'google') {
+            return `
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <text
+                        x="12"
+                        y="17"
+                        text-anchor="middle"
+                        font-size="17"
+                        font-family="Arial,sans-serif"
+                        font-weight="700"
+                        fill="currentColor"
+                    >G</text>
+                </svg>
+            `;
+        }
+
+        if (provider === 'facebook') {
+            return `
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                        fill="currentColor"
+                        d="M13.7 22v-8h2.7l.4-3h-3.1V9.1c0-.9.3-1.5 1.6-1.5H17V4.9c-.3 0-1.3-.1-2.4-.1-2.4 0-4 1.4-4 4.1V11H8v3h2.6v8h3.1Z"
+                    />
+                </svg>
+            `;
+        }
+
+        if (provider === 'instagram') {
+            return `
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <rect
+                        x="3.5"
+                        y="3.5"
+                        width="17"
+                        height="17"
+                        rx="5"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    />
+                    <circle
+                        cx="12"
+                        cy="12"
+                        r="4"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    />
+                    <circle
+                        cx="17.4"
+                        cy="6.8"
+                        r="1.1"
+                        fill="currentColor"
+                    />
+                </svg>
+            `;
+        }
+
+        if (provider === 'tiktok') {
+            return `
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                        fill="currentColor"
+                        d="M15.3 3c.4 2.3 1.7 3.7 3.7 3.9v3a8.2 8.2 0 0 1-3.7-1.1v6.1a6 6 0 1 1-5.2-5.9v3.1a2.9 2.9 0 1 0 2.1 2.8V3h3.1Z"
+                    />
+                </svg>
+            `;
+        }
+
+        return `
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                    fill="currentColor"
+                    d="M5 4h3.8l3.7 5 4.2-5H19l-5.4 6.4L19.5 20h-3.8l-4-5.4L7.1 20H4.8l5.8-6.8L5 4Z"
+                />
+            </svg>
+        `;
+    }
+
+    function collect(source) {
+
+        if (!source) {
+            return [];
+        }
+
+        return Array.from(
+            source.querySelectorAll('a[href]')
+        ).filter(function (link) {
+            return providerFrom(link) !== null;
+        });
+    }
+
+    function prepare(card, source, path) {
+
+        if (!card) {
+            return;
+        }
+
+        path = normalizePath(
+            path || window.location.pathname
+        );
+
+        card.querySelectorAll(
+            '.esubiz-provider-cards, .esubiz-auth-divider-v17'
+        ).forEach(function (node) {
+            node.remove();
+        });
+
+        if (
+            path !== '/login'
+            && path !== '/register'
+        ) {
+            return;
+        }
+
+        const links = collect(
+            source || document
+        );
+
+        if (!links.length) {
+            return;
+        }
+
+        const container =
+            document.createElement('div');
+
+        container.className =
+            'esubiz-provider-cards';
+
+        const seen = new Set();
+
+        links.forEach(function (original) {
+
+            const provider =
+                providerFrom(original);
+
+            if (
+                !provider
+                || seen.has(provider)
+            ) {
+                return;
+            }
+
+            const href =
+                original.getAttribute('href');
+
+            if (!href) {
+                return;
+            }
+
+            seen.add(provider);
+
+            const link =
+                document.createElement('a');
+
+            link.href = href;
+
+            link.className =
+                'esubiz-provider-card';
+
+            const label =
+                provider === 'x'
+                    ? 'X'
+                    : provider.charAt(0).toUpperCase()
+                        + provider.slice(1);
+
+            link.setAttribute(
+                'aria-label',
+                (
+                    path === '/register'
+                        ? 'Register with '
+                        : 'Login with '
+                ) + label
+            );
+
+            link.innerHTML = `
+                <span
+                    class="esubiz-provider-logo esubiz-provider-logo--${provider}"
+                    aria-hidden="true"
+                >
+                    ${icon(provider)}
+                </span>
+
+                <span class="esubiz-provider-copy">
+                    ${
+                        path === '/register'
+                            ? 'Register'
+                            : 'Login'
+                    } with ${label}
+                </span>
+            `;
+
+            container.appendChild(
+                link
+            );
+        });
+
+        if (!container.children.length) {
+            return;
+        }
+
+        const form =
+            card.querySelector('form');
+
+        if (!form) {
+            return;
+        }
+
+        card.insertBefore(
+            container,
+            form
+        );
+
+        const divider =
+            document.createElement('div');
+
+        divider.className =
+            'esubiz-auth-divider-v17';
+
+        divider.textContent =
+            'or continue with email';
+
+        card.insertBefore(
+            divider,
+            form
+        );
+    }
+
+    prepare(
+        document.querySelector('.auth-card'),
+        document,
+        window.location.pathname
+    );
+
+    document.addEventListener(
+        'click',
+        async function (event) {
+
+            const link =
+                event.target.closest('a[href]');
+
+            if (!link) {
+                return;
+            }
+
+            if (
+                event.button !== 0
+                || event.metaKey
+                || event.ctrlKey
+                || event.shiftKey
+                || event.altKey
+                || link.target === '_blank'
+                || link.hasAttribute('download')
+            ) {
+                return;
+            }
+
+            let target;
+
+            try {
+
+                target = new URL(
+                    link.href,
+                    window.location.href
+                );
+
+            } catch (error) {
+
+                return;
+            }
+
+            if (
+                target.origin
+                !== window.location.origin
+                || !supported(
+                    target.pathname
+                )
+            ) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopImmediatePropagation();
+
+            try {
+
+                const response =
+                    await fetch(
+                        target.href,
+                        {
+                            method:'GET',
+                            credentials:'same-origin',
+                            headers:{
+                                'X-Requested-With':
+                                    'XMLHttpRequest'
+                            }
+                        }
+                    );
+
+                if (!response.ok) {
+                    throw new Error(
+                        'Authentication page could not be loaded.'
+                    );
+                }
+
+                const html =
+                    await response.text();
+
+                const parsed =
+                    new DOMParser()
+                        .parseFromString(
+                            html,
+                            'text/html'
+                        );
+
+                const fetched =
+                    parsed.querySelector(
+                        '.auth-card'
+                    );
+
+                const current =
+                    document.querySelector(
+                        '.auth-card'
+                    );
+
+                if (
+                    !fetched
+                    || !current
+                ) {
+                    window.location.href =
+                        target.href;
+                    return;
+                }
+
+                const imported =
+                    document.importNode(
+                        fetched,
+                        true
+                    );
+
+                prepare(
+                    imported,
+                    parsed,
+                    target.pathname
+                );
+
+                current.replaceWith(
+                    imported
+                );
+
+                if (parsed.title) {
+                    document.title =
+                        parsed.title;
+                }
+
+                window.history.pushState(
+                    {
+                        esubizAuthAjaxV17:true
+                    },
+                    '',
+                    target.pathname
+                    + target.search
+                    + target.hash
+                );
+
+                window.scrollTo({
+                    top:0,
+                    behavior:'smooth'
+                });
+
+            } catch (error) {
+
+                window.location.href =
+                    target.href;
+            }
+        },
+        true
+    );
+
+    window.addEventListener(
+        'popstate',
+        function () {
+
+            if (
+                supported(
+                    window.location.pathname
+                )
+            ) {
+                window.location.reload();
+            }
+        }
+    );
+
+})();
 </script>
 
 
@@ -1530,14 +2403,101 @@ async function swapAuthPage(
         }
     );
 
-})();
-
 
     enhanceProviderCards(
         document.querySelector('.auth-card'),
         window.location.pathname
     );
 
+})();
+</script>
+
+
+{{-- ESUBIZ_PUBLIC_AUTH_FINAL_ORDER_V18_4 --}}
+<style id="esubiz-public-auth-final-order-v18-4">
+
+/*
+ * Keep footer navigation after the form/account switch.
+ */
+
+.auth-card .auth-home-link{
+    order:7 !important;
+    display:block !important;
+    width:100% !important;
+    margin:18px 0 0 !important;
+    text-align:center !important;
+}
+
+.auth-card .site-note{
+    order:8 !important;
+    display:block !important;
+    width:100% !important;
+    margin:8px 0 0 !important;
+    text-align:center !important;
+}
+
+
+/*
+ * Canonical provider row belongs between heading and form.
+ */
+
+.auth-card .esubiz-auth-provider-final{
+    order:4 !important;
+}
+
+.auth-card form{
+    order:5 !important;
+}
+
+.auth-card .bottom-copy{
+    order:6 !important;
+}
+
+</style>
+
+<script>
+(function () {
+
+    /*
+     * Remove accidental literal "{}" text emitted outside the
+     * authentication markup. This does not touch form data,
+     * Blade expressions or JavaScript objects.
+     */
+    function removeAuthStrayText() {
+
+        Array.from(document.body.childNodes)
+            .filter(function (node) {
+                return node.nodeType === Node.TEXT_NODE;
+            })
+            .forEach(function (node) {
+
+                const value =
+                    (node.textContent || '').trim();
+
+                if (
+                    value === '{}'
+                    || value === '{ }'
+                    || value === '{'
+                    || value === '}'
+                ) {
+                    node.remove();
+                }
+            });
+    }
+
+    removeAuthStrayText();
+
+    document.addEventListener(
+        'DOMContentLoaded',
+        removeAuthStrayText
+    );
+
+    window.addEventListener(
+        'load',
+        removeAuthStrayText
+    );
+
+})();
 </script>
 
 </body>
