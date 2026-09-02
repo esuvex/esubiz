@@ -241,7 +241,7 @@ class CoreAddonSalesTriggerResolver
                              * multiple products = selection popup.
                              */
                             /*
-                             * ESUBIZ_DASHBOARD_ONLY_ALTERNATIVE_PRODUCTS_V1
+                             * ESUBIZ_UNIVERSAL_ALTERNATIVE_PRODUCTS_ALL_PLACEMENTS_V1
                              *
                              * Multi-product discovery belongs to Dashboard
                              * resource sales triggers only.
@@ -305,6 +305,7 @@ class CoreAddonSalesTriggerResolver
                                     $alternativeProducts
                                         ->map(function ($product) {
                                             return [
+            
                                                 'addon_id' =>
                                                     (int) $product->id,
 
@@ -362,6 +363,7 @@ class CoreAddonSalesTriggerResolver
                                 'title' => $trigger->title,
                                 'message' => $trigger->message,
                                 'cta_text' => $trigger->cta_text,
+
 
                                 'resource_key' => $trigger->resource_key,
                                 'threshold_percentage' => $trigger->threshold_percentage !== null
@@ -784,7 +786,7 @@ class CoreAddonSalesTriggerResolver
         }
 
         if ($capabilityKeys->isEmpty()) {
-            return collect();
+            
         }
 
         $availabilityColumn =

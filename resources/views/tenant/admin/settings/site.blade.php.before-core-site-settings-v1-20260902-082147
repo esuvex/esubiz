@@ -1,0 +1,136 @@
+@extends('tenant.admin.layouts.app')
+
+@section('title', 'Settings - Site Settings')
+
+@section('content')
+
+{{-- ESUBIZ_UNIFIED_SITE_SETTINGS_PAGE_V1 --}}
+
+<div class="mx-auto max-w-7xl">
+
+    <div class="mb-6">
+
+        <div class="mb-5">
+            <h1 class="text-2xl font-bold text-slate-900">
+                Settings
+            </h1>
+
+            <p class="mt-1 text-sm text-slate-500">
+                Manage your website settings and configuration.
+            </p>
+        </div>
+
+        <div class="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
+
+            <a
+                href="{{ route('tenant.cms.settings.site', ['subdomain' => $website->subdomain]) }}"
+                class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+            >
+                Site Settings
+            </a>
+
+            <a
+                href="{{ route('tenant.cms.settings.authentication', ['subdomain' => $website->subdomain]) }}"
+                class="rounded-lg px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+            >
+                Authentication
+            </a>
+
+        </div>
+
+    </div>
+
+
+    <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+
+        <div class="border-b border-slate-200 px-6 py-5">
+
+            <h2 class="text-lg font-bold text-slate-900">
+                Site Settings
+            </h2>
+
+            <p class="mt-1 text-sm text-slate-500">
+                Configure the main information and regional preferences for this website.
+            </p>
+
+        </div>
+
+
+        <div class="grid gap-6 p-6 md:grid-cols-2">
+
+            <div>
+                <label class="mb-2 block text-sm font-semibold text-slate-700">
+                    Website Name
+                </label>
+
+                <input
+                    type="text"
+                    value="{{ $website->name }}"
+                    disabled
+                    class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-700"
+                >
+            </div>
+
+
+            <div>
+                <label class="mb-2 block text-sm font-semibold text-slate-700">
+                    Timezone
+                </label>
+
+                <select
+                    disabled
+                    class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-700"
+                >
+                    <option>Not connected yet</option>
+                </select>
+            </div>
+
+
+            <div>
+                <label class="mb-2 block text-sm font-semibold text-slate-700">
+                    Language
+                </label>
+
+                <select
+                    disabled
+                    class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-700"
+                >
+                    <option>Not connected yet</option>
+                </select>
+            </div>
+
+
+            <div>
+                <label class="mb-2 block text-sm font-semibold text-slate-700">
+                    Currency
+                </label>
+
+                <select
+                    disabled
+                    class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-700"
+                >
+                    <option>Not connected yet</option>
+                </select>
+            </div>
+
+
+            <div>
+                <label class="mb-2 block text-sm font-semibold text-slate-700">
+                    Date Format
+                </label>
+
+                <select
+                    disabled
+                    class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-700"
+                >
+                    <option>Not connected yet</option>
+                </select>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+@endsection

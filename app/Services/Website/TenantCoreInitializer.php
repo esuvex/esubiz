@@ -36,6 +36,16 @@ class TenantCoreInitializer
 
             $this->initializeDefaultLandingPage($db, $website);
 
+            /*
+             * ESUBIZ_CORE_BASIC_FORM_BUILDER_DEFAULTS_V1
+             *
+             * Basic Form Builder belongs to Core itself.
+             *
+             * Every Core installation receives the canonical system forms.
+             * Existing forms and field customizations are never overwritten.
+             */
+            $this->initializeDefaultCoreForms($db);
+
         } finally {
             $this->tenantDatabaseService->disconnect();
         }
@@ -375,6 +385,284 @@ class TenantCoreInitializer
             ]
         );
     }
+
+    /*
+     * ESUBIZ_CORE_BASIC_FORM_BUILDER_DEFAULTS_V1
+     *
+     * Canonical forms supplied by the Core Basic Form Builder.
+     *
+     * IMPORTANT:
+     * - These are Core defaults, not SaaS-specific forms.
+     * - They are equally valid for every Core installation.
+     * - Existing form records are preserved.
+     * - Existing field structures are preserved.
+     * - System metadata protects these forms from deletion.
+     */
+    protected function initializeDefaultCoreForms($db): void
+    {
+        $schema = $db->getSchemaBuilder();
+
+        if (
+            !$schema->hasTable('forms')
+            || !$schema->hasTable('form_fields')
+        ) {
+            return;
+        }
+
+        $definitions = [
+            'registration' => [
+                'name' => 'Registration Form',
+                'slug' => 'registration',
+                'description' =>
+                    'Default Core user registration form.',
+                'purpose' => 'authentication.registration',
+                'fields' => [
+                    [
+                        'name' => 'name',
+                        'label' => 'Name',
+                        'type' => 'text',
+                        'required' => true,
+                    ],
+                    [
+                        'name' => 'email',
+                        'label' => 'Email',
+                        'type' => 'email',
+                        'required' => true,
+                    ],
+                    [
+                        'name' => 'password',
+                        'label' => 'Password',
+                        'type' => 'password',
+                        'required' => true,
+                    ],
+                    [
+                        'name' => 'password_confirmation',
+                        'label' => 'Confirm Password',
+                        'type' => 'password',
+                        'required' => true,
+                    ],
+                ],
+            ],
+
+            'login' => [
+                'name' => 'Login Form',
+                'slug' => 'login',
+                'description' =>
+                    'Default Core user login form.',
+                'purpose' => 'authentication.login',
+                'fields' => [
+                    [
+                        'name' => 'email',
+                        'label' => 'Email',
+                        'type' => 'email',
+                        'required' => true,
+                    ],
+                    [
+                        'name' => 'password',
+                        'label' => 'Password',
+                        'type' => 'password',
+                        'required' => true,
+                    ],
+                ],
+            ],
+
+            'password-reset' => [
+                'name' => 'Password Reset Form',
+                'slug' => 'password-reset',
+                'description' =>
+                    'Default Core password recovery and reset form.',
+                'purpose' => 'authentication.password_reset',
+                'fields' => [
+                    [
+                        'name' => 'email',
+                        'label' => 'Email',
+                        'type' => 'email',
+                        'required' => true,
+                    ],
+                    [
+                        'name' => 'password',
+                        'label' => 'New Password',
+                        'type' => 'password',
+                        'required' => true,
+                    ],
+                    [
+                        'name' => 'password_confirmation',
+                        'label' => 'Confirm Password',
+                        'type' => 'password',
+                        'required' => true,
+                    ],
+                ],
+            ],
+
+            'contact' => [
+                'name' => 'Contact Form',
+                'slug' => 'contact',
+                'description' =>
+                    'Default Core website contact form.',
+                'purpose' => 'contact',
+                'fields' => [
+                    [
+                        'name' => 'name',
+                        'label' => 'Name',
+                        'type' => 'text',
+                        'required' => true,
+                    ],
+                    [
+                        'name' => 'email',
+                        'label' => 'Email',
+                        'type' => 'email',
+                        'required' => true,
+                    ],
+                    [
+                        'name' => 'subject',
+                        'label' => 'Subject',
+                        'type' => 'text',
+                        'required' => true,
+                    ],
+                    [
+                        'name' => 'message',
+                        'label' => 'Message',
+                        'type' => 'textarea',
+                        'required' => true,
+                    ],
+                ],
+            ],
+        ];
+
+        foreach ($definitions as $key => $definition) {
+
+            /*
+             * Resolve an existing canonical form by Core metadata first.
+             *
+             * This allows the visible name/slug architecture to evolve
+             * later without creating duplicate system forms.
+             */
+            $existing = $db
+                ->table('forms')
+                ->get()
+                ->first(function ($form) use ($key) {
+                    $settings = json_decode(
+                        (string) ($form->settings ?? ''),
+                        true
+                    );
+
+                    return is_array($settings)
+                        && (
+                            ($settings['core_default_form'] ?? null)
+                            === $key
+                        );
+                });
+
+            /*
+             * Compatibility fallback:
+             * if a canonical slug already exists, adopt that record
+             * rather than inserting a duplicate.
+             */
+            if (!$existing) {
+                $existing = $db
+                    ->table('forms')
+                    ->where(
+                        'slug',
+                        $definition['slug']
+                    )
+                    ->first();
+            }
+
+            if ($existing) {
+                $formId = (int) $existing->id;
+
+                /*
+                 * Do not replace user-controlled fields.
+                 *
+                 * Only ensure the Core ownership metadata exists.
+                 */
+                $settings = json_decode(
+                    (string) ($existing->settings ?? ''),
+                    true
+                );
+
+                $settings = is_array($settings)
+                    ? $settings
+                    : [];
+
+                $settings['system'] = true;
+                $settings['core_default'] = true;
+                $settings['core_default_form'] = $key;
+                $settings['purpose'] =
+                    $definition['purpose'];
+                $settings['builder'] = 'basic';
+
+                $db->table('forms')
+                    ->where('id', $formId)
+                    ->update([
+                        'settings' =>
+                            json_encode($settings),
+                        'updated_at' => now(),
+                    ]);
+
+                /*
+                 * Existing fields mean this form has already been
+                 * initialized or customized. Preserve them exactly.
+                 */
+                if (
+                    $db->table('form_fields')
+                        ->where('form_id', $formId)
+                        ->exists()
+                ) {
+                    continue;
+                }
+            } else {
+                $formId = $db
+                    ->table('forms')
+                    ->insertGetId([
+                        'name' => $definition['name'],
+                        'slug' => $definition['slug'],
+                        'description' =>
+                            $definition['description'],
+                        'settings' => json_encode([
+                            'system' => true,
+                            'core_default' => true,
+                            'core_default_form' => $key,
+                            'purpose' =>
+                                $definition['purpose'],
+                            'builder' => 'basic',
+                        ]),
+                        'is_active' => true,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+            }
+
+            foreach (
+                $definition['fields']
+                as $sortOrder => $field
+            ) {
+                $db->table('form_fields')
+                    ->insert([
+                        'form_id' => $formId,
+                        'name' => $field['name'],
+                        'label' => $field['label'],
+                        'type' => $field['type'],
+                        'required' =>
+                            (bool) $field['required'],
+                        'options' => null,
+                        'sort_order' => $sortOrder,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+            }
+        }
+    
+
+        /*
+         * ESUBIZ_CORE_CONTACT_FORM_BINDING_V1
+         *
+         * Bind the protected Core Contact Form to the
+         * untouched default Core Contact page.
+         */
+        $this->bindDefaultContactFormToPage($db);
+}
+
 
     protected function initializeDefaultLandingPage(
         $db,
@@ -1439,4 +1727,337 @@ class TenantCoreInitializer
             ],
         ];
     }
+
+
+    /**
+     * Bind the protected Core Contact Form to the untouched
+     * default Contact page.
+     *
+     * Core Forms remains the source of truth.
+     *
+     * Existing customized Contact pages are intentionally
+     * preserved. Only default-owned builder documents with an
+     * empty/deferred Contact Form widget are changed.
+     */
+    protected function bindDefaultContactFormToPage(
+        $db
+    ): void {
+        try {
+            $schema = $db->getSchemaBuilder();
+
+            if (
+                !$schema->hasTable('forms')
+                || !$schema->hasTable('pages')
+                || !$schema->hasTable(
+                    'page_builder_documents'
+                )
+            ) {
+                return;
+            }
+
+            /*
+             * Resolve the protected Core default by metadata
+             * first. Slug is only a compatibility fallback.
+             */
+            $contactForm = $db
+                ->table('forms')
+                ->where('is_active', true)
+                ->get()
+                ->first(function ($form) {
+                    $settings = json_decode(
+                        (string) (
+                            $form->settings ?? ''
+                        ),
+                        true
+                    );
+
+                    if (!is_array($settings)) {
+                        return false;
+                    }
+
+                    return
+                        ($settings['system'] ?? false)
+                            === true
+                        &&
+                        ($settings['core_default'] ?? false)
+                            === true
+                        &&
+                        (
+                            (
+                                $settings[
+                                    'core_default_form'
+                                ] ?? null
+                            ) === 'contact'
+                            ||
+                            (
+                                $settings[
+                                    'purpose'
+                                ] ?? null
+                            ) === 'contact'
+                        );
+                });
+
+            if (!$contactForm) {
+                $contactForm = $db
+                    ->table('forms')
+                    ->where('slug', 'contact')
+                    ->where('is_active', true)
+                    ->first();
+            }
+
+            if (!$contactForm) {
+                return;
+            }
+
+            $contactPage = $db
+                ->table('pages')
+                ->where('slug', 'contact')
+                ->first();
+
+            if (!$contactPage) {
+                return;
+            }
+
+            /*
+             * Do not alter a user-created/custom Contact page.
+             */
+            $pageSettings = json_decode(
+                (string) (
+                    $contactPage->settings ?? ''
+                ),
+                true
+            );
+
+            $pageSettings = is_array($pageSettings)
+                ? $pageSettings
+                : [];
+
+            $isDefaultOwned =
+                ($pageSettings['theme_default'] ?? false)
+                    === true
+                ||
+                ($pageSettings['core_default'] ?? false)
+                    === true
+                ||
+                ($pageSettings['system'] ?? false)
+                    === true;
+
+            if (!$isDefaultOwned) {
+                return;
+            }
+
+            $document = $db
+                ->table('page_builder_documents')
+                ->where(
+                    'page_id',
+                    $contactPage->id
+                )
+                ->first();
+
+            if (!$document) {
+                return;
+            }
+
+            /*
+             * Support the current Core document column without
+             * inventing a new schema field.
+             */
+            $documentColumn = null;
+
+            foreach (
+                [
+                    'document',
+                    'builder_json',
+                    'content',
+                    'data',
+                ]
+                as $candidate
+            ) {
+                if (
+                    property_exists(
+                        $document,
+                        $candidate
+                    )
+                ) {
+                    $documentColumn =
+                        $candidate;
+                    break;
+                }
+            }
+
+            if (!$documentColumn) {
+                return;
+            }
+
+            $builder = json_decode(
+                (string) (
+                    $document->{$documentColumn}
+                    ?? ''
+                ),
+                true
+            );
+
+            if (!is_array($builder)) {
+                return;
+            }
+
+            $changed = false;
+
+            /*
+             * Recursive walker supports both the current
+             * Page -> Section -> Column -> Widget structure and
+             * older compatible Core documents.
+             */
+            $walk = function (&$node) use (
+                &$walk,
+                &$changed,
+                $contactForm
+            ) {
+                if (!is_array($node)) {
+                    return;
+                }
+
+                $isFormWidget =
+                    (
+                        ($node['type'] ?? null)
+                        === 'form'
+                    );
+
+                if ($isFormWidget) {
+                    if (
+                        !isset($node['data'])
+                        || !is_array($node['data'])
+                    ) {
+                        $node['data'] = [];
+                    }
+
+                    $data =& $node['data'];
+
+                    $currentFormId =
+                        (int) (
+                            $data['formId']
+                            ?? 0
+                        );
+
+                    /*
+                     * Never replace a form the user has already
+                     * explicitly selected.
+                     */
+                    if ($currentFormId > 0) {
+                        return;
+                    }
+
+                    $widgetId =
+                        (string) (
+                            $node['id']
+                            ?? ''
+                        );
+
+                    $formKey =
+                        (string) (
+                            $data['form_key']
+                            ?? ''
+                        );
+
+                    $formName =
+                        (string) (
+                            $data['form_name']
+                            ?? ''
+                        );
+
+                    $binding =
+                        (string) (
+                            $data['binding']
+                            ?? ''
+                        );
+
+                    $looksLikeDefaultContact =
+                        $widgetId
+                            === 'core-contact-form'
+                        ||
+                        $formKey
+                            === 'contact-form'
+                        ||
+                        $formKey
+                            === 'contact'
+                        ||
+                        $formName
+                            === 'Contact Form'
+                        ||
+                        $binding
+                            === 'deferred';
+
+                    if (
+                        !$looksLikeDefaultContact
+                    ) {
+                        return;
+                    }
+
+                    $data['formId'] =
+                        (int) $contactForm->id;
+
+                    /*
+                     * Keep only compatibility metadata that
+                     * remains useful. Numeric formId is now the
+                     * canonical runtime binding.
+                     */
+                    $data['form_id'] =
+                        (int) $contactForm->id;
+
+                    $data['form_key'] =
+                        'contact';
+
+                    $data['form_name'] =
+                        'Contact Form';
+
+                    $data['binding'] =
+                        'resolved';
+
+                    $changed = true;
+
+                    return;
+                }
+
+                foreach ($node as &$child) {
+                    if (is_array($child)) {
+                        $walk($child);
+                    }
+                }
+
+                unset($child);
+            };
+
+            $walk($builder);
+
+            if (!$changed) {
+                return;
+            }
+
+            $db
+                ->table(
+                    'page_builder_documents'
+                )
+                ->where('id', $document->id)
+                ->update([
+                    $documentColumn =>
+                        json_encode(
+                            $builder,
+                            JSON_UNESCAPED_SLASHES
+                            | JSON_UNESCAPED_UNICODE
+                        ),
+
+                    'updated_at' =>
+                        now(),
+                ]);
+
+        } catch (\Throwable $e) {
+            /*
+             * Initialization must remain fail-safe.
+             * A Contact binding issue must never prevent Core
+             * deployment or an existing website from loading.
+             */
+            report($e);
+        }
+    }
+
 }

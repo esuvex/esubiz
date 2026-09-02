@@ -32,13 +32,36 @@ class TenantPagesController extends Controller
     {
         $website = $this->currentWebsite();
 
-        abort_unless(
-            session()->get('tenant_cms_authenticated') === true
-            && (int) session()->get('tenant_cms_website_id')
-                === (int) $website->id,
-            403,
-            'Please sign in to this website administration area.'
-        );
+        /*
+         * ESUBIZ_UNIVERSAL_TENANT_AUTH_REDIRECT_V1
+         *
+         * Authentication is website-scoped. Old/stale tenant admin URLs
+         * redirect to this website's login instead of displaying a 403.
+         */
+        $websiteId = (int) $website->id;
+
+        $tenantAuthenticated =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.authenticated"
+            ) === true
+            || (
+                session()->get('tenant_cms_authenticated') === true
+                && (int) session()->get('tenant_cms_website_id')
+                    === $websiteId
+            );
+
+        if (!$tenantAuthenticated) {
+            session()->put(
+                'url.intended',
+                request()->fullUrl()
+            );
+
+            redirect()
+                ->to('/login')
+                ->send();
+
+            exit;
+        }
 
         return $website;
     }

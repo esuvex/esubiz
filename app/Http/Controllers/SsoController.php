@@ -386,6 +386,92 @@ class SsoController extends Controller
 
         Auth::login($user);
 
+        /*
+         * ESUBIZ_CORE_LOCAL_SSO_USER_V1
+         *
+         * Every authenticated website user must resolve to this
+         * Core installation's own site_users record.
+         *
+         * tenant_cms_user_id therefore always means:
+         *     local site_users.id
+         *
+         * The central Esubiz user ID is retained separately.
+         * This keeps the Core profile/account model portable for:
+         *
+         * - SaaS hosted websites
+         * - custom domains
+         * - off-server Core installations
+         */
+        $tenantDatabaseService = app(
+            \App\Services\Website\WebsiteTenantDatabaseService::class
+        );
+
+        $tenantDatabaseService->connect($website);
+
+        $tenantDb = $tenantDatabaseService->connection();
+
+        $ssoEmail = strtolower(
+            trim((string) $user->email)
+        );
+
+        $localUser = $tenantDb
+            ->table('site_users')
+            ->whereRaw(
+                'LOWER(email) = ?',
+                [$ssoEmail]
+            )
+            ->first();
+
+        if ($localUser) {
+            $localUserId = (int) $localUser->id;
+
+            $tenantDb
+                ->table('site_users')
+                ->where('id', $localUserId)
+                ->update([
+                    'name' =>
+                        trim(
+                            (string) (
+                                $user->name
+                                ?? $localUser->name
+                                ?? $ssoEmail
+                            )
+                        ),
+                    'email' => $ssoEmail,
+                    'is_active' => true,
+                    'last_login_at' => now(),
+                    'updated_at' => now(),
+                ]);
+        } else {
+            /*
+             * SSO-only users receive an unusable random local password.
+             * A proper local password can later be established through
+             * the Core password/reset flow.
+             */
+            $localUserId = (int) $tenantDb
+                ->table('site_users')
+                ->insertGetId([
+                    'name' =>
+                        trim(
+                            (string) (
+                                $user->name
+                                ?? $ssoEmail
+                            )
+                        ),
+                    'email' => $ssoEmail,
+                    'phone' => null,
+                    'password' =>
+                        \Illuminate\Support\Facades\Hash::make(
+                            \Illuminate\Support\Str::random(64)
+                        ),
+                    'is_active' => true,
+                    'last_login_at' => now(),
+                    'remember_token' => null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+        }
+
         $request->session()->regenerate();
 
         $request->session()->put([
@@ -393,7 +479,16 @@ class SsoController extends Controller
             'tenant_cms_website_id' =>
                 (int) $website->id,
 
+            /*
+             * Core-local identity.
+             */
             'tenant_cms_user_id' =>
+                $localUserId,
+
+            /*
+             * Central identity retained separately.
+             */
+            'tenant_cms_central_user_id' =>
                 (int) $user->id,
 
             'tenant_cms_authenticated_via' =>
@@ -406,6 +501,9 @@ class SsoController extends Controller
                 true,
 
             "tenant_cms_sites.{$website->id}.user_id" =>
+                $localUserId,
+
+            "tenant_cms_sites.{$website->id}.central_user_id" =>
                 (int) $user->id,
 
             "tenant_cms_sites.{$website->id}.auth_method" =>

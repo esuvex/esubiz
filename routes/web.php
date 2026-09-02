@@ -883,6 +883,63 @@ Route::post(
 
         /*
         |--------------------------------------------------------------------------
+        | Core CMS - Forms
+        |--------------------------------------------------------------------------
+        |
+        | Universal Core Forms manager.
+        */
+
+        Route::get(
+            '/admin/forms',
+            [
+                \App\Http\Controllers\TenantFormsController::class,
+                'index',
+            ]
+        )->name('tenant.cms.forms.index');
+
+        Route::get(
+            '/admin/forms/create',
+            [
+                \App\Http\Controllers\TenantFormsController::class,
+                'create',
+            ]
+        )->name('tenant.cms.forms.create');
+
+        Route::post(
+            '/admin/forms',
+            [
+                \App\Http\Controllers\TenantFormsController::class,
+                'store',
+            ]
+        )->name('tenant.cms.forms.store');
+
+        Route::get(
+            '/admin/forms/{form}/edit',
+            [
+                \App\Http\Controllers\TenantFormsController::class,
+                'edit',
+            ]
+        )->name('tenant.cms.forms.edit');
+
+        Route::put(
+            '/admin/forms/{form}',
+            [
+                \App\Http\Controllers\TenantFormsController::class,
+                'update',
+            ]
+        )->name('tenant.cms.forms.update');
+
+        Route::delete(
+            '/admin/forms/{form}',
+            [
+                \App\Http\Controllers\TenantFormsController::class,
+                'destroy',
+            ]
+        )->name('tenant.cms.forms.destroy');
+
+
+        /*
+        |--------------------------------------------------------------------------
         | Core CMS - Pages
         |--------------------------------------------------------------------------
         |
@@ -2515,4 +2572,23 @@ Route::domain(
         'tenant.ai.proposals.reject'
     );
 });
+
+
+/*
+|--------------------------------------------------------------------------
+| Core Public Form Submission
+|--------------------------------------------------------------------------
+|
+| ESUBIZ_CORE_PUBLIC_FORM_SUBMISSION_ROUTE_V1
+|
+*/
+Route::post(
+    '/forms/{form}/submit',
+    [
+        \App\Http\Controllers\TenantPublicFormController::class,
+        'submit',
+    ]
+)
+    ->whereNumber('form')
+    ->name('core.forms.submit');
 

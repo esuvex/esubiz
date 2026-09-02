@@ -1,0 +1,1721 @@
+<?php
+
+namespace App\Services\Website;
+
+use App\Models\Website;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use RuntimeException;
+
+class TenantCoreInitializer
+{
+    public function __construct(
+        protected WebsiteTenantDatabaseService $tenantDatabaseService
+    ) {
+    }
+
+    /**
+     * Initialize Esubiz Core data inside a tenant database.
+     */
+    public function initialize(Website $website): void
+    {
+        $this->tenantDatabaseService->connect($website);
+
+        try {
+            $db = $this->tenantDatabaseService->connection();
+
+            $this->initializeInstallation($db);
+
+            $this->initializeSettings($db, $website);
+
+            $this->initializeAdministrator($db, $website);
+
+            $this->initializeResources($db);
+
+            $this->initializeLicense($db);
+
+            $this->initializeDefaultLandingPage($db, $website);
+
+            /*
+             * ESUBIZ_CORE_BASIC_FORM_BUILDER_DEFAULTS_V1
+             *
+             * Basic Form Builder belongs to Core itself.
+             *
+             * Every Core installation receives the canonical system forms.
+             * Existing forms and field customizations are never overwritten.
+             */
+            $this->initializeDefaultCoreForms($db);
+
+        } finally {
+            $this->tenantDatabaseService->disconnect();
+        }
+    }
+
+    protected function initializeInstallation($db): void
+    {
+        $db->table('core_installations')->updateOrInsert(
+            [
+                'core_name' => 'core',
+            ],
+            [
+                'core_version' => config('esubiz_core.version', '1.0.0'),
+                'status' => 'installed',
+                'installed_at' => now(),
+                'updated_at' => now(),
+                'created_at' => now(),
+            ]
+        );
+    }
+
+    protected function initializeSettings($db, Website $website): void
+    {
+        $settings = [
+            'website_name' => $website->name,
+            'website_type' => $website->type,
+            'website_slug' => $website->slug,
+            'subdomain' => $website->subdomain,
+            'domain' => $website->domain,
+
+            /*
+             * Core fallback theme identity.
+             */
+            'theme' => config('esubiz_core.defaults.theme'),
+
+            /*
+             * ESUBIZ_DEFAULT_BUSINESS_THEME_ACTIVE_V1
+             *
+             * TenantThemeController uses theme.active as the
+             * authoritative enabled/disabled state.
+             *
+             * The public Business theme maps internally to the
+             * corporate-default runtime package, but its canonical
+             * tenant activation key is "business".
+             */
+            'theme.active' => 'business',
+
+            /*
+             * ESUBIZ_PLUGGABLE_TENANT_AUTH_SETTINGS_V1
+             *
+             * Universal website authentication configuration.
+             * Esubiz SSO is available by default. External providers
+             * remain disabled until configured by the site admin.
+             */
+
+            // General authentication
+            /*
+             * ESUBIZ_AUTH_BOT_PROTECTION_DEFAULTS_V1
+             *
+             * First-layer Core-native bot protection.
+             * Site Admin independently controls Login
+             * and Registration protection.
+             */
+            'auth.security.login_enabled' => '1',
+            'auth.security.register_enabled' => '1',
+
+            'auth.registration_enabled' => '1',
+            'auth.auto_login_after_registration' => '1',
+            'auth.registration_redirect' => '/admin/dashboard',
+
+            // Authentication providers
+            'auth.esubiz.enabled' => '1',
+
+            'auth.google.enabled' => '0',
+            'auth.google.client_id' => '',
+            'auth.google.client_secret' => '',
+
+            'auth.facebook.enabled' => '0',
+            'auth.facebook.client_id' => '',
+            'auth.facebook.client_secret' => '',
+
+            'auth.instagram.enabled' => '0',
+            'auth.instagram.client_id' => '',
+            'auth.instagram.client_secret' => '',
+
+            'auth.tiktok.enabled' => '0',
+            'auth.tiktok.client_key' => '',
+            'auth.tiktok.client_secret' => '',
+
+            'auth.x.enabled' => '0',
+            'auth.x.client_id' => '',
+            'auth.x.client_secret' => '',
+
+            // Login page branding
+            'auth.login.logo' => '',
+            'auth.login.heading' => 'Welcome back',
+            'auth.login.subheading' => '',
+            'auth.login.background_color' => '#f5f7fb',
+            'auth.login.card_color' => '#ffffff',
+            'auth.login.text_color' => '#111827',
+            'auth.login.button_color' => '#111827',
+
+            // Registration page branding
+            'auth.register.logo' => '',
+
+            /*
+             * ESUBIZ_SHARED_AUTH_LOGO_DEFAULTS_V1
+             *
+             * Shared across all Core authentication pages.
+             */
+            'auth.brand.logo_light' => '',
+            'auth.brand.logo_dark' => '',
+
+            /*
+             * ESUBIZ_SHARED_AUTH_APPEARANCE_DEFAULTS_V1
+             */
+            'auth.appearance.background_color' => '#f5f7fb',
+            'auth.appearance.card_color' => '#ffffff',
+            'auth.appearance.text_color' => '#111827',
+            'auth.appearance.button_color' => '#111827',
+            'auth.register.heading' => 'Create your account',
+            'auth.register.subheading' => '',
+            'auth.register.background_color' => '#f5f7fb',
+            'auth.register.card_color' => '#ffffff',
+            'auth.register.text_color' => '#111827',
+            'auth.register.button_color' => '#111827',
+
+            /*
+             * JSON configuration consumed by the universal
+             * registration renderer.
+             */
+            'auth.registration_fields' => [
+                [
+                    'key' => 'name',
+                    'label' => 'Name',
+                    'type' => 'text',
+                    'required' => true,
+                    'system' => true,
+                    'enabled' => true,
+                ],
+                [
+                    'key' => 'email',
+                    'label' => 'Email',
+                    'type' => 'email',
+                    'required' => true,
+                    'system' => true,
+                    'enabled' => true,
+                ],
+                [
+                    'key' => 'password',
+                    'label' => 'Password',
+                    'type' => 'password',
+                    'required' => true,
+                    'system' => true,
+                    'enabled' => true,
+                ],
+                [
+                    'key' => 'password_confirmation',
+                    'label' => 'Confirm Password',
+                    'type' => 'password',
+                    'required' => true,
+                    'system' => true,
+                    'enabled' => true,
+                ],
+            ],
+
+            /*
+             * Generic registration product references.
+             * Website Types/modules may resolve these against
+             * their own product/plan implementation.
+             */
+            'auth.registration_products' => [],
+
+            /*
+             * Display order is deliberately configuration-driven.
+             * Only enabled providers will be rendered.
+             */
+            /*
+             * ESUBIZ_OPTIONAL_ROLE_AUTH_PORTALS_V1
+             *
+             * Default /login and /register serve every
+             * website user role.
+             *
+             * Role-specific Login/Register pages are
+             * optional and are created only when the
+             * Site Admin explicitly configures them.
+             */
+            'auth.role_portals_enabled' => '0',
+            'auth.portals' => '[]',
+
+            'auth.provider_order' => [
+                'esubiz',
+                'google',
+                'facebook',
+                'instagram',
+                'tiktok',
+                'x',
+            ],
+        ];
+
+        foreach ($settings as $key => $value) {
+            $db->table('site_settings')->updateOrInsert(
+                ['key' => $key],
+                [
+                    'value' => is_array($value)
+                        ? json_encode($value)
+                        : $value,
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ]
+            );
+        }
+    }
+
+    protected function initializeAdministrator($db, Website $website): void
+    {
+        if (!$website->admin_email) {
+            return;
+        }
+
+        $db->table('site_users')->updateOrInsert(
+            [
+                'email' => $website->admin_email,
+            ],
+            [
+                'name' => $website->admin_name ?: $website->name,
+                'phone' => $website->wizard_data['admin_phone'] ?? null,
+                'password' => $website->admin_password
+                    ?: bcrypt(Str::random(32)),
+                'is_active' => true,
+                'updated_at' => now(),
+                'created_at' => now(),
+            ]
+        );
+    }
+
+    protected function initializeResources($db): void
+    {
+        $resources = config('esubiz_core.resources', []);
+
+        foreach ($resources as $resource => $definition) {
+
+            $limit = $definition['limit'] ?? null;
+            $unit = $definition['unit'] ?? null;
+
+            $db->table('resource_entitlements')->updateOrInsert(
+                [
+                    'resource' => $resource,
+                ],
+                [
+                    'base_limit' => $limit,
+                    'addon_limit' => 0,
+                    'is_unlimited' => false,
+                    'unit' => $unit,
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ]
+            );
+
+            $db->table('resource_usage')->updateOrInsert(
+                [
+                    'resource' => $resource,
+                ],
+                [
+                    'used' => 0,
+                    'limit' => $limit,
+                    'is_unlimited' => false,
+                    'unit' => $unit,
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ]
+            );
+        }
+
+        foreach (config('esubiz_core.unlimited', []) as $resource) {
+
+            $db->table('resource_entitlements')->updateOrInsert(
+                [
+                    'resource' => $resource,
+                ],
+                [
+                    'base_limit' => null,
+                    'addon_limit' => 0,
+                    'is_unlimited' => true,
+                    'unit' => null,
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ]
+            );
+
+            $db->table('resource_usage')->updateOrInsert(
+                [
+                    'resource' => $resource,
+                ],
+                [
+                    'used' => 0,
+                    'limit' => null,
+                    'is_unlimited' => true,
+                    'unit' => null,
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ]
+            );
+        }
+    }
+
+    protected function initializeLicense($db): void
+    {
+        $db->table('core_licenses')->updateOrInsert(
+            [
+                'product_type' => 'core',
+                'product_name' => 'core',
+            ],
+            [
+                'license_key' => 'CORE-' . strtoupper(Str::random(24)),
+                'product_version' => config('esubiz_core.version', '1.0.0'),
+                'status' => 'active',
+                'issued_at' => now(),
+                'updated_at' => now(),
+                'created_at' => now(),
+            ]
+        );
+
+        $db->table('license_assignments')->updateOrInsert(
+            [
+                'product_type' => 'core',
+                'product_name' => 'core',
+            ],
+            [
+                'license_key' => 'CORE-' . strtoupper(Str::random(24)),
+                'product_version' => config('esubiz_core.version', '1.0.0'),
+                'role' => 'core',
+                'status' => 'active',
+                'issued_at' => now(),
+                'updated_at' => now(),
+                'created_at' => now(),
+            ]
+        );
+    }
+
+    /*
+     * ESUBIZ_CORE_BASIC_FORM_BUILDER_DEFAULTS_V1
+     *
+     * Canonical forms supplied by the Core Basic Form Builder.
+     *
+     * IMPORTANT:
+     * - These are Core defaults, not SaaS-specific forms.
+     * - They are equally valid for every Core installation.
+     * - Existing form records are preserved.
+     * - Existing field structures are preserved.
+     * - System metadata protects these forms from deletion.
+     */
+    protected function initializeDefaultCoreForms($db): void
+    {
+        $schema = $db->getSchemaBuilder();
+
+        if (
+            !$schema->hasTable('forms')
+            || !$schema->hasTable('form_fields')
+        ) {
+            return;
+        }
+
+        $definitions = [
+            'registration' => [
+                'name' => 'Registration Form',
+                'slug' => 'registration',
+                'description' =>
+                    'Default Core user registration form.',
+                'purpose' => 'authentication.registration',
+                'fields' => [
+                    [
+                        'name' => 'name',
+                        'label' => 'Name',
+                        'type' => 'text',
+                        'required' => true,
+                    ],
+                    [
+                        'name' => 'email',
+                        'label' => 'Email',
+                        'type' => 'email',
+                        'required' => true,
+                    ],
+                    [
+                        'name' => 'password',
+                        'label' => 'Password',
+                        'type' => 'password',
+                        'required' => true,
+                    ],
+                    [
+                        'name' => 'password_confirmation',
+                        'label' => 'Confirm Password',
+                        'type' => 'password',
+                        'required' => true,
+                    ],
+                ],
+            ],
+
+            'login' => [
+                'name' => 'Login Form',
+                'slug' => 'login',
+                'description' =>
+                    'Default Core user login form.',
+                'purpose' => 'authentication.login',
+                'fields' => [
+                    [
+                        'name' => 'email',
+                        'label' => 'Email',
+                        'type' => 'email',
+                        'required' => true,
+                    ],
+                    [
+                        'name' => 'password',
+                        'label' => 'Password',
+                        'type' => 'password',
+                        'required' => true,
+                    ],
+                ],
+            ],
+
+            'password-reset' => [
+                'name' => 'Password Reset Form',
+                'slug' => 'password-reset',
+                'description' =>
+                    'Default Core password recovery and reset form.',
+                'purpose' => 'authentication.password_reset',
+                'fields' => [
+                    [
+                        'name' => 'email',
+                        'label' => 'Email',
+                        'type' => 'email',
+                        'required' => true,
+                    ],
+                    [
+                        'name' => 'password',
+                        'label' => 'New Password',
+                        'type' => 'password',
+                        'required' => true,
+                    ],
+                    [
+                        'name' => 'password_confirmation',
+                        'label' => 'Confirm Password',
+                        'type' => 'password',
+                        'required' => true,
+                    ],
+                ],
+            ],
+
+            'contact' => [
+                'name' => 'Contact Form',
+                'slug' => 'contact',
+                'description' =>
+                    'Default Core website contact form.',
+                'purpose' => 'contact',
+                'fields' => [
+                    [
+                        'name' => 'name',
+                        'label' => 'Name',
+                        'type' => 'text',
+                        'required' => true,
+                    ],
+                    [
+                        'name' => 'email',
+                        'label' => 'Email',
+                        'type' => 'email',
+                        'required' => true,
+                    ],
+                    [
+                        'name' => 'subject',
+                        'label' => 'Subject',
+                        'type' => 'text',
+                        'required' => true,
+                    ],
+                    [
+                        'name' => 'message',
+                        'label' => 'Message',
+                        'type' => 'textarea',
+                        'required' => true,
+                    ],
+                ],
+            ],
+        ];
+
+        foreach ($definitions as $key => $definition) {
+
+            /*
+             * Resolve an existing canonical form by Core metadata first.
+             *
+             * This allows the visible name/slug architecture to evolve
+             * later without creating duplicate system forms.
+             */
+            $existing = $db
+                ->table('forms')
+                ->get()
+                ->first(function ($form) use ($key) {
+                    $settings = json_decode(
+                        (string) ($form->settings ?? ''),
+                        true
+                    );
+
+                    return is_array($settings)
+                        && (
+                            ($settings['core_default_form'] ?? null)
+                            === $key
+                        );
+                });
+
+            /*
+             * Compatibility fallback:
+             * if a canonical slug already exists, adopt that record
+             * rather than inserting a duplicate.
+             */
+            if (!$existing) {
+                $existing = $db
+                    ->table('forms')
+                    ->where(
+                        'slug',
+                        $definition['slug']
+                    )
+                    ->first();
+            }
+
+            if ($existing) {
+                $formId = (int) $existing->id;
+
+                /*
+                 * Do not replace user-controlled fields.
+                 *
+                 * Only ensure the Core ownership metadata exists.
+                 */
+                $settings = json_decode(
+                    (string) ($existing->settings ?? ''),
+                    true
+                );
+
+                $settings = is_array($settings)
+                    ? $settings
+                    : [];
+
+                $settings['system'] = true;
+                $settings['core_default'] = true;
+                $settings['core_default_form'] = $key;
+                $settings['purpose'] =
+                    $definition['purpose'];
+                $settings['builder'] = 'basic';
+
+                $db->table('forms')
+                    ->where('id', $formId)
+                    ->update([
+                        'settings' =>
+                            json_encode($settings),
+                        'updated_at' => now(),
+                    ]);
+
+                /*
+                 * Existing fields mean this form has already been
+                 * initialized or customized. Preserve them exactly.
+                 */
+                if (
+                    $db->table('form_fields')
+                        ->where('form_id', $formId)
+                        ->exists()
+                ) {
+                    continue;
+                }
+            } else {
+                $formId = $db
+                    ->table('forms')
+                    ->insertGetId([
+                        'name' => $definition['name'],
+                        'slug' => $definition['slug'],
+                        'description' =>
+                            $definition['description'],
+                        'settings' => json_encode([
+                            'system' => true,
+                            'core_default' => true,
+                            'core_default_form' => $key,
+                            'purpose' =>
+                                $definition['purpose'],
+                            'builder' => 'basic',
+                        ]),
+                        'is_active' => true,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+            }
+
+            foreach (
+                $definition['fields']
+                as $sortOrder => $field
+            ) {
+                $db->table('form_fields')
+                    ->insert([
+                        'form_id' => $formId,
+                        'name' => $field['name'],
+                        'label' => $field['label'],
+                        'type' => $field['type'],
+                        'required' =>
+                            (bool) $field['required'],
+                        'options' => null,
+                        'sort_order' => $sortOrder,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+            }
+        }
+    }
+
+
+    protected function initializeDefaultLandingPage(
+        $db,
+        Website $website
+    ): void {
+        /*
+         * ESUBIZ_CORE_DEFAULT_HOME_IDEMPOTENT_V1
+         *
+         * Deployment can be retried safely. Reuse an existing Core
+         * "home" page instead of inserting a duplicate slug.
+         */
+        $existingHome = $db->table('pages')
+            ->where('slug', 'home')
+            ->first();
+
+        if ($existingHome) {
+            $pageId = (int) $existingHome->id;
+        } else {
+            $pageId = $db->table('pages')->insertGetId([
+                'title' => $website->name,
+                'slug' => 'home',
+                'status' => 'published',
+                'content' => '',
+
+                /*
+                 * The active theme owns the public landing page by default.
+                 *
+                 * This Core record exists only as a CMS placeholder and
+                 * must NOT override the theme homepage until an admin
+                 * explicitly selects a CMS page as homepage.
+                 */
+                'is_homepage' => false,
+
+                'settings' => json_encode([
+                    'core_default_home' => true,
+                ]),
+
+                'seo' => json_encode([]),
+                'published_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        /*
+         * Preserve any existing builder document/content.
+         * Only seed the empty default document when one does not exist.
+         */
+        $builderExists = $db->table('page_builder_documents')
+            ->where('page_id', $pageId)
+            ->exists();
+
+        if (!$builderExists) {
+            $db->table('page_builder_documents')->insert([
+                'page_id' => $pageId,
+                'content' => json_encode([
+                    'type' => 'core-default',
+                    'version' => '1.0.0',
+                    'sections' => [],
+                ]),
+                'builder_version' => '1.0.0',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        /*
+         * ESUBIZ_CORE_DEFAULT_PAGE_BUILDER_SEED_V1
+         *
+         * Seed the six standard Core pages with real Basic Page Builder
+         * documents so every new deployment can edit them immediately.
+         */
+        $this->initializeDefaultCorePages(
+            $db,
+            $website
+        );
+    }
+
+
+    protected function initializeDefaultCorePages(
+        $db,
+        Website $website
+    ): void {
+
+        $pages = $this->defaultCorePageBuilderDefinitions(
+            $website
+        );
+
+
+        foreach ($pages as $slug => $definition) {
+
+            /*
+             * Reuse the page if another installer stage has already
+             * created it. This prevents duplicate slugs.
+             */
+            $existingPage =
+                $db->table('pages')
+                    ->where(
+                        'slug',
+                        $slug
+                    )
+                    ->first();
+
+
+            if ($existingPage) {
+
+                $pageId =
+                    $existingPage->id;
+
+            } else {
+
+                $pageId =
+                    $db->table('pages')
+                        ->insertGetId([
+                            'title' =>
+                                $definition['title'],
+
+                            'slug' =>
+                                $slug,
+
+                            'status' =>
+                                'published',
+
+                            'content' =>
+                                '',
+
+                            'is_homepage' =>
+                                false,
+
+                            'settings' =>
+                                json_encode([
+                                    'core_default_page' =>
+                                        true,
+
+                                    'core_default_slug' =>
+                                        $slug,
+                                ]),
+
+                            'seo' =>
+                                json_encode([]),
+
+                            'published_at' =>
+                                now(),
+
+                            'created_at' =>
+                                now(),
+
+                            'updated_at' =>
+                                now(),
+                        ]);
+            }
+
+
+            /*
+             * ESUBIZ_CORE_DEFAULT_PAGE_PLACEHOLDER_UPGRADE_V1
+             *
+             * Earlier Core initialization stages may create an empty
+             * Page Builder placeholder for the standard page before
+             * this rich default-page seeder runs.
+             *
+             * Replace ONLY those untouched empty system placeholders.
+             * Never overwrite a document that already contains real
+             * Page Builder sections or user-edited content.
+             */
+            $builderDocument =
+                $db->table(
+                    'page_builder_documents'
+                )
+                    ->where(
+                        'page_id',
+                        $pageId
+                    )
+                    ->first();
+
+            $seedBuilder = [
+                'type' =>
+                    'basic-page-builder',
+
+                'version' =>
+                    '1.0.0',
+
+                'sections' =>
+                    $definition[
+                        'sections'
+                    ],
+            ];
+
+            $seedContent =
+                json_encode(
+                    $seedBuilder
+                );
+
+            /*
+             * ESUBIZ_CORE_DEFAULT_PAGE_AUTHORITATIVE_BUILDER_V1
+             *
+             * pages.settings.basic_builder is the authoritative
+             * storage used by the current Basic Page Builder editor.
+             *
+             * Keep the compatibility page_builder_documents copy
+             * below, but seed the same structure into page settings
+             * so a brand-new Core page opens populated immediately.
+             *
+             * Never replace a populated Basic Builder.
+             */
+            $pageRecord =
+                $db->table('pages')
+                    ->where(
+                        'id',
+                        $pageId
+                    )
+                    ->first();
+
+            $pageSettings = [];
+
+            if (
+                $pageRecord
+                && !empty(
+                    $pageRecord->settings
+                )
+            ) {
+                $decodedSettings =
+                    json_decode(
+                        $pageRecord->settings,
+                        true
+                    );
+
+                if (
+                    is_array(
+                        $decodedSettings
+                    )
+                ) {
+                    $pageSettings =
+                        $decodedSettings;
+                }
+            }
+
+            $existingBasicBuilder =
+                $pageSettings[
+                    'basic_builder'
+                ]
+                ?? [];
+
+            $existingSections =
+                is_array(
+                    $existingBasicBuilder
+                )
+                    ? (
+                        isset(
+                            $existingBasicBuilder[
+                                'sections'
+                            ]
+                        )
+                        && is_array(
+                            $existingBasicBuilder[
+                                'sections'
+                            ]
+                        )
+                            ? $existingBasicBuilder[
+                                'sections'
+                            ]
+                            : (
+                                array_is_list(
+                                    $existingBasicBuilder
+                                )
+                                    ? $existingBasicBuilder
+                                    : []
+                            )
+                    )
+                    : [];
+
+            if (
+                empty(
+                    $existingSections
+                )
+            ) {
+                /*
+                 * ESUBIZ_CORE_DEFAULT_PAGE_EDITOR_ARRAY_FORMAT_V1
+                 *
+                 * The Page Builder editor's documentState is a
+                 * top-level array of sections. The structured
+                 * type/version wrapper belongs only to the
+                 * page_builder_documents compatibility record.
+                 */
+                $pageSettings[
+                    'basic_builder'
+                ] = $definition[
+                    'sections'
+                ];
+
+                $db->table('pages')
+                    ->where(
+                        'id',
+                        $pageId
+                    )
+                    ->update([
+                        'settings' =>
+                            json_encode(
+                                $pageSettings
+                            ),
+
+                        'updated_at' =>
+                            now(),
+                    ]);
+            }
+
+            if ($builderDocument) {
+
+                $current =
+                    json_decode(
+                        (string)
+                        $builderDocument->content,
+                        true
+                    );
+
+                $currentType =
+                    is_array($current)
+                        ? (
+                            $current['type']
+                            ?? null
+                        )
+                        : null;
+
+                $currentSections =
+                    is_array($current)
+                        ? (
+                            $current['sections']
+                            ?? null
+                        )
+                        : null;
+
+                $isEmptySystemPlaceholder =
+                    in_array(
+                        $currentType,
+                        [
+                            'core-page',
+                            'core-default',
+                        ],
+                        true
+                    )
+                    && is_array(
+                        $currentSections
+                    )
+                    && count(
+                        $currentSections
+                    ) === 0;
+
+                if (!$isEmptySystemPlaceholder) {
+                    continue;
+                }
+
+                $db->table(
+                    'page_builder_documents'
+                )
+                    ->where(
+                        'id',
+                        $builderDocument->id
+                    )
+                    ->update([
+                        'content' =>
+                            $seedContent,
+
+                        'builder_version' =>
+                            '1.0.0',
+
+                        'updated_at' =>
+                            now(),
+                    ]);
+
+                continue;
+            }
+
+
+            $db->table(
+                'page_builder_documents'
+            )
+                ->insert([
+                    'page_id' =>
+                        $pageId,
+
+                    'content' =>
+                        $seedContent,
+
+                    'builder_version' =>
+                        '1.0.0',
+
+                    'created_at' =>
+                        now(),
+
+                    'updated_at' =>
+                        now(),
+                ]);
+        }
+    }
+
+
+    protected function defaultCorePageBuilderDefinitions(
+        Website $website
+    ): array {
+
+        /*
+         * Helpers keep every seeded document in the exact
+         * section -> columns -> widgets structure used by the editor.
+         */
+        $section = static function (
+            string $id,
+            array $widgets
+        ): array {
+
+            return [
+                'id' =>
+                    $id,
+
+                'type' =>
+                    'section',
+
+                'ratios' =>
+                    [1],
+
+                'collapsed' =>
+                    false,
+
+                'settings' =>
+                    [],
+
+                'columns' =>
+                    [
+                        [
+                            'id' =>
+                                $id . '-column-1',
+
+                            'widgets' =>
+                                $widgets,
+                        ],
+                    ],
+            ];
+        };
+
+
+        $widget = static function (
+            string $id,
+            string $type,
+            array $data
+        ): array {
+
+            return [
+                'id' =>
+                    $id,
+
+                'type' =>
+                    $type,
+
+                'settings' =>
+                    [],
+
+                'data' =>
+                    $data,
+            ];
+        };
+
+
+        $hero = static function (
+            string $id,
+            string $eyebrow,
+            string $heading,
+            string $text
+        ) use ($widget): array {
+
+            return $widget(
+                $id,
+                'hero',
+                [
+                    'eyebrow' =>
+                        $eyebrow,
+
+                    'heading' =>
+                        $heading,
+
+                    'text' =>
+                        $text,
+
+                    'buttonText' =>
+                        '',
+
+                    'buttonUrl' =>
+                        '',
+
+                    'image' =>
+                        '',
+
+                    'image_path' =>
+                        '',
+
+                    'width_mode' =>
+                        'container',
+                ]
+            );
+        };
+
+
+        $heading = static function (
+            string $id,
+            string $text
+        ) use ($widget): array {
+
+            return $widget(
+                $id,
+                'heading',
+                [
+                    'text' =>
+                        $text,
+
+                    'level' =>
+                        'h2',
+                ]
+            );
+        };
+
+
+        $text = static function (
+            string $id,
+            string $content
+        ) use ($widget): array {
+
+            return $widget(
+                $id,
+                'text',
+                [
+                    'text' =>
+                        $content,
+                ]
+            );
+        };
+
+
+        /*
+         * New structured Card schema.
+         *
+         * Do not revert these to the legacy:
+         * image / text / buttonText / buttonUrl shape.
+         */
+        $card = static function (
+            string $title,
+            string $description,
+            string $icon = ''
+        ): array {
+
+            return [
+                'enabled' =>
+                    true,
+
+                'image_path' =>
+                    '',
+
+                'show_image' =>
+                    false,
+
+                'icon' =>
+                    $icon,
+
+                'show_icon' =>
+                    $icon !== '',
+
+                'title' =>
+                    $title,
+
+                'description' =>
+                    $description,
+
+                'show_button' =>
+                    false,
+
+                'button_label' =>
+                    '',
+
+                'button_url' =>
+                    '',
+
+                'button_url_active' =>
+                    false,
+            ];
+        };
+
+
+        return [
+
+            /*
+             * ---------------------------------------------------------
+             * ABOUT
+             * ---------------------------------------------------------
+             */
+            'about' => [
+                'title' =>
+                    'About',
+
+                'sections' => [
+
+                    $section(
+                        'core-about-hero',
+                        [
+                            $hero(
+                                'core-about-hero-widget',
+                                'About us',
+                                'People first. Purpose always.',
+                                'Learn more about our company, what drives us and how we approach the work we do.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-about-story',
+                        [
+                            $heading(
+                                'core-about-heading',
+                                'Doing meaningful work, the right way.'
+                            ),
+
+                            $text(
+                                'core-about-text',
+                                'Our company exists to create practical solutions and positive experiences for the people we serve. We believe the strongest businesses grow through consistency, trust and a genuine commitment to delivering value.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-about-values',
+                        [
+                            $widget(
+                                'core-about-cards',
+                                'cards',
+                                [
+                                    'heading' =>
+                                        '',
+
+                                    /*
+                                     * ESUBIZ_CORE_ABOUT_UPDATED_CARD_WIDGET_V1
+                                     *
+                                     * Seed About with the current structured
+                                     * Card widget contract, including its
+                                     * native icon support.
+                                     */
+                                    'items' => [
+                                        $card(
+                                            'Our Vision',
+                                            'To be trusted for thoughtful solutions, meaningful service and lasting value.',
+                                            '◎'
+                                        ),
+
+                                        $card(
+                                            'Our Mission',
+                                            'To serve people well through dependable work, clear communication and continuous improvement.',
+                                            '↗'
+                                        ),
+
+                                        $card(
+                                            'Our Values',
+                                            'Integrity, consistency, thoughtful service and a commitment to creating real value.',
+                                            '✦'
+                                        ),
+                                    ],
+                                ]
+                            ),
+                        ]
+                    ),
+                ],
+            ],
+
+
+            /*
+             * ---------------------------------------------------------
+             * CONTACT
+             * ---------------------------------------------------------
+             *
+             * Contact Form uses deferred binding.
+             *
+             * formId remains empty so a missing Form Builder or database
+             * row cannot break deployment.
+             *
+             * When Form Builder is added, create the standard form with:
+             *
+             * key: contact-form
+             * name: Contact Form
+             *
+             * The Form widget can then resolve it automatically.
+             * ---------------------------------------------------------
+             */
+            'contact' => [
+                'title' =>
+                    'Contact',
+
+                'sections' => [
+
+                    $section(
+                        'core-contact-hero',
+                        [
+                            $hero(
+                                'core-contact-hero-widget',
+                                'Contact',
+                                "Let's start a conversation.",
+                                'Have a question, enquiry or project in mind? Send us a message and we will get back to you.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-contact-intro',
+                        [
+                            $heading(
+                                'core-contact-heading',
+                                'We would love to hear from you.'
+                            ),
+
+                            $text(
+                                'core-contact-text',
+                                'Reach out using the contact form or any of the available contact details.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-contact-form-section',
+                        [
+                            $widget(
+                                'core-contact-form',
+                                'form',
+                                [
+                                    /*
+                                     * Existing Form widget compatibility.
+                                     */
+                                    'formId' =>
+                                        '',
+
+                                    /*
+                                     * Future deferred resource binding.
+                                     */
+                                    'form_id' =>
+                                        null,
+
+                                    'form_key' =>
+                                        'contact-form',
+
+                                    'form_name' =>
+                                        'Contact Form',
+
+                                    'binding' =>
+                                        'deferred',
+                                ]
+                            ),
+                        ]
+                    ),
+                ],
+            ],
+
+
+            /*
+             * ---------------------------------------------------------
+             * FAQS
+             * ---------------------------------------------------------
+             */
+            'faqs' => [
+                'title' =>
+                    'FAQs',
+
+                'sections' => [
+
+                    $section(
+                        'core-faqs-hero',
+                        [
+                            $hero(
+                                'core-faqs-hero-widget',
+                                'FAQs',
+                                'Frequently asked questions.',
+                                'Helpful answers to common questions about our business.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-faqs-content',
+                        [
+                            $widget(
+                                'core-faqs-widget',
+                                'faq',
+                                [
+                                    'heading' =>
+                                        'Frequently Asked Questions',
+
+                                    'items' => [
+                                        [
+                                            'question' =>
+                                                'What services do you provide?',
+
+                                            'answer' =>
+                                                'We provide solutions tailored to the needs of our customers. Contact us to discuss your specific requirements.',
+                                        ],
+
+                                        [
+                                            'question' =>
+                                                'How can I get started?',
+
+                                            'answer' =>
+                                                'Use our contact page to send us a message. We will review your request and guide you through the next steps.',
+                                        ],
+
+                                        [
+                                            'question' =>
+                                                'How long does it take to receive a response?',
+
+                                            'answer' =>
+                                                'Response times may vary, but we aim to respond to enquiries as quickly as possible during our normal business hours.',
+                                        ],
+
+                                        [
+                                            'question' =>
+                                                'Can I request a custom solution?',
+
+                                            'answer' =>
+                                                'Yes. We understand that every customer can have different requirements, so custom requests can be discussed with our team.',
+                                        ],
+
+                                        [
+                                            'question' =>
+                                                'How can I learn more about your business?',
+
+                                            'answer' =>
+                                                'Visit our About page or contact us directly for more information.',
+                                        ],
+                                    ],
+                                ]
+                            ),
+                        ]
+                    ),
+                ],
+            ],
+
+
+            /*
+             * ---------------------------------------------------------
+             * SERVICES
+             * ---------------------------------------------------------
+             */
+            'services' => [
+                'title' =>
+                    'Services',
+
+                'sections' => [
+
+                    $section(
+                        'core-services-hero',
+                        [
+                            $hero(
+                                'core-services-hero-widget',
+                                'Our services',
+                                'Solutions built around your needs.',
+                                'Explore the services we provide and discover how we can help.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-services-intro',
+                        [
+                            $heading(
+                                'core-services-heading',
+                                'How we can help.'
+                            ),
+
+                            $text(
+                                'core-services-text',
+                                'Our services are designed to provide practical, dependable solutions while keeping the customer experience clear and straightforward.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-services-cards-section',
+                        [
+                            $widget(
+                                'core-services-cards',
+                                'cards',
+                                [
+                                    'heading' =>
+                                        '',
+
+                                    'items' => [
+                                        $card(
+                                            'Service One',
+                                            'Describe your first core service and the value it provides to customers.'
+                                        ),
+
+                                        $card(
+                                            'Service Two',
+                                            'Describe your second core service and how it helps customers achieve their goals.'
+                                        ),
+
+                                        $card(
+                                            'Service Three',
+                                            'Describe another important service or solution your business provides.'
+                                        ),
+                                    ],
+                                ]
+                            ),
+                        ]
+                    ),
+                ],
+            ],
+
+
+            /*
+             * ---------------------------------------------------------
+             * TERMS
+             * ---------------------------------------------------------
+             */
+            'terms' => [
+                'title' =>
+                    'Terms',
+
+                'sections' => [
+
+                    $section(
+                        'core-terms-hero',
+                        [
+                            $hero(
+                                'core-terms-hero-widget',
+                                'Legal',
+                                'Terms & Conditions',
+                                'The general terms governing use of this website.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-terms-use',
+                        [
+                            $heading(
+                                'core-terms-use-heading',
+                                'Website Use'
+                            ),
+
+                            $text(
+                                'core-terms-use-text',
+                                'By using this website, you agree to use it lawfully and in a manner that does not interfere with the rights or experience of others.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-terms-information',
+                        [
+                            $heading(
+                                'core-terms-information-heading',
+                                'Information'
+                            ),
+
+                            $text(
+                                'core-terms-information-text',
+                                'We aim to keep information accurate and current, but content may be updated from time to time.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-terms-services',
+                        [
+                            $heading(
+                                'core-terms-services-heading',
+                                'Services'
+                            ),
+
+                            $text(
+                                'core-terms-services-text',
+                                'Information about services on this website is provided for general guidance and may be updated as our business develops.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-terms-contact',
+                        [
+                            $heading(
+                                'core-terms-contact-heading',
+                                'Questions'
+                            ),
+
+                            $text(
+                                'core-terms-contact-text',
+                                'If you have questions about these terms, please contact us through our contact page.'
+                            ),
+                        ]
+                    ),
+                ],
+            ],
+
+
+            /*
+             * ---------------------------------------------------------
+             * PRIVACY
+             * ---------------------------------------------------------
+             */
+            'privacy' => [
+                'title' =>
+                    'Privacy',
+
+                'sections' => [
+
+                    $section(
+                        'core-privacy-hero',
+                        [
+                            $hero(
+                                'core-privacy-hero-widget',
+                                'Privacy',
+                                'Privacy Policy',
+                                'How information submitted through this website may be handled.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-privacy-receive',
+                        [
+                            $heading(
+                                'core-privacy-receive-heading',
+                                'Information We Receive'
+                            ),
+
+                            $text(
+                                'core-privacy-receive-text',
+                                'Information may be provided when you contact us, submit forms or interact with services available through this website.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-privacy-use',
+                        [
+                            $heading(
+                                'core-privacy-use-heading',
+                                'How Information Is Used'
+                            ),
+
+                            $text(
+                                'core-privacy-use-text',
+                                'Information may be used to respond to enquiries, provide requested services and improve customer experience.'
+                            ),
+                        ]
+                    ),
+
+                    $section(
+                        'core-privacy-protection',
+                        [
+                            $heading(
+                                'core-privacy-protection-heading',
+                                'Protection'
+                            ),
+
+                            $text(
+                                'core-privacy-protection-text',
+                                'Reasonable measures should be used to protect information from unauthorized access, misuse, loss or disclosure.'
+                            ),
+                        ]
+                    ),
+                ],
+            ],
+        ];
+    }
+}

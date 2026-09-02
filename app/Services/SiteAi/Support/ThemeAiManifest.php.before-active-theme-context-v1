@@ -1,0 +1,118 @@
+<?php
+
+namespace App\Services\SiteAi\Support;
+
+/**
+ * Loads the Site AI manifest supplied by a theme.
+ *
+ * Themes own their AI-editable feature declarations.
+ * Central ESUBIZ only discovers and validates them.
+ *
+ * Convention:
+ *
+ * resources/views/tenant/themes/{theme}/ai-manifest.php
+ */
+class ThemeAiManifest
+{
+    public function load(
+        ?string $themeKey
+    ): array {
+        $themeKey =
+            $this->safeThemeKey(
+                $themeKey
+            );
+
+        if ($themeKey === null) {
+            return [];
+        }
+
+        $path =
+            resource_path(
+                'views/tenant/themes/'
+                . $themeKey
+                . '/ai-manifest.php'
+            );
+
+        if (!is_file($path)) {
+            return [];
+        }
+
+        /*
+         * Theme manifest files are application/theme code,
+         * not tenant supplied runtime PHP.
+         */
+        $manifest =
+            require $path;
+
+        if (!is_array($manifest)) {
+            return [];
+        }
+
+        /*
+         * The requested active theme remains authoritative.
+         * A manifest cannot impersonate another theme.
+         */
+        $manifest['theme_key'] =
+            $themeKey;
+
+        if (
+            !isset($manifest['functions'])
+            || !is_array(
+                $manifest['functions']
+            )
+        ) {
+            $manifest['functions'] =
+                [];
+        }
+
+        return $manifest;
+    }
+
+
+    public function exists(
+        ?string $themeKey
+    ): bool {
+        $themeKey =
+            $this->safeThemeKey(
+                $themeKey
+            );
+
+        if ($themeKey === null) {
+            return false;
+        }
+
+        return is_file(
+            resource_path(
+                'views/tenant/themes/'
+                . $themeKey
+                . '/ai-manifest.php'
+            )
+        );
+    }
+
+
+    protected function safeThemeKey(
+        ?string $themeKey
+    ): ?string {
+        $themeKey =
+            trim(
+                (string) $themeKey
+            );
+
+        if (
+            $themeKey === ''
+            || !preg_match(
+                '/^[A-Za-z0-9_-]+$/',
+                $themeKey
+            )
+        ) {
+            return null;
+        }
+
+        return mb_substr(
+            $themeKey,
+            0,
+            150
+        );
+    }
+}

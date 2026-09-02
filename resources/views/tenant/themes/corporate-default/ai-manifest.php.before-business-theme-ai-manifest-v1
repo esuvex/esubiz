@@ -1,0 +1,251 @@
+<?php
+
+/*
+ * ESUBIZ THEME AI MANIFEST
+ * Corporate Default
+ *
+ * This file is owned by the theme.
+ *
+ * It declares ONLY the features and settings this theme
+ * chooses to expose to Esubiz Site AI.
+ *
+ * Central Esubiz must not assume these features exist in
+ * any other theme.
+ */
+
+return [
+    'theme_key' =>
+        'corporate-default',
+
+    'theme_name' =>
+        'Corporate Default',
+
+    'theme_version' =>
+        '1.0.0',
+
+    'label' =>
+        'Corporate Homepage',
+
+    'functions' => [
+
+        /*
+         * =====================================================
+         * HERO
+         * =====================================================
+         */
+        [
+            'key' =>
+                'hero',
+
+            'label' =>
+                'Hero',
+
+            'description' =>
+                'Generate or improve the homepage hero content, calls to action and hero image.',
+
+            'outputs' => [
+                'text',
+                'image',
+            ],
+
+            'targets' => [
+                'hero_badge',
+                'hero_title',
+                'hero_subtitle',
+                'cta_label',
+                'cta_url',
+                'secondary_cta_label',
+                'secondary_cta_url',
+                'hero_image_path',
+            ],
+
+            'meta' => [
+                'image_target' =>
+                    'hero_image_path',
+
+                'recommended_width' =>
+                    1200,
+
+                'recommended_height' =>
+                    800,
+
+                'max_upload_mb' =>
+                    4,
+            ],
+        ],
+
+        /*
+         * =====================================================
+         * FEATURES
+         * =====================================================
+         */
+        [
+            'key' =>
+                'features',
+
+            'label' =>
+                'Features',
+
+            'description' =>
+                'Generate or improve the homepage features section and feature items.',
+
+            'outputs' => [
+                'text',
+                'structured-data',
+                'image',
+            ],
+
+            'targets' => [
+                'features_badge',
+                'features_title',
+                'features_subtitle',
+                'features_json',
+            ],
+
+            'meta' => [
+                'collection_target' =>
+                    'features_json',
+            ],
+        ],
+
+        /*
+         * =====================================================
+         * STATISTICS
+         * =====================================================
+         */
+        [
+            'key' =>
+                'stats',
+
+            'label' =>
+                'Statistics',
+
+            'description' =>
+                'Generate or improve the homepage statistics section.',
+
+            'outputs' => [
+                'text',
+                'structured-data',
+            ],
+
+            'targets' => [
+                'stats_badge',
+
+                'stat_1_value',
+                'stat_1_label',
+
+                'stat_2_value',
+                'stat_2_label',
+
+                'stat_3_value',
+                'stat_3_label',
+            ],
+        ],
+
+        /*
+         * =====================================================
+         * ABOUT
+         * =====================================================
+         */
+        [
+            'key' =>
+                'about',
+
+            'label' =>
+                'About Us',
+
+            'description' =>
+                'Generate or improve the homepage About Us content, call to action and image.',
+
+            'outputs' => [
+                'text',
+                'image',
+            ],
+
+            'targets' => [
+                'about_badge',
+                'about_title',
+                'about_text',
+                'about_cta_label',
+                'about_cta_url',
+                'about_image_path',
+            ],
+
+            'meta' => [
+                'image_target' =>
+                    'about_image_path',
+
+                'recommended_width' =>
+                    1000,
+
+                'recommended_height' =>
+                    800,
+
+                'max_upload_mb' =>
+                    4,
+            ],
+        ],
+
+        /*
+         * =====================================================
+         * TESTIMONIALS
+         * =====================================================
+         */
+        [
+            'key' =>
+                'testimonials',
+
+            'label' =>
+                'Testimonials',
+
+            'description' =>
+                'Generate or improve the homepage testimonials section and testimonial entries.',
+
+            'outputs' => [
+                'text',
+                'structured-data',
+                'image',
+            ],
+
+            'targets' => [
+                'testimonials_badge',
+                'testimonials_title',
+                'testimonials_subtitle',
+                'testimonials_json',
+            ],
+
+            'meta' => [
+                'collection_target' =>
+                    'testimonials_json',
+            ],
+        ],
+
+        /*
+         * =====================================================
+         * FINAL CTA
+         * =====================================================
+         */
+        [
+            'key' =>
+                'final_cta',
+
+            'label' =>
+                'Final Call to Action',
+
+            'description' =>
+                'Generate or improve the final homepage call to action.',
+
+            'outputs' => [
+                'text',
+            ],
+
+            'targets' => [
+                'final_cta_badge',
+                'final_cta_title',
+                'final_cta_text',
+                'final_cta_label',
+                'final_cta_url',
+            ],
+        ],
+    ],
+];

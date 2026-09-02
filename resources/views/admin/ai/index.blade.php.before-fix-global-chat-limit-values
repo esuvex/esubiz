@@ -1,0 +1,1943 @@
+@extends('admin.layouts.app')
+
+@section('title', 'Esubiz AI')
+
+@section('content')
+
+<div class="mx-auto max-w-7xl space-y-8">
+
+    {{-- HEADER --}}
+    <div>
+        <div class="text-xs font-black uppercase tracking-[.16em] text-blue-600">
+            Central AI Control
+        </div>
+
+        <h1 class="mt-2 text-3xl font-black text-slate-900">
+            Esubiz AI
+        </h1>
+
+        <p class="mt-2 max-w-4xl text-sm leading-6 text-slate-500">
+            Manage the central AI engine used by Esubiz, Developers,
+            tenant websites and future connected Esubiz products.
+        </p>
+    </div>
+
+
+    @if(session('success'))
+        <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-bold text-emerald-700">
+            {{ session('success') }}
+        </div>
+    @endif
+
+
+    @if($errors->any())
+        <div class="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+            <div class="font-black">
+                Please correct the following:
+            </div>
+
+            <ul class="mt-2 list-disc space-y-1 pl-5">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
+
+    {{-- SUMMARY --}}
+    <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+
+        <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div class="text-xs font-black uppercase text-slate-400">
+                Official Avatars
+            </div>
+            <div class="mt-3 text-3xl font-black text-slate-900">
+                {{ $personas->count() }}
+            </div>
+        </div>
+
+        <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div class="text-xs font-black uppercase text-slate-400">
+                AI Providers
+            </div>
+            <div class="mt-3 text-3xl font-black text-slate-900">
+                {{ $providers->count() }}
+            </div>
+        </div>
+
+        <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div class="text-xs font-black uppercase text-slate-400">
+                AI Models
+            </div>
+            <div class="mt-3 text-3xl font-black text-slate-900">
+                {{ $models->count() }}
+            </div>
+        </div>
+
+        <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div class="text-xs font-black uppercase text-slate-400">
+                Capabilities
+            </div>
+            <div class="mt-3 text-3xl font-black text-slate-900">
+                {{ $capabilities->count() }}
+            </div>
+        </div>
+
+    </div>
+
+
+    {{-- =====================================================
+         OFFICIAL AI AVATARS
+    ====================================================== --}}
+    <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+                <div class="text-xs font-black uppercase tracking-[.16em] text-blue-600">
+                    Official AI Avatars
+                </div>
+
+                <h2 class="mt-2 text-2xl font-black text-slate-900">
+                    Avatar Manager
+                </h2>
+
+                <p class="mt-2 text-sm text-slate-500">
+                    Create the official human-facing Esubiz AI avatars
+                    users and developers can choose from.
+                </p>
+            </div>
+        </div>
+
+
+        <form
+            action="{{ route('admin.ai.avatars.store') }}"
+            method="POST"
+            enctype="multipart/form-data"
+            class="mt-6 grid gap-4 rounded-2xl bg-slate-50 p-5 md:grid-cols-2 xl:grid-cols-4"
+        >
+            @csrf
+
+            <div>
+                <label class="text-xs font-black text-slate-600">
+                    Avatar Name
+                </label>
+                <input
+                    name="name"
+                    required
+                    placeholder="Yemi"
+                    class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                >
+            </div>
+
+            <div>
+                <label class="text-xs font-black text-slate-600">
+                    Human Face Photo
+                </label>
+
+                <p class="mt-1 text-xs text-slate-500">
+                    Recommended: 512 × 512 px · Square JPG, PNG or WebP · Max 10 MB
+                </p>
+                <input
+                    type="file"
+                    name="avatar"
+                    required
+                    accept=".jpg,.jpeg,.png,.webp"
+                    data-ai-avatar-input
+                    data-ai-avatar-preview-target="new-avatar-preview"
+                    class="mt-2 block w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm"
+                >
+
+                <div
+                    id="new-avatar-preview"
+                    class="mt-3 hidden"
+                    data-ai-avatar-preview-box
+                >
+                    <img
+                        src=""
+                        alt="Avatar preview"
+                        class="h-24 w-24 rounded-full border border-slate-200 object-cover"
+                    >
+                </div>
+
+                @error('avatar')
+                    <p class="mt-2 text-xs font-bold text-red-600">
+                        {{ $message }}
+                    </p>
+                @enderror
+
+            </div>
+
+            <div>
+                <label class="text-xs font-black text-slate-600">
+                    Display Gender
+                </label>
+                <select
+                    name="gender"
+                    class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                >
+                    <option value="">Not specified</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="text-xs font-black text-slate-600">
+                    Order
+                </label>
+                <input
+                    type="number"
+                    min="0"
+                    name="sort_order"
+                    value="0"
+                    class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                >
+            </div>
+
+            <div class="md:col-span-2">
+                <label class="text-xs font-black text-slate-600">
+                    Description
+                </label>
+                <textarea
+                    name="description"
+                    rows="3"
+                    placeholder="Short description shown when users choose this avatar."
+                    class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                ></textarea>
+            </div>
+
+            <div class="md:col-span-2">
+                <label class="text-xs font-black text-slate-600">
+                    Avatar Behaviour / Personality Instructions
+                </label>
+                <textarea
+                    name="persona_prompt"
+                    rows="3"
+                    placeholder="Communication style and behaviour for this avatar."
+                    class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                ></textarea>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-5 md:col-span-2 xl:col-span-3">
+
+                <label class="flex items-center gap-2 text-sm font-bold text-slate-600">
+                    <input
+                        type="checkbox"
+                        name="is_active"
+                        value="1"
+                        checked
+                    >
+                    Active
+                </label>
+
+                <label class="flex items-center gap-2 text-sm font-bold text-slate-600">
+                    <input
+                        type="checkbox"
+                        name="is_default"
+                        value="1"
+                    >
+                    Default Avatar
+                </label>
+
+            </div>
+
+            <div class="flex justify-end">
+                <button
+                    class="rounded-xl bg-blue-600 px-6 py-3 text-sm font-black text-white hover:bg-blue-700"
+                >
+                    Create Avatar
+                </button>
+            </div>
+
+        </form>
+
+
+        <div class="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+
+            @forelse($personas as $persona)
+
+                <article class="rounded-2xl border border-slate-200 p-5">
+
+                    <div class="flex items-center gap-4">
+
+                        <div class="h-16 w-16 overflow-hidden rounded-full bg-blue-50">
+
+                            @if($persona->avatarUrl())
+                                <img
+                                    src="{{ $persona->avatarUrl() }}"
+                                    alt="{{ $persona->name }}"
+                                    class="h-full w-full object-cover"
+                                >
+                            @else
+                                <div class="flex h-full w-full items-center justify-center font-black text-blue-600">
+                                    AI
+                                </div>
+                            @endif
+
+                        </div>
+
+                        <div>
+                            <div class="font-black text-slate-900">
+                                {{ $persona->name }}
+                            </div>
+
+                            <div class="mt-1 text-xs text-slate-500">
+                                {{ $persona->is_active ? 'Active' : 'Inactive' }}
+                                @if($persona->is_default)
+                                    · Default
+                                @endif
+                            </div>
+                        </div>
+
+                    </div>
+
+                    @if($persona->description)
+                        <p class="mt-4 text-sm leading-6 text-slate-500">
+                            {{ $persona->description }}
+                        </p>
+                    @endif
+
+                    <details class="mt-5">
+                        <summary class="cursor-pointer text-sm font-black text-blue-600">
+                            Edit Avatar
+                        </summary>
+
+                        <form
+                            action="{{ route('admin.ai.avatars.update', $persona) }}"
+                            method="POST"
+                            enctype="multipart/form-data"
+                            class="mt-4 space-y-3"
+                        >
+                            @csrf
+
+                            <input
+                                name="name"
+                                value="{{ $persona->name }}"
+                                required
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                            >
+
+                            <input
+                                type="file"
+                                name="avatar"
+                                accept=".jpg,.jpeg,.png,.webp"
+                                data-ai-avatar-input
+                                data-ai-avatar-preview-target="avatar-preview-{{ $persona->id }}"
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                            >
+
+                            <div
+                                id="avatar-preview-{{ $persona->id }}"
+                                class="mt-2 hidden"
+                                data-ai-avatar-preview-box
+                            >
+                                <img
+                                    src=""
+                                    alt="Avatar preview"
+                                    class="h-20 w-20 rounded-full border border-slate-200 object-cover"
+                                >
+                            </div>
+
+                            <textarea
+                                name="description"
+                                rows="2"
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                            >{{ $persona->description }}</textarea>
+
+                            <textarea
+                                name="persona_prompt"
+                                rows="3"
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                            >{{ $persona->persona_prompt }}</textarea>
+
+                            <select
+                                name="gender"
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                            >
+                                <option value="">Not specified</option>
+                                <option value="male" @selected($persona->gender === 'male')>
+                                    Male
+                                </option>
+                                <option value="female" @selected($persona->gender === 'female')>
+                                    Female
+                                </option>
+                            </select>
+
+                            <input
+                                type="number"
+                                min="0"
+                                name="sort_order"
+                                data-autosave-url="{{ route('admin.ai.autosave') }}"
+                                data-autosave-field="sort_order"
+                                data-autosave-type="avatar"
+                                data-autosave-id="{{ $persona->id }}"
+                                value="{{ $persona->sort_order }}"
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                            >
+
+                            <div class="flex flex-wrap gap-4">
+
+                                <label class="text-xs font-bold">
+                                    <input
+                                        type="checkbox"
+                                        name="is_active"
+                                data-autosave-url="{{ route('admin.ai.autosave') }}"
+                                data-autosave-field="is_active"
+                                data-autosave-type="avatar"
+                                data-autosave-id="{{ $persona->id }}"
+                                        value="1"
+                                        @checked($persona->is_active)
+                                    >
+                                    Active
+                                </label>
+
+                                <label class="text-xs font-bold">
+                                    <input
+                                        type="checkbox"
+                                        name="is_default"
+                                data-autosave-url="{{ route('admin.ai.autosave') }}"
+                                data-autosave-field="is_default"
+                                data-autosave-type="avatar"
+                                data-autosave-id="{{ $persona->id }}"
+                                        value="1"
+                                        @checked($persona->is_default)
+                                    >
+                                    Default
+                                </label>
+
+                            </div>
+
+                            <button class="w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-black text-white">
+                                Update Avatar
+                            </button>
+
+                        </form>
+                    </details>
+
+                    @unless($persona->is_default)
+                        <form
+                            action="{{ route('admin.ai.avatars.destroy', $persona) }}"
+                            method="POST"
+                            class="mt-3"
+                            onsubmit="return confirm('Delete this AI avatar?')"
+                        >
+                            @csrf
+                            @method('DELETE')
+
+                            <button class="text-xs font-black text-red-600">
+                                Delete Avatar
+                            </button>
+                        </form>
+                    @endunless
+
+                </article>
+
+            @empty
+
+                <div class="col-span-full rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
+                    No official AI avatars have been created yet.
+                </div>
+
+            @endforelse
+
+        </div>
+
+    </section>
+
+
+    {{-- =====================================================
+         PROVIDERS / API CREDENTIALS
+    ====================================================== --}}
+    <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+
+        <div class="text-xs font-black uppercase tracking-[.16em] text-blue-600">
+            API Credentials
+        </div>
+
+        <h2 class="mt-2 text-2xl font-black text-slate-900">
+            AI Providers
+        </h2>
+
+        <p class="mt-2 max-w-4xl text-sm leading-6 text-slate-500">
+            Provider credentials stay in Esubiz Central and are encrypted
+            at rest. Tenants and developers never receive these API keys.
+        </p>
+
+
+        <form
+            action="{{ route('admin.ai.providers.store') }}"
+            method="POST"
+            class="mt-6 grid gap-4 rounded-2xl bg-slate-50 p-5 md:grid-cols-2 xl:grid-cols-4"
+        >
+            @csrf
+
+            <input
+                name="name"
+                required
+                placeholder="Provider name"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <input
+                name="driver"
+                required
+                placeholder="Driver e.g. openai"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <input
+                name="base_url"
+                placeholder="API base URL (optional)"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <input
+                type="password"
+                name="api_key"
+                placeholder="API secret key"
+                autocomplete="new-password"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <input
+                name="organization"
+                placeholder="Organization / Project ID (optional)"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <input
+                type="number"
+                min="0"
+                name="priority"
+                value="100"
+                placeholder="Priority"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <div class="flex items-center gap-5">
+
+                <label class="text-sm font-bold">
+                    <input
+                        type="checkbox"
+                        name="is_active"
+                        value="1"
+                        checked
+                    >
+                    Active
+                </label>
+
+                <label class="text-sm font-bold">
+                    <input
+                        type="checkbox"
+                        name="is_default"
+                        value="1"
+                    >
+                    Default
+                </label>
+
+            </div>
+
+            <button class="rounded-xl bg-blue-600 px-6 py-3 text-sm font-black text-white">
+                Add Provider
+            </button>
+
+        </form>
+
+
+        <div class="mt-6 grid gap-5 lg:grid-cols-2">
+
+            @forelse($providers as $provider)
+
+                <article class="rounded-2xl border border-slate-200 p-5">
+
+                    <div class="flex items-start justify-between gap-4">
+
+                        <div>
+                            <h3 class="text-lg font-black text-slate-900">
+                                {{ $provider->name }}
+                            </h3>
+
+                            <div class="mt-1 text-xs font-bold text-slate-400">
+                                {{ $provider->driver }}
+
+                                @if($provider->is_default)
+                                    · Default Provider
+                                @endif
+                            </div>
+                        </div>
+
+                        <span class="rounded-full px-3 py-1 text-xs font-black {{ $provider->is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500' }}">
+                            {{ $provider->is_active ? 'Active' : 'Inactive' }}
+                        </span>
+
+                    </div>
+
+                    <div class="mt-4 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
+                        API credential:
+                        <strong class="text-slate-700">
+                            {{ !empty($provider->secret_payload['api_key'] ?? null) ? 'Configured' : 'Not configured' }}
+                        </strong>
+                    </div>
+
+                    <details class="mt-4">
+                        <summary class="cursor-pointer text-sm font-black text-blue-600">
+                            Edit Provider
+                        </summary>
+
+                        <form
+                            action="{{ route('admin.ai.providers.update', $provider) }}"
+                            method="POST"
+                            class="mt-4 space-y-3"
+                        >
+                            @csrf
+
+                            <input
+                                name="name"
+                                value="{{ $provider->name }}"
+                                required
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                            >
+
+                            <input
+                                name="driver"
+                                value="{{ $provider->driver }}"
+                                required
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                            >
+
+                            <input
+                                name="base_url"
+                                value="{{ $provider->base_url }}"
+                                placeholder="Base URL"
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                            >
+
+                            <input
+                                type="password"
+                                name="api_key"
+                                placeholder="Leave blank to keep existing key"
+                                autocomplete="new-password"
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                            >
+
+                            <input
+                                name="organization"
+                                value="{{ $provider->secret_payload['organization'] ?? '' }}"
+                                placeholder="Organization / Project ID"
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                            >
+
+                            <input
+                                type="number"
+                                min="0"
+                                name="priority"
+                                data-autosave-url="{{ route('admin.ai.autosave') }}"
+                                data-autosave-field="priority"
+                                data-autosave-type="provider"
+                                data-autosave-id="{{ $provider->id }}"
+                                value="{{ $provider->priority }}"
+                                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                            >
+
+                            <div class="flex gap-5">
+                                <label class="text-xs font-bold">
+                                    <input
+                                        type="checkbox"
+                                        name="is_active"
+                                data-autosave-url="{{ route('admin.ai.autosave') }}"
+                                data-autosave-field="is_active"
+                                data-autosave-type="provider"
+                                data-autosave-id="{{ $provider->id }}"
+                                        value="1"
+                                        @checked($provider->is_active)
+                                    >
+                                    Active
+                                </label>
+
+                                <label class="text-xs font-bold">
+                                    <input
+                                        type="checkbox"
+                                        name="is_default"
+                                data-autosave-url="{{ route('admin.ai.autosave') }}"
+                                data-autosave-field="is_default"
+                                data-autosave-type="provider"
+                                data-autosave-id="{{ $provider->id }}"
+                                        value="1"
+                                        @checked($provider->is_default)
+                                    >
+                                    Default
+                                </label>
+                            </div>
+
+                            <button class="w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-black text-white">
+                                Update Provider
+                            </button>
+
+                        </form>
+                    </details>
+
+                    @unless($provider->is_default)
+                        <form
+                            action="{{ route('admin.ai.providers.destroy', $provider) }}"
+                            method="POST"
+                            class="mt-3"
+                            onsubmit="return confirm('Delete this provider and its registered models?')"
+                        >
+                            @csrf
+                            @method('DELETE')
+
+                            <button class="text-xs font-black text-red-600">
+                                Delete Provider
+                            </button>
+                        </form>
+                    @endunless
+
+                </article>
+
+            @empty
+
+                <div class="col-span-full rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
+                    No AI provider has been configured yet.
+                </div>
+
+            @endforelse
+
+        </div>
+
+    </section>
+
+
+    {{-- =====================================================
+         MODELS
+    ====================================================== --}}
+    <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+
+        <div class="text-xs font-black uppercase tracking-[.16em] text-blue-600">
+            Model Registry
+        </div>
+
+        <h2 class="mt-2 text-2xl font-black text-slate-900">
+            Provider Models
+        </h2>
+
+
+        <form
+            action="{{ route('admin.ai.models.store') }}"
+            method="POST"
+            class="mt-6 grid gap-4 rounded-2xl bg-slate-50 p-5 md:grid-cols-2 xl:grid-cols-4"
+        >
+            @csrf
+
+            <select
+                name="ai_provider_id"
+                required
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+                <option value="">Select provider</option>
+
+                @foreach($providers as $provider)
+                    <option value="{{ $provider->id }}">
+                        {{ $provider->name }}
+                    </option>
+                @endforeach
+            </select>
+
+            <input
+                name="name"
+                required
+                placeholder="Display name"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <input
+                name="model_key"
+                required
+                placeholder="Provider model ID"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <div class="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+
+                @foreach(['text', 'image', 'vision', 'code'] as $capability)
+                    <label class="text-xs font-bold">
+                        <input
+                            type="checkbox"
+                            name="capabilities[]"
+                            value="{{ $capability }}"
+                        >
+                        {{ ucfirst($capability) }}
+                    </label>
+                @endforeach
+
+            </div>
+
+            <input
+                type="number"
+                step="0.000001"
+                min="0"
+                name="input_cost_per_million"
+                placeholder="Input cost / 1M"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <input
+                type="number"
+                step="0.000001"
+                min="0"
+                name="output_cost_per_million"
+                placeholder="Output cost / 1M"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <label class="flex items-center gap-2 text-sm font-bold">
+                <input
+                    type="checkbox"
+                    name="is_active"
+                    value="1"
+                    checked
+                >
+                Active
+            </label>
+
+            <button class="rounded-xl bg-blue-600 px-6 py-3 text-sm font-black text-white">
+                Register Model
+            </button>
+
+        </form>
+
+
+        <div class="mt-6 overflow-x-auto">
+
+            <table class="w-full min-w-[800px] text-left text-sm">
+
+                <thead class="border-b border-slate-200 text-xs uppercase text-slate-400">
+                    <tr>
+                        <th class="px-3 py-3">Model</th>
+                        <th class="px-3 py-3">Provider</th>
+                        <th class="px-3 py-3">Model Key</th>
+                        <th class="px-3 py-3">Capabilities</th>
+                        <th class="px-3 py-3">Status</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    @forelse($models as $model)
+                        <tr class="border-b border-slate-100">
+                            <td class="px-3 py-4 font-black">
+                                {{ $model->name }}
+                            </td>
+
+                            <td class="px-3 py-4">
+                                {{ $model->provider?->name }}
+                            </td>
+
+                            <td class="px-3 py-4 font-mono text-xs">
+                                {{ $model->model_key }}
+                            </td>
+
+                            <td class="px-3 py-4">
+                                {{ implode(', ', $model->capabilities ?? []) ?: '—' }}
+                            </td>
+
+                            <td class="px-3 py-4">
+                                {{ $model->is_active ? 'Active' : 'Inactive' }}
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="5" class="px-3 py-8 text-center text-slate-500">
+                                No AI models registered.
+                            </td>
+                        </tr>
+                    @endforelse
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+
+    {{-- =====================================================
+         ROUTING
+    ====================================================== --}}
+    <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+
+        <div class="text-xs font-black uppercase tracking-[.16em] text-blue-600">
+            Central Routing
+        </div>
+
+        <h2 class="mt-2 text-2xl font-black text-slate-900">
+            Model Routing
+        </h2>
+
+        <p class="mt-2 text-sm text-slate-500">
+            Route each registered AI job to the appropriate primary
+            and fallback model.
+        </p>
+
+
+        <form
+            action="{{ route('admin.ai.routing.store') }}"
+            method="POST"
+            class="mt-6 grid gap-4 rounded-2xl bg-slate-50 p-5 md:grid-cols-2 xl:grid-cols-4"
+        >
+            @csrf
+
+            <input
+                name="route_key"
+                required
+                placeholder="e.g. theme.homepage.text"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <input
+                name="label"
+                required
+                placeholder="Route label"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <select
+                name="ai_model_id"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+                <option value="">Primary model</option>
+
+                @foreach($models as $model)
+                    <option value="{{ $model->id }}">
+                        {{ $model->provider?->name }} — {{ $model->name }}
+                    </option>
+                @endforeach
+            </select>
+
+            <select
+                name="fallback_model_id"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+                <option value="">Fallback model</option>
+
+                @foreach($models as $model)
+                    <option value="{{ $model->id }}">
+                        {{ $model->provider?->name }} — {{ $model->name }}
+                    </option>
+                @endforeach
+            </select>
+
+            <input
+                type="number"
+                name="priority"
+                min="0"
+                value="100"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <label class="flex items-center gap-2 text-sm font-bold">
+                <input
+                    type="checkbox"
+                    name="is_active"
+                    value="1"
+                    checked
+                >
+                Active
+            </label>
+
+            <button class="rounded-xl bg-blue-600 px-6 py-3 text-sm font-black text-white">
+                Add Routing Rule
+            </button>
+
+        </form>
+
+
+        <div class="mt-6 space-y-3">
+
+            @forelse($routingRules as $rule)
+
+                <div class="rounded-2xl border border-slate-200 p-4">
+
+                    <div class="font-black text-slate-900">
+                        {{ $rule->label }}
+                    </div>
+
+                    <div class="mt-1 font-mono text-xs text-slate-500">
+                        {{ $rule->route_key }}
+                    </div>
+
+                    <div class="mt-3 text-sm text-slate-600">
+                        Primary:
+                        <strong>
+                            {{ $rule->model?->name ?? 'Not assigned' }}
+                        </strong>
+
+                        · Fallback:
+                        <strong>
+                            {{ $rule->fallbackModel?->name ?? 'None' }}
+                        </strong>
+                    </div>
+
+                </div>
+
+            @empty
+
+                <div class="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
+                    No model routing rules configured.
+                </div>
+
+            @endforelse
+
+        </div>
+
+    </section>
+
+
+    {{-- =====================================================
+         CREDIT RULES
+    ====================================================== --}}
+    
+{{-- ESUBIZ_AI_COMMERCIAL_CONTROLS --}}
+@php
+    $commercialSettings =
+        \App\Models\Ai\AiCommercialSetting::query()
+            ->where('is_active', true)
+            ->get()
+            ->keyBy('key');
+
+    $markupSetting =
+        $commercialSettings->get('provider_markup_percent');
+
+    $creditValueSetting =
+        $commercialSettings->get('naira_per_ai_credit');
+
+    $fxSetting =
+        $commercialSettings->get('usd_ngn_rate');
+
+    $markupPercent =
+        (float) ($markupSetting?->value ?? 400);
+
+    $sellingMultiplier =
+        1 + ($markupPercent / 100);
+
+    $openAiModels =
+        \App\Models\Ai\AiModel::query()
+            ->with('provider')
+            ->whereHas(
+                'provider',
+                fn ($q) => $q->where('slug', 'openai')
+            )
+            ->orderBy('id')
+            ->get();
+
+    $completedAiRequests =
+        \App\Models\Ai\AiUsageLog::query()
+            ->where('status', 'completed')
+            ->count();
+
+    $failedAiRequests =
+        \App\Models\Ai\AiUsageLog::query()
+            ->whereIn('status', [
+                'failed',
+                'billing_failed',
+            ])
+            ->count();
+
+    $totalProviderCostUsd =
+        (float)
+        \App\Models\Ai\AiUsageLog::query()
+            ->where('status', 'completed')
+            ->sum('provider_cost_usd');
+
+    $totalCreditsCharged =
+        (float)
+        \App\Models\Ai\AiUsageLog::query()
+            ->where('status', 'completed')
+            ->sum('credits_charged');
+
+    $nairaPerCredit =
+        (float) ($creditValueSetting?->value ?? 10);
+
+    $totalUsageValueNgn =
+        $totalCreditsCharged * $nairaPerCredit;
+@endphp
+
+<section
+    class="mb-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+>
+    <div>
+        <div class="text-xs font-black uppercase tracking-[0.18em] text-blue-600">
+            Commercial Controls
+        </div>
+
+        <h2 class="mt-2 text-2xl font-black text-slate-900">
+            AI Pricing & Provider Costs
+        </h2>
+
+        <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+            OpenAI bills Esubiz. Esubiz applies the configured markup
+            and charges websites in Esubiz AI Credits.
+        </p>
+    </div>
+
+    <div class="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+
+        @if($markupSetting)
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                <label class="text-xs font-black text-slate-700">
+                    Provider Markup
+                </label>
+
+                <div class="mt-4 flex items-center gap-2">
+                    <input
+                        type="number"
+                        min="0"
+                        max="5000"
+                        step="1"
+                        value="{{ (float) $markupSetting->value }}"
+                        data-autosave-url="{{ route('admin.ai.commercial.update', $markupSetting) }}"
+                        data-autosave-field="value"
+                        data-ai-markup-input
+                        class="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-black"
+                    >
+
+                    <span class="text-sm font-black text-slate-500">%</span>
+                </div>
+            </div>
+        @endif
+
+        <div class="rounded-2xl border border-blue-200 bg-blue-50 p-5">
+            <div class="text-xs font-black text-blue-700">
+                Selling Multiplier
+            </div>
+
+            <div
+                class="mt-4 text-3xl font-black text-blue-900"
+                data-ai-selling-multiplier
+            >
+                {{ number_format($sellingMultiplier, 2) }}×
+            </div>
+        </div>
+
+        @if($creditValueSetting)
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                <label class="text-xs font-black text-slate-700">
+                    Value of 1 AI Credit
+                </label>
+
+                <div class="mt-4 flex items-center gap-2">
+                    <span class="text-sm font-black text-slate-500">₦</span>
+
+                    <input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value="{{ (float) $creditValueSetting->value }}"
+                        data-autosave-url="{{ route('admin.ai.commercial.update', $creditValueSetting) }}"
+                        data-autosave-field="value"
+                        class="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-black"
+                    >
+                </div>
+            </div>
+        @endif
+
+        @if($fxSetting)
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                <label class="text-xs font-black text-slate-700">
+                    USD / NGN Billing Rate
+                </label>
+
+                <div class="mt-4 flex items-center gap-2">
+                    <span class="text-sm font-black text-slate-500">₦</span>
+
+                    <input
+                        type="number"
+                        min="1"
+                        step="0.01"
+                        value="{{ (float) $fxSetting->value }}"
+                        data-autosave-url="{{ route('admin.ai.commercial.update', $fxSetting) }}"
+                        data-autosave-field="value"
+                        class="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-black"
+                    >
+                </div>
+            </div>
+        @endif
+
+    </div>
+
+    <div class="mt-8">
+        <h3 class="text-lg font-black text-slate-900">
+            OpenAI Model Costs
+        </h3>
+
+        <div class="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-3">
+            @foreach($openAiModels as $model)
+                <div class="rounded-2xl border border-slate-200 p-5">
+                    <div class="text-sm font-black text-slate-900">
+                        {{ $model->name }}
+                    </div>
+
+                    <div class="mt-1 font-mono text-[11px] text-slate-400">
+                        {{ $model->model_key }}
+                    </div>
+
+                    <div class="mt-5 space-y-4">
+
+                        <div>
+                            <label class="text-[11px] font-black text-slate-600">
+                                Input / 1M tokens ($)
+                            </label>
+
+                            <input
+                                type="number"
+                                min="0"
+                                step="0.000001"
+                                value="{{ (float) $model->input_cost_per_million }}"
+                                data-autosave-url="{{ route('admin.ai.models.pricing.update', $model) }}"
+                                data-autosave-field="input_cost_per_million"
+                                class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm"
+                            >
+                        </div>
+
+                        <div>
+                            <label class="text-[11px] font-black text-slate-600">
+                                Cached Input / 1M ($)
+                            </label>
+
+                            <input
+                                type="number"
+                                min="0"
+                                step="0.000001"
+                                value="{{ (float) $model->cached_input_cost_per_million }}"
+                                data-autosave-url="{{ route('admin.ai.models.pricing.update', $model) }}"
+                                data-autosave-field="cached_input_cost_per_million"
+                                class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm"
+                            >
+                        </div>
+
+                        <div>
+                            <label class="text-[11px] font-black text-slate-600">
+                                Output / 1M tokens ($)
+                            </label>
+
+                            <input
+                                type="number"
+                                min="0"
+                                step="0.000001"
+                                value="{{ (float) $model->output_cost_per_million }}"
+                                data-autosave-url="{{ route('admin.ai.models.pricing.update', $model) }}"
+                                data-autosave-field="output_cost_per_million"
+                                class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm"
+                            >
+                        </div>
+
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    </div>
+
+    <div class="mt-8">
+        <h3 class="text-lg font-black text-slate-900">
+            AI Billing Overview
+        </h3>
+
+        <div class="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div class="text-[10px] font-black uppercase text-slate-400">
+                    Completed
+                </div>
+
+                <div class="mt-2 text-2xl font-black text-slate-900">
+                    {{ number_format($completedAiRequests) }}
+                </div>
+            </div>
+
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div class="text-[10px] font-black uppercase text-slate-400">
+                    Failed
+                </div>
+
+                <div class="mt-2 text-2xl font-black text-slate-900">
+                    {{ number_format($failedAiRequests) }}
+                </div>
+            </div>
+
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div class="text-[10px] font-black uppercase text-slate-400">
+                    OpenAI Cost
+                </div>
+
+                <div class="mt-2 text-2xl font-black text-slate-900">
+                    ${{ number_format($totalProviderCostUsd, 6) }}
+                </div>
+            </div>
+
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div class="text-[10px] font-black uppercase text-slate-400">
+                    Usage Value
+                </div>
+
+                <div class="mt-2 text-2xl font-black text-slate-900">
+                    ₦{{ number_format($totalUsageValueNgn, 2) }}
+                </div>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<script data-ai-commercial-preview>
+document.addEventListener('DOMContentLoaded', function () {
+    const markup =
+        document.querySelector('[data-ai-markup-input]');
+
+    const multiplier =
+        document.querySelector('[data-ai-selling-multiplier]');
+
+    function refreshMultiplier() {
+        if (!markup || !multiplier) {
+            return;
+        }
+
+        multiplier.textContent =
+            (
+                1
+                + (
+                    Number(markup.value || 0)
+                    / 100
+                )
+            ).toFixed(2)
+            + '×';
+    }
+
+    markup?.addEventListener(
+        'input',
+        refreshMultiplier
+    );
+});
+</script>
+
+
+<section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+
+        <div class="text-xs font-black uppercase tracking-[.16em] text-blue-600">
+            AI Credits
+        </div>
+
+        <h2 class="mt-2 text-2xl font-black text-slate-900">
+            Usage & Charging Rules
+        </h2>
+
+        <p class="mt-2 max-w-4xl text-sm leading-6 text-slate-500">
+            Provider cost and Esubiz AI Credits remain separate.
+            These rules determine how central AI activity consumes
+            Esubiz AI Credits.
+        </p>
+
+
+        <form
+            action="{{ route('admin.ai.credits.store') }}"
+            method="POST"
+            class="mt-6 grid gap-4 rounded-2xl bg-slate-50 p-5 md:grid-cols-2 xl:grid-cols-4"
+        >
+            @csrf
+
+            <input
+                name="key"
+                required
+                placeholder="e.g. text.standard"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <input
+                name="label"
+                required
+                placeholder="Rule label"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <input
+                name="unit"
+                required
+                value="request"
+                placeholder="request / image / token"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <input
+                type="number"
+                step="0.000001"
+                min="0"
+                name="credits_per_unit"
+                required
+                value="1"
+                placeholder="Credits per unit"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <input
+                type="number"
+                step="0.000001"
+                min="0"
+                name="minimum_credits"
+                required
+                value="1"
+                placeholder="Minimum charge"
+                class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
+            >
+
+            <label class="flex items-center gap-2 text-sm font-bold">
+                <input
+                    type="checkbox"
+                    name="is_active"
+                    value="1"
+                    checked
+                >
+                Active
+            </label>
+
+            <button class="rounded-xl bg-blue-600 px-6 py-3 text-sm font-black text-white">
+                Add Credit Rule
+            </button>
+
+        </form>
+
+
+        <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+
+            @forelse($creditRules as $rule)
+
+                <article class="rounded-2xl border border-slate-200 p-5">
+
+                    <div class="text-xs font-black uppercase text-blue-600">
+                        {{ $rule->key }}
+                    </div>
+
+                    <h3 class="mt-2 font-black text-slate-900">
+                        {{ $rule->label }}
+                    </h3>
+
+                    <div class="mt-4 text-2xl font-black text-slate-900">
+                        {{ rtrim(rtrim($rule->credits_per_unit, '0'), '.') }}
+                    </div>
+
+                    <div class="mt-1 text-xs text-slate-500">
+                        credits / {{ $rule->unit }}
+                    </div>
+
+                </article>
+
+            @empty
+
+                <div class="col-span-full rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
+                    No AI credit charging rules configured.
+                </div>
+
+            @endforelse
+
+        </div>
+
+    </section>
+
+
+    {{-- =====================================================
+         CENTRAL SERVICE LIBRARY
+    ====================================================== --}}
+    <section>
+
+        <div class="text-xs font-black uppercase tracking-[.16em] text-blue-600">
+            AI Service Library
+        </div>
+
+        <h2 class="mt-2 text-2xl font-black text-slate-900">
+            Central Services
+        </h2>
+
+        <div class="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+
+            @foreach($services as $service)
+
+                <article class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+
+                    <div class="text-xs font-black uppercase text-blue-600">
+                        Registered
+                    </div>
+
+                    <h3 class="mt-3 text-lg font-black text-slate-900">
+                        {{ $service['label'] }}
+                    </h3>
+
+                    <p class="mt-2 text-sm leading-6 text-slate-500">
+                        {{ $service['description'] }}
+                    </p>
+
+                </article>
+
+            @endforeach
+
+        </div>
+
+    </section>
+
+
+    {{-- CAPABILITY LIBRARY --}}
+    <section>
+
+        <div class="text-xs font-black uppercase tracking-[.16em] text-blue-600">
+            Capability Library
+        </div>
+
+        <h2 class="mt-2 text-2xl font-black text-slate-900">
+            Registered AI Functions
+        </h2>
+
+        <div class="mt-6 grid gap-5 lg:grid-cols-2">
+
+            @forelse($capabilities as $capability)
+
+                <article class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+
+                    <div class="text-xs font-black uppercase text-slate-400">
+                        {{ $capability['key'] }}
+                    </div>
+
+                    <h3 class="mt-2 text-lg font-black text-slate-900">
+                        {{ $capability['label'] }}
+                    </h3>
+
+                    @if(!empty($capability['functions']))
+                        <div class="mt-5 flex flex-wrap gap-2">
+
+                            @foreach($capability['functions'] as $function)
+                                <span class="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700">
+                                    {{ $function }}
+                                </span>
+                            @endforeach
+
+                        </div>
+                    @endif
+
+                </article>
+
+            @empty
+
+                <div class="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-sm text-slate-500">
+                    No AI capabilities registered.
+                </div>
+
+            @endforelse
+
+        </div>
+
+    </section>
+
+</div>
+
+
+
+<script data-ai-avatar-preview-script>
+document.addEventListener(
+    'DOMContentLoaded',
+    function () {
+
+        document.querySelectorAll(
+            '[data-ai-avatar-input]'
+        ).forEach(
+            function (input) {
+
+                input.addEventListener(
+                    'change',
+                    function () {
+
+                        const file =
+                            input.files
+                            && input.files[0];
+
+                        const targetId =
+                            input.getAttribute(
+                                'data-ai-avatar-preview-target'
+                            );
+
+                        const box =
+                            targetId
+                                ? document.getElementById(
+                                    targetId
+                                )
+                                : null;
+
+                        const image =
+                            box
+                                ? box.querySelector(
+                                    'img'
+                                )
+                                : null;
+
+
+                        if (
+                            !file
+                            || !box
+                            || !image
+                        ) {
+
+                            if (box) {
+                                box.classList.add(
+                                    'hidden'
+                                );
+                            }
+
+                            return;
+                        }
+
+
+                        if (
+                            !file.type
+                                .startsWith(
+                                    'image/'
+                                )
+                        ) {
+                            return;
+                        }
+
+
+                        const url =
+                            URL.createObjectURL(
+                                file
+                            );
+
+
+                        image.src =
+                            url;
+
+
+                        box.classList.remove(
+                            'hidden'
+                        );
+
+
+                        image.onload =
+                            function () {
+
+                                URL.revokeObjectURL(
+                                    url
+                                );
+                            };
+                    }
+                );
+            }
+        );
+
+    }
+);
+</script>
+
+
+
+<!-- CENTRAL_GLOBAL_AI_CHAT_APPEARANCE_PANEL -->
+
+@php
+    $globalChatSettings =
+        \Illuminate\Support\Facades\DB::table(
+            'central_ai_chat_settings'
+        )
+            ->orderBy('id')
+            ->first();
+@endphp
+
+
+<div
+    class="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+>
+
+    <div class="mb-7">
+
+        <h2 class="text-lg font-black text-slate-950">
+            Global AI Chat Appearance
+        </h2>
+
+        <p class="mt-1 text-sm text-slate-500">
+            Default chat colors used across the Esubiz ecosystem.
+            Users and websites may override these defaults where allowed.
+        </p>
+
+    </div>
+
+
+    @if(session('success'))
+
+        <div
+            class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700"
+        >
+            {{ session('success') }}
+        </div>
+
+    @endif
+
+
+    <form
+        method="POST"
+        action="{{ route('admin.ai.settings.chat.update') }}"
+        class="space-y-7"
+    >
+
+        @csrf
+        @method('PATCH')
+
+
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+
+            <div>
+
+                <label
+                    class="mb-2 block text-sm font-bold text-slate-700"
+                >
+                    AI Bubble Color
+                </label>
+
+                <div class="flex items-center gap-3">
+
+                    <input
+                        type="color"
+                        name="ai_bubble_color"
+                        value="{{ old(
+                            'ai_bubble_color',
+                            $globalChatSettings->ai_bubble_color
+                                ?? '#0b1f3a'
+                        ) }}"
+                        class="h-14 w-20 cursor-pointer rounded-xl border border-slate-300 bg-white p-1"
+                    >
+
+                    <span class="text-sm text-slate-500">
+                        Default AI message background
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <div>
+
+                <label
+                    class="mb-2 block text-sm font-bold text-slate-700"
+                >
+                    AI Text Color
+                </label>
+
+                <div class="flex items-center gap-3">
+
+                    <input
+                        type="color"
+                        name="ai_text_color"
+                        value="{{ old(
+                            'ai_text_color',
+                            $globalChatSettings->ai_text_color
+                                ?? '#ffffff'
+                        ) }}"
+                        class="h-14 w-20 cursor-pointer rounded-xl border border-slate-300 bg-white p-1"
+                    >
+
+                    <span class="text-sm text-slate-500">
+                        Default AI message text
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <div>
+
+                <label
+                    class="mb-2 block text-sm font-bold text-slate-700"
+                >
+                    User Bubble Color
+                </label>
+
+                <div class="flex items-center gap-3">
+
+                    <input
+                        type="color"
+                        name="user_bubble_color"
+                        value="{{ old(
+                            'user_bubble_color',
+                            $globalChatSettings->user_bubble_color
+                                ?? '#f1f5f9'
+                        ) }}"
+                        class="h-14 w-20 cursor-pointer rounded-xl border border-slate-300 bg-white p-1"
+                    >
+
+                    <span class="text-sm text-slate-500">
+                        Default user message background
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <div>
+
+                <label
+                    class="mb-2 block text-sm font-bold text-slate-700"
+                >
+                    User Text Color
+                </label>
+
+                <div class="flex items-center gap-3">
+
+                    <input
+                        type="color"
+                        name="user_text_color"
+                        value="{{ old(
+                            'user_text_color',
+                            $globalChatSettings->user_text_color
+                                ?? '#0f172a'
+                        ) }}"
+                        class="h-14 w-20 cursor-pointer rounded-xl border border-slate-300 bg-white p-1"
+                    >
+
+                    <span class="text-sm text-slate-500">
+                        Default user message text
+                    </span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        
+            {{-- ESUBIZ_MAIN_AI_GLOBAL_CHAT_LIMITS_V1 --}}
+            <div class="mt-7 border-t border-slate-100 pt-7">
+
+                <div class="mb-6">
+
+                    <h3 class="text-base font-black text-slate-950">
+                        Chat & Upload Limits
+                    </h3>
+
+                    <p class="mt-1 text-sm text-slate-500">
+                        Global limits for Esubiz AI on SaaS and off-server websites.
+                    </p>
+
+                </div>
+
+                <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+
+                    <div>
+                        <label class="mb-2 block text-sm font-bold text-slate-700">
+                            Characters Per Message
+                        </label>
+
+                        <input
+                            type="number"
+                            name="max_message_characters"
+                            min="100"
+                            max="100000"
+                            step="1"
+                            required
+                            value="{{ old('max_message_characters', $globalAiChatSettings->max_message_characters ?? $chat->max_message_characters ?? 10000) }}"
+                            class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+                        >
+
+                        <p class="mt-2 text-xs text-slate-500">
+                            Maximum text characters allowed in one user message.
+                        </p>
+                    </div>
+
+                    <div>
+                        <label class="mb-2 block text-sm font-bold text-slate-700">
+                            Messages Per Conversation
+                        </label>
+
+                        <input
+                            type="number"
+                            name="max_conversation_messages"
+                            min="1"
+                            max="1000"
+                            step="1"
+                            required
+                            value="{{ old('max_conversation_messages', $globalAiChatSettings->max_conversation_messages ?? $chat->max_conversation_messages ?? 100) }}"
+                            class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+                        >
+
+                        <p class="mt-2 text-xs text-slate-500">
+                            Maximum messages allowed before a new conversation is required.
+                        </p>
+                    </div>
+
+                    <div>
+                        <label class="mb-2 block text-sm font-bold text-slate-700">
+                            Photos Per Message
+                        </label>
+
+                        <input
+                            type="number"
+                            name="max_photos_per_message"
+                            min="0"
+                            max="20"
+                            step="1"
+                            required
+                            value="{{ old('max_photos_per_message', $globalAiChatSettings->max_photos_per_message ?? $chat->max_photos_per_message ?? 5) }}"
+                            class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+                        >
+
+                        <p class="mt-2 text-xs text-slate-500">
+                            Maximum photos allowed with one message. Set 0 to disable uploads.
+                        </p>
+                    </div>
+
+                    <div>
+                        <label class="mb-2 block text-sm font-bold text-slate-700">
+                            Maximum Photo Size
+                        </label>
+
+                        <div class="flex items-center gap-3">
+
+                            <input
+                                type="number"
+                                name="max_photo_size_mb"
+                                min="1"
+                                max="50"
+                                step="1"
+                                required
+                                value="{{ old('max_photo_size_mb', $globalAiChatSettings->max_photo_size_mb ?? $chat->max_photo_size_mb ?? 10) }}"
+                                class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+                            >
+
+                            <span class="shrink-0 text-sm font-bold text-slate-600">
+                                MB
+                            </span>
+
+                        </div>
+
+                        <p class="mt-2 text-xs text-slate-500">
+                            Maximum size of each photo, such as 1 MB or 2 MB.
+                        </p>
+                    </div>
+
+                </div>
+
+            </div>
+
+<div class="border-t border-slate-100 pt-6">
+
+            <button
+                type="submit"
+                class="rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-blue-700"
+            >
+                Save Global Chat Appearance
+            </button>
+
+        </div>
+
+    </form>
+
+</div>
+
+
+@endsection

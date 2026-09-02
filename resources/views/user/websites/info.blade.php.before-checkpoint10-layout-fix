@@ -1,0 +1,347 @@
+@extends('user.layouts.app')
+
+@section('title', ($website->name ?: 'Website') . ' Information')
+
+@section('content')
+
+<div class="min-h-screen bg-slate-100 px-5 py-8 sm:px-6">
+
+    <div class="mx-auto max-w-7xl space-y-6">
+
+        <div class="flex flex-wrap items-start justify-between gap-4">
+
+            <div>
+
+                <a
+                    href="{{ route('user.websites.index') }}"
+                    class="text-sm font-bold text-blue-600 hover:text-blue-700"
+                >
+                    ← My Websites
+                </a>
+
+                <div class="mt-4 text-xs font-black uppercase tracking-widest text-blue-600">
+                    Website Information
+                </div>
+
+                <h1 class="mt-2 text-3xl font-black text-slate-900">
+                    {{ $detail['website']['name'] ?: 'Unnamed Website' }}
+                </h1>
+
+                <p class="mt-2 text-sm text-slate-500">
+                    {{ $detail['website']['registered_domain'] ?: 'No registered domain' }}
+                </p>
+
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+
+                <span
+                    class="rounded-full px-3 py-1 text-xs font-black {{
+                        $detail['website']['user_enabled']
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-slate-200 text-slate-600'
+                    }}"
+                >
+                    {{ $detail['website']['user_enabled'] ? 'Enabled' : 'Disabled' }}
+                </span>
+
+                <span
+                    class="rounded-full px-3 py-1 text-xs font-black {{
+                        $detail['website']['is_off_server']
+                            ? 'bg-violet-100 text-violet-700'
+                            : 'bg-blue-100 text-blue-700'
+                    }}"
+                >
+                    {{ $detail['website']['is_off_server'] ? 'Off Server' : 'SaaS' }}
+                </span>
+
+            </div>
+
+        </div>
+
+
+        {{-- Credits --}}
+        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+
+            @foreach([
+                'ai' => 'AI Credits',
+                'sms' => 'SMS Credits',
+                'email' => 'Email Credits',
+                'whatsapp' => 'WhatsApp Credits',
+            ] as $service => $label)
+
+                @php
+                    $credit =
+                        $detail['credits'][$service]
+                        ?? [
+                            'balance' => 0,
+                            'lifetime_credited' => 0,
+                            'lifetime_consumed' => 0,
+                        ];
+                @endphp
+
+                <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+
+                    <div class="text-xs font-black uppercase tracking-wide text-slate-400">
+                        {{ $label }}
+                    </div>
+
+                    <div class="mt-3 text-3xl font-black text-slate-900">
+                        {{ number_format((float) $credit['balance'], 2) }}
+                    </div>
+
+                    <div class="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4">
+
+                        <div>
+                            <div class="text-xs font-bold text-slate-400">
+                                Credited
+                            </div>
+
+                            <div class="mt-1 text-sm font-black text-slate-700">
+                                {{ number_format((float) $credit['lifetime_credited'], 2) }}
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="text-xs font-bold text-slate-400">
+                                Consumed
+                            </div>
+
+                            <div class="mt-1 text-sm font-black text-slate-700">
+                                {{ number_format((float) $credit['lifetime_consumed'], 2) }}
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            @endforeach
+
+        </div>
+
+
+        {{-- Product state --}}
+        <div class="grid gap-6 xl:grid-cols-3">
+
+            <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+
+                <div class="flex items-center justify-between">
+
+                    <h2 class="text-xl font-black text-slate-900">
+                        Add-ons
+                    </h2>
+
+                    <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+                        {{ $detail['addons']->count() }}
+                    </span>
+
+                </div>
+
+                <div class="mt-5 space-y-3">
+
+                    @forelse($detail['addons'] as $addon)
+
+                        <div class="rounded-2xl border border-slate-200 p-4">
+
+                            <div class="font-bold text-slate-800">
+                                {{
+                                    $addon->product_name
+                                    ?? $addon->name
+                                    ?? ('Add-on #' . $addon->id)
+                                }}
+                            </div>
+
+                            <div class="mt-1 text-xs text-slate-500">
+                                {{ ucfirst($addon->status ?? 'active') }}
+                            </div>
+
+                        </div>
+
+                    @empty
+
+                        <div class="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">
+                            No active add-ons.
+                        </div>
+
+                    @endforelse
+
+                </div>
+
+            </div>
+
+
+            <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+
+                <h2 class="text-xl font-black text-slate-900">
+                    Theme
+                </h2>
+
+                <div class="mt-5">
+
+                    @if($detail['theme']['selected'])
+
+                        <div class="rounded-2xl border border-slate-200 p-4">
+
+                            <div class="font-bold text-slate-800">
+                                {{
+                                    $detail['theme']['package']->name
+                                    ?? $detail['theme']['selected']
+                                }}
+                            </div>
+
+                        </div>
+
+                    @else
+
+                        <div class="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">
+                            No theme currently recorded.
+                        </div>
+
+                    @endif
+
+                </div>
+
+            </div>
+
+
+            <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+
+                <div class="flex items-center justify-between">
+
+                    <h2 class="text-xl font-black text-slate-900">
+                        Modules
+                    </h2>
+
+                    <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+                        {{ $detail['modules']->count() }}
+                    </span>
+
+                </div>
+
+                <div class="mt-5 space-y-3">
+
+                    @forelse($detail['modules'] as $module)
+
+                        <div class="rounded-2xl border border-slate-200 p-4">
+
+                            <div class="font-bold text-slate-800">
+                                {{
+                                    $module->name
+                                    ?? $module->module_name
+                                    ?? ('Module #' . ($module->module_id ?? $module->id))
+                                }}
+                            </div>
+
+                            <div class="mt-1 text-xs text-slate-500">
+                                {{ ucfirst($module->status ?? 'installed') }}
+                            </div>
+
+                        </div>
+
+                    @empty
+
+                        <div class="rounded-2xl bg-slate-50 p-5 text-sm text-slate-500">
+                            No modules currently installed.
+                        </div>
+
+                    @endforelse
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        {{-- Identity / licence --}}
+        <div class="grid gap-6 xl:grid-cols-2">
+
+            <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+
+                <h2 class="text-xl font-black text-slate-900">
+                    Website Details
+                </h2>
+
+                <div class="mt-5 divide-y divide-slate-100">
+
+                    @foreach([
+                        'Website ID' => $detail['website']['id'],
+                        'Website UUID' => $detail['website']['website_uuid'],
+                        'Type' => $detail['website']['type'],
+                        'Edition' => $detail['website']['edition'],
+                        'Domain' => $detail['website']['registered_domain'],
+                        'Registry Status' => $detail['website']['registry_status'],
+                        'Website Status' => $detail['website']['status'],
+                    ] as $label => $value)
+
+                        <div class="grid gap-2 py-4 sm:grid-cols-3">
+
+                            <div class="text-xs font-black uppercase tracking-wide text-slate-400">
+                                {{ $label }}
+                            </div>
+
+                            <div class="break-words text-sm font-bold text-slate-800 sm:col-span-2">
+                                {{ $value !== null && $value !== '' ? $value : '—' }}
+                            </div>
+
+                        </div>
+
+                    @endforeach
+
+                </div>
+
+            </div>
+
+
+            <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+
+                <h2 class="text-xl font-black text-slate-900">
+                    Licence & Entitlements
+                </h2>
+
+                <div class="mt-5">
+
+                    <div class="rounded-2xl bg-slate-50 p-5">
+
+                        <div class="text-xs font-black uppercase tracking-wide text-slate-400">
+                            Licence
+                        </div>
+
+                        <div class="mt-2 font-black text-slate-800">
+                            {{
+                                $detail['licence']['required']
+                                    ? (
+                                        $detail['licence']['licence']
+                                            ? 'Active licence record'
+                                            : 'No licence record'
+                                    )
+                                    : 'SaaS managed'
+                            }}
+                        </div>
+
+                    </div>
+
+                    <div class="mt-4 rounded-2xl bg-slate-50 p-5">
+
+                        <div class="text-xs font-black uppercase tracking-wide text-slate-400">
+                            Product Entitlements
+                        </div>
+
+                        <div class="mt-2 text-2xl font-black text-slate-900">
+                            {{ $detail['entitlements']->count() }}
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+@endsection

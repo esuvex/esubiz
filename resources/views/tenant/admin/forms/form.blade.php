@@ -1,0 +1,1292 @@
+@extends('tenant.admin.layouts.app')
+
+@section('content')
+@php
+    $editing = !empty($form);
+
+    $formAction = $editing
+        ? route(
+            'tenant.cms.forms.update',
+            [
+                'subdomain' => $website->subdomain,
+                'form' => $form->id,
+            ]
+        )
+        : route(
+            'tenant.cms.forms.store',
+            [
+                'subdomain' => $website->subdomain,
+            ]
+        );
+@endphp
+
+<div class="mx-auto max-w-5xl space-y-6">
+
+    <div class="flex items-center justify-between gap-4">
+        <div>
+            <a
+                href="{{ route('tenant.cms.forms.index', ['subdomain' => $website->subdomain]) }}"
+                class="text-sm font-bold text-slate-500 hover:text-slate-900"
+            >
+                ← Forms
+            </a>
+
+            <h1 class="mt-2 text-2xl font-black text-slate-900">
+                {{ $editing ? 'Edit Form' : 'Create Form' }}
+            </h1>
+        </div>
+    </div>
+
+    {{-- ESUBIZ_CORE_FORM_BUILDER_SALES_TRIGGER_V1 --}}
+    <x-core-addon-sales-triggers
+        location="forms.builder"
+        :website="$website"
+        class="mt-4"
+    />
+
+    @if(session('success'))
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+            {{ session('success') }}
+        </div>
+    @endif
+
+    @if($errors->any())
+        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            <div class="font-black">Please correct the following:</div>
+            <ul class="mt-2 list-disc pl-5">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
+    <form
+        method="POST"
+        action="{{ $formAction }}"
+        class="space-y-6"
+        data-core-form-editor
+    >
+        @csrf
+
+        @if($editing)
+            @method('PUT')
+        @endif
+
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div class="grid gap-5 md:grid-cols-2">
+                <div>
+                    <label class="mb-2 block text-sm font-black text-slate-700">
+                        Form Name
+                    </label>
+
+                    <input
+                        type="text"
+                        name="name"
+                        value="{{ old('name', $form->name ?? '') }}"
+                        {{ $isSystemForm ? 'readonly' : '' }}
+                        required
+                        class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-700"
+                    >
+                </div>
+
+                <div>
+                    <label class="mb-2 block text-sm font-black text-slate-700">
+                        Slug
+                    </label>
+
+                    <input
+                        type="text"
+                        name="slug"
+                        value="{{ old('slug', $form->slug ?? '') }}"
+                        {{ $isSystemForm ? 'readonly' : '' }}
+                        placeholder="contact-form"
+                        class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-700"
+                    >
+                </div>
+            </div>
+
+            <div class="mt-5">
+                <label class="mb-2 block text-sm font-black text-slate-700">
+                    Description
+                </label>
+
+                <textarea
+                    name="description"
+                    rows="3"
+                    class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-700"
+                >{{ old('description', $form->description ?? '') }}</textarea>
+            </div>
+
+            <label class="mt-5 flex items-center gap-3">
+                <input
+                    type="hidden"
+                    name="is_active"
+                    value="0"
+                >
+
+                <input
+                    type="checkbox"
+                    name="is_active"
+                    value="1"
+                    {{ old('is_active', $form->is_active ?? true) ? 'checked' : '' }}
+                    class="h-4 w-4"
+                >
+
+                <span class="text-sm font-bold text-slate-700">
+                    Active
+                </span>
+            </label>
+
+            @if($isSystemForm)
+                <div class="mt-5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                    This is a Core system form. Its name and slug are protected.
+                </div>
+            @endif
+        </div>
+
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h2 class="text-lg font-black text-slate-900">
+                        Fields
+                    </h2>
+
+                    <p class="mt-1 text-sm text-slate-500">
+                        Drag fields to reorder them. Click and configure each field as needed.
+                    </p>
+                </div>
+
+                <button
+                    type="button"
+                    data-add-field
+                    class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white"
+                >
+                    + Add Field
+                </button>
+            </div>
+
+            <div
+                class="mt-5 space-y-4"
+                data-fields
+            >
+                @foreach($fields as $index => $field)
+                    @php
+                        $fieldOptions = '';
+
+                        if (!empty($field->options)) {
+                            $decoded = json_decode(
+                                $field->options,
+                                true
+                            );
+
+                            if (is_array($decoded)) {
+                                $fieldOptions =
+                                    implode("\n", $decoded);
+                            }
+                        }
+                    @endphp
+
+                    <div
+                        class="rounded-xl border border-slate-200 p-4"
+                        data-field-row
+                     draggable="false">
+                        {{-- ESUBIZ_CORE_FORM_BUILDER_DRAG_DROP_UI_V1 --}}
+                        <div
+                            class="mb-4 flex cursor-pointer items-center gap-3"
+                            data-field-drag-header
+                            data-field-toggle
+                            role="button"
+                            tabindex="0"
+                            aria-expanded="false"
+                        >
+                            <button
+                                type="button"
+                                data-field-drag-handle
+                                class="cursor-grab select-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-lg font-black leading-none text-slate-500 hover:bg-slate-100 active:cursor-grabbing"
+                                title="Drag to reorder"
+                                aria-label="Drag field to reorder"
+                            >
+                                ⋮⋮
+                            </button>
+
+                            <div class="min-w-0 flex-1">
+                                <div
+                                    class="truncate text-sm font-black text-slate-800"
+                                    data-field-card-label
+                                >
+                                    Field
+                                </div>
+
+                                <div class="mt-0.5 text-xs text-slate-400">
+                                    Drag to reorder
+                                </div>
+                            </div>
+
+                            <span
+                                class="select-none text-sm font-black text-slate-400 transition-transform"
+                                data-field-chevron
+                                aria-hidden="true"
+                            >
+                                ▼
+                            </span>
+                        </div>
+
+                        <div class="grid gap-4 md:grid-cols-2">
+                            <div>
+                                <label class="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
+                                    Label
+                                </label>
+
+                                <input
+                                    type="text"
+                                    name="fields[{{ $index }}][label]"
+                                    value="{{ old("fields.$index.label", $field->label) }}"
+                                    required
+                                    class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
+                                >
+                            </div>
+
+                            <div>
+                                <label class="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
+                                    Field Name
+                                </label>
+
+                                <input
+                                    type="text"
+                                    name="fields[{{ $index }}][name]"
+                                    value="{{ old("fields.$index.name", $field->name) }}"
+                                    required
+                                    class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
+                                >
+                            </div>
+
+                            <div>
+                                <label class="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
+                                    Type
+                                </label>
+
+                                <select
+                                    name="fields[{{ $index }}][type]"
+                                    data-field-type
+                                    class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
+                                >
+                                    @foreach([
+                                        'text' => 'Text',
+                                        'email' => 'Email',
+                                        'tel' => 'Phone',
+                                        'number' => 'Number',
+                                        'textarea' => 'Textarea',
+                                        'select' => 'Select',
+                                        'checkbox' => 'Checkbox',
+                                        'radio' => 'Radio',
+                                        'password' => 'Password',
+                                        'date' => 'Date',
+                                    ] as $value => $label)
+                                        <option
+                                            value="{{ $value }}"
+                                            {{ old("fields.$index.type", $field->type) === $value ? 'selected' : '' }}
+                                        >
+                                            {{ $label }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            {{-- ESUBIZ_CORE_FORM_FIELD_OPTIONS_UI_V1 --}}
+                            <div data-field-options-container>
+                                <label class="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
+                                    Options
+                                </label>
+
+                                <textarea
+                                    name="fields[{{ $index }}][options]"
+                                    rows="2"
+                                    placeholder="One option per line"
+                                    class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
+                                >{{ old("fields.$index.options", $fieldOptions) }}</textarea>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 flex items-center justify-between gap-4">
+                            <label class="flex items-center gap-2 text-sm font-bold text-slate-700">
+                                <input
+                                    type="hidden"
+                                    name="fields[{{ $index }}][required]"
+                                    value="0"
+                                >
+
+                                <input
+                                    type="checkbox"
+                                    name="fields[{{ $index }}][required]"
+                                    value="1"
+                                    {{ old("fields.$index.required", $field->required) ? 'checked' : '' }}
+                                >
+
+                                Required
+                            </label>
+
+                            <button
+                                type="button"
+                                data-remove-field
+                                class="text-sm font-bold text-red-600 hover:text-red-800"
+                            >
+                                Remove
+                            </button>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+
+            <template data-field-template>
+                <div
+                    class="rounded-xl border border-slate-200 p-4"
+                    data-field-row
+                 draggable="false">
+                        {{-- ESUBIZ_CORE_FORM_BUILDER_DRAG_DROP_UI_V1 --}}
+                        <div
+                            class="mb-4 flex cursor-pointer items-center gap-3"
+                            data-field-drag-header
+                            data-field-toggle
+                            role="button"
+                            tabindex="0"
+                            aria-expanded="false"
+                        >
+                            <button
+                                type="button"
+                                data-field-drag-handle
+                                class="cursor-grab select-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-lg font-black leading-none text-slate-500 hover:bg-slate-100 active:cursor-grabbing"
+                                title="Drag to reorder"
+                                aria-label="Drag field to reorder"
+                            >
+                                ⋮⋮
+                            </button>
+
+                            <div class="min-w-0 flex-1">
+                                <div
+                                    class="truncate text-sm font-black text-slate-800"
+                                    data-field-card-label
+                                >
+                                    Field
+                                </div>
+
+                                <div class="mt-0.5 text-xs text-slate-400">
+                                    Drag to reorder
+                                </div>
+                            </div>
+
+                            <span
+                                class="select-none text-sm font-black text-slate-400 transition-transform"
+                                data-field-chevron
+                                aria-hidden="true"
+                            >
+                                ▼
+                            </span>
+                        </div>
+
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <div>
+                            <label class="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
+                                Label
+                            </label>
+
+                            <input
+                                type="text"
+                                name="fields[__INDEX__][label]"
+                                required
+                                class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
+                            >
+                        </div>
+
+                        <div>
+                            <label class="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
+                                Field Name
+                            </label>
+
+                            <input
+                                type="text"
+                                name="fields[__INDEX__][name]"
+                                required
+                                class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
+                            >
+                        </div>
+
+                        <div>
+                            <label class="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
+                                Type
+                            </label>
+
+                            <select
+                                name="fields[__INDEX__][type]"
+                                data-field-type
+                                class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
+                            >
+                                <option value="text">Text</option>
+                                <option value="email">Email</option>
+                                <option value="tel">Phone</option>
+                                <option value="number">Number</option>
+                                <option value="textarea">Textarea</option>
+                                <option value="select">Select</option>
+                                <option value="checkbox">Checkbox</option>
+                                <option value="radio">Radio</option>
+                                <option value="password">Password</option>
+                                <option value="date">Date</option>
+                            </select>
+                        </div>
+
+                        {{-- ESUBIZ_CORE_FORM_FIELD_OPTIONS_UI_V1 --}}
+                        <div data-field-options-container>
+                            <label class="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
+                                Options
+                            </label>
+
+                            <textarea
+                                name="fields[__INDEX__][options]"
+                                rows="2"
+                                placeholder="One option per line"
+                                class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
+                            ></textarea>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 flex items-center justify-between gap-4">
+                        <label class="flex items-center gap-2 text-sm font-bold text-slate-700">
+                            <input
+                                type="hidden"
+                                name="fields[__INDEX__][required]"
+                                value="0"
+                            >
+
+                            <input
+                                type="checkbox"
+                                name="fields[__INDEX__][required]"
+                                value="1"
+                            >
+
+                            Required
+                        </label>
+
+                        <button
+                            type="button"
+                            data-remove-field
+                            class="text-sm font-bold text-red-600 hover:text-red-800"
+                        >
+                            Remove
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <div class="sticky bottom-4 flex justify-end rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-lg backdrop-blur">
+            <button
+                type="submit"
+                class="rounded-xl bg-slate-900 px-6 py-3 text-sm font-black text-white"
+            >
+                {{ $editing ? 'Save Form' : 'Create Form' }}
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+/*
+ * ESUBIZ_CORE_FORM_BUILDER_DRAG_DROP_RUNTIME_V1
+ *
+ * Basic Form Builder field-management runtime.
+ *
+ * forms + form_fields remain the authoritative
+ * persistence layer.
+ */
+document.addEventListener(
+    'DOMContentLoaded',
+    function () {
+        const editor =
+            document.querySelector(
+                '[data-core-form-editor]'
+            );
+
+        if (!editor) {
+            return;
+        }
+
+        const fields =
+            editor.querySelector(
+                '[data-fields]'
+            );
+
+        const template =
+            editor.querySelector(
+                '[data-field-template]'
+            );
+
+        const addButton =
+            editor.querySelector(
+                '[data-add-field]'
+            );
+
+        if (
+            !fields
+            || !template
+            || !addButton
+        ) {
+            return;
+        }
+
+        let nextIndex =
+            fields.querySelectorAll(
+                '[data-field-row]'
+            ).length;
+
+        let draggingRow = null;
+        let dragHandleArmed = false;
+
+        /*
+         * Card heading follows the actual Label field.
+         */
+        function updateCardLabel(row) {
+            if (!row) {
+                return;
+            }
+
+            const input =
+                row.querySelector(
+                    'input[name$="[label]"]'
+                );
+
+            const heading =
+                row.querySelector(
+                    '[data-field-card-label]'
+                );
+
+            if (!heading) {
+                return;
+            }
+
+            const value =
+                input
+                    ? input.value.trim()
+                    : '';
+
+            heading.textContent =
+                value || 'Untitled Field';
+        }
+
+        /*
+         * Visual order is authoritative.
+         *
+         * Convert DOM order back into:
+         *
+         * fields[0][...]
+         * fields[1][...]
+         * fields[2][...]
+         *
+         * before persistence.
+         */
+        function renumberFields() {
+            const rows =
+                fields.querySelectorAll(
+                    '[data-field-row]'
+                );
+
+            rows.forEach(
+                function (row, index) {
+                    row.querySelectorAll(
+                        '[name]'
+                    ).forEach(
+                        function (control) {
+                            control.name =
+                                control.name.replace(
+                                    /fields\[\d+\]/,
+                                    'fields['
+                                        + index
+                                        + ']'
+                                );
+                        }
+                    );
+
+                    updateCardLabel(row);
+                }
+            );
+
+            nextIndex = rows.length;
+        }
+
+        /*
+         * Returns the field immediately following the
+         * current pointer position.
+         */
+        function getDragAfterElement(
+            container,
+            y
+        ) {
+            const candidates = [
+                ...container.querySelectorAll(
+                    '[data-field-row]:not(.is-dragging)'
+                )
+            ];
+
+            return candidates.reduce(
+                function (
+                    closest,
+                    child
+                ) {
+                    const box =
+                        child.getBoundingClientRect();
+
+                    const offset =
+                        y
+                        - box.top
+                        - box.height / 2;
+
+                    if (
+                        offset < 0
+                        && offset
+                            > closest.offset
+                    ) {
+                        return {
+                            offset: offset,
+                            element: child
+                        };
+                    }
+
+                    return closest;
+                },
+                {
+                    offset:
+                        Number.NEGATIVE_INFINITY,
+                    element: null
+                }
+            ).element;
+        }
+
+        /*
+         * Only the ⋮⋮ handle starts dragging.
+         *
+         * This keeps text inputs, selects and textarea
+         * interactions normal.
+         */
+        fields.addEventListener(
+            'pointerdown',
+            function (event) {
+                const handle =
+                    event.target.closest(
+                        '[data-field-drag-handle]'
+                    );
+
+                if (!handle) {
+                    return;
+                }
+
+                const row =
+                    handle.closest(
+                        '[data-field-row]'
+                    );
+
+                if (!row) {
+                    return;
+                }
+
+                dragHandleArmed = true;
+
+                row.setAttribute(
+                    'draggable',
+                    'true'
+                );
+            }
+        );
+
+        document.addEventListener(
+            'pointerup',
+            function () {
+                if (
+                    draggingRow === null
+                ) {
+                    fields
+                        .querySelectorAll(
+                            '[data-field-row]'
+                        )
+                        .forEach(
+                            function (row) {
+                                row.setAttribute(
+                                    'draggable',
+                                    'false'
+                                );
+                            }
+                        );
+                }
+
+                dragHandleArmed = false;
+            }
+        );
+
+        /*
+         * ESUBIZ_CORE_FORM_BUILDER_COLLAPSIBLE_FIELDS_V2
+         *
+         * Each field row already has this structure:
+         *
+         * 1. header / drag summary
+         * 2. field configuration grid
+         * 3. Required / Remove footer
+         *
+         * Everything after the header is the collapsible body.
+         */
+        function setFieldExpanded(
+            row,
+            expanded
+        ) {
+            if (!row) {
+                return;
+            }
+
+            const header =
+                row.querySelector(
+                    '[data-field-toggle]'
+                );
+
+            if (!header) {
+                return;
+            }
+
+            const chevron =
+                row.querySelector(
+                    '[data-field-chevron]'
+                );
+
+            Array.from(
+                row.children
+            ).forEach(
+                function (child) {
+                    if (
+                        child === header
+                    ) {
+                        return;
+                    }
+
+                    child.classList.toggle(
+                        'hidden',
+                        !expanded
+                    );
+                }
+            );
+
+            header.setAttribute(
+                'aria-expanded',
+                expanded
+                    ? 'true'
+                    : 'false'
+            );
+
+            if (chevron) {
+                chevron.style.transform =
+                    expanded
+                        ? 'rotate(180deg)'
+                        : 'rotate(0deg)';
+            }
+        }
+
+        function toggleField(row) {
+            if (!row) {
+                return;
+            }
+
+            const header =
+                row.querySelector(
+                    '[data-field-toggle]'
+                );
+
+            if (!header) {
+                return;
+            }
+
+            const expanded =
+                header.getAttribute(
+                    'aria-expanded'
+                ) === 'true';
+
+            setFieldExpanded(
+                row,
+                !expanded
+            );
+        }
+
+        /*
+         * Click anywhere on the summary/header to
+         * open or close the field.
+         *
+         * Drag handle is excluded so dragging and
+         * collapsing remain separate interactions.
+         */
+        fields.addEventListener(
+            'click',
+            function (event) {
+                if (
+                    event.target.closest(
+                        '[data-field-drag-handle]'
+                    )
+                ) {
+                    return;
+                }
+
+                const header =
+                    event.target.closest(
+                        '[data-field-toggle]'
+                    );
+
+                if (!header) {
+                    return;
+                }
+
+                toggleField(
+                    header.closest(
+                        '[data-field-row]'
+                    )
+                );
+            }
+        );
+
+        /*
+         * Keyboard support.
+         */
+        fields.addEventListener(
+            'keydown',
+            function (event) {
+                if (
+                    event.key !== 'Enter'
+                    && event.key !== ' '
+                ) {
+                    return;
+                }
+
+                if (
+                    event.target.closest(
+                        '[data-field-drag-handle]'
+                    )
+                ) {
+                    return;
+                }
+
+                const header =
+                    event.target.closest(
+                        '[data-field-toggle]'
+                    );
+
+                if (!header) {
+                    return;
+                }
+
+                event.preventDefault();
+
+                toggleField(
+                    header.closest(
+                        '[data-field-row]'
+                    )
+                );
+            }
+        );
+
+        /*
+         * Add new field.
+         */
+        addButton.addEventListener(
+            'click',
+            function () {
+                const html =
+                    template.innerHTML.replace(
+                        /__INDEX__/g,
+                        String(nextIndex)
+                    );
+
+                nextIndex++;
+
+                fields.insertAdjacentHTML(
+                    'beforeend',
+                    html
+                );
+
+                const rows =
+                    fields.querySelectorAll(
+                        '[data-field-row]'
+                    );
+
+                const row =
+                    rows[
+                        rows.length - 1
+                    ];
+
+                if (row) {
+                    row.setAttribute(
+                        'draggable',
+                        'false'
+                    );
+
+                    updateCardLabel(row);
+
+                    setFieldExpanded(
+                        row,
+                        true
+                    );
+                }
+
+                renumberFields();
+
+                const labelInput =
+                    row
+                        ? row.querySelector(
+                            'input[name$="[label]"]'
+                        )
+                        : null;
+
+                if (labelInput) {
+                    labelInput.focus();
+                }
+            }
+        );
+
+        /*
+         * Live card-title update.
+         */
+        fields.addEventListener(
+            'input',
+            function (event) {
+                if (
+                    !event.target.matches(
+                        'input[name$="[label]"]'
+                    )
+                ) {
+                    return;
+                }
+
+                updateCardLabel(
+                    event.target.closest(
+                        '[data-field-row]'
+                    )
+                );
+            }
+        );
+
+        /*
+         * Remove field.
+         */
+        fields.addEventListener(
+            'click',
+            function (event) {
+                const button =
+                    event.target.closest(
+                        '[data-remove-field]'
+                    );
+
+                if (!button) {
+                    return;
+                }
+
+                const row =
+                    button.closest(
+                        '[data-field-row]'
+                    );
+
+                if (!row) {
+                    return;
+                }
+
+                row.remove();
+
+                renumberFields();
+            }
+        );
+
+        /*
+         * Drag start.
+         */
+        fields.addEventListener(
+            'dragstart',
+            function (event) {
+                const row =
+                    event.target.closest(
+                        '[data-field-row]'
+                    );
+
+                if (
+                    !row
+                    || !dragHandleArmed
+                ) {
+                    event.preventDefault();
+                    return;
+                }
+
+                draggingRow = row;
+
+                row.classList.add(
+                    'is-dragging',
+                    'opacity-50',
+                    'ring-2',
+                    'ring-blue-300'
+                );
+
+                if (event.dataTransfer) {
+                    event.dataTransfer.effectAllowed =
+                        'move';
+
+                    event.dataTransfer.setData(
+                        'text/plain',
+                        'core-form-field'
+                    );
+                }
+            }
+        );
+
+        /*
+         * Live reorder while dragging.
+         */
+        fields.addEventListener(
+            'dragover',
+            function (event) {
+                if (!draggingRow) {
+                    return;
+                }
+
+                event.preventDefault();
+
+                if (event.dataTransfer) {
+                    event.dataTransfer.dropEffect =
+                        'move';
+                }
+
+                const afterElement =
+                    getDragAfterElement(
+                        fields,
+                        event.clientY
+                    );
+
+                if (
+                    afterElement === null
+                ) {
+                    fields.appendChild(
+                        draggingRow
+                    );
+
+                    return;
+                }
+
+                if (
+                    afterElement
+                    !== draggingRow
+                ) {
+                    fields.insertBefore(
+                        draggingRow,
+                        afterElement
+                    );
+                }
+            }
+        );
+
+        fields.addEventListener(
+            'drop',
+            function (event) {
+                if (!draggingRow) {
+                    return;
+                }
+
+                event.preventDefault();
+
+                renumberFields();
+            }
+        );
+
+        fields.addEventListener(
+            'dragend',
+            function () {
+                if (draggingRow) {
+                    draggingRow.classList.remove(
+                        'is-dragging',
+                        'opacity-50',
+                        'ring-2',
+                        'ring-blue-300'
+                    );
+
+                    draggingRow.setAttribute(
+                        'draggable',
+                        'false'
+                    );
+                }
+
+                draggingRow = null;
+                dragHandleArmed = false;
+
+                renumberFields();
+            }
+        );
+
+        /*
+         * Initial state.
+         */
+        fields
+            .querySelectorAll(
+                '[data-field-row]'
+            )
+            .forEach(
+                function (row) {
+                    row.setAttribute(
+                        'draggable',
+                        'false'
+                    );
+
+                    updateCardLabel(row);
+
+                    setFieldExpanded(
+                        row,
+                        false
+                    );
+                }
+            );
+
+        /*
+         * Final normalization immediately before save.
+         */
+        const form =
+            editor.closest(
+                'form'
+            );
+
+        if (form) {
+            form.addEventListener(
+                'submit',
+                function () {
+                    renumberFields();
+                }
+            );
+        }
+
+        renumberFields();
+    }
+);
+
+    /*
+     * ESUBIZ_CORE_FORM_FIELD_OPTIONS_RUNTIME_V1
+     *
+     * Option-bearing Basic Form Builder fields:
+     * - select
+     * - radio
+     * - checkbox
+     *
+     * The existing Options textarea remains the source
+     * persisted by TenantFormsController.
+     */
+    const coreFormOptionTypes = new Set([
+        'select',
+        'radio',
+        'checkbox'
+    ]);
+
+    function syncCoreFormFieldOptions(row) {
+        if (!row) {
+            return;
+        }
+
+        const type =
+            row.querySelector(
+                '[data-field-type]'
+            );
+
+        const options =
+            row.querySelector(
+                '[data-field-options-container]'
+            );
+
+        if (!type || !options) {
+            return;
+        }
+
+        options.classList.toggle(
+            'hidden',
+            !coreFormOptionTypes.has(
+                type.value
+            )
+        );
+    }
+
+    /*
+     * Respond when the administrator changes a field type.
+     */
+    document.addEventListener(
+        'change',
+        function (event) {
+            const type =
+                event.target.closest(
+                    '[data-field-type]'
+                );
+
+            if (!type) {
+                return;
+            }
+
+            syncCoreFormFieldOptions(
+                type.closest(
+                    '[data-field-row]'
+                )
+            );
+        }
+    );
+
+    /*
+     * Existing field rows.
+     */
+    document
+        .querySelectorAll(
+            '[data-fields] [data-field-row]'
+        )
+        .forEach(
+            syncCoreFormFieldOptions
+        );
+
+    /*
+     * Newly-added rows.
+     *
+     * The existing Add Field runtime remains authoritative.
+     */
+    const coreFormOptionsObserver =
+        new MutationObserver(
+            function (mutations) {
+                mutations.forEach(
+                    function (mutation) {
+                        mutation.addedNodes.forEach(
+                            function (node) {
+                                if (
+                                    !(node instanceof HTMLElement)
+                                ) {
+                                    return;
+                                }
+
+                                if (
+                                    node.matches(
+                                        '[data-field-row]'
+                                    )
+                                ) {
+                                    syncCoreFormFieldOptions(
+                                        node
+                                    );
+                                }
+                            }
+                        );
+                    }
+                );
+            }
+        );
+
+    const coreFormFieldsContainer =
+        document.querySelector(
+            '[data-fields]'
+        );
+
+    if (coreFormFieldsContainer) {
+        coreFormOptionsObserver.observe(
+            coreFormFieldsContainer,
+            {
+                childList: true
+            }
+        );
+    }
+
+</script>
+@endsection

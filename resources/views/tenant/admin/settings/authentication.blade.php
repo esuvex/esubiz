@@ -1,8 +1,40 @@
 @extends('tenant.admin.layouts.app')
 
-@section('title', 'Authentication Settings')
+@section('title', 'Settings - Authentication')
 
 @section('content')
+
+{{-- ESUBIZ_UNIFIED_SETTINGS_TOP_TABS_V1 --}}
+<div class="mb-6">
+    <div class="mb-5">
+        <h1 class="text-2xl font-bold text-slate-900">
+            Settings
+        </h1>
+
+        <p class="mt-1 text-sm text-slate-500">
+            Manage your website settings and configuration.
+        </p>
+    </div>
+
+    <div class="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
+
+        <a
+            href="{{ route('tenant.cms.settings.site', ['subdomain' => $website->subdomain]) }}"
+            class="rounded-lg px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+        >
+            Site Settings
+        </a>
+
+<a
+            href="{{ route('tenant.cms.settings.authentication', ['subdomain' => $website->subdomain]) }}"
+            class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+        >
+            Authentication
+        </a>
+
+    </div>
+</div>
+
 
 {{-- ESUBIZ_TENANT_AUTH_SETTINGS_UI_V1 --}}
 
@@ -435,7 +467,6 @@
     }
 
 
-
 /* ESUBIZ_AUTH_SETTINGS_LAYOUT_REPAIR_V1 */
 
 /*
@@ -514,7 +545,6 @@
         grid-template-columns: 1fr;
     }
 }
-
 
 
 /* ESUBIZ_AUTH_SETTINGS_SIDEBAR_CONTAINMENT_V3 */
@@ -658,7 +688,6 @@
         grid-template-columns: 1fr !important;
     }
 }
-
 
 
 /* ESUBIZ_AUTH_BROKEN_TAB_LAYOUT_FINAL_V5 */
@@ -1797,62 +1826,90 @@ main,
 
         {{-- EMAIL VERIFICATION REFERENCE ROW --}}
 
-        <div class="esubiz-registration-option">
+        
 
-            <div class="esubiz-registration-option-copy">
+<div class="auth-registration-v14-row">
+    {{-- ESUBIZ_REAL_REGISTRATION_ROLE_VERIFICATION_V13 --}}
+    {{-- ESUBIZ_REGISTRATION_REAL_CONTROLS_LAYOUT_FIX_V14 --}}
 
-                <div class="esubiz-registration-option-title">
-                    Require email verification
-                </div>
+    <div class="auth-registration-v14-copy">
+        <strong>Require email verification</strong>
 
-                <div class="esubiz-registration-option-description">
-                    Require new users to verify their email
-                    address before account access.
-                </div>
+        <span>
+            Ask new users to verify their email address after registration.
+        </span>
+    </div>
 
-            </div>
-
-
-            <div
-                class="esubiz-planned-setting"
-                title="Email verification workflow will be connected separately."
+    <div class="auth-registration-v14-action">
+        <label
+            class="auth-registration-v14-switch"
+            aria-label="Require email verification"
+        >
+            <input
+                type="hidden"
+                name="registration_require_email_verification"
+                value="0"
             >
-                Planned
-            </div>
 
-        </div>
+            <input
+                type="checkbox"
+                name="registration_require_email_verification"
+                value="1"
+                @checked(
+                    old(
+                        'registration_require_email_verification',
+                        $defaultAuthFormV12['registration']['require_email_verification']
+                        ?? false
+                    )
+                )
+            >
+
+            <span></span>
+        </label>
+    </div>
+</div>
+
 
     </div>
 
 
     <div class="esubiz-registration-form-section">
 
-        <div class="esubiz-registration-form-group">
+        
 
-            <label class="esubiz-registration-label">
-                Default Role
-            </label>
+<div class="auth-registration-v14-row">
 
-            <div class="esubiz-registration-readonly-setting">
+    <div class="auth-registration-v14-copy">
+        <strong>Default Role</strong>
 
-                <div>
-                    <strong>
-                        Website User
-                    </strong>
+        <span>
+            Choose the role assigned to new users who register with this form.
+        </span>
+    </div>
 
-                    <span>
-                        New public registrations receive
-                        the safe default website user role.
-                    </span>
-                </div>
+    <div class="auth-registration-v14-action auth-registration-v14-role">
+        <select name="registration_default_role">
+            <option value="">Select a role</option>
 
-                <span class="esubiz-planned-setting">
-                    Planned
-                </span>
-
-            </div>
-
-        </div>
+            @foreach(($registrationRoles ?? []) as $registrationRole)
+                <option
+                    value="{{ $registrationRole['value'] }}"
+                    @selected(
+                        (string) old(
+                            'registration_default_role',
+                            $defaultAuthFormV12['registration']['default_role']
+                            ?? ''
+                        )
+                        ===
+                        (string) $registrationRole['value']
+                    )
+                >
+                    {{ $registrationRole['label'] }}
+                </option>
+            @endforeach
+        </select>
+    </div>
+</div>
 
 
         <div class="esubiz-registration-form-group">
@@ -1968,307 +2025,1770 @@ main,
 @endphp
 
 
-<div class="auth-card esubiz-registration-fields-card">
+<div class="auth-forms-v11" data-auth-forms-v11>
+    {{-- ESUBIZ_MULTI_AUTH_FORMS_MANAGER_UI_V11 --}}
 
-    <div class="esubiz-fields-header">
+    @php
+        /*
+         * ESUBIZ_MULTI_AUTH_FORMS_VIEW_DATA_V12
+         *
+         * Registry is supplied by TenantCmsController.
+         * Fallback keeps this view safe if rendered by an older path.
+         */
+        $authFormsV12 =
+            isset($authForms)
+            && is_array($authForms)
+                ? $authForms
+                : [];
 
+        $defaultAuthFormV12 =
+            $authFormsV12['default']
+            ?? null;
+    @endphp
+
+
+    <div class="auth-forms-v11-header">
         <div>
-            <h2 class="auth-card-title">
-                Registration Fields
-            </h2>
-
-            <p class="auth-card-subtitle">
-                Configure the information users provide
-                when creating an account.
+            <h3>Authentication Forms</h3>
+            <p>
+                Manage multiple login and registration forms.
+                Each form can have its own fields, settings, offers,
+                roles, providers and payment behaviour.
             </p>
         </div>
 
         <button
             type="button"
-            class="esubiz-add-registration-field"
-            data-v10-add-registration-field
+            class="auth-forms-v11-primary"
+            data-auth-form-create-v11
+            title="Multiple-form persistence will be connected through the Auth Form service."
         >
-            + Add Field
+            + Add Form
         </button>
-
     </div>
 
+    <div class="auth-forms-v11-shell">
 
-    <div class="esubiz-registration-fields-table">
+        <aside class="auth-forms-v11-list">
 
-        <div class="esubiz-fields-table-head">
+            <button
+                type="button"
+                class="auth-forms-v11-form-card is-active"
+                data-auth-form-selector-v11="default"
+            >
+                <span class="auth-forms-v11-form-title">
+                    Default
+                </span>
 
-            <div>Field</div>
+                <span class="auth-forms-v11-form-type">
+                    Login + Registration
+                </span>
 
-            <div>Type</div>
+                <span class="auth-forms-v11-default">
+                    Default
+                </span>
+            </button>
 
-            <div class="esubiz-fields-center">
-                Required
+            <div class="auth-forms-v11-list-help">
+                Additional forms created for memberships, customers,
+                vendors, students, staff or modules will appear here.
             </div>
 
-            <div class="esubiz-fields-center">
-                Enabled
+        </aside>
+
+        <section class="auth-forms-v11-editor">
+
+            <div class="auth-forms-v11-editor-head">
+                <div>
+                    <h4>Default Auth Form</h4>
+                    <p>
+                        Primary authentication form for this website.
+                    </p>
+                </div>
+
+                <span class="auth-forms-v11-active">
+                    Active
+                </span>
             </div>
 
-            <div class="esubiz-fields-action">
-                Action
+            <div class="auth-forms-v11-meta-grid">
+
+                <div class="auth-forms-v11-control">
+                    <label>Form Name</label>
+                    <input
+                        type="text"
+                        value="Default"
+                        readonly
+                    >
+                </div>
+
+                <div class="auth-forms-v11-control">
+                    <label>Form Type</label>
+                    <select disabled>
+                        <option selected>
+                            Login + Registration
+                        </option>
+                    </select>
+                </div>
+
+                <div class="auth-forms-v11-control">
+                    <label>Login URL</label>
+                    <input
+                        type="text"
+                        value="/login"
+                        readonly
+                    >
+                </div>
+
+                <div class="auth-forms-v11-control">
+                    <label>Registration URL</label>
+                    <input
+                        type="text"
+                        value="/register"
+                        readonly
+                    >
+                </div>
+
             </div>
 
-        </div>
+            <div class="auth-forms-v11-inner-tabs">
 
+                <button
+                    type="button"
+                    class="auth-forms-v11-inner-tab is-active"
+                    data-auth-form-tab-v11="fields"
+                >
+                    Fields
+                </button>
 
-        <div data-v10-registration-field-rows>
+                <button
+                    type="button"
+                    class="auth-forms-v11-inner-tab"
+                    data-auth-form-tab-v11="offers"
+                >
+                    Plans & Products
+                </button>
 
-            @foreach($registrationFields as $fieldIndex => $field)
+                <button
+                    type="button"
+                    class="auth-forms-v11-inner-tab"
+                    data-auth-form-tab-v11="settings"
+                >
+                    Form Settings
+                </button>
+
+            </div>
+
+            {{-- =====================================================
+                 FIELDS
+                 ===================================================== --}}
+            <div
+                class="auth-forms-v11-panel is-active"
+                data-auth-form-panel-v11="fields"
+            >
+
+                <div class="auth-fields-v11-head">
+                    <div>
+                        <h4>Registration Fields</h4>
+                        <p>
+                            Drag fields to reorder them. Click a field
+                            to expand or collapse its settings.
+                        </p>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="auth-forms-v11-primary"
+                        data-auth-field-add-v11
+                    >
+                        + Add Field
+                    </button>
+                </div>
 
                 @php
+                    $registrationFieldsV11 =
+                        $authConfig['registration_fields']
+                        ?? [];
 
-                    $field = is_array($field) ? $field : [];
-
-                    $fieldKey =
-                        (string) ($field['key'] ?? '');
-
-                    $fieldLabel =
-                        (string) ($field['label'] ?? '');
-
-                    $fieldType =
-                        (string) ($field['type'] ?? 'text');
-
-                    $fieldPlaceholder =
-                        (string) ($field['placeholder'] ?? '');
-
-                    $isSystem =
-                        !empty($field['system'] ?? false);
-
-                    $isRequired =
-                        !empty($field['required'] ?? false);
-
-                    $isEnabled =
-                        array_key_exists('enabled', $field)
-                        ? !empty($field['enabled'])
-                        : true;
-
-                    $protectedSystemField =
-                        $isSystem
-                        &&
-                        in_array(
-                            $fieldKey,
-                            [
-                                'name',
-                                'email',
-                                'password',
-                                'password_confirmation'
-                            ],
-                            true
-                        );
-
+                    $protectedKeysV11 = [
+                        'name',
+                        'email',
+                        'password',
+                        'password_confirmation',
+                    ];
                 @endphp
 
-
                 <div
-                    class="esubiz-registration-field-row"
-                    data-v10-registration-field-row
-                    data-system-field="{{ $isSystem ? '1' : '0' }}"
+                    class="auth-fields-v11-list"
+                    data-auth-fields-list-v11
                 >
 
-                    <input
-                        type="hidden"
-                        name="registration_fields[{{ $fieldIndex }}][key]"
-                        value="{{ $fieldKey }}"
-                    >
+                    @foreach(
+                        $registrationFieldsV11
+                        as $fieldIndexV11 => $fieldV11
+                    )
 
-                    <input
-                        type="hidden"
-                        name="registration_fields[{{ $fieldIndex }}][system]"
-                        value="{{ $isSystem ? '1' : '0' }}"
-                    >
+                        @php
+                            $fieldKeyV11 =
+                                $fieldV11['key']
+                                ?? '';
 
+                            $isProtectedV11 =
+                                !empty($fieldV11['system'])
+                                || in_array(
+                                    $fieldKeyV11,
+                                    $protectedKeysV11,
+                                    true
+                                );
 
-                    {{-- FIELD --}}
+                            $fieldLabelV11 =
+                                $fieldV11['label']
+                                ?? ucfirst(
+                                    str_replace(
+                                        '_',
+                                        ' ',
+                                        $fieldKeyV11
+                                    )
+                                );
 
-                    <div class="esubiz-field-main">
+                            $fieldTypeV11 =
+                                $fieldV11['type']
+                                ?? 'text';
 
-                        <input
-                            type="text"
-                            class="esubiz-field-label-input"
-                            name="registration_fields[{{ $fieldIndex }}][label]"
-                            value="{{ $fieldLabel }}"
-                            placeholder="Field label"
-                            {{ $isSystem ? 'readonly' : '' }}
-                            required
+                            $fieldRequiredV11 =
+                                !empty(
+                                    $fieldV11['required']
+                                );
+
+                            $fieldEnabledV11 =
+                                array_key_exists(
+                                    'enabled',
+                                    $fieldV11
+                                )
+                                ? !empty(
+                                    $fieldV11['enabled']
+                                )
+                                : true;
+                        @endphp
+
+                        <div
+                            class="auth-field-v11"
+                            draggable="true"
+                            data-auth-field-v11
                         >
 
-                        <input
-                            type="text"
-                            class="esubiz-field-placeholder-input"
-                            name="registration_fields[{{ $fieldIndex }}][placeholder]"
-                            value="{{ $fieldPlaceholder }}"
-                            placeholder="Placeholder"
-                        >
+                            <div
+                                class="auth-field-v11-summary"
+                                data-auth-field-toggle-v11
+                            >
 
-                        @if($isSystem)
-
-                            <span class="esubiz-system-field-badge">
-                                System
-                            </span>
-
-                        @endif
-
-                    </div>
-
-
-                    {{-- TYPE --}}
-
-                    <div>
-
-                        <select
-                            class="esubiz-field-type-select"
-                            name="registration_fields[{{ $fieldIndex }}][type]"
-                            {{ $isSystem ? 'disabled' : '' }}
-                        >
-
-                            @foreach([
-                                'text' => 'Text',
-                                'email' => 'Email',
-                                'tel' => 'Phone',
-                                'number' => 'Number',
-                                'date' => 'Date',
-                                'textarea' => 'Textarea',
-                                'select' => 'Select',
-                                'checkbox' => 'Checkbox',
-                            ] as $typeValue => $typeLabel)
-
-                                <option
-                                    value="{{ $typeValue }}"
-                                    {{ $fieldType === $typeValue ? 'selected' : '' }}
+                                <button
+                                    type="button"
+                                    class="auth-field-v11-drag"
+                                    data-auth-field-drag-v11
+                                    title="Drag to reorder"
+                                    aria-label="Drag field"
                                 >
-                                    {{ $typeLabel }}
-                                </option>
+                                    ⋮⋮
+                                </button>
 
-                            @endforeach
+                                <div class="auth-field-v11-summary-text">
 
-                        </select>
+                                    <strong
+                                        data-auth-field-summary-label-v11
+                                    >
+                                        {{ $fieldLabelV11 }}
+                                    </strong>
 
-                        @if($isSystem)
+                                    <span
+                                        data-auth-field-summary-type-v11
+                                    >
+                                        {{ ucfirst($fieldTypeV11) }}
+                                    </span>
 
-                            <input
-                                type="hidden"
-                                name="registration_fields[{{ $fieldIndex }}][type]"
-                                value="{{ $fieldType }}"
-                            >
+                                </div>
 
-                        @endif
+                                <div class="auth-field-v11-badges">
 
-                    </div>
+                                    @if($isProtectedV11)
+                                        <span class="auth-field-v11-protected">
+                                            Protected
+                                        </span>
+                                    @elseif($fieldRequiredV11)
+                                        <span class="auth-field-v11-required">
+                                            Required
+                                        </span>
+                                    @endif
 
+                                    <button
+                                        type="button"
+                                        class="auth-field-v11-chevron"
+                                        aria-label="Expand or collapse field"
+                                    >
+                                        ▾
+                                    </button>
 
-                    {{-- REQUIRED --}}
+                                </div>
 
-                    <div class="esubiz-fields-center">
+                            </div>
 
-                        <input
-                            type="hidden"
-                            name="registration_fields[{{ $fieldIndex }}][required]"
-                            value="0"
+                            <div class="auth-field-v11-body">
+
+                                <input
+                                    type="hidden"
+                                    name="registration_fields[{{ $fieldIndexV11 }}][key]"
+                                    value="{{ $fieldKeyV11 }}"
+                                    data-auth-field-name-v11="key"
+                                >
+
+                                <input
+                                    type="hidden"
+                                    name="registration_fields[{{ $fieldIndexV11 }}][system]"
+                                    value="{{ $isProtectedV11 ? 1 : 0 }}"
+                                    data-auth-field-name-v11="system"
+                                >
+
+                                <div class="auth-field-v11-grid">
+
+                                    <div class="auth-field-v11-control">
+
+                                        <label>
+                                            Label
+                                        </label>
+
+                                        <input
+                                            type="text"
+                                            name="registration_fields[{{ $fieldIndexV11 }}][label]"
+                                            value="{{ $fieldLabelV11 }}"
+                                            data-auth-field-name-v11="label"
+                                            data-auth-field-label-input-v11
+                                            {{ $isProtectedV11 ? 'readonly' : '' }}
+                                        >
+
+                                    </div>
+
+                                    <div class="auth-field-v11-control">
+
+                                        <label>
+                                            Placeholder
+                                        </label>
+
+                                        <input
+                                            type="text"
+                                            name="registration_fields[{{ $fieldIndexV11 }}][placeholder]"
+                                            value="{{ $fieldV11['placeholder'] ?? '' }}"
+                                            data-auth-field-name-v11="placeholder"
+                                        >
+
+                                    </div>
+
+                                    <div class="auth-field-v11-control">
+
+                                        <label>
+                                            Type
+                                        </label>
+
+                                        @if($isProtectedV11)
+
+                                            <input
+                                                type="text"
+                                                value="{{ ucfirst($fieldTypeV11) }}"
+                                                readonly
+                                            >
+
+                                            <input
+                                                type="hidden"
+                                                name="registration_fields[{{ $fieldIndexV11 }}][type]"
+                                                value="{{ $fieldTypeV11 }}"
+                                                data-auth-field-name-v11="type"
+                                            >
+
+                                        @else
+
+                                            <select
+                                                name="registration_fields[{{ $fieldIndexV11 }}][type]"
+                                                data-auth-field-name-v11="type"
+                                                data-auth-field-type-input-v11
+                                            >
+                                                @foreach([
+                                                    'text' => 'Text',
+                                                    'email' => 'Email',
+                                                    'tel' => 'Phone',
+                                                    'number' => 'Number',
+                                                    'date' => 'Date',
+                                                    'textarea' => 'Textarea',
+                                                    'select' => 'Select',
+                                                    'checkbox' => 'Checkbox',
+                                                ] as $typeValueV11 => $typeLabelV11)
+
+                                                    <option
+                                                        value="{{ $typeValueV11 }}"
+                                                        @selected(
+                                                            $fieldTypeV11
+                                                            === $typeValueV11
+                                                        )
+                                                    >
+                                                        {{ $typeLabelV11 }}
+                                                    </option>
+
+                                                @endforeach
+                                            </select>
+
+                                        @endif
+
+                                    </div>
+
+                                    <div class="auth-field-v11-control">
+
+                                        <label>
+                                            Required
+                                        </label>
+
+                                        @if($isProtectedV11)
+
+                                            <input
+                                                type="hidden"
+                                                name="registration_fields[{{ $fieldIndexV11 }}][required]"
+                                                value="{{ $fieldRequiredV11 ? 1 : 0 }}"
+                                                data-auth-field-name-v11="required"
+                                            >
+
+                                            <span class="auth-field-v11-readonly-state">
+                                                {{ $fieldRequiredV11 ? 'Yes' : 'No' }}
+                                            </span>
+
+                                        @else
+
+                                            <label class="auth-field-v11-switch">
+
+                                                <input
+                                                    type="hidden"
+                                                    name="registration_fields[{{ $fieldIndexV11 }}][required]"
+                                                    value="0"
+                                                    data-auth-field-name-v11="required"
+                                                >
+
+                                                <input
+                                                    type="checkbox"
+                                                    name="registration_fields[{{ $fieldIndexV11 }}][required]"
+                                                    value="1"
+                                                    data-auth-field-checkbox-v11="required"
+                                                    @checked($fieldRequiredV11)
+                                                >
+
+                                                <span></span>
+
+                                            </label>
+
+                                        @endif
+
+                                    </div>
+
+                                    <div class="auth-field-v11-control">
+
+                                        <label>
+                                            Enabled
+                                        </label>
+
+                                        @if($isProtectedV11)
+
+                                            <input
+                                                type="hidden"
+                                                name="registration_fields[{{ $fieldIndexV11 }}][enabled]"
+                                                value="1"
+                                                data-auth-field-name-v11="enabled"
+                                            >
+
+                                            <span class="auth-field-v11-readonly-state">
+                                                Yes
+                                            </span>
+
+                                        @else
+
+                                            <label class="auth-field-v11-switch">
+
+                                                <input
+                                                    type="hidden"
+                                                    name="registration_fields[{{ $fieldIndexV11 }}][enabled]"
+                                                    value="0"
+                                                    data-auth-field-name-v11="enabled"
+                                                >
+
+                                                <input
+                                                    type="checkbox"
+                                                    name="registration_fields[{{ $fieldIndexV11 }}][enabled]"
+                                                    value="1"
+                                                    data-auth-field-checkbox-v11="enabled"
+                                                    @checked($fieldEnabledV11)
+                                                >
+
+                                                <span></span>
+
+                                            </label>
+
+                                        @endif
+
+                                    </div>
+
+                                </div>
+
+                                @unless($isProtectedV11)
+
+                                    <div class="auth-field-v11-footer">
+
+                                        <button
+                                            type="button"
+                                            class="auth-field-v11-remove"
+                                            data-auth-field-remove-v11
+                                        >
+                                            Remove Field
+                                        </button>
+
+                                    </div>
+
+                                @endunless
+
+                            </div>
+
+                        </div>
+
+                    @endforeach
+
+                </div>
+
+                <template data-auth-field-template-v11>
+
+                    <div
+                        class="auth-field-v11 is-open"
+                        draggable="true"
+                        data-auth-field-v11
+                    >
+
+                        <div
+                            class="auth-field-v11-summary"
+                            data-auth-field-toggle-v11
                         >
-
-                        <label class="esubiz-mini-switch">
-
-                            <input
-                                type="checkbox"
-                                name="registration_fields[{{ $fieldIndex }}][required]"
-                                value="1"
-                                {{ $isRequired ? 'checked' : '' }}
-                                {{ $protectedSystemField ? 'disabled' : '' }}
-                            >
-
-                            <span></span>
-
-                        </label>
-
-                        @if($protectedSystemField)
-
-                            <input
-                                type="hidden"
-                                name="registration_fields[{{ $fieldIndex }}][required]"
-                                value="{{ $isRequired ? '1' : '0' }}"
-                            >
-
-                        @endif
-
-                    </div>
-
-
-                    {{-- ENABLED --}}
-
-                    <div class="esubiz-fields-center">
-
-                        <input
-                            type="hidden"
-                            name="registration_fields[{{ $fieldIndex }}][enabled]"
-                            value="0"
-                        >
-
-                        <label class="esubiz-mini-switch">
-
-                            <input
-                                type="checkbox"
-                                name="registration_fields[{{ $fieldIndex }}][enabled]"
-                                value="1"
-                                {{ $isEnabled ? 'checked' : '' }}
-                                {{ $isSystem ? 'disabled' : '' }}
-                            >
-
-                            <span></span>
-
-                        </label>
-
-                        @if($isSystem)
-
-                            <input
-                                type="hidden"
-                                name="registration_fields[{{ $fieldIndex }}][enabled]"
-                                value="{{ $isEnabled ? '1' : '0' }}"
-                            >
-
-                        @endif
-
-                    </div>
-
-
-                    {{-- ACTION --}}
-
-                    <div class="esubiz-fields-action">
-
-                        @if($isSystem)
-
-                            <span class="esubiz-protected-field">
-                                Protected
-                            </span>
-
-                        @else
 
                             <button
                                 type="button"
-                                class="esubiz-remove-field"
-                                data-v10-remove-registration-field
+                                class="auth-field-v11-drag"
+                                data-auth-field-drag-v11
+                                title="Drag to reorder"
                             >
-                                Remove
+                                ⋮⋮
                             </button>
 
-                        @endif
+                            <div class="auth-field-v11-summary-text">
+
+                                <strong
+                                    data-auth-field-summary-label-v11
+                                >
+                                    New Field
+                                </strong>
+
+                                <span
+                                    data-auth-field-summary-type-v11
+                                >
+                                    Text
+                                </span>
+
+                            </div>
+
+                            <div class="auth-field-v11-badges">
+
+                                <button
+                                    type="button"
+                                    class="auth-field-v11-chevron"
+                                >
+                                    ▾
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                        <div class="auth-field-v11-body">
+
+                            <input
+                                type="hidden"
+                                value=""
+                                data-auth-field-name-v11="key"
+                            >
+
+                            <input
+                                type="hidden"
+                                value="0"
+                                data-auth-field-name-v11="system"
+                            >
+
+                            <div class="auth-field-v11-grid">
+
+                                <div class="auth-field-v11-control">
+
+                                    <label>
+                                        Label
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        value="New Field"
+                                        data-auth-field-name-v11="label"
+                                        data-auth-field-label-input-v11
+                                    >
+
+                                </div>
+
+                                <div class="auth-field-v11-control">
+
+                                    <label>
+                                        Placeholder
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        value=""
+                                        data-auth-field-name-v11="placeholder"
+                                    >
+
+                                </div>
+
+                                <div class="auth-field-v11-control">
+
+                                    <label>
+                                        Type
+                                    </label>
+
+                                    <select
+                                        data-auth-field-name-v11="type"
+                                        data-auth-field-type-input-v11
+                                    >
+                                        <option value="text">Text</option>
+                                        <option value="email">Email</option>
+                                        <option value="tel">Phone</option>
+                                        <option value="number">Number</option>
+                                        <option value="date">Date</option>
+                                        <option value="textarea">Textarea</option>
+                                        <option value="select">Select</option>
+                                        <option value="checkbox">Checkbox</option>
+                                    </select>
+
+                                </div>
+
+                                <div class="auth-field-v11-control">
+
+                                    <label>
+                                        Required
+                                    </label>
+
+                                    <label class="auth-field-v11-switch">
+
+                                        <input
+                                            type="hidden"
+                                            value="0"
+                                            data-auth-field-name-v11="required"
+                                        >
+
+                                        <input
+                                            type="checkbox"
+                                            value="1"
+                                            data-auth-field-checkbox-v11="required"
+                                        >
+
+                                        <span></span>
+
+                                    </label>
+
+                                </div>
+
+                                <div class="auth-field-v11-control">
+
+                                    <label>
+                                        Enabled
+                                    </label>
+
+                                    <label class="auth-field-v11-switch">
+
+                                        <input
+                                            type="hidden"
+                                            value="0"
+                                            data-auth-field-name-v11="enabled"
+                                        >
+
+                                        <input
+                                            type="checkbox"
+                                            value="1"
+                                            checked
+                                            data-auth-field-checkbox-v11="enabled"
+                                        >
+
+                                        <span></span>
+
+                                    </label>
+
+                                </div>
+
+                            </div>
+
+                            <div class="auth-field-v11-footer">
+
+                                <button
+                                    type="button"
+                                    class="auth-field-v11-remove"
+                                    data-auth-field-remove-v11
+                                >
+                                    Remove Field
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </template>
+
+            </div>
+
+            {{-- =====================================================
+                 PLANS / PRODUCTS / MEMBERSHIPS / MODULE OFFERS
+                 ===================================================== --}}
+            <div
+                class="auth-forms-v11-panel"
+                data-auth-form-panel-v11="offers"
+            >
+
+                <div class="auth-forms-v11-info-card">
+
+                    <h4>
+                        Plans & Products
+                    </h4>
+
+                    <p>
+                        This form can expose registration offers supplied
+                        by Core, website types, installed modules and
+                        extensions.
+                    </p>
+
+                    <div class="auth-forms-v11-info-row">
+
+                        <span>
+                            Registration offers
+                        </span>
+
+                        <strong>
+                            Plug-and-play
+                        </strong>
+
+                    </div>
+
+                    <div class="auth-forms-v11-info-row">
+
+                        <span>
+                            Supported sources
+                        </span>
+
+                        <strong>
+                            Plans, memberships, products,
+                            services and module offers
+                        </strong>
+
+                    </div>
+
+                    <div class="auth-forms-v11-info-row">
+
+                        <span>
+                            Payment
+                        </span>
+
+                        <strong>
+                            Website gateway connection
+                        </strong>
+
+                    </div>
+
+                    <div class="auth-forms-v11-info-row">
+
+                        <span>
+                            Deployment
+                        </span>
+
+                        <strong>
+                            SaaS + Off-server
+                        </strong>
 
                     </div>
 
                 </div>
 
-            @endforeach
+            </div>
 
-        </div>
+            {{-- =====================================================
+                 PER-FORM SETTINGS
+                 ===================================================== --}}
+            <div
+                class="auth-forms-v11-panel"
+                data-auth-form-panel-v11="settings"
+            >
+
+                <div class="auth-forms-v11-info-card">
+
+                    <h4>
+                        Form Settings
+                    </h4>
+
+                    <p>
+                        Each Auth Form will independently control its
+                        registration and login behaviour.
+                    </p>
+
+                    <div class="auth-forms-v11-info-row">
+                        <span>Default Role</span>
+                        <strong>Form-specific</strong>
+                    </div>
+
+                    <div class="auth-forms-v11-info-row">
+                        <span>Email Verification</span>
+                        <strong>Form-specific</strong>
+                    </div>
+
+                    <div class="auth-forms-v11-info-row">
+                        <span>Login Providers</span>
+                        <strong>Form-specific</strong>
+                    </div>
+
+                    <div class="auth-forms-v11-info-row">
+                        <span>Redirects</span>
+                        <strong>Form-specific</strong>
+                    </div>
+
+                    <div class="auth-forms-v11-info-row">
+                        <span>Security</span>
+                        <strong>Form-specific</strong>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
 
     </div>
 
 </div>
+
+<style>
+/* ESUBIZ_MULTI_AUTH_FORMS_MANAGER_UI_V11 */
+
+.auth-forms-v11{
+    margin-top:22px;
+}
+
+.auth-forms-v11-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:18px;
+    margin-bottom:18px;
+}
+
+.auth-forms-v11-header h3,
+.auth-forms-v11-editor-head h4,
+.auth-fields-v11-head h4,
+.auth-forms-v11-info-card h4{
+    margin:0;
+    color:#0f172a;
+}
+
+.auth-forms-v11-header p,
+.auth-forms-v11-editor-head p,
+.auth-fields-v11-head p,
+.auth-forms-v11-info-card p{
+    margin:5px 0 0;
+    color:#64748b;
+    line-height:1.55;
+}
+
+.auth-forms-v11-primary{
+    flex:0 0 auto;
+    border:0;
+    border-radius:10px;
+    padding:10px 15px;
+    background:#1d4ed8;
+    color:#fff;
+    font-weight:700;
+    cursor:pointer;
+}
+
+.auth-forms-v11-primary:hover{
+    background:#1e40af;
+}
+
+.auth-forms-v11-shell{
+    display:grid;
+    grid-template-columns:230px minmax(0,1fr);
+    gap:18px;
+}
+
+.auth-forms-v11-list,
+.auth-forms-v11-editor{
+    background:#fff;
+    border:1px solid #e2e8f0;
+    border-radius:14px;
+}
+
+.auth-forms-v11-list{
+    padding:10px;
+    align-self:start;
+}
+
+.auth-forms-v11-form-card{
+    width:100%;
+    border:1px solid transparent;
+    border-radius:10px;
+    padding:12px;
+    background:transparent;
+    text-align:left;
+    cursor:pointer;
+}
+
+.auth-forms-v11-form-card.is-active{
+    background:#eff6ff;
+    border-color:#bfdbfe;
+}
+
+.auth-forms-v11-form-title{
+    display:block;
+    color:#0f172a;
+    font-weight:800;
+}
+
+.auth-forms-v11-form-type{
+    display:block;
+    margin-top:3px;
+    color:#64748b;
+    font-size:12px;
+}
+
+.auth-forms-v11-default{
+    display:inline-flex;
+    margin-top:8px;
+    border-radius:999px;
+    padding:3px 7px;
+    background:#1d4ed8;
+    color:#fff;
+    font-size:10px;
+    font-weight:800;
+}
+
+.auth-forms-v11-list-help{
+    margin-top:10px;
+    padding:12px 5px 4px;
+    border-top:1px solid #eef2f7;
+    color:#94a3b8;
+    font-size:12px;
+    line-height:1.5;
+}
+
+.auth-forms-v11-editor{
+    min-width:0;
+    padding:18px;
+}
+
+.auth-forms-v11-editor-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:16px;
+}
+
+.auth-forms-v11-active{
+    display:inline-flex;
+    border-radius:999px;
+    padding:5px 9px;
+    background:#dcfce7;
+    color:#166534;
+    font-size:12px;
+    font-weight:800;
+}
+
+.auth-forms-v11-meta-grid{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:14px;
+    margin-top:18px;
+}
+
+.auth-forms-v11-control label,
+.auth-field-v11-control > label{
+    display:block;
+    margin-bottom:6px;
+    color:#334155;
+    font-size:13px;
+    font-weight:700;
+}
+
+.auth-forms-v11-control input,
+.auth-forms-v11-control select,
+.auth-field-v11-control input[type="text"],
+.auth-field-v11-control select{
+    width:100%;
+    box-sizing:border-box;
+    border:1px solid #cbd5e1;
+    border-radius:9px;
+    padding:10px 11px;
+    background:#fff;
+    color:#0f172a;
+}
+
+.auth-forms-v11-control input[readonly],
+.auth-forms-v11-control select:disabled,
+.auth-field-v11-control input[readonly]{
+    background:#f8fafc;
+    color:#64748b;
+}
+
+.auth-forms-v11-inner-tabs{
+    display:flex;
+    gap:6px;
+    margin-top:22px;
+    padding:5px;
+    border:1px solid #dbeafe;
+    border-radius:11px;
+    background:#eff6ff;
+    overflow-x:auto;
+}
+
+.auth-forms-v11-inner-tab{
+    flex:0 0 auto;
+    border:0;
+    border-radius:8px;
+    padding:9px 14px;
+    background:#60a5fa;
+    color:#fff;
+    font-weight:800;
+    cursor:pointer;
+}
+
+.auth-forms-v11-inner-tab:hover{
+    background:#3b82f6;
+}
+
+.auth-forms-v11-inner-tab.is-active{
+    background:#1d4ed8;
+    box-shadow:0 3px 8px rgba(29,78,216,.18);
+}
+
+.auth-forms-v11-panel{
+    display:none;
+    padding-top:20px;
+}
+
+.auth-forms-v11-panel.is-active{
+    display:block;
+}
+
+.auth-fields-v11-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:16px;
+    margin-bottom:14px;
+}
+
+.auth-fields-v11-list{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+
+.auth-field-v11{
+    overflow:hidden;
+    border:1px solid #dbe3ee;
+    border-radius:12px;
+    background:#fff;
+    transition:
+        border-color .16s ease,
+        box-shadow .16s ease,
+        opacity .16s ease;
+}
+
+.auth-field-v11:hover{
+    border-color:#bfdbfe;
+}
+
+.auth-field-v11.is-dragging{
+    opacity:.55;
+    border-color:#60a5fa;
+}
+
+.auth-field-v11.is-drag-over{
+    border-color:#1d4ed8;
+    box-shadow:0 0 0 2px rgba(29,78,216,.08);
+}
+
+.auth-field-v11-summary{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    min-height:60px;
+    padding:0 14px;
+    cursor:pointer;
+}
+
+.auth-field-v11-drag{
+    flex:0 0 auto;
+    border:0;
+    background:transparent;
+    padding:4px 5px;
+    color:#94a3b8;
+    font-size:20px;
+    font-weight:900;
+    letter-spacing:-4px;
+    cursor:grab;
+}
+
+.auth-field-v11-drag:active{
+    cursor:grabbing;
+}
+
+.auth-field-v11-summary-text{
+    flex:1;
+    min-width:0;
+}
+
+.auth-field-v11-summary-text strong{
+    display:block;
+    overflow:hidden;
+    color:#0f172a;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.auth-field-v11-summary-text span{
+    display:block;
+    margin-top:2px;
+    color:#64748b;
+    font-size:12px;
+}
+
+.auth-field-v11-badges{
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+
+.auth-field-v11-protected,
+.auth-field-v11-required{
+    display:inline-flex;
+    border-radius:999px;
+    padding:4px 7px;
+    font-size:10px;
+    font-weight:800;
+}
+
+.auth-field-v11-protected{
+    background:#f1f5f9;
+    color:#475569;
+}
+
+.auth-field-v11-required{
+    background:#fef3c7;
+    color:#92400e;
+}
+
+.auth-field-v11-chevron{
+    border:0;
+    background:transparent;
+    padding:5px;
+    color:#64748b;
+    font-size:16px;
+    cursor:pointer;
+    transition:transform .16s ease;
+}
+
+.auth-field-v11.is-open
+.auth-field-v11-chevron{
+    transform:rotate(180deg);
+}
+
+.auth-field-v11-body{
+    display:none;
+    border-top:1px solid #edf2f7;
+    padding:16px;
+    background:#f8fafc;
+}
+
+.auth-field-v11.is-open
+.auth-field-v11-body{
+    display:block;
+}
+
+.auth-field-v11-grid{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:14px;
+}
+
+.auth-field-v11-switch{
+    position:relative;
+    display:inline-flex !important;
+    width:42px;
+    height:24px;
+    margin:2px 0 0 !important;
+}
+
+.auth-field-v11-switch
+input[type="checkbox"]{
+    position:absolute;
+    opacity:0;
+    pointer-events:none;
+}
+
+.auth-field-v11-switch span{
+    position:absolute;
+    inset:0;
+    border-radius:999px;
+    background:#cbd5e1;
+    cursor:pointer;
+    transition:.18s ease;
+}
+
+.auth-field-v11-switch span:before{
+    content:"";
+    position:absolute;
+    width:18px;
+    height:18px;
+    top:3px;
+    left:3px;
+    border-radius:50%;
+    background:#fff;
+    transition:.18s ease;
+}
+
+.auth-field-v11-switch
+input[type="checkbox"]:checked + span{
+    background:#1d4ed8;
+}
+
+.auth-field-v11-switch
+input[type="checkbox"]:checked + span:before{
+    transform:translateX(18px);
+}
+
+.auth-field-v11-readonly-state{
+    display:inline-flex;
+    border-radius:999px;
+    padding:5px 8px;
+    background:#f1f5f9;
+    color:#475569;
+    font-size:12px;
+    font-weight:700;
+}
+
+.auth-field-v11-footer{
+    display:flex;
+    justify-content:flex-end;
+    margin-top:14px;
+}
+
+.auth-field-v11-remove{
+    border:1px solid #fecaca;
+    border-radius:8px;
+    padding:8px 11px;
+    background:#fff;
+    color:#b91c1c;
+    font-weight:700;
+    cursor:pointer;
+}
+
+.auth-field-v11-remove:hover{
+    background:#fef2f2;
+}
+
+.auth-forms-v11-info-card{
+    border:1px solid #e2e8f0;
+    border-radius:12px;
+    padding:18px;
+    background:#f8fafc;
+}
+
+.auth-forms-v11-info-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:20px;
+    margin-top:14px;
+    padding-top:14px;
+    border-top:1px solid #e2e8f0;
+    color:#475569;
+}
+
+.auth-forms-v11-info-row strong{
+    max-width:55%;
+    color:#0f172a;
+    text-align:right;
+}
+
+@media(max-width:900px){
+
+    .auth-forms-v11-shell{
+        grid-template-columns:1fr;
+    }
+
+    .auth-forms-v11-list{
+        display:flex;
+        gap:8px;
+        overflow-x:auto;
+    }
+
+    .auth-forms-v11-form-card{
+        min-width:190px;
+    }
+
+    .auth-forms-v11-list-help{
+        display:none;
+    }
+}
+
+@media(max-width:640px){
+
+    .auth-forms-v11-header,
+    .auth-forms-v11-editor-head,
+    .auth-fields-v11-head{
+        flex-direction:column;
+    }
+
+    .auth-forms-v11-primary{
+        width:100%;
+    }
+
+    .auth-forms-v11-meta-grid,
+    .auth-field-v11-grid{
+        grid-template-columns:1fr;
+    }
+
+    .auth-forms-v11-info-row{
+        flex-direction:column;
+        gap:5px;
+    }
+
+    .auth-forms-v11-info-row strong{
+        max-width:none;
+        text-align:left;
+    }
+}
+</style>
+
+<script>
+document.addEventListener(
+    'DOMContentLoaded',
+    function () {
+
+        const root =
+            document.querySelector(
+                '[data-auth-forms-v11]'
+            );
+
+        if (!root) {
+            return;
+        }
+
+
+        function cards() {
+            return Array.from(
+                root.querySelectorAll(
+                    '[data-auth-field-v11]'
+                )
+            );
+        }
+
+
+        function reindexFields() {
+
+            cards().forEach(
+                function (card, index) {
+
+                    card.querySelectorAll(
+                        '[data-auth-field-name-v11]'
+                    ).forEach(
+                        function (input) {
+
+                            const key =
+                                input.getAttribute(
+                                    'data-auth-field-name-v11'
+                                );
+
+                            input.name =
+                                'registration_fields['
+                                + index
+                                + ']['
+                                + key
+                                + ']';
+                        }
+                    );
+
+                    card.querySelectorAll(
+                        '[data-auth-field-checkbox-v11]'
+                    ).forEach(
+                        function (input) {
+
+                            const key =
+                                input.getAttribute(
+                                    'data-auth-field-checkbox-v11'
+                                );
+
+                            input.name =
+                                'registration_fields['
+                                + index
+                                + ']['
+                                + key
+                                + ']';
+                        }
+                    );
+                }
+            );
+        }
+
+
+        function refreshSummary(card) {
+
+            const labelInput =
+                card.querySelector(
+                    '[data-auth-field-label-input-v11]'
+                );
+
+            const typeInput =
+                card.querySelector(
+                    '[data-auth-field-type-input-v11]'
+                );
+
+            const labelSummary =
+                card.querySelector(
+                    '[data-auth-field-summary-label-v11]'
+                );
+
+            const typeSummary =
+                card.querySelector(
+                    '[data-auth-field-summary-type-v11]'
+                );
+
+            if (
+                labelInput
+                && labelSummary
+            ) {
+                labelSummary.textContent =
+                    labelInput.value.trim()
+                    || 'New Field';
+            }
+
+            if (
+                typeInput
+                && typeSummary
+            ) {
+                const selected =
+                    typeInput.options[
+                        typeInput.selectedIndex
+                    ];
+
+                typeSummary.textContent =
+                    selected
+                    ? selected.textContent
+                    : 'Text';
+            }
+        }
+
+
+        root.addEventListener(
+            'click',
+            function (event) {
+
+                const tab =
+                    event.target.closest(
+                        '[data-auth-form-tab-v11]'
+                    );
+
+                if (tab) {
+
+                    const target =
+                        tab.getAttribute(
+                            'data-auth-form-tab-v11'
+                        );
+
+                    root.querySelectorAll(
+                        '[data-auth-form-tab-v11]'
+                    ).forEach(
+                        function (item) {
+                            item.classList.toggle(
+                                'is-active',
+                                item === tab
+                            );
+                        }
+                    );
+
+                    root.querySelectorAll(
+                        '[data-auth-form-panel-v11]'
+                    ).forEach(
+                        function (panel) {
+                            panel.classList.toggle(
+                                'is-active',
+                                panel.getAttribute(
+                                    'data-auth-form-panel-v11'
+                                ) === target
+                            );
+                        }
+                    );
+
+                    return;
+                }
+
+
+                const dragHandle =
+                    event.target.closest(
+                        '[data-auth-field-drag-v11]'
+                    );
+
+                if (dragHandle) {
+                    event.stopPropagation();
+                    return;
+                }
+
+
+                const toggle =
+                    event.target.closest(
+                        '[data-auth-field-toggle-v11]'
+                    );
+
+                if (toggle) {
+
+                    const card =
+                        toggle.closest(
+                            '[data-auth-field-v11]'
+                        );
+
+                    if (card) {
+                        card.classList.toggle(
+                            'is-open'
+                        );
+                    }
+
+                    return;
+                }
+
+
+                const remove =
+                    event.target.closest(
+                        '[data-auth-field-remove-v11]'
+                    );
+
+                if (remove) {
+
+                    const card =
+                        remove.closest(
+                            '[data-auth-field-v11]'
+                        );
+
+                    if (card) {
+                        card.remove();
+                        reindexFields();
+                    }
+
+                    return;
+                }
+
+
+                const add =
+                    event.target.closest(
+                        '[data-auth-field-add-v11]'
+                    );
+
+                if (add) {
+
+                    const template =
+                        root.querySelector(
+                            '[data-auth-field-template-v11]'
+                        );
+
+                    const list =
+                        root.querySelector(
+                            '[data-auth-fields-list-v11]'
+                        );
+
+                    if (
+                        !template
+                        || !list
+                    ) {
+                        return;
+                    }
+
+                    const card =
+                        template.content
+                            .firstElementChild
+                            .cloneNode(true);
+
+                    list.appendChild(card);
+
+                    reindexFields();
+
+                    return;
+                }
+
+
+                const createForm =
+                    event.target.closest(
+                        '[data-auth-form-create-v11]'
+                    );
+
+                if (createForm) {
+
+                    /*
+                     * UI foundation only.
+                     * Persistence will use TenantAuthFormService.
+                     * Deliberately no fake local-only form creation.
+                     */
+                    return;
+                }
+            }
+        );
+
+
+        root.addEventListener(
+            'input',
+            function (event) {
+
+                const card =
+                    event.target.closest(
+                        '[data-auth-field-v11]'
+                    );
+
+                if (card) {
+                    refreshSummary(card);
+                }
+            }
+        );
+
+
+        root.addEventListener(
+            'change',
+            function (event) {
+
+                const card =
+                    event.target.closest(
+                        '[data-auth-field-v11]'
+                    );
+
+                if (card) {
+                    refreshSummary(card);
+                }
+            }
+        );
+
+
+        let dragging = null;
+
+
+        root.addEventListener(
+            'dragstart',
+            function (event) {
+
+                const card =
+                    event.target.closest(
+                        '[data-auth-field-v11]'
+                    );
+
+                if (!card) {
+                    return;
+                }
+
+                dragging = card;
+
+                card.classList.add(
+                    'is-dragging'
+                );
+
+                if (event.dataTransfer) {
+                    event.dataTransfer.effectAllowed =
+                        'move';
+                }
+            }
+        );
+
+
+        root.addEventListener(
+            'dragover',
+            function (event) {
+
+                if (!dragging) {
+                    return;
+                }
+
+                const target =
+                    event.target.closest(
+                        '[data-auth-field-v11]'
+                    );
+
+                if (
+                    !target
+                    || target === dragging
+                ) {
+                    return;
+                }
+
+                event.preventDefault();
+
+                cards().forEach(
+                    function (card) {
+                        card.classList.remove(
+                            'is-drag-over'
+                        );
+                    }
+                );
+
+                target.classList.add(
+                    'is-drag-over'
+                );
+
+                const rect =
+                    target.getBoundingClientRect();
+
+                const insertAfter =
+                    event.clientY
+                    > rect.top
+                    + rect.height / 2;
+
+                target.parentNode.insertBefore(
+                    dragging,
+                    insertAfter
+                        ? target.nextSibling
+                        : target
+                );
+            }
+        );
+
+
+        root.addEventListener(
+            'dragend',
+            function () {
+
+                cards().forEach(
+                    function (card) {
+                        card.classList.remove(
+                            'is-dragging',
+                            'is-drag-over'
+                        );
+                    }
+                );
+
+                dragging = null;
+
+                reindexFields();
+            }
+        );
+
+
+        reindexFields();
+    }
+);
+</script>
 
 
 <template data-v10-registration-field-template>
@@ -2627,6 +4147,118 @@ main,
 
 </div>
 
+
+{{-- ESUBIZ_AUTH_CANONICAL_SAVE_BAR_V1 --}}
+<div class="esubiz-auth-save-bar">
+    <div class="esubiz-auth-save-copy">
+        <strong>Authentication Settings</strong>
+        <span>
+            Save changes made across the Authentication settings tabs.
+        </span>
+    </div>
+
+    <button
+        type="submit"
+        class="esubiz-auth-save-button"
+    >
+        Save Authentication Settings
+    </button>
+</div>
+
+<style>
+/* ESUBIZ_AUTH_CANONICAL_SAVE_BAR_STYLE_V1 */
+
+.esubiz-auth-save-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 40;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+
+    width: 100%;
+    box-sizing: border-box;
+
+    margin-top: 28px;
+    padding: 16px 20px;
+
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+
+    background: rgba(255,255,255,.97);
+    box-shadow:
+        0 -4px 18px rgba(15,23,42,.05),
+        0 8px 24px rgba(15,23,42,.08);
+
+    backdrop-filter: blur(10px);
+}
+
+.esubiz-auth-save-copy {
+    min-width: 0;
+}
+
+.esubiz-auth-save-copy strong {
+    display: block;
+    color: #0f172a;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.esubiz-auth-save-copy span {
+    display: block;
+    margin-top: 3px;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.esubiz-auth-save-button {
+    flex: 0 0 auto;
+
+    min-height: 44px;
+    padding: 0 20px;
+
+    border: 0;
+    border-radius: 10px;
+
+    background: #0f172a;
+    color: #ffffff;
+
+    font-size: 14px;
+    font-weight: 700;
+
+    cursor: pointer;
+    transition:
+        background .18s ease,
+        transform .18s ease;
+}
+
+.esubiz-auth-save-button:hover {
+    background: #1e293b;
+}
+
+.esubiz-auth-save-button:active {
+    transform: translateY(1px);
+}
+
+.esubiz-auth-save-button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(15,23,42,.16);
+}
+
+@media (max-width: 640px) {
+    .esubiz-auth-save-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .esubiz-auth-save-button {
+        width: 100%;
+    }
+}
+</style>
 
 </form>
 
@@ -3286,7 +4918,6 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 
 
-
 <style>
 
 /* ESUBIZ_AUTH_REFERENCE_UI_V1 */
@@ -3549,7 +5180,6 @@ document.addEventListener(
 );
 
 </script>
-
 
 
 <style>
@@ -4453,7 +6083,6 @@ document.addEventListener(
 </style>
 
 
-
 <style>
 
 /* ESUBIZ_REFERENCE_REGISTRATION_UI_V8 */
@@ -4957,7 +6586,6 @@ span:not(.esubiz-planned-setting) {
 </style>
 
 
-
 <style>
 
 /* ESUBIZ_REFERENCE_REGISTRATION_FIELD_MANAGER_V10 */
@@ -5376,3 +7004,181 @@ document.addEventListener(
 
 </script>
 
+
+<style>
+/* ESUBIZ_REAL_REGISTRATION_ROLE_STYLE_V13 */
+
+.auth-v13-role-select{
+    width:min(300px,100%);
+}
+
+.auth-v13-role-select select{
+    width:100%;
+    box-sizing:border-box;
+    border:1px solid #cbd5e1;
+    border-radius:9px;
+    padding:10px 36px 10px 11px;
+    background:#fff;
+    color:#0f172a;
+}
+
+@media(max-width:640px){
+    .auth-v13-role-select{
+        width:100%;
+    }
+}
+</style>
+
+
+<style>
+/* ESUBIZ_REGISTRATION_REAL_CONTROLS_STYLE_V14 */
+
+.auth-registration-v14-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:28px;
+    min-height:88px;
+    padding:18px 26px;
+    border-top:1px solid #e8edf5;
+    box-sizing:border-box;
+}
+
+.auth-registration-v14-copy{
+    flex:1 1 auto;
+    min-width:0;
+}
+
+.auth-registration-v14-copy strong{
+    display:block;
+    margin:0;
+    color:#111827;
+    font-size:15px;
+    font-weight:700;
+    line-height:1.35;
+}
+
+.auth-registration-v14-copy span{
+    display:block;
+    margin-top:5px;
+    color:#718096;
+    font-size:13px;
+    font-weight:400;
+    line-height:1.45;
+}
+
+.auth-registration-v14-action{
+    flex:0 0 auto;
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+}
+
+
+/* MATCHING TOGGLE */
+
+.auth-registration-v14-switch{
+    position:relative;
+    display:inline-flex;
+    width:46px;
+    height:26px;
+    margin:0;
+    cursor:pointer;
+}
+
+.auth-registration-v14-switch input[type="hidden"]{
+    display:none;
+}
+
+.auth-registration-v14-switch input[type="checkbox"]{
+    position:absolute;
+    width:1px;
+    height:1px;
+    opacity:0;
+    pointer-events:none;
+}
+
+.auth-registration-v14-switch > span{
+    position:absolute;
+    inset:0;
+    border-radius:999px;
+    background:#cbd5e1;
+    transition:
+        background .18s ease,
+        box-shadow .18s ease;
+}
+
+.auth-registration-v14-switch > span:before{
+    content:"";
+    position:absolute;
+    top:3px;
+    left:3px;
+    width:20px;
+    height:20px;
+    border-radius:50%;
+    background:#fff;
+    box-shadow:0 1px 3px rgba(15,23,42,.18);
+    transition:transform .18s ease;
+}
+
+.auth-registration-v14-switch
+input[type="checkbox"]:checked + span{
+    background:#2563eb;
+}
+
+.auth-registration-v14-switch
+input[type="checkbox"]:checked + span:before{
+    transform:translateX(20px);
+}
+
+.auth-registration-v14-switch
+input[type="checkbox"]:focus-visible + span{
+    box-shadow:0 0 0 3px rgba(37,99,235,.16);
+}
+
+
+/* ROLE */
+
+.auth-registration-v14-role{
+    width:min(320px,38%);
+}
+
+.auth-registration-v14-role select{
+    display:block;
+    width:100%;
+    height:44px;
+    box-sizing:border-box;
+    margin:0;
+    padding:0 38px 0 12px;
+    border:1px solid #cbd5e1;
+    border-radius:9px;
+    background:#fff;
+    color:#1e293b;
+    font:inherit;
+    font-size:14px;
+}
+
+.auth-registration-v14-role select:focus{
+    outline:none;
+    border-color:#60a5fa;
+    box-shadow:0 0 0 3px rgba(37,99,235,.10);
+}
+
+@media(max-width:700px){
+    .auth-registration-v14-row{
+        flex-direction:column;
+        align-items:flex-start;
+        gap:14px;
+        padding:18px;
+    }
+
+    .auth-registration-v14-action{
+        width:100%;
+        justify-content:flex-start;
+    }
+
+    .auth-registration-v14-role{
+        width:100%;
+    }
+}
+</style>

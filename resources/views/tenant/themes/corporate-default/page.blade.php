@@ -1621,14 +1621,512 @@
 
                                             @case('form')
 
-                                                <div class="builder-placeholder">
-                                                    Form
-                                                    @if(!empty($data['formId']))
-                                                        #{{ $data['formId'] }}
+                                            {{-- ESUBIZ_CORE_PUBLIC_FORM_RENDERER_V1 --}}
+                                            @php
+                                                $coreForm = null;
+                                                $coreFormFields = collect();
+
+                                                $coreFormId = (int) (
+                                                    $data['formId'] ?? 0
+                                                );
+
+    /*
+     * ESUBIZ_CORE_CONTACT_RUNTIME_RESOLUTION_V3
+     *
+     * Existing default Contact pages can contain an empty
+     * formId. Resolve their protected Core Contact Form here.
+     *
+     * This fallback is only used when no numeric formId was
+     * supplied by the Page Builder.
+     */
+    if ($coreFormId <= 0) {
+        try {
+            $coreResolveDb =
+                \Illuminate\Support\Facades\DB::connection(
+                    'tenant'
+                );
+
+            $coreResolveSchema =
+                $coreResolveDb->getSchemaBuilder();
+
+            if ($coreResolveSchema->hasTable('forms')) {
+
+                $coreResolvedContact =
+                    $coreResolveDb
+                        ->table('forms')
+                        ->where('is_active', true)
+                        ->get()
+                        ->first(function ($form) {
+                            $settings = json_decode(
+                                (string) (
+                                    $form->settings
+                                    ?? ''
+                                ),
+                                true
+                            );
+
+                            if (!is_array($settings)) {
+                                return false;
+                            }
+
+                            return
+                                ($settings['system'] ?? false)
+                                    === true
+                                &&
+                                ($settings['core_default'] ?? false)
+                                    === true
+                                &&
+                                (
+                                    (
+                                        $settings[
+                                            'core_default_form'
+                                        ] ?? null
+                                    ) === 'contact'
+                                    ||
+                                    (
+                                        $settings[
+                                            'purpose'
+                                        ] ?? null
+                                    ) === 'contact'
+                                );
+                        });
+
+                /*
+                 * Compatibility fallback for Core databases
+                 * whose default Contact Form predates metadata.
+                 */
+                if (!$coreResolvedContact) {
+                    $coreResolvedContact =
+                        $coreResolveDb
+                            ->table('forms')
+                            ->where('slug', 'contact')
+                            ->where('is_active', true)
+                            ->first();
+                }
+
+                if ($coreResolvedContact) {
+                    $coreFormId =
+                        (int) $coreResolvedContact->id;
+                }
+            }
+
+        } catch (\Throwable $e) {
+            $coreFormId = 0;
+        }
+    }
+
+
+                                                if ($coreFormId > 0) {
+                                                    try {
+                                                        $coreFormDb =
+                                                            \Illuminate\Support\Facades\DB::connection(
+                                                                'tenant'
+                                                            );
+
+                                                        $coreSchema =
+                                                            $coreFormDb->getSchemaBuilder();
+
+                                                        if (
+                                                            $coreSchema->hasTable('forms')
+                                                            && $coreSchema->hasTable('form_fields')
+                                                        ) {
+                                                            $coreForm =
+                                                                $coreFormDb
+                                                                    ->table('forms')
+                                                                    ->where('id', $coreFormId)
+                                                                    ->where('is_active', true)
+                                                                    ->first();
+
+                                                            if ($coreForm) {
+                                                                $coreFormFields =
+                                                                    $coreFormDb
+                                                                        ->table('form_fields')
+                                                                        ->where(
+                                                                            'form_id',
+                                                                            $coreForm->id
+                                                                        )
+                                                                        ->orderBy('sort_order')
+                                                                        ->orderBy('id')
+                                                                        ->get();
+                                                            }
+                                                        }
+                                                    } catch (\Throwable $e) {
+                                                        $coreForm = null;
+                                                        $coreFormFields = collect();
+                                                    }
+                                                }
+                                            @endphp
+
+                                            @if($coreForm)
+
+                                                <div class="builder-card">
+
+                                                    @if(
+                                                        session()->has(
+                                                            'core_form_success_'
+                                                            . $coreForm->id
+                                                        )
+                                                    )
+                                                        <div
+                                                            style="
+                                                                margin-bottom:16px;
+                                                                padding:12px 14px;
+                                                                border-radius:10px;
+                                                                background:#ecfdf5;
+                                                                color:#065f46;
+                                                                font-weight:700;
+                                                            "
+                                                        >
+                                                            {{
+                                                                session(
+                                                                    'core_form_success_'
+                                                                    . $coreForm->id
+                                                                )
+                                                            }}
+                                                        </div>
                                                     @endif
+
+                                                    <form
+                                                        method="POST"
+                                                        action="{{ url('/forms/' . $coreForm->id . '/submit') }}"
+                                                    >
+                                                        @csrf
+
+                                                        @foreach(
+                                                            $coreFormFields
+                                                            as $coreField
+                                                        )
+                                                            @php
+                                                                $coreType =
+                                                                    strtolower(
+                                                                        trim(
+                                                                            (string) $coreField->type
+                                                                        )
+                                                                    );
+
+                                                                $coreOptions =
+                                                                    json_decode(
+                                                                        (string) (
+                                                                            $coreField->options
+                                                                            ?? ''
+                                                                        ),
+                                                                        true
+                                                                    );
+
+                                                                $coreOptions =
+                                                                    is_array($coreOptions)
+                                                                        ? $coreOptions
+                                                                        : [];
+
+                                                                $coreOld =
+                                                                    old(
+                                                                        'fields.'
+                                                                        . $coreField->name
+                                                                    );
+
+                                                                $coreRequired =
+                                                                    (bool) $coreField->required;
+
+                                                                $coreError =
+                                                                    $errors->first(
+                                                                        'fields.'
+                                                                        . $coreField->name
+                                                                    );
+                                                            @endphp
+
+                                                            <div style="margin-bottom:18px;">
+
+                                                                @if($coreType !== 'checkbox' || count($coreOptions))
+
+                                                                    <label
+                                                                        style="
+                                                                            display:block;
+                                                                            margin-bottom:7px;
+                                                                            font-weight:700;
+                                                                        "
+                                                                    >
+                                                                        {{ $coreField->label }}
+
+                                                                        @if($coreRequired)
+                                                                            <span aria-hidden="true">*</span>
+                                                                        @endif
+                                                                    </label>
+
+                                                                @endif
+
+
+                                                                @switch($coreType)
+
+                                                                    @case('textarea')
+
+                                                                        <textarea
+                                                                            name="fields[{{ $coreField->name }}]"
+                                                                            rows="5"
+                                                                            @if($coreRequired) required @endif
+                                                                            style="
+                                                                                width:100%;
+                                                                                padding:12px 14px;
+                                                                                border:1px solid #d1d5db;
+                                                                                border-radius:10px;
+                                                                            "
+                                                                        >{{ $coreOld }}</textarea>
+
+                                                                        @break
+
+
+                                                                    @case('select')
+
+                                                                        <select
+                                                                            name="fields[{{ $coreField->name }}]"
+                                                                            @if($coreRequired) required @endif
+                                                                            style="
+                                                                                width:100%;
+                                                                                padding:12px 14px;
+                                                                                border:1px solid #d1d5db;
+                                                                                border-radius:10px;
+                                                                            "
+                                                                        >
+                                                                            <option value="">
+                                                                                Select {{ $coreField->label }}
+                                                                            </option>
+
+                                                                            @foreach(
+                                                                                $coreOptions
+                                                                                as $coreOption
+                                                                            )
+                                                                                <option
+                                                                                    value="{{ $coreOption }}"
+                                                                                    @selected(
+                                                                                        (string) $coreOld
+                                                                                        ===
+                                                                                        (string) $coreOption
+                                                                                    )
+                                                                                >
+                                                                                    {{ $coreOption }}
+                                                                                </option>
+                                                                            @endforeach
+                                                                        </select>
+
+                                                                        @break
+
+
+                                                                    @case('radio')
+
+                                                                        <div
+                                                                            style="
+                                                                                display:grid;
+                                                                                gap:9px;
+                                                                            "
+                                                                        >
+                                                                            @foreach(
+                                                                                $coreOptions
+                                                                                as $coreOption
+                                                                            )
+                                                                                <label
+                                                                                    style="
+                                                                                        display:flex;
+                                                                                        align-items:center;
+                                                                                        gap:8px;
+                                                                                    "
+                                                                                >
+                                                                                    <input
+                                                                                        type="radio"
+                                                                                        name="fields[{{ $coreField->name }}]"
+                                                                                        value="{{ $coreOption }}"
+                                                                                        @checked(
+                                                                                            (string) $coreOld
+                                                                                            ===
+                                                                                            (string) $coreOption
+                                                                                        )
+                                                                                        @if($coreRequired) required @endif
+                                                                                    >
+
+                                                                                    <span>
+                                                                                        {{ $coreOption }}
+                                                                                    </span>
+                                                                                </label>
+                                                                            @endforeach
+                                                                        </div>
+
+                                                                        @break
+
+
+                                                                    @case('checkbox')
+
+                                                                        @if(count($coreOptions))
+
+                                                                            @php
+                                                                                $coreCheckedValues =
+                                                                                    is_array($coreOld)
+                                                                                        ? $coreOld
+                                                                                        : [];
+                                                                            @endphp
+
+                                                                            <div
+                                                                                style="
+                                                                                    display:grid;
+                                                                                    gap:9px;
+                                                                                "
+                                                                            >
+                                                                                @foreach(
+                                                                                    $coreOptions
+                                                                                    as $coreOption
+                                                                                )
+                                                                                    <label
+                                                                                        style="
+                                                                                            display:flex;
+                                                                                            align-items:center;
+                                                                                            gap:8px;
+                                                                                        "
+                                                                                    >
+                                                                                        <input
+                                                                                            type="checkbox"
+                                                                                            name="fields[{{ $coreField->name }}][]"
+                                                                                            value="{{ $coreOption }}"
+                                                                                            @checked(
+                                                                                                in_array(
+                                                                                                    (string) $coreOption,
+                                                                                                    array_map(
+                                                                                                        'strval',
+                                                                                                        $coreCheckedValues
+                                                                                                    ),
+                                                                                                    true
+                                                                                                )
+                                                                                            )
+                                                                                        >
+
+                                                                                        <span>
+                                                                                            {{ $coreOption }}
+                                                                                        </span>
+                                                                                    </label>
+                                                                                @endforeach
+                                                                            </div>
+
+                                                                        @else
+
+                                                                            <label
+                                                                                style="
+                                                                                    display:flex;
+                                                                                    align-items:center;
+                                                                                    gap:8px;
+                                                                                "
+                                                                            >
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    name="fields[{{ $coreField->name }}]"
+                                                                                    value="1"
+                                                                                    @checked(
+                                                                                        (string) $coreOld === '1'
+                                                                                    )
+                                                                                    @if($coreRequired) required @endif
+                                                                                >
+
+                                                                                <span>
+                                                                                    {{ $coreField->label }}
+
+                                                                                    @if($coreRequired)
+                                                                                        *
+                                                                                    @endif
+                                                                                </span>
+                                                                            </label>
+
+                                                                        @endif
+
+                                                                        @break
+
+
+                                                                    @default
+
+                                                                        @php
+                                                                            $coreInputType =
+                                                                                in_array(
+                                                                                    $coreType,
+                                                                                    [
+                                                                                        'text',
+                                                                                        'email',
+                                                                                        'tel',
+                                                                                        'number',
+                                                                                        'password',
+                                                                                        'date',
+                                                                                    ],
+                                                                                    true
+                                                                                )
+                                                                                    ? $coreType
+                                                                                    : 'text';
+                                                                        @endphp
+
+                                                                        <input
+                                                                            type="{{ $coreInputType }}"
+                                                                            name="fields[{{ $coreField->name }}]"
+                                                                            value="{{
+                                                                                $coreInputType === 'password'
+                                                                                    ? ''
+                                                                                    : $coreOld
+                                                                            }}"
+                                                                            @if($coreRequired) required @endif
+                                                                            style="
+                                                                                width:100%;
+                                                                                padding:12px 14px;
+                                                                                border:1px solid #d1d5db;
+                                                                                border-radius:10px;
+                                                                            "
+                                                                        >
+
+                                                                        @break
+
+                                                                @endswitch
+
+
+                                                                @if($coreError)
+                                                                    <div
+                                                                        style="
+                                                                            margin-top:6px;
+                                                                            color:#b91c1c;
+                                                                            font-size:.85rem;
+                                                                        "
+                                                                    >
+                                                                        {{ $coreError }}
+                                                                    </div>
+                                                                @endif
+
+                                                            </div>
+
+                                                        @endforeach
+
+                                                        <button
+                                                            type="submit"
+                                                            style="
+                                                                padding:12px 18px;
+                                                                border:0;
+                                                                border-radius:10px;
+                                                                background:#111827;
+                                                                color:#ffffff;
+                                                                font-weight:800;
+                                                                cursor:pointer;
+                                                            "
+                                                        >
+                                                            Submit
+                                                        </button>
+
+                                                    </form>
+
                                                 </div>
 
-                                                @break
+                                            @elseif(!empty($data['formId']))
+
+                                                <div class="builder-placeholder">
+                                                    Form unavailable.
+                                                </div>
+
+                                            @else
+
+                                                <div class="builder-placeholder">
+                                                    No form selected.
+                                                </div>
+
+                                            @endif
+
+                                            @break
 
 
                                             @case('panorama')

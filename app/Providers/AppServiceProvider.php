@@ -19,6 +19,21 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // ESUBIZ_REGISTRATION_PLUGIN_REGISTRIES_V1
+        //
+        // One registry per request/application lifecycle.
+        // Modules can resolve these registries and register their
+        // registration offers/extensions without Core knowing them.
+        $this->app->singleton(
+            \App\Services\Auth\RegistrationOfferRegistry::class,
+            fn () => new \App\Services\Auth\RegistrationOfferRegistry()
+        );
+
+        $this->app->singleton(
+            \App\Services\Auth\RegistrationExtensionRegistry::class,
+            fn () => new \App\Services\Auth\RegistrationExtensionRegistry()
+        );
+
         /*
          * ESUBIZ_ADDON_SALES_TRIGGER_REGISTRY_SINGLETON_V1
          *

@@ -1,0 +1,1854 @@
+<?php
+
+
+
+
+/*
+|--------------------------------------------------------------------------
+| Central Esubiz Login - MUST stay before tenant routes
+|--------------------------------------------------------------------------
+*/
+
+
+
+
+
+
+use App\Http\Controllers\MarketplaceController;
+
+use App\Http\Controllers\Admin\FinancialReportController;
+
+use Illuminate\Support\Facades\Route;
+
+
+
+/*
+|--------------------------------------------------------------------------
+| Public Central Esubiz AI Avatar Media
+|--------------------------------------------------------------------------
+|
+| Official avatars are landlord-owned media stored in Central storage.
+| This route is intentionally public because tenant websites must
+| display the selected official Esubiz AI avatar.
+|
+*/
+
+
+
+/*
+|--------------------------------------------------------------------------
+| PUBLIC ESUBIZ CENTRAL MEDIA
+|--------------------------------------------------------------------------
+|
+| Landlord-owned media only.
+| Tenant media must not use this route.
+|
+*/
+
+Route::get(
+    '/media/central/{path}',
+    [
+        \App\Http\Controllers\Media\CentralMediaController::class,
+        'show',
+    ]
+)
+->where(
+    'path',
+    '.*'
+)
+->name(
+    'esubiz.central-media.show'
+);
+
+
+Route::get(
+    '/media/esubiz-ai/avatar/{persona}',
+    [
+        \App\Http\Controllers\Admin\AiController::class,
+        'avatarImage',
+    ]
+)->name(
+    'esubiz.ai.avatar.image'
+);
+
+
+Route::get('/gift-card/validate', [
+    \App\Http\Controllers\GiftCardValidatorController::class,
+    'index',
+])->name('gift-card.validate');
+
+Route::post('/gift-card/validate', [
+    \App\Http\Controllers\GiftCardValidatorController::class,
+    'validateCard',
+])->name('gift-card.validate.check');
+
+Route::post('/gift-card/validate-checkout', [
+    \App\Http\Controllers\GiftCardValidatorController::class,
+    'validateCheckout'
+])->name('gift-card.validate.checkout');
+
+
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\WebsiteController;
+use App\Http\Controllers\User\WebsiteManagementController;
+use App\Http\Controllers\WebsiteWizardController;
+use App\Http\Controllers\AccountModeController;
+use App\Http\Controllers\DeveloperAccountController;
+use App\Http\Controllers\SsoController;
+use App\Http\Controllers\TenantWebsiteController;
+
+use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\WebsiteTypeController;
+use App\Http\Controllers\Developer\DashboardController as DeveloperDashboardController;
+use App\Http\Controllers\Developer\BuilderController as DeveloperBuilderController;
+use App\Http\Controllers\User\DashboardController as UserDashboardController;
+use App\Http\Controllers\User\WebsiteController as UserWebsiteController;
+
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+*/
+
+
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ-VITE-ASSET-FALLBACK
+|--------------------------------------------------------------------------
+|
+| Serve compiled Vite assets directly through Laravel when the web server
+| rewrites /build/assets requests into index.php.
+|
+*/
+
+Route::get('/build/assets/{file}', function ($file) {
+    abort_if(
+        str_contains($file, '..')
+        || str_contains($file, '/')
+        || str_contains($file, '\\'),
+        404
+    );
+
+    $path = public_path('build/assets/' . $file);
+
+    abort_unless(is_file($path), 404);
+
+    return response()->file($path);
+})
+    ->where('file', '[A-Za-z0-9._-]+')
+    ->name('vite.asset.fallback');
+
+
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ-CENTRAL-PUBLIC-ASSET-FALLBACK
+|--------------------------------------------------------------------------
+|
+| Serve central Esubiz public assets directly from Laravel's public folder
+| when Apache rewrites the request into index.php.
+|
+*/
+
+
+
+
+
+
+
+/*
+|--------------------------------------------------------------------------
+| CENTRAL-STATIC-FILE-FALLBACK
+|--------------------------------------------------------------------------
+|
+| Central Esubiz only.
+| Serve any genuine static file from Laravel public/ when Apache rewrites
+| the request to index.php.
+|
+*/
+
+$serveCentralStaticFile = function ($file) {
+
+    abort_if(
+        str_contains($file, '..')
+        || str_starts_with($file, '/')
+        || str_contains($file, "\0"),
+        404
+    );
+
+    $path = public_path($file);
+
+    abort_unless(
+        is_file($path),
+        404
+    );
+
+    return response()->file($path);
+};
+
+
+/* esubiz.com */
+
+
+
+/* www.esubiz.com */
+
+
+
+
+/*
+|--------------------------------------------------------------------------
+| CENTRAL-VITE-EXPLICIT-MIME
+|--------------------------------------------------------------------------
+|
+| Central Esubiz only.
+| Serve Vite assets through Laravel with browser-correct MIME headers.
+|
+*/
+
+$serveCentralViteAsset = function ($file) {
+
+    abort_if(
+        str_contains($file, '..')
+        || str_contains($file, '/')
+        || str_contains($file, '\\'),
+        404
+    );
+
+    $path = public_path('build/assets/' . $file);
+
+    abort_unless(is_file($path), 404);
+
+    $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+
+    $mime = match ($extension) {
+        'css' => 'text/css; charset=UTF-8',
+        'js', 'mjs' => 'application/javascript; charset=UTF-8',
+        'map', 'json' => 'application/json; charset=UTF-8',
+        default => 'application/octet-stream',
+    };
+
+    return response()->file(
+        $path,
+        [
+            'Content-Type' => $mime,
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'no-cache, must-revalidate',
+        ]
+    );
+};
+
+
+/* Non-WWW central application */
+Route::domain('esubiz.com')
+    ->get(
+        '/build/assets/{file}',
+        $serveCentralViteAsset
+    )
+    ->where('file', '[A-Za-z0-9._-]+')
+    ->name('central.vite.asset');
+
+
+/* WWW central homepage */
+Route::domain('www.esubiz.com')
+    ->get(
+        '/build/assets/{file}',
+        $serveCentralViteAsset
+    )
+    ->where('file', '[A-Za-z0-9._-]+')
+    ->name('central.vite.asset.www');
+
+
+Route::view('/', 'frontend.home')->name('home');
+
+
+/*
+|--------------------------------------------------------------------------
+| Central WWW Compatibility
+|--------------------------------------------------------------------------
+|
+| Historical Esubiz behavior:
+|   www.esubiz.com          = public homepage
+|   esubiz.com/*            = application/accounts
+|
+*/
+
+Route::domain('www.esubiz.com')
+    ->get('/', fn () => view('frontend.home'))
+    ->name('www.home');
+
+Route::domain('www.esubiz.com')
+    ->any('/{path}', function (
+        \Illuminate\Http\Request $request,
+        $path
+    ) {
+        return redirect()->to(
+            'https://esubiz.com/' . ltrim($path, '/')
+            . (
+                $request->getQueryString()
+                    ? '?' . $request->getQueryString()
+                    : ''
+            ),
+            302
+        );
+    })
+    ->where('path', '.+')
+    ->name('www.central.redirect');
+
+
+
+
+Route::domain('esubiz.com')
+    ->get('/', fn () => view('frontend.home'))
+    ->name('www.home');
+
+/*
+|--------------------------------------------------------------------------
+| Public Tenant Website
+|--------------------------------------------------------------------------
+*/
+
+Route::domain('{subdomain}.esubiz.com')
+    ->where([
+        'subdomain' =>
+            '(?!www$)(?!esubiz$)[a-zA-Z0-9-]+'
+    ])
+    ->middleware('website-tenant')
+    ->group(function () {
+
+        /*
+        |--------------------------------------------------------------------------
+        | Public Tenant Website
+        |--------------------------------------------------------------------------
+        */
+        Route::get(
+            '/',
+            [TenantWebsiteController::class, 'home']
+        )->name('tenant.website.home');
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Tenant Core CMS Entry
+        |--------------------------------------------------------------------------
+        |
+        | Every current and future tenant uses:
+        |
+        | tenant.esubiz.com/admin
+        |
+        */
+        Route::get(
+            '/admin',
+            [
+                \App\Http\Controllers\TenantCmsController::class,
+                'admin',
+            ]
+        )->name('tenant.cms.admin');
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Tenant Core CMS Dashboard
+        |--------------------------------------------------------------------------
+        */
+        Route::get(
+            '/admin/dashboard',
+            [
+                \App\Http\Controllers\TenantCmsController::class,
+                'dashboard',
+            ]
+        )->name('tenant.cms.dashboard');
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Homepage Update
+        |--------------------------------------------------------------------------
+        */
+
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Core CMS - Tenant Media Upload
+        |--------------------------------------------------------------------------
+        */
+        Route::post(
+            '/admin/media/upload-image',
+            [
+                \App\Http\Controllers\TenantMediaController::class,
+                'uploadImage',
+            ]
+        )->name('tenant.cms.media.image.upload');
+
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Core CMS - Themes
+        |--------------------------------------------------------------------------
+        */
+
+        Route::get(
+            '/admin/themes',
+            [
+                \App\Http\Controllers\TenantThemeController::class,
+                'index',
+            ]
+        )->name('tenant.cms.themes.index');
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Core CMS - Central Site AI
+        |--------------------------------------------------------------------------
+        |
+        | One AI gateway for tenant website features.
+        |
+        | Individual features register capabilities with the
+        | Esubiz Central AI Function Library instead of creating
+        | their own AI implementations.
+        |
+        */
+        Route::post(
+            '/admin/site-ai/generate',
+            [
+                \App\Http\Controllers\TenantSiteAiController::class,
+                'generate',
+            ]
+        )->name(
+            'tenant.cms.site-ai.generate'
+        );
+
+        Route::get(
+            '/admin/esubiz-ai/settings',
+            [
+                \App\Http\Controllers\TenantSiteAiController::class,
+                'settings',
+            ]
+        )->name(
+            'tenant.cms.site-ai.settings'
+        );
+
+
+        Route::post(
+            '/admin/esubiz-ai/settings',
+            [
+                \App\Http\Controllers\TenantSiteAiController::class,
+                'updateSettings',
+            ]
+        )->name(
+            'tenant.cms.site-ai.settings.update'
+        );
+
+        /*
+         * Autosave individual website AI service switches.
+         */
+        Route::post(
+            '/admin/esubiz-ai/service',
+            [
+                \App\Http\Controllers\TenantSiteAiController::class,
+                'updateServiceSetting',
+            ]
+        )->name(
+            'tenant.cms.site-ai.service.update'
+        );
+
+        Route::post(
+            '/admin/esubiz-ai/avatar',
+            [
+                \App\Http\Controllers\TenantSiteAiController::class,
+                'updateAvatarSetting',
+            ]
+        )->name(
+            'tenant.cms.site-ai.avatar.update'
+        );
+
+        Route::post(
+            '/admin/esubiz-ai/autosave',
+            [
+                \App\Http\Controllers\TenantSiteAiController::class,
+                'autosaveSetting',
+            ]
+        )->name(
+            'tenant.cms.site-ai.autosave'
+        );
+
+
+
+
+
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | ESUBIZ_AI_COMPATIBILITY_ROUTES
+        |--------------------------------------------------------------------------
+        |
+        | Preserve the existing Esubiz AI sidebar URLs while the
+        | new global AI platform is being built.
+        |
+        | /admin/ai          -> AI dashboard/settings entry
+        | /admin/ai/settings -> persona/settings page
+        |
+        */
+
+        Route::get(
+            '/admin/ai',
+            function (
+                string $subdomain
+            ) {
+                return redirect()->route(
+                    'tenant.cms.site-ai.settings',
+                    [
+                        'subdomain' =>
+                            $subdomain,
+                    ]
+                );
+            }
+        )->name(
+            'tenant.cms.ai.dashboard'
+        );
+
+
+        Route::get(
+            '/admin/ai/settings',
+            function (
+                string $subdomain
+            ) {
+                return redirect()->route(
+                    'tenant.cms.site-ai.settings',
+                    [
+                        'subdomain' =>
+                            $subdomain,
+                    ]
+                );
+            }
+        )->name(
+            'tenant.cms.ai.settings.compat'
+        );
+
+
+
+
+
+
+        /*
+         * Exact built-in Business Theme routes.
+         * These stay before the generic {theme} routes.
+         */
+
+        Route::get(
+            '/admin/themes/business/configure',
+            [
+                \App\Http\Controllers\TenantThemeController::class,
+                'configureBusiness',
+            ]
+        )->name('tenant.cms.themes.business.configure');
+
+        Route::post(
+            '/admin/themes/business/configure',
+            [
+                \App\Http\Controllers\TenantThemeController::class,
+                'updateBusiness',
+            ]
+        )->name('tenant.cms.themes.business.update');
+
+
+        Route::post(
+            '/admin/pages/business-home/content',
+            [
+                \App\Http\Controllers\TenantThemeController::class,
+                'updateBusinessHomepageContent',
+            ]
+        )->name(
+            'tenant.cms.themes.business.home-content.update'
+        );
+
+
+
+
+        Route::get(
+            '/admin/themes/business/preview-image',
+            [
+                \App\Http\Controllers\TenantThemeController::class,
+                'businessPreview',
+            ]
+        )->name('tenant.cms.themes.business.preview');
+
+
+        /*
+         * AJAX Theme Enable / Disable
+         *
+         * Fixed endpoint avoids redirect and dynamic-action URL
+         * issues. Theme slug and requested action are POST data.
+         */
+        Route::post(
+            '/admin/themes/toggle',
+            [
+                \App\Http\Controllers\TenantThemeController::class,
+                'toggle',
+            ]
+        )->name('tenant.cms.themes.toggle');
+
+
+        Route::get(
+            '/admin/themes/{theme}/configure',
+            [
+                \App\Http\Controllers\TenantThemeController::class,
+                'configure',
+            ]
+        )->name('tenant.cms.themes.configure');
+
+        Route::post(
+            '/admin/themes/{theme}/enable',
+            [
+                \App\Http\Controllers\TenantThemeController::class,
+                'enable',
+            ]
+        )->name('tenant.cms.themes.enable');
+
+        Route::post(
+            '/admin/themes/{theme}/disable',
+            [
+                \App\Http\Controllers\TenantThemeController::class,
+                'disable',
+            ]
+        )
+            ->where('theme', 'business|corporate-default')
+            ->name('tenant.cms.themes.disable');
+
+
+        Route::post(
+            '/admin/themes/{theme}/configure',
+            [
+                \App\Http\Controllers\TenantThemeController::class,
+                'update',
+            ]
+        )->name('tenant.cms.themes.update');
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Core CMS - Pages
+        |--------------------------------------------------------------------------
+        |
+        | Core pages are unlimited.
+        */
+        Route::get(
+            '/admin/pages',
+            [
+                \App\Http\Controllers\TenantPagesController::class,
+                'index',
+            ]
+        )->name('tenant.cms.pages.index');
+
+        Route::get(
+            '/admin/pages/create',
+            [
+                \App\Http\Controllers\TenantPagesController::class,
+                'create',
+            ]
+        )->name('tenant.cms.pages.create');
+
+        Route::post(
+            '/admin/pages',
+            [
+                \App\Http\Controllers\TenantPagesController::class,
+                'store',
+            ]
+        )->name('tenant.cms.pages.store');
+
+        Route::get(
+            '/admin/pages/{page}/edit',
+            [
+                \App\Http\Controllers\TenantPagesController::class,
+                'edit',
+            ]
+        )->name('tenant.cms.pages.edit');
+
+        Route::put(
+            '/admin/pages/{page}',
+            [
+                \App\Http\Controllers\TenantPagesController::class,
+                'update',
+            ]
+        )->name('tenant.cms.pages.update');
+
+        Route::delete(
+            '/admin/pages/{page}',
+            [
+                \App\Http\Controllers\TenantPagesController::class,
+                'destroy',
+            ]
+        )->name('tenant.cms.pages.destroy');
+
+
+        Route::post(
+            '/admin/logout',
+            [
+                \App\Http\Controllers\TenantCmsController::class,
+                'logout',
+            ]
+        )->name('tenant.cms.logout');
+
+
+        Route::put(
+            '/admin/homepage',
+            [
+                \App\Http\Controllers\TenantCmsController::class,
+                'updateHomepage',
+            ]
+        )->name('tenant.cms.homepage.update');
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Public Tenant CMS Pages
+        |--------------------------------------------------------------------------
+        |
+        | Keep this wildcard route LAST inside the tenant domain group so
+        | /admin and every other explicit tenant route always take priority.
+        |
+        */
+
+        /*
+        |--------------------------------------------------------------------------
+        | Public Tenant Media
+        |--------------------------------------------------------------------------
+        */
+        Route::get(
+            '/media/{path}',
+            [
+                \App\Http\Controllers\TenantMediaController::class,
+                'show',
+            ]
+        )
+            ->where('path', '.*')
+            ->name('tenant.website.media');
+
+
+
+        Route::get(
+            '/theme-assets/{path}',
+            [
+                \App\Http\Controllers\TenantThemeController::class,
+                'asset',
+            ]
+        )
+            ->where('path', '.*')
+            ->name('tenant.theme.asset');
+
+
+        Route::get(
+            '/{slug}',
+            [TenantWebsiteController::class, 'page']
+        )
+            ->where('slug', '^(?!(?:admin|sso)(?:/|$)).+')
+            ->name('tenant.website.page');
+
+    });
+
+
+
+Route::domain('esubiz.com')
+    ->middleware([
+        'auth',
+        'account-mode:user',
+    ])
+    ->get(
+        '/websites/{website}/dashboard',
+        [
+            \App\Http\Controllers\User\WebsiteController::class,
+            'openDashboard',
+        ]
+    )
+    ->name('user.websites.dashboard');
+
+Route::get('/oauth/authorize', [SsoController::class, 'authorize'])
+    ->middleware('auth')
+    ->name('sso.authorize');
+
+
+
+
+
+/*
+|--------------------------------------------------------------------------
+| SSO Callbacks
+|--------------------------------------------------------------------------
+|
+| Central Esubiz authentication can return centrally, while tenant website
+| SSO may return directly to the originating tenant subdomain.
+|
+*/
+
+Route::domain('esubiz.com')
+    ->get('/sso/callback', [SsoController::class, 'callback'])
+    ->name('sso.callback.central');
+
+Route::domain('{subdomain}.esubiz.com')
+    ->where([
+        'subdomain' => '(?!www$)(?!esubiz$)[a-zA-Z0-9-]+',
+    ])
+    ->get('/sso/callback', [SsoController::class, 'callback'])
+    ->name('sso.callback');
+
+
+Route::post('/oauth/token', [SsoController::class, 'token'])
+    ->name('sso.token');
+
+Route::get('/oauth/user', [SsoController::class, 'user'])
+    ->name('sso.user');
+
+
+
+
+/*
+|--------------------------------------------------------------------------
+| Admin Marketplace - Themes
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['auth'])->group(function () {
+
+    Route::get(
+        '/admin/marketplace/themes',
+        [
+            \App\Http\Controllers\Admin\ThemeController::class,
+            'index',
+        ]
+    )->name('admin.themes.index');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Central Admin - Esubiz AI
+    |--------------------------------------------------------------------------
+    */
+    Route::get(
+        '/admin/ai',
+        [
+            \App\Http\Controllers\Admin\AiController::class,
+            'index',
+        ]
+    )->name(
+        'admin.ai.index'
+
+
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | CENTRAL AI COMMERCIAL CONTROLS
+    |--------------------------------------------------------------------------
+    */
+
+    Route::post(
+        '/admin/ai/commercial/{setting}',
+        [
+            \App\Http\Controllers\Admin\AiController::class,
+            'updateCommercialSetting',
+        ]
+    )->name(
+        'admin.ai.commercial.update'
+    );
+
+
+    Route::post(
+        '/admin/ai/models/{model}/pricing',
+        [
+            \App\Http\Controllers\Admin\AiController::class,
+            'updateModelPricing',
+        ]
+    )->name(
+        'admin.ai.models.pricing.update'
+    );
+
+
+
+    Route::post(
+        '/admin/ai/autosave',
+        [
+            \App\Http\Controllers\Admin\AiController::class,
+            'autosaveSetting',
+        ]
+    )->name(
+        'admin.ai.autosave'
+    );
+
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Central Admin - Esubiz AI Management
+    |--------------------------------------------------------------------------
+    */
+
+    Route::post(
+        '/admin/ai/avatars',
+        [
+            \App\Http\Controllers\Admin\AiController::class,
+            'storeAvatar',
+        ]
+    )->name(
+        'admin.ai.avatars.store'
+    );
+
+
+    Route::post(
+        '/admin/ai/avatars/{persona}',
+        [
+            \App\Http\Controllers\Admin\AiController::class,
+            'updateAvatar',
+        ]
+    )->name(
+        'admin.ai.avatars.update'
+    );
+
+
+    Route::delete(
+        '/admin/ai/avatars/{persona}',
+        [
+            \App\Http\Controllers\Admin\AiController::class,
+            'destroyAvatar',
+        ]
+    )->name(
+        'admin.ai.avatars.destroy'
+    );
+
+
+    Route::post(
+        '/admin/ai/providers',
+        [
+            \App\Http\Controllers\Admin\AiController::class,
+            'storeProvider',
+        ]
+    )->name(
+        'admin.ai.providers.store'
+    );
+
+
+    Route::post(
+        '/admin/ai/providers/{provider}',
+        [
+            \App\Http\Controllers\Admin\AiController::class,
+            'updateProvider',
+        ]
+    )->name(
+        'admin.ai.providers.update'
+    );
+
+
+    Route::delete(
+        '/admin/ai/providers/{provider}',
+        [
+            \App\Http\Controllers\Admin\AiController::class,
+            'destroyProvider',
+        ]
+    )->name(
+        'admin.ai.providers.destroy'
+    );
+
+
+    Route::post(
+        '/admin/ai/models',
+        [
+            \App\Http\Controllers\Admin\AiController::class,
+            'storeModel',
+        ]
+    )->name(
+        'admin.ai.models.store'
+    );
+
+
+    Route::post(
+        '/admin/ai/routing',
+        [
+            \App\Http\Controllers\Admin\AiController::class,
+            'storeRoutingRule',
+        ]
+    )->name(
+        'admin.ai.routing.store'
+    );
+
+
+    Route::post(
+        '/admin/ai/credits',
+        [
+            \App\Http\Controllers\Admin\AiController::class,
+            'storeCreditRule',
+        ]
+    )->name(
+        'admin.ai.credits.store'
+    );
+
+
+
+
+
+    Route::put(
+        '/admin/marketplace/themes/{theme}',
+        [
+            \App\Http\Controllers\Admin\ThemeController::class,
+            'update',
+        ]
+    )->name('admin.themes.update');
+
+    Route::post(
+        '/admin/marketplace/themes/{theme}/versions',
+        [
+            \App\Http\Controllers\Admin\ThemeController::class,
+            'createVersion',
+        ]
+    )->name('admin.themes.versions.store');
+
+    Route::post(
+        '/admin/marketplace/themes/{theme}/publish',
+        [
+            \App\Http\Controllers\Admin\ThemeController::class,
+            'publish',
+        ]
+    )->name('admin.themes.publish');
+
+});
+
+
+Route::middleware(['auth'])->prefix('admin/core-addons')->name('admin.core-addons.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Admin\CoreAddonController::class, 'index'])
+        ->name('index');
+
+    Route::post('/addons', [\App\Http\Controllers\Admin\CoreAddonController::class, 'storeAddon'])
+        ->name('addons.store');
+
+    Route::put('/addons/{addon}', [\App\Http\Controllers\Admin\CoreAddonController::class, 'updateAddon'])
+        ->name('addons.update');
+
+    Route::post('/addons/{addon}/toggle', [\App\Http\Controllers\Admin\CoreAddonController::class, 'toggleAddon'])
+        ->name('addons.toggle');
+
+    Route::post('/bundles', [\App\Http\Controllers\Admin\CoreAddonController::class, 'storeBundle'])
+        ->name('bundles.store');
+
+    Route::put('/bundles/{bundle}', [\App\Http\Controllers\Admin\CoreAddonController::class, 'updateBundle'])
+        ->name('bundles.update');
+
+    Route::post('/bundles/{bundle}/toggle', [\App\Http\Controllers\Admin\CoreAddonController::class, 'toggleBundle'])
+        ->name('bundles.toggle');
+    Route::delete('/{id}', [\App\Http\Controllers\Admin\CoreAddonController::class, 'destroyAddon'])
+        ->name('addons.destroy');
+
+    Route::delete('/bundles/{bundle}', [\App\Http\Controllers\Admin\CoreAddonController::class, 'destroyBundle'])
+        ->name('bundles.destroy');
+
+});
+
+Route::middleware(['auth'])->group(function () {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Site Settings → Payment Gateways
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/admin/site-settings/payment-gateways', [\App\Http\Controllers\Admin\OnlinePaymentController::class, 'gateways'])
+        ->name('admin.payment-gateways.index');
+
+    Route::prefix('admin/site-settings/payment-gateways')
+        ->name('admin.payment-gateways.')
+        ->group(function () {
+
+            Route::get('/online', [
+                \App\Http\Controllers\Admin\OnlinePaymentController::class,
+                'index'
+            ])->name('online.index');
+
+            Route::post('/online/{provider}', [
+                \App\Http\Controllers\Admin\OnlinePaymentController::class,
+                'update'
+            ])->name('online.update');
+
+            Route::get('/offline-payments', [
+                \App\Http\Controllers\Admin\OfflinePaymentReviewController::class,
+                'index'
+            ])->name('offline-payments.index');
+
+            Route::get('/offline-payments/{attempt}/receipt', [
+                \App\Http\Controllers\Admin\OfflinePaymentReviewController::class,
+                'receipt'
+            ])->name('offline-payments.receipt');
+
+            Route::post('/offline-payments/{attempt}/mark-paid', [
+                \App\Http\Controllers\Admin\OfflinePaymentReviewController::class,
+                'markPaid'
+            ])->name('offline-payments.mark-paid');
+
+            Route::post('/offline-payments/{attempt}/reject', [
+                \App\Http\Controllers\Admin\OfflinePaymentReviewController::class,
+                'reject'
+            ])->name('offline-payments.reject');
+
+
+
+            Route::get('/offline', [
+                \App\Http\Controllers\Admin\OfflinePaymentController::class,
+                'index'
+            ])->name('offline.index');
+
+            Route::post('/offline', [
+                \App\Http\Controllers\Admin\OfflinePaymentController::class,
+                'store'
+            ])->name('offline.store');
+
+            Route::post('/offline/{method}', [
+                \App\Http\Controllers\Admin\OfflinePaymentController::class,
+                'update'
+            ])->name('offline.update');
+
+            Route::delete('/offline/{method}', [
+                \App\Http\Controllers\Admin\OfflinePaymentController::class,
+                'destroy'
+            ])->name('offline.destroy');
+
+        });
+
+    /*
+     * ESUBIZ_SAAS_CHECKOUT_HANDOFF_ROUTE
+     *
+     * Signed GET bridge from SaaS tenant websites into the
+     * existing Central Marketplace checkout.
+     */
+    Route::get(
+        '/marketplace/saas-checkout',
+        [
+            \App\Http\Controllers\MarketplaceController::class,
+            'saasCheckoutHandoff'
+        ]
+    )
+        ->name('marketplace.saas-checkout');
+
+
+    Route::post('/marketplace/checkout', [\App\Http\Controllers\MarketplaceController::class, 'checkout'])
+        ->name('marketplace.checkout.create');
+
+    Route::get('/marketplace/checkout', [\App\Http\Controllers\MarketplaceController::class, 'pendingCheckouts'])
+        ->name('marketplace.checkout.index');
+
+    Route::get('/billing/orders', [\App\Http\Controllers\MarketplaceController::class, 'userOrders'])
+        ->name('marketplace.user-orders');
+
+
+
+    
+
+    /*
+     * Signed browser entry for registered off-server websites.
+     *
+     * This route creates a normal Central Marketplace checkout
+     * session and then redirects into marketplace/checkout/{order}.
+     */
+    Route::get(
+        '/marketplace/external-checkout',
+        [
+            \App\Http\Controllers\MarketplaceController::class,
+            'externalCheckout',
+        ]
+    )
+        ->middleware('signed')
+        ->name(
+            'marketplace.external.checkout'
+        );
+
+Route::get('/marketplace/checkout/{order}', [\App\Http\Controllers\MarketplaceController::class, 'checkoutPage'])
+        ->name('marketplace.checkout');
+
+    Route::get('/marketplace/checkout-product/{productType}/{productId}', [\App\Http\Controllers\MarketplaceController::class, 'developerCheckout'])
+        ->name('marketplace.checkout.product');
+
+    Route::get('/marketplace/orders/{order}/payment-status', [\App\Http\Controllers\MarketplaceController::class, 'paymentStatus'])
+        ->name('marketplace.payment-status');
+
+    Route::get('/marketplace', [\App\Http\Controllers\MarketplaceController::class, 'index'])
+        ->name('marketplace.index');
+    Route::get('/marketplace/addons', [\App\Http\Controllers\MarketplaceController::class, 'addons'])
+        ->name('marketplace.addons');
+
+});
+
+Route::middleware(['auth', 'account-mode:developer'])->group(function () {
+    Route::get('/developer/marketplace', [\App\Http\Controllers\MarketplaceController::class, 'developer'])
+        ->name('developer.marketplace');
+    Route::get('/developer/marketplace/addons', [\App\Http\Controllers\MarketplaceController::class, 'developerAddons'])
+        ->name('developer.marketplace.addons');
+
+});
+
+Route::middleware(['auth'])->post(
+    '/admin/core-addons/fulfil',
+    [\App\Http\Controllers\Admin\CoreAddonFulfilmentController::class, 'fulfil']
+)->name('admin.core-addons.fulfil');
+
+
+
+Route::middleware('auth')->group(function () {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Main Dashboard
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/dashboard', function () {
+        $mode = session('account_mode', 'user');
+
+        return match ($mode) {
+            'admin' => redirect()->route('admin.dashboard'),
+            'developer' => redirect()->route('developer.dashboard'),
+            default => redirect()->route('user.dashboard'),
+        };
+    })->name('dashboard');
+
+    Route::post('/account/mode', [AccountModeController::class, 'switch'])
+        ->name('account.mode.switch');
+
+
+    Route::get('/developer-account', [DeveloperAccountController::class, 'create'])
+        ->name('developer-account.create');
+    Route::post('/developer-account', [DeveloperAccountController::class, 'store'])
+        ->name('developer-account.store');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Dashboards
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/admin/website-types', [WebsiteTypeController::class, 'index'])
+    ->middleware(['permission:roles.view', 'account-mode:admin'])
+    ->name('admin.website-types.index');
+
+    Route::get('/admin/website-types/create', [WebsiteTypeController::class, 'create'])
+        ->middleware(['permission:roles.view', 'account-mode:admin'])
+        ->name('admin.website-types.create');
+
+    Route::post('/admin/website-types', [WebsiteTypeController::class, 'store'])
+        ->middleware(['permission:roles.view', 'account-mode:admin'])
+        ->name('admin.website-types.store');
+
+    Route::get('/admin/website-types/{websiteType}/edit', [WebsiteTypeController::class, 'edit'])
+        ->middleware(['permission:roles.view', 'account-mode:admin'])
+        ->name('admin.website-types.edit');
+
+    Route::put('/admin/website-types/{websiteType}', [WebsiteTypeController::class, 'update'])
+        ->middleware(['permission:roles.view', 'account-mode:admin'])
+        ->name('admin.website-types.update');
+
+Route::domain('esubiz.com')
+    ->get(
+        '/admin/dashboard',
+        [AdminDashboardController::class, 'index']
+    )
+    ->middleware([
+        'auth',
+        'permission:roles.view',
+        'account-mode:admin',
+    ])
+    ->name('admin.dashboard');
+
+    Route::get('/developer/dashboard', [DeveloperDashboardController::class, 'index'])
+        ->middleware(['permission:developer.console', 'account-mode:developer'])
+        ->name('developer.dashboard');
+
+    Route::get('/developer/builder', [DeveloperBuilderController::class, 'index'])
+        ->middleware('account-mode:developer')
+        ->name('developer.builder');
+
+    Route::post('/developer/builder/create', [DeveloperBuilderController::class, 'create'])
+        ->middleware('account-mode:developer')
+        ->name('developer.builder.create');
+
+    Route::get('/user/financials', [\App\Http\Controllers\User\DashboardController::class, 'financialRecords'])
+    ->middleware('auth')
+    ->name('user.financial.records');
+
+
+Route::get('/user/financials/csv', [\App\Http\Controllers\User\DashboardController::class, 'downloadFinancialRecordsCsv'])
+    ->middleware('auth')
+    ->name('user.financial.records.csv');
+
+Route::get('/user/financials/pdf', [\App\Http\Controllers\User\DashboardController::class, 'downloadFinancialRecordsPdf'])
+    ->middleware('auth')
+    ->name('user.financial.records.pdf');
+
+Route::post('/user/financials/email', [\App\Http\Controllers\User\DashboardController::class, 'emailFinancialRecords'])
+    ->middleware('auth')
+    ->name('user.financial.records.email');
+
+Route::get('/user/dashboard', [UserDashboardController::class, 'index'])
+        ->middleware(['permission:websites.manage', 'account-mode:user'])
+        ->name('user.dashboard');
+
+    Route::get('/websites', [UserWebsiteController::class, 'index'])
+        ->name('user.websites.index');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Website Builder Wizard
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/websites/create', [WebsiteWizardController::class, 'create'])
+        ->name('websites.create');
+
+    Route::post('/websites/create', [WebsiteWizardController::class, 'store'])
+        ->name('websites.store');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Continue Draft
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/websites/{website}/continue', [WebsiteWizardController::class, 'continue'])
+        ->name('websites.continue');
+
+    /*
+    |--------------------------------------------------------------------------
+    | My Website Management
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/websites/{website}/edit', [WebsiteManagementController::class, 'edit'])
+        ->name('user.websites.edit');
+
+    Route::put('/websites/{website}/edit', [WebsiteManagementController::class, 'update'])
+        ->name('user.websites.update');
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Wizard Steps
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/websites/{website}/theme', [WebsiteWizardController::class, 'theme'])
+        ->name('websites.theme');
+
+Route::post('/websites/{website}/theme', [WebsiteWizardController::class, 'theme'])
+    ->name('websites.theme.save');
+
+    Route::get('/websites/{website}/information', [WebsiteWizardController::class, 'information'])
+        ->name('websites.information');
+
+    Route::post('/websites/{website}/information', [WebsiteWizardController::class, 'information'])
+        ->name('websites.information.save');
+
+    Route::get('/websites/check-subdomain', [WebsiteWizardController::class, 'checkSubdomain'])
+        ->name('websites.check-subdomain');
+
+    Route::get('/websites/{website}/plan', [WebsiteWizardController::class, 'plan'])
+        ->name('websites.plan');
+
+    /*
+    |--------------------------------------------------------------------------
+    | NEW STEP 5 - Website Address
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/websites/{website}/domain', [WebsiteWizardController::class, 'domain'])
+        ->name('websites.domain');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Step 6
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/websites/{website}/address', [WebsiteWizardController::class, 'address'])
+        ->name('websites.address');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Step 7
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/websites/{website}/administrator', [WebsiteWizardController::class, 'administrator'])
+        ->name('websites.administrator');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Step 8
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/websites/{website}/review', [WebsiteWizardController::class, 'review'])
+        ->name('websites.review');
+
+    Route::post('/websites/{website}/deploy', [WebsiteWizardController::class, 'deploy'])
+        ->name('websites.deploy');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Profile
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get('/profile', [ProfileController::class, 'edit'])
+        ->name('profile.edit');
+
+    Route::patch('/profile', [ProfileController::class, 'update'])
+        ->name('profile.update');
+
+    Route::delete('/profile', [ProfileController::class, 'destroy'])
+        ->name('profile.destroy');
+
+});
+
+require __DIR__.'/auth.php';
+
+Route::get('/developer/financials', [\App\Http\Controllers\Developer\DashboardController::class, 'financialRecords'])
+    ->middleware(['auth'])
+    ->name('developer.financial.records');
+
+Route::get('/developer/financials/csv', [\App\Http\Controllers\Developer\DashboardController::class, 'downloadFinancialRecordsCsv'])
+    ->middleware(['auth'])
+    ->name('developer.financial.records.csv');
+
+Route::get('/developer/financials/pdf', [\App\Http\Controllers\Developer\DashboardController::class, 'downloadFinancialRecordsPdf'])
+    ->middleware(['auth'])
+    ->name('developer.financial.records.pdf');
+
+Route::post('/developer/financials/email', [\App\Http\Controllers\Developer\DashboardController::class, 'emailFinancialRecords'])
+    ->middleware(['auth'])
+    ->name('developer.financial.records.email');
+
+/*
+|--------------------------------------------------------------------------
+| Central Esubiz Account Wallet
+|--------------------------------------------------------------------------
+| One wallet is shared by User Mode and Developer Mode.
+*/
+Route::get('/wallet', [
+    \App\Http\Controllers\WalletController::class,
+    'index'
+])->middleware(['auth'])->name('account.wallet');
+
+Route::post('/wallet/fund', [
+    \App\Http\Controllers\WalletController::class,
+    'fund'
+])->middleware(['auth'])->name('account.wallet.fund');
+
+Route::post('/wallet/gift-card/validate', [
+    \App\Http\Controllers\WalletController::class,
+    'validateGiftCardFunding'
+])->middleware(['auth'])->name('account.wallet.gift-card.validate');
+
+Route::get('/wallet/funding/{funding}/status', [
+    \App\Http\Controllers\WalletController::class,
+    'fundingStatus'
+])->middleware(['auth'])->name('account.wallet.funding.status');
+
+
+Route::prefix('admin/payment-gateways')->middleware(['auth'])->group(function () {
+
+    Route::get('/wallet', [
+        \App\Http\Controllers\Admin\WalletController::class,
+        'index'
+    ])->name('admin.payment-gateways.wallet');
+
+    Route::patch('/wallet', [
+        \App\Http\Controllers\Admin\WalletController::class,
+        'update'
+    ])->name('admin.payment-gateways.wallet.update');
+
+
+    Route::get('/gift-card', [
+        \App\Http\Controllers\Admin\GiftCardController::class,
+        'index'
+    ])->name('admin.payment-gateways.gift-card');
+
+    Route::get('/gift-card/create', [
+        \App\Http\Controllers\Admin\GiftCardController::class,
+        'create'
+    ])->name('admin.payment-gateways.gift-card.create');
+
+    Route::post('/gift-card', [
+        \App\Http\Controllers\Admin\GiftCardController::class,
+        'store'
+    ])->name('admin.payment-gateways.gift-card.store');
+    
+    Route::post('/gift-card/generate',
+        [\App\Http\Controllers\Admin\GiftCardController::class, 'generate']
+    )->name('admin.payment-gateways.gift-card.generate');
+    
+    Route::get('/gift-card/export/csv',
+        [\App\Http\Controllers\Admin\GiftCardController::class, 'csv']
+    )->name('admin.payment-gateways.gift-card.csv');
+
+    Route::get('/gift-card/export/pdf',
+        [\App\Http\Controllers\Admin\GiftCardController::class, 'pdf']
+    )->name('admin.payment-gateways.gift-card.pdf');
+
+    Route::get('/gift-card/{id}', [
+        \App\Http\Controllers\Admin\GiftCardController::class,
+        'show'
+    ])->name('admin.payment-gateways.gift-card.show');
+
+    Route::patch('/gift-card/{id}', [
+        \App\Http\Controllers\Admin\GiftCardController::class,
+        'update'
+    ])->name('admin.payment-gateways.gift-card.update');
+
+    Route::post('/gift-card/{id}/enable', [
+        \App\Http\Controllers\Admin\GiftCardController::class,
+        'enable'
+    ])->name('admin.payment-gateways.gift-card.enable');
+
+    Route::post('/gift-card/{id}/disable', [
+        \App\Http\Controllers\Admin\GiftCardController::class,
+        'disable'
+    ])->name('admin.payment-gateways.gift-card.disable');
+
+    Route::delete('/gift-card/{id}',
+        [\App\Http\Controllers\Admin\GiftCardController::class, 'destroy']
+    )->name('admin.payment-gateways.gift-card.destroy');
+
+});
+
+Route::get('/admin/financial-reports', [FinancialReportController::class, 'index'])
+    ->name('admin.financial-reports');
+Route::get('/admin/financial-reports/csv', [\App\Http\Controllers\Admin\FinancialReportController::class, 'csv'])
+    ->name('admin.financial-reports.csv');
+
+Route::get('/admin/financial-reports/pdf', [\App\Http\Controllers\Admin\FinancialReportController::class, 'pdf'])
+    ->name('admin.financial-reports.pdf');
+
+Route::post('/admin/financial-reports/email', [\App\Http\Controllers\Admin\FinancialReportController::class, 'email'])
+    ->name('admin.financial-reports.email');
+
+
+
+Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
+
+    Route::get('/core/features', [\App\Http\Controllers\Admin\CoreFeatureController::class, 'index'])
+        ->name('core-features.index');
+
+    Route::post('/core/features', [\App\Http\Controllers\Admin\CoreFeatureController::class, 'storeFeature'])
+        ->name('core-features.store');
+
+    Route::post('/core/features/{id}/update', [\App\Http\Controllers\Admin\CoreFeatureController::class, 'updateFeature'])
+        ->name('core-features.update');
+
+    Route::post('/core/features/{id}/toggle', [\App\Http\Controllers\Admin\CoreFeatureController::class, 'toggleFeature'])
+        ->name('core-features.toggle');
+
+    Route::post('/core/features/{featureId}/limits', [\App\Http\Controllers\Admin\CoreFeatureController::class, 'storeLimit'])
+        ->name('core-features.limits.store');
+
+    Route::post('/core/features/limits/{id}/update', [\App\Http\Controllers\Admin\CoreFeatureController::class, 'updateLimit'])
+        ->name('core-features.limits.update');
+
+    Route::post('/core/features/limits/{id}/toggle', [\App\Http\Controllers\Admin\CoreFeatureController::class, 'toggleLimit'])
+        ->name('core-features.limits.toggle');
+
+    Route::get('/credit-packages', [\App\Http\Controllers\Admin\CreditPackageController::class, 'index'])
+        ->name('credit-packages.index');
+
+    Route::post('/credit-packages', [\App\Http\Controllers\Admin\CreditPackageController::class, 'store'])
+        ->name('credit-packages.store');
+
+    Route::post('/credit-packages/create-product', [\App\Http\Controllers\Admin\CreditPackageController::class, 'createProduct'])
+        ->name('credit-packages.create-product');
+
+    Route::get('/credit-packages/products/{id}/edit', [\App\Http\Controllers\Admin\CreditPackageController::class, 'editProduct'])
+        ->name('credit-packages.edit-product');
+
+    Route::post('/credit-packages/products/{id}', [\App\Http\Controllers\Admin\CreditPackageController::class, 'updateProduct'])
+        ->name('credit-packages.update-product');
+
+    Route::get('/credit-packages/{id}/edit', [\App\Http\Controllers\Admin\CreditPackageController::class, 'editPackage'])
+        ->name('credit-packages.edit');
+
+    Route::post('/credit-packages/{id}/update', [\App\Http\Controllers\Admin\CreditPackageController::class, 'updatePackage'])
+        ->name('credit-packages.update');
+
+    Route::post('/credit-packages/{id}/toggle', [\App\Http\Controllers\Admin\CreditPackageController::class, 'toggle'])
+        ->name('credit-packages.toggle');
+
+    Route::delete('/credit-packages/{id}', [\App\Http\Controllers\Admin\CreditPackageController::class, 'destroy'])
+        ->name('credit-packages.destroy');
+});;
+
+
+    Route::middleware(['auth'])->prefix('crm')->name('user.crm.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\User\CoreCrmController::class, 'index'])
+            ->name('index');
+
+        Route::post('/contacts', [\App\Http\Controllers\User\CoreCrmController::class, 'storeContact'])
+            ->name('contacts.store');
+
+        Route::post('/leads', [\App\Http\Controllers\User\CoreCrmController::class, 'storeLead'])
+            ->name('leads.store');
+
+        Route::post('/tasks', [\App\Http\Controllers\User\CoreCrmController::class, 'storeTask'])
+            ->name('tasks.store');
+    });
+
+
+Route::get('/admin/core-addons/{id}/edit', [
+    \App\Http\Controllers\Admin\CoreAddonController::class,
+    'editAddon'
+])->name('admin.core-addons.edit');
+
+Route::put('/admin/core-addons/{id}', [
+    \App\Http\Controllers\Admin\CoreAddonController::class,
+    'updateAddon'
+])->name('admin.core-addons.update');
+
+Route::post('/admin/core-addons/{id}/grant', [
+    \App\Http\Controllers\Admin\CoreAddonController::class,
+    'grantAddon'
+])->name('admin.core-addons.grant');
+
+Route::post('/marketplace/payment', [MarketplaceController::class, 'marketplacePayment'])
+    ->name('marketplace.payment');
+
+Route::post('/marketplace/developer/checkout', [MarketplaceController::class, 'developerCheckoutSubmit'])
+    ->name('marketplace.developer.checkout.submit');
+Route::get('/marketplace/developer/offline-payment/{attempt}', [MarketplaceController::class, 'developerOfflinePayment'])
+    ->name('marketplace.developer.offline-payment');
+
+Route::post('/marketplace/developer/offline-payment/{attempt}/receipt', [MarketplaceController::class, 'submitOfflinePaymentReceipt'])
+    ->name('marketplace.developer.offline-payment.receipt');
+
+Route::post('/marketplace/developer/payment', [MarketplaceController::class, 'developerPayment'])
+    ->name('marketplace.developer.payment');
+
+Route::post('/marketplace/saas/payment', [MarketplaceController::class, 'saasPayment'])
+    ->name('marketplace.saas.payment');
+Route::delete('/admin/marketplace/checkout-sessions/{session}', [MarketplaceController::class, 'adminDeleteCheckoutSession'])
+    ->name('admin.marketplace.checkout-sessions.delete');
+Route::get('/admin/marketplace/checkout-sessions', [MarketplaceController::class, 'adminCheckoutSessions'])
+    ->name('admin.marketplace.checkout-sessions');
+Route::get('/marketplace/developer/pending-checkouts/{order}/continue', [MarketplaceController::class, 'continueDeveloperCheckout'])
+    ->name('marketplace.developer.pending-checkouts.continue');
+Route::get('/marketplace/developer/library', [MarketplaceController::class, 'developerLibrary'])
+    ->name('marketplace.developer.library')
+    ->middleware('auth');
+
+Route::get('/marketplace/developer/pending-checkouts', [MarketplaceController::class, 'developerPendingCheckouts'])
+    ->name('marketplace.developer.pending-checkouts');
+Route::get('/marketplace/developer/checkout/{productType}/{productId}', [MarketplaceController::class, 'developerCheckout'])
+    ->name('marketplace.developer.checkout');
+Route::get('/marketplace/developer/addons', [MarketplaceController::class, 'developerAddons'])
+    ->name('marketplace.developer.addons');
+
+
+Route::middleware(['auth'])->group(function () {
+    Route::get(
+        '/admin/site-settings/payout',
+        [\App\Http\Controllers\Admin\PayoutController::class, 'index']
+    )->name('admin.site-settings.payout.index');
+
+    Route::get(
+        '/admin/site-settings/payout/automatic',
+        [\App\Http\Controllers\Admin\PayoutController::class, 'automatic']
+    )->name('admin.site-settings.payout.automatic.index');
+
+    Route::get(
+        '/admin/site-settings/payout/manual',
+        [\App\Http\Controllers\Admin\PayoutController::class, 'manual']
+    )->name('admin.site-settings.payout.manual.index');
+
+    Route::post(
+        '/admin/site-settings/payout/automatic/{method}',
+        [\App\Http\Controllers\Admin\PayoutController::class, 'updateAutomatic']
+    )->name('admin.site-settings.payout.automatic.update');
+
+    Route::post(
+        '/admin/site-settings/payout/manual',
+        [\App\Http\Controllers\Admin\PayoutController::class, 'storeManual']
+    )->name('admin.site-settings.payout.manual.store');
+
+    Route::put(
+        '/admin/site-settings/payout/manual/{method}',
+        [\App\Http\Controllers\Admin\PayoutController::class, 'updateManual']
+    )->name('admin.site-settings.payout.manual.update');
+
+    Route::delete(
+        '/admin/site-settings/payout/manual/{method}',
+        [\App\Http\Controllers\Admin\PayoutController::class, 'destroyManual']
+    )->name('admin.site-settings.payout.manual.destroy');
+
+    Route::post(
+    '/admin/site-settings/payout/requests/{requestId}/complete',
+    [\App\Http\Controllers\Admin\PayoutController::class, 'completeRequest']
+)->name('admin.site-settings.payout.request.complete');
+
+Route::post(
+        '/admin/site-settings/payout/requests/{requestId}/reject',
+        [\App\Http\Controllers\Admin\PayoutController::class, 'rejectRequest']
+    )->name('admin.site-settings.payout.request.reject');
+});
+
+
+Route::middleware(['auth'])->group(function () {
+    Route::post(
+        'wallet/payout',
+        [\App\Http\Controllers\WalletController::class, 'requestPayout']
+    )->name('account.wallet.payout.request');
+
+    Route::post(
+        'wallet/payout/preview-conversion',
+        [\App\Http\Controllers\WalletController::class, 'previewPayoutConversion']
+    )->name('account.wallet.payout.preview-conversion');
+});
+
+
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_OFF_SERVER_LICENSE_VALIDATE_ROUTE
+|--------------------------------------------------------------------------
+|
+| PRE-INSTALL validation.
+|
+| This route confirms that the manually entered licence is genuine
+| and eligible for the requested domain.
+|
+| It does NOT activate or domain-lock the licence.
+|
+*/
+
+Route::post(
+    '/api/v1/core/license/validate',
+    [
+        \App\Http\Controllers\Api\OffServerLicenseController::class,
+        'validate',
+    ]
+)
+    ->withoutMiddleware(
+        \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class
+    )
+    ->middleware('throttle:30,1')
+    ->name('api.core.license.validate');
+
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_OFF_SERVER_CORE_LICENSE_ACTIVATION
+|--------------------------------------------------------------------------
+|
+| Initial activation endpoint for licensed off-server Esubiz Core.
+|
+| This endpoint does not grant normal Central API access.
+| It establishes the permanent:
+|
+| licence -> domain -> installation -> Central website identity
+|
+*/
+
+Route::post(
+    '/api/v1/core/license/activate',
+    [
+        \App\Http\Controllers\Api\OffServerLicenseController::class,
+        'activate',
+    ]
+)
+    /*
+     * Server-to-server activation endpoint.
+     *
+     * Off-server Core cannot possess an Esubiz browser CSRF token,
+     * so CSRF is disabled ONLY for this exact route.
+     *
+     * All Central Esubiz and SaaS browser routes remain protected.
+     */
+    ->withoutMiddleware(
+        \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class
+    )
+    ->middleware('throttle:20,1')
+    ->name('api.core.license.activate');
+
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_CHECKPOINT5_OFF_SERVER_MARKETPLACE
+|--------------------------------------------------------------------------
+|
+| Authenticated off-server Core -> Central Marketplace checkout.
+|
+| API entry uses the installation bearer token.
+| Browser handoff uses a short-lived signed Central URL.
+|
+*/
+
+Route::post(
+    '/api/v1/core/marketplace/checkout-link',
+    [
+        \App\Http\Controllers\Api\OffServerMarketplaceController::class,
+        'checkoutLink',
+    ]
+)
+    ->middleware('throttle:30,1')
+    ->name(
+        'api.core.marketplace.checkout-link'
+    );
+
+
+Route::get(
+    '/marketplace/off-server/checkout/{order}',
+    [
+        \App\Http\Controllers\Api\OffServerMarketplaceController::class,
+        'handoff',
+    ]
+)
+    ->name(
+        'marketplace.off-server.checkout.handoff'
+    );
+
+
+/*
+ * ================================================================
+ * CHECKPOINT_7_ACTIVE_GIFTCARD_API_ROUTES
+ * ================================================================
+ *
+ * This application currently exposes its Core Central API endpoints
+ * through the active web route bootstrap.
+ *
+ * Keep Gift Card authorization inside the controller/service layer:
+ *
+ * bearer
+ * -> installation
+ * -> website
+ * -> active licence
+ * -> giftcard scope
+ * -> Central GiftCardService
+ */
+Route::middleware([
+    'throttle:20,1',
+])->group(function () {
+
+    Route::post(
+        '/api/v1/core/giftcard/validate',
+        [
+            \App\Http\Controllers\Api\OffServerGiftCardController::class,
+            'validateCard',
+        ]
+    )->name(
+        'api.core.giftcard.validate'
+    );
+
+
+    Route::post(
+        '/api/v1/core/giftcard/redeem',
+        [
+            \App\Http\Controllers\Api\OffServerGiftCardController::class,
+            'redeem',
+        ]
+    )->name(
+        'api.core.giftcard.redeem'
+    );
+
+});
+
