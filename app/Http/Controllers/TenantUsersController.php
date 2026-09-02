@@ -161,6 +161,11 @@ class TenantUsersController extends Controller
                 'user' => null,
                 'roles' => $roles,
                 'selectedRoleIds' => [],
+                'partnerRoleId' => $this->partnerRoleId(),
+                'partnerInvestment' => null,
+                'canManagePartners' => app(
+                    \App\Services\Core\CorePermissionService::class
+                )->can('partners.manage'),
             ]
         );
     }
@@ -174,6 +179,22 @@ class TenantUsersController extends Controller
         $this->ensureSchema();
 
         $db = $this->db();
+
+        /*
+         * ESUBIZ_CORE_PARTNER_MANAGEMENT_WIRED_V1
+         *
+         * Partner / Investor assignment is protected separately
+         * from ordinary user-role management.
+         */
+        if ($this->requestedPartnerRole($request)) {
+            app(
+                \App\Services\Core\CorePermissionService::class
+            )->authorize('partners.manage');
+        }
+
+        $validatedPartner =
+            $this->validatePartnerInvestment($request);
+
 
         $roleIds = $db->table('site_roles')
             ->pluck('id')
@@ -292,6 +313,14 @@ class TenantUsersController extends Controller
             }
         });
 
+        $this->syncPartnerInvestment(
+            (int) $userId,
+            $request,
+            $validatedPartner
+        );
+
+
+
         return redirect()
             ->route(
                 'tenant.cms.users.edit',
@@ -345,6 +374,14 @@ class TenantUsersController extends Controller
                 'roles' => $roles,
                 'selectedRoleIds' =>
                     $selectedRoleIds,
+                'partnerRoleId' => $this->partnerRoleId(),
+                'partnerInvestment' =>
+                    $this->partnerInvestmentForUser(
+                        (int) $user
+                    ),
+                'canManagePartners' => app(
+                    \App\Services\Core\CorePermissionService::class
+                )->can('partners.manage'),
             ]
         );
     }
@@ -367,6 +404,36 @@ class TenantUsersController extends Controller
         $this->ensureSchema();
 
         $db = $this->db();
+
+        $partnerRoleId = $this->partnerRoleId();
+
+        $currentlyPartner = false;
+
+        if ($partnerRoleId) {
+            $currentlyPartner = $db
+                ->table('site_user_roles')
+                ->where('user_id', $user)
+                ->where('role_id', $partnerRoleId)
+                ->exists();
+        }
+
+        $requestedPartner =
+            $this->requestedPartnerRole($request);
+
+        /*
+         * Both assigning and removing the protected Partner role,
+         * and changing an existing Partner configuration, require
+         * partners.manage.
+         */
+        if ($currentlyPartner || $requestedPartner) {
+            app(
+                \App\Services\Core\CorePermissionService::class
+            )->authorize('partners.manage');
+        }
+
+        $validatedPartner =
+            $this->validatePartnerInvestment($request);
+
 
         $userRecord = $db
             ->table('site_users')
@@ -430,6 +497,14 @@ class TenantUsersController extends Controller
             ->exists();
 
         if ($emailExists) {
+
+        $this->syncPartnerInvestment(
+            (int) $user,
+            $request,
+            $validatedPartner
+        );
+
+
             return back()
                 ->withInput()
                 ->withErrors([
@@ -678,5 +753,186 @@ class TenantUsersController extends Controller
         }
     }
 
+
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | ESUBIZ_CORE_PARTNER_INVESTMENT_MANAGEMENT_V1
+    |--------------------------------------------------------------------------
+    */
+
+    protected function partnerInvestmentForUser(
+        int $userId
+    ): ?object {
+        if (
+            !\Illuminate\Support\Facades\Schema::connection(
+                'website_tenant'
+            )->hasTable('site_partner_investments')
+        ) {
+            return null;
+        }
+
+        return \Illuminate\Support\Facades\DB::connection(
+            'website_tenant'
+        )
+            ->table('site_partner_investments')
+            ->where('user_id', $userId)
+            ->first();
+    }
+
+    protected function partnerRoleId(): ?int
+    {
+        if (
+            !\Illuminate\Support\Facades\Schema::connection(
+                'website_tenant'
+            )->hasTable('site_roles')
+        ) {
+            return null;
+        }
+
+        $id = \Illuminate\Support\Facades\DB::connection(
+            'website_tenant'
+        )
+            ->table('site_roles')
+            ->where('slug', 'partners_investors')
+            ->value('id');
+
+        return $id ? (int) $id : null;
+    }
+
+    protected function requestedPartnerRole(
+        \Illuminate\Http\Request $request
+    ): bool {
+        $partnerRoleId = $this->partnerRoleId();
+
+        if (!$partnerRoleId) {
+            return false;
+        }
+
+        $roles = $request->input('roles', []);
+
+        if (!is_array($roles)) {
+            $roles = [];
+        }
+
+        return in_array(
+            $partnerRoleId,
+            array_map('intval', $roles),
+            true
+        );
+    }
+
+    protected function validatePartnerInvestment(
+        \Illuminate\Http\Request $request
+    ): array {
+        if (!$this->requestedPartnerRole($request)) {
+            return [];
+        }
+
+        app(
+            \App\Services\Core\CorePermissionService::class
+        )->authorize('partners.manage');
+
+        return $request->validate([
+            'partner_investment_percentage' => [
+                'required',
+                'numeric',
+                'min:0',
+                'max:100',
+            ],
+
+            'partner_profit_basis' => [
+                'required',
+                'in:gross,net',
+            ],
+
+            'partner_investment_active' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'partner_investment_notes' => [
+                'nullable',
+                'string',
+                'max:5000',
+            ],
+        ]);
+    }
+
+    protected function syncPartnerInvestment(
+        int $userId,
+        \Illuminate\Http\Request $request,
+        array $validatedPartner
+    ): void {
+        if (
+            !\Illuminate\Support\Facades\Schema::connection(
+                'website_tenant'
+            )->hasTable('site_partner_investments')
+        ) {
+            return;
+        }
+
+        $hasPartnerRole =
+            $this->requestedPartnerRole($request);
+
+        $db = \Illuminate\Support\Facades\DB::connection(
+            'website_tenant'
+        );
+
+        if (!$hasPartnerRole) {
+            /*
+             * Preserve historical investment/ledger records.
+             * Removing the Partner role only deactivates the
+             * investment configuration.
+             */
+            $db->table('site_partner_investments')
+                ->where('user_id', $userId)
+                ->update([
+                    'is_active' => false,
+                    'updated_at' => now(),
+                ]);
+
+            return;
+        }
+
+        app(
+            \App\Services\Core\CorePermissionService::class
+        )->authorize('partners.manage');
+
+        $db->table('site_partner_investments')
+            ->updateOrInsert(
+                [
+                    'user_id' => $userId,
+                ],
+                [
+                    'investment_percentage' =>
+                        round(
+                            (float) $validatedPartner[
+                                'partner_investment_percentage'
+                            ],
+                            4
+                        ),
+
+                    'profit_basis' =>
+                        $validatedPartner[
+                            'partner_profit_basis'
+                        ],
+
+                    'is_active' =>
+                        $request->boolean(
+                            'partner_investment_active'
+                        ),
+
+                    'notes' =>
+                        $validatedPartner[
+                            'partner_investment_notes'
+                        ] ?? null,
+
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ]
+            );
+    }
 
 }

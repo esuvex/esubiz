@@ -1444,7 +1444,45 @@
             </a>
 
             @if($publicUserAuthenticated)
-                <a href="/admin/dashboard">
+                @php
+    /*
+     * ESUBIZ_CORE_PUBLIC_ROLE_DASHBOARD_URL_V1
+     *
+     * Public Core navigation resolves Dashboard using
+     * the local Core identity only.
+     *
+     * User-only -> /user/dashboard
+     * Internal roles -> /admin/dashboard
+     *
+     * Central Esubiz account routing is not involved.
+     */
+    $corePublicDashboardUrl = '/admin/dashboard';
+
+    try {
+        $corePublicPermissions = app(
+            \App\Services\Core\CorePermissionService::class
+        );
+
+        $corePublicRoles =
+            $corePublicPermissions->roles();
+
+        if (
+            count($corePublicRoles) === 1
+            && in_array(
+                'user',
+                $corePublicRoles,
+                true
+            )
+        ) {
+            $corePublicDashboardUrl =
+                '/user/dashboard';
+        }
+    } catch (\Throwable $e) {
+        $corePublicDashboardUrl =
+            '/admin/dashboard';
+    }
+@endphp
+<a href="{{ $corePublicDashboardUrl ?? '/admin/dashboard' }}">
                     Dashboard
                 </a>
 
@@ -1515,7 +1553,7 @@
         </a>
 
         @if($publicUserAuthenticated)
-            <a href="/admin/dashboard">
+            <a href="{{ $corePublicDashboardUrl ?? '/admin/dashboard' }}">
                 Dashboard
             </a>
 

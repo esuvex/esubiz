@@ -874,6 +874,234 @@ class TenantCmsController extends Controller
         );
 
 
+/*
+ * ESUBIZ_CORE_ROLE_AWARE_DASHBOARD_V1
+ *
+ * The existing dashboard below remains the full
+ * Administrator dashboard.
+ */
+$corePermissions = app(
+    \App\Services\Core\CorePermissionService::class
+);
+
+$coreUserId = $corePermissions->userId();
+$coreRoles = $corePermissions->roles();
+
+if ($coreUserId) {
+    $coreUser = \Illuminate\Support\Facades\DB::connection(
+        'website_tenant'
+    )
+        ->table('site_users')
+        ->where('id', $coreUserId)
+        ->first();
+
+    $internalNavigation = app(
+        \App\Services\Core\CoreFeatureRegistry::class
+    )->navigation($corePermissions);
+
+    /*
+     * ESUBIZ_CORE_USER_ADMIN_REDIRECT_V1
+     *
+     * Core user-only accounts never enter the admin
+     * workspace. Send them to their mirrored frontend
+     * User Dashboard instead.
+     */
+    if (
+        count($coreRoles) === 1
+        && in_array('user', $coreRoles, true)
+    ) {
+        return redirect('/user/dashboard');
+    }
+
+    if (
+        !$corePermissions->isAdministrator()
+        && $corePermissions->hasRole('partners_investors')
+    ) {
+        $partnerInvestment = null;
+
+        if (
+            \Illuminate\Support\Facades\Schema::connection(
+                'website_tenant'
+            )->hasTable('site_partner_investments')
+        ) {
+            $partnerInvestment =
+                \Illuminate\Support\Facades\DB::connection(
+                    'website_tenant'
+                )
+                    ->table('site_partner_investments')
+                    ->where('user_id', $coreUserId)
+                    ->where('is_active', true)
+                    ->first();
+        }
+
+        // ESUBIZ_CORE_PARTNER_LEDGER_DASHBOARD_V1
+        $partnerLedgerTotals = [
+            'credits' => 0.00,
+            'debits' => 0.00,
+            'balance' => 0.00,
+        ];
+
+        $partnerLedgerEntries = [];
+
+        if (
+            \Illuminate\Support\Facades\Schema::connection(
+                'website_tenant'
+            )->hasTable('site_partner_ledger_entries')
+        ) {
+            $partnerLedger = app(
+                \App\Services\Core\CorePartnerLedgerService::class
+            );
+
+            $partnerLedgerTotals =
+                $partnerLedger->totals($coreUserId);
+
+            $partnerLedgerEntries =
+                $partnerLedger->recent(
+                    $coreUserId,
+                    10
+                );
+        }
+
+        
+        /*
+        |--------------------------------------------------------------------------
+        | ESUBIZ_CORE_PARTNER_SITE_FINANCIAL_TOTALS_V1
+        |--------------------------------------------------------------------------
+        |
+        | Core-only financial totals.
+        |
+        | Total Credits = completed site income/revenue.
+        | Total Debits  = completed site expenses.
+        |
+        | The Partner ledger remains separate and continues to
+        | represent the individual Partner's own credits/debits.
+        |
+        */
+
+        $partnerSiteCredits = 0.00;
+        $partnerSiteDebits = 0.00;
+        $partnerFinancialCurrency = null;
+
+        if ($schema->hasTable('financial_transactions')) {
+
+            $partnerSiteCredits = (float) $db
+                ->table('financial_transactions')
+                ->where('status', 'completed')
+                ->whereIn(
+                    \Illuminate\Support\Facades\DB::raw(
+                        'LOWER(type)'
+                    ),
+                    [
+                        'income',
+                        'revenue',
+                        'sale',
+                        'credit',
+                    ]
+                )
+                ->sum('amount');
+
+            $partnerSiteDebits = (float) $db
+                ->table('financial_transactions')
+                ->where('status', 'completed')
+                ->whereIn(
+                    \Illuminate\Support\Facades\DB::raw(
+                        'LOWER(type)'
+                    ),
+                    [
+                        'expense',
+                        'cost',
+                        'debit',
+                    ]
+                )
+                ->sum('amount');
+
+            $partnerFinancialCurrency = $db
+                ->table('financial_transactions')
+                ->whereNotNull('currency')
+                ->where('currency', '<>', '')
+                ->orderByDesc('id')
+                ->value('currency');
+        }
+
+        if (
+            !$partnerFinancialCurrency
+            && $schema->hasTable('financial_accounts')
+        ) {
+            $partnerFinancialCurrency = $db
+                ->table('financial_accounts')
+                ->whereNotNull('currency')
+                ->where('currency', '<>', '')
+                ->orderByDesc('id')
+                ->value('currency');
+        }
+
+        $partnerFinancialCurrency = strtoupper(
+            trim(
+                (string) (
+                    $partnerFinancialCurrency
+                    ?: 'NGN'
+                )
+            )
+        );
+
+        $partnerSiteNetResult =
+            $partnerSiteCredits
+            - $partnerSiteDebits;
+
+return view(
+            'tenant.admin.dashboard.partner',
+            get_defined_vars()
+        );
+    }
+
+    if (!$corePermissions->isAdministrator()) {
+
+        /*
+        |--------------------------------------------------------------------------
+        | ESUBIZ_CORE_PREMIUM_STAFF_DASHBOARD_V2
+        |--------------------------------------------------------------------------
+        |
+        | Live Core-only Staff dashboard metrics.
+        |
+        | No owner, Partner or technical Administrator figures are
+        | exposed here. The workspace is derived from this user's
+        | actual Core roles, permissions and available features.
+        |
+        */
+
+        $staffPermissions =
+            $corePermissions->permissions();
+
+        $staffPermissionCount =
+            count($staffPermissions);
+
+        $staffRoleCount =
+            count($coreRoles);
+
+        $staffWorkspaceItems = collect(
+            $internalNavigation ?? []
+        )->filter(function ($item) {
+            $url = $item['url'] ?? null;
+
+            return is_string($url)
+                && $url !== ''
+                && $url !== '#'
+                && $url !== '/admin/dashboard';
+        })->values();
+
+        $staffWorkspaceCount =
+            $staffWorkspaceItems->count();
+
+        $staffAccountActive =
+            (bool) ($coreUser->is_active ?? false);
+
+        return view(
+            'tenant.admin.dashboard.staff',
+            get_defined_vars()
+        );
+    }
+}
+
 return view(
             'tenant.admin.dashboard',
             compact(
@@ -888,6 +1116,124 @@ return view(
     }
 
 
+
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | ESUBIZ_CORE_USER_DASHBOARD_V1
+    |--------------------------------------------------------------------------
+    |
+    | Core website User Dashboard.
+    |
+    | This uses only the current Core website's website_tenant
+    | connection and local site_users identity.
+    |
+    | It does NOT use Central Esubiz User, Website, Wallet,
+    | subscriptions, revenue_events or account-mode architecture.
+    |
+    */
+    public function userDashboard()
+    {
+        $corePermissions = app(
+            \App\Services\Core\CorePermissionService::class
+        );
+
+        $coreUserId = $corePermissions->userId();
+
+        if (!$coreUserId) {
+            return redirect('/login');
+        }
+
+        $db = \Illuminate\Support\Facades\DB::connection(
+            'website_tenant'
+        );
+
+        $coreUser = $db
+            ->table('site_users')
+            ->where('id', $coreUserId)
+            ->where('is_active', true)
+            ->first();
+
+        if (!$coreUser) {
+            return redirect('/login');
+        }
+
+        $coreRoles = $corePermissions->roles();
+
+        /*
+         * Only a pure Core User account uses this dashboard.
+         *
+         * Administrator, Partner, Staff and custom internal
+         * roles continue through the role-aware Admin Dashboard.
+         */
+        $isUserOnly =
+            count($coreRoles) === 1
+            && in_array(
+                'user',
+                $coreRoles,
+                true
+            );
+
+        if (!$isUserOnly) {
+            return redirect('/admin/dashboard');
+        }
+
+        /*
+         * Live Core account information only.
+         */
+        $accountStatus =
+            (bool) ($coreUser->is_active ?? false)
+                ? 'Active'
+                : 'Inactive';
+
+        $memberSince =
+            $coreUser->created_at ?? null;
+
+        $lastLoginAt =
+            $coreUser->last_login_at ?? null;
+
+        /*
+         * Profile completion is calculated only from fields
+         * that already exist on Core site_users.
+         */
+        $profileFields = collect([
+            trim(
+                (string) ($coreUser->name ?? '')
+            ),
+            trim(
+                (string) ($coreUser->email ?? '')
+            ),
+            trim(
+                (string) ($coreUser->phone ?? '')
+            ),
+        ]);
+
+        $profileFieldCount =
+            $profileFields->count();
+
+        $completedProfileFields =
+            $profileFields
+                ->filter(
+                    fn ($value) => $value !== ''
+                )
+                ->count();
+
+        $profileCompletion =
+            $profileFieldCount > 0
+                ? (int) round(
+                    (
+                        $completedProfileFields
+                        / $profileFieldCount
+                    ) * 100
+                )
+                : 0;
+
+        return view(
+            'tenant.user.dashboard',
+            get_defined_vars()
+        );
+    }
 
 
     /**
@@ -1409,14 +1755,42 @@ return view(
             }
         }
 
+        /*
+         * ESUBIZ_CORE_ROLE_AWARE_PROFILE_VIEW_V1
+         *
+         * The profile DATA/HANDLERS remain universal Core.
+         * Only the presentation shell follows the user's role.
+         *
+         * Pure User -> frontend User Profile
+         * Internal roles -> Admin Profile Settings
+         */
+        $corePermissions = app(
+            \App\Services\Core\CorePermissionService::class
+        );
+
+        $profileRoles = $corePermissions->roles();
+
+        $isPureCoreUser =
+            count($profileRoles) === 1
+            && in_array(
+                'user',
+                $profileRoles,
+                true
+            );
+
+        $profileView = $isPureCoreUser
+            ? 'tenant.user.profile'
+            : 'tenant.admin.settings.profile';
+
         return view(
-            'tenant.admin.settings.profile',
+            $profileView,
             compact(
                 'website',
                 'profileUser',
                 'authMethod',
                 'isSso',
-                'isSaasAdmin'
+                'isSaasAdmin',
+                'isPureCoreUser'
             )
         );
     }

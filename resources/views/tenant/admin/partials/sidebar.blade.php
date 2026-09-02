@@ -7,10 +7,7 @@
 | Do not create page-specific sidebar copies.
 |
 --}}
-
-        {{-- ESUBIZ_CORE_DASHBOARD_PERMISSION_VISIBILITY_V1 --}}
-        @coreCan('dashboard.view')
-<aside
+        <aside
     id="tenantCmsSidebar"
     class="fixed inset-y-0 left-0 z-50 w-[280px] -translate-x-full overflow-y-auto border-r border-white/10 text-white shadow-xl transition-transform duration-300 lg:translate-x-0"
     style="background:linear-gradient(180deg,#0b1739 0%,#10245a 100%);"
@@ -135,7 +132,7 @@
             <span>⌂</span>
             Dashboard
         </a>
-        @endcoreCan
+
 
 
         {{-- Site Management --}}
@@ -273,14 +270,7 @@
                 </a>
 @endcoreCan
 
-@coreCan('roles.view')
-                <a
-                    href="/admin/users/roles"
-                    class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white {{ request()->routeIs('tenant.cms.roles.*') ? 'bg-white/10 text-white' : '' }}"
-                >
-                    Roles &amp; Permissions
-                </a>
-@endcoreCan
+
 
 
                 <div

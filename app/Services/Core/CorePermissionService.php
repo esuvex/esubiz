@@ -130,22 +130,35 @@ class CorePermissionService
      */
     public function deniedRedirectTarget(): string
     {
-        $authenticated = $this->userId() !== null;
-
-        if (!$authenticated) {
+        if (!$this->userId()) {
             return '/login';
         }
 
-        if (request()->is('admin') || request()->is('admin/*')) {
-            /*
-             * Avoid a redirect loop if authorization is ever
-             * accidentally applied directly to the dashboard route.
-             */
-            if (request()->is('admin')) {
+        $request = request();
+
+        if (
+            $request->is('admin')
+            || $request->is('admin/*')
+        ) {
+            $target = $this->internalLandingTarget();
+
+            if (!$target) {
                 return '/';
             }
 
-            return '/admin';
+            /*
+             * Never redirect a denied request back to itself.
+             */
+            $current = '/' . ltrim(
+                $request->path(),
+                '/'
+            );
+
+            if ($current === $target) {
+                return '/';
+            }
+
+            return $target;
         }
 
         return '/';
@@ -356,4 +369,159 @@ class CorePermissionService
 
         return true;
     }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | ESUBIZ_CORE_ROLE_LANDING_RESOLVER_V1
+    |--------------------------------------------------------------------------
+    |
+    | Resolves the correct internal landing destination for the current
+    | Core user without assuming that every role may enter the main admin
+    | dashboard.
+    |
+    | Actual staff/partner dashboard URLs are registered separately when
+    | those internal landing surfaces exist.
+    |
+    */
+
+    public function internalLandingTarget(): ?string
+    {
+        if (!$this->userId()) {
+            return null;
+        }
+
+        $roles = $this->roles();
+
+        /*
+         * An account whose only Core role is "user" belongs to
+         * the website-facing account area, not the internal CMS.
+         */
+        /*
+         * ESUBIZ_CORE_USER_DASHBOARD_LANDING_V1
+         *
+         * Core user-only accounts belong to the website's
+         * frontend User Dashboard and never to /admin.
+         */
+        if (
+            count($roles) === 1
+            && in_array('user', $roles, true)
+        ) {
+            return '/user/dashboard';
+        }
+
+        /*
+         * Administrator, Partners / Investors, Staff and custom
+         * internal roles all enter through the same internal
+         * dashboard route. The dashboard controller then renders
+         * the correct role surface.
+         */
+        return '/admin/dashboard';
+    }
+
+    protected function registeredLandingTarget(
+        string $featureKey
+    ): ?string {
+        if (
+            !class_exists(
+                \App\Services\Core\CoreFeatureRegistry::class
+            )
+        ) {
+            return null;
+        }
+
+        $registry = app(
+            \App\Services\Core\CoreFeatureRegistry::class
+        );
+
+        if (!$registry->isAvailable($featureKey)) {
+            return null;
+        }
+
+        $feature = $registry->get($featureKey);
+
+        if (!is_array($feature)) {
+            return null;
+        }
+
+        $navigation = $feature['navigation'] ?? null;
+
+        if (!is_array($navigation)) {
+            return null;
+        }
+
+        $url = $navigation['url'] ?? null;
+        $permission = $navigation['permission'] ?? null;
+
+        if (
+            !is_string($url)
+            || $url === ''
+            || $url === '#'
+        ) {
+            return null;
+        }
+
+        if (
+            is_string($permission)
+            && $permission !== ''
+            && !$this->can($permission)
+        ) {
+            return null;
+        }
+
+        return $url;
+    }
+
+    protected function firstPermittedRegisteredLandingTarget(): ?string
+    {
+        if (
+            !class_exists(
+                \App\Services\Core\CoreFeatureRegistry::class
+            )
+        ) {
+            return null;
+        }
+
+        $registry = app(
+            \App\Services\Core\CoreFeatureRegistry::class
+        );
+
+        foreach ($registry->availableFeatures() as $feature) {
+            $navigation = $feature['navigation'] ?? null;
+
+            if (!is_array($navigation)) {
+                continue;
+            }
+
+            if (
+                empty($navigation['internal_landing'])
+            ) {
+                continue;
+            }
+
+            $url = $navigation['url'] ?? null;
+            $permission = $navigation['permission'] ?? null;
+
+            if (
+                !is_string($url)
+                || $url === ''
+                || $url === '#'
+            ) {
+                continue;
+            }
+
+            if (
+                is_string($permission)
+                && $permission !== ''
+                && !$this->can($permission)
+            ) {
+                continue;
+            }
+
+            return $url;
+        }
+
+        return null;
+    }
+
 }

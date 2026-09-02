@@ -109,6 +109,15 @@ class TenantFormsController extends Controller
                     ->where('form_id', $form->id)
                     ->count();
 
+                $form->submission_count =
+                    Schema::connection('tenant')
+                        ->hasTable('form_submissions')
+                    ? $db
+                        ->table('form_submissions')
+                        ->where('form_id', $form->id)
+                        ->count()
+                    : 0;
+
                 $formSettings = json_decode(
                     (string) ($form->settings ?? ''),
                     true
@@ -610,4 +619,263 @@ class TenantFormsController extends Controller
             ? null
             : $value;
     }
+
+    /*
+     * ESUBIZ_CORE_FORM_SUBMISSIONS_V1
+     *
+     * Generic Core Form submissions only.
+     * Authentication-purpose forms are deliberately excluded:
+     * registration, login and password reset operate on Core Users.
+     */
+    protected function ensureSubmissionsSchema(): void
+    {
+        $this->ensureFormsSchema();
+
+        abort_unless(
+            Schema::connection('tenant')
+                ->hasTable('form_submissions'),
+            500,
+            'Core Form Submissions schema is unavailable.'
+        );
+    }
+
+    protected function submissionForm(int $form)
+    {
+        $formRecord = $this->db()
+            ->table('forms')
+            ->where('id', $form)
+            ->first();
+
+        abort_unless($formRecord, 404);
+
+        $settings = json_decode(
+            (string) ($formRecord->settings ?? ''),
+            true
+        );
+
+        $settings = is_array($settings)
+            ? $settings
+            : [];
+
+        $purpose = (string) (
+            $settings['purpose'] ?? ''
+        );
+
+        $coreDefault = (string) (
+            $settings['core_default_form'] ?? ''
+        );
+
+        $isAuthenticationForm =
+            str_starts_with(
+                $purpose,
+                'authentication.'
+            )
+            || in_array(
+                $coreDefault,
+                [
+                    'registration',
+                    'login',
+                    'password-reset',
+                    'password_reset',
+                ],
+                true
+            );
+
+        abort_if(
+            $isAuthenticationForm,
+            404,
+            'Authentication forms do not use generic submissions.'
+        );
+
+        return $formRecord;
+    }
+
+    public function submissions(
+        string $subdomain,
+        int $form
+    ) {
+        $website = $this->authorizeCms();
+
+        $this->ensureSubmissionsSchema();
+
+        $db = $this->db();
+
+        $formRecord = $this->submissionForm($form);
+
+        $settings = $db
+            ->table('site_settings')
+            ->pluck('value', 'key')
+            ->all();
+
+        $submissions = $db
+            ->table('form_submissions')
+            ->where('form_id', $form)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate(25);
+
+        $fields = $db
+            ->table('form_fields')
+            ->where('form_id', $form)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        return view(
+            'tenant.admin.forms.submissions',
+            compact(
+                'website',
+                'settings',
+                'formRecord',
+                'submissions',
+                'fields'
+            )
+        );
+    }
+
+    public function showSubmission(
+        string $subdomain,
+        int $form,
+        int $submission
+    ) {
+        $website = $this->authorizeCms();
+
+        $this->ensureSubmissionsSchema();
+
+        $db = $this->db();
+
+        $formRecord = $this->submissionForm($form);
+
+        $submissionRecord = $db
+            ->table('form_submissions')
+            ->where('id', $submission)
+            ->where('form_id', $form)
+            ->first();
+
+        abort_unless($submissionRecord, 404);
+
+        /*
+         * Opening a new submission marks it read.
+         */
+        if (
+            strtolower(
+                (string) ($submissionRecord->status ?? 'new')
+            ) === 'new'
+        ) {
+            $db
+                ->table('form_submissions')
+                ->where('id', $submissionRecord->id)
+                ->update([
+                    'status' => 'read',
+                    'updated_at' => now(),
+                ]);
+
+            $submissionRecord->status = 'read';
+        }
+
+        $fields = $db
+            ->table('form_fields')
+            ->where('form_id', $form)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        $settings = $db
+            ->table('site_settings')
+            ->pluck('value', 'key')
+            ->all();
+
+        $submissionData = json_decode(
+            (string) ($submissionRecord->data ?? ''),
+            true
+        );
+
+        $submissionData = is_array($submissionData)
+            ? $submissionData
+            : [];
+
+        return view(
+            'tenant.admin.forms.submission',
+            compact(
+                'website',
+                'settings',
+                'formRecord',
+                'submissionRecord',
+                'submissionData',
+                'fields'
+            )
+        );
+    }
+
+    public function updateSubmissionStatus(
+        Request $request,
+        string $subdomain,
+        int $form,
+        int $submission
+    ) {
+        $this->authorizeCms();
+
+        $this->ensureSubmissionsSchema();
+
+        $this->submissionForm($form);
+
+        $data = $request->validate([
+            'status' => [
+                'required',
+                Rule::in(['new', 'read']),
+            ],
+        ]);
+
+        $updated = $this->db()
+            ->table('form_submissions')
+            ->where('id', $submission)
+            ->where('form_id', $form)
+            ->update([
+                'status' => $data['status'],
+                'updated_at' => now(),
+            ]);
+
+        abort_unless($updated, 404);
+
+        return back()->with(
+            'success',
+            $data['status'] === 'read'
+                ? 'Submission marked as read.'
+                : 'Submission marked as unread.'
+        );
+    }
+
+    public function destroySubmission(
+        string $subdomain,
+        int $form,
+        int $submission
+    ) {
+        $this->authorizeCms();
+
+        $this->ensureSubmissionsSchema();
+
+        $this->submissionForm($form);
+
+        $deleted = $this->db()
+            ->table('form_submissions')
+            ->where('id', $submission)
+            ->where('form_id', $form)
+            ->delete();
+
+        abort_unless($deleted, 404);
+
+        return redirect()
+            ->route(
+                'tenant.cms.forms.submissions.index',
+                [
+                    'subdomain' => $subdomain,
+                    'form' => $form,
+                ]
+            )
+            ->with(
+                'success',
+                'Submission deleted successfully.'
+            );
+    }
+
 }

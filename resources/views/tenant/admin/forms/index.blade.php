@@ -80,6 +80,8 @@
                             <div class="mt-1 text-sm text-slate-500">
                                 {{ $form->field_count }}
                                 {{ $form->field_count === 1 ? 'field' : 'fields' }}
+                                · {{ $form->submission_count ?? 0 }}
+                                {{ ($form->submission_count ?? 0) === 1 ? 'submission' : 'submissions' }}
                                 · {{ $form->slug }}
                             </div>
 
@@ -91,6 +93,61 @@
                         </div>
 
                         <div class="flex shrink-0 items-center gap-2">
+                            {{-- ESUBIZ_CORE_FORM_SUBMISSIONS_INDEX_V1 --}}
+                            @php
+                                $submissionSettings =
+                                    json_decode(
+                                        (string) ($form->settings ?? ''),
+                                        true
+                                    );
+
+                                $submissionSettings =
+                                    is_array($submissionSettings)
+                                        ? $submissionSettings
+                                        : [];
+
+                                $submissionPurpose =
+                                    (string) (
+                                        $submissionSettings['purpose']
+                                        ?? ''
+                                    );
+
+                                $submissionDefault =
+                                    (string) (
+                                        $submissionSettings[
+                                            'core_default_form'
+                                        ] ?? ''
+                                    );
+
+                                $isAuthSubmissionForm =
+                                    str_starts_with(
+                                        $submissionPurpose,
+                                        'authentication.'
+                                    )
+                                    || in_array(
+                                        $submissionDefault,
+                                        [
+                                            'registration',
+                                            'login',
+                                            'password-reset',
+                                            'password_reset',
+                                        ],
+                                        true
+                                    );
+                            @endphp
+
+                            @unless($isAuthSubmissionForm)
+                                <a
+                                    href="{{ route('tenant.cms.forms.submissions.index', ['subdomain' => $website->subdomain, 'form' => $form->id]) }}"
+                                    class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
+                                >
+                                    Submissions
+                                    @if(($form->submission_count ?? 0) > 0)
+                                        ({{ $form->submission_count }})
+                                    @endif
+                                </a>
+                            @endunless
+
                             <a
                                 href="{{ route('tenant.cms.forms.edit', ['subdomain' => $website->subdomain, 'form' => $form->id]) }}"
                                 class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"

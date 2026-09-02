@@ -494,6 +494,58 @@ Route::delete(
     ]
 )->name('tenant.cms.settings.profile.avatar.delete');
 
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_CORE_USER_PROFILE_SETTINGS_ROUTES_V1
+|--------------------------------------------------------------------------
+|
+| User-facing aliases for the SAME Core Profile Settings handlers.
+| No duplicate profile system is introduced.
+|
+| Pure Core users remain outside the technical /admin surface.
+|
+*/
+Route::get(
+    '/user/profile',
+    [
+        \App\Http\Controllers\TenantCmsController::class,
+        'profileSettings',
+    ]
+)->name('tenant.core.user.profile');
+
+Route::post(
+    '/user/profile',
+    [
+        \App\Http\Controllers\TenantCmsController::class,
+        'updateProfileSettings',
+    ]
+)->name('tenant.core.user.profile.update');
+
+Route::post(
+    '/user/profile/password',
+    [
+        \App\Http\Controllers\TenantCmsController::class,
+        'updateProfilePassword',
+    ]
+)->name('tenant.core.user.profile.password.update');
+
+Route::post(
+    '/user/profile/avatar',
+    [
+        \App\Http\Controllers\TenantCmsController::class,
+        'updateProfileAvatar',
+    ]
+)->name('tenant.core.user.profile.avatar');
+
+Route::delete(
+    '/user/profile/avatar',
+    [
+        \App\Http\Controllers\TenantCmsController::class,
+        'deleteProfileAvatar',
+    ]
+)->name('tenant.core.user.profile.avatar.delete');
+
+
 
 Route::get(
     '/admin/settings/authentication',
@@ -580,6 +632,26 @@ Route::post(
                 'dashboard',
             ]
         )->name('tenant.cms.dashboard');
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | ESUBIZ_CORE_USER_DASHBOARD_ROUTE_V1
+        |--------------------------------------------------------------------------
+        |
+        | Core website User Dashboard.
+        |
+        | This route exists inside the tenant/Core route context.
+        | It is separate from Central Esubiz /user/dashboard.
+        |
+        */
+        Route::get(
+            '/user/dashboard',
+            [
+                \App\Http\Controllers\TenantCmsController::class,
+                'userDashboard',
+            ]
+        )->name('tenant.core.user.dashboard');
 
 
         /*
@@ -2769,12 +2841,95 @@ Route::post(
     function (
         \Illuminate\Routing\Events\RouteMatched $event
     ): void {
-        $permissionMap = [
-            // Dashboard
-            'tenant.cms.dashboard' =>
-                'dashboard.view',
 
-            // Users
+    /*
+     * ESUBIZ_CORE_ROLE_SURFACE_BOUNDARY_V1
+     *
+     * Hard separation of Core role surfaces:
+     *
+     * Pure User:
+     *   allowed /user/*
+     *   blocked from /admin/* except /admin/logout
+     *
+     * Internal roles:
+     *   Administrator
+     *   Partners / Investors
+     *   Staff
+     *   custom internal roles
+     *
+     *   allowed /admin/*
+     *   blocked from /user/*
+     *
+     * This is authorization, not merely menu visibility.
+     */
+    try {
+        $coreSurfacePermissions = app(
+            \App\Services\Core\CorePermissionService::class
+        );
+
+        $coreSurfaceUserId =
+            $coreSurfacePermissions->userId();
+
+        if ($coreSurfaceUserId) {
+            $coreSurfaceRoles =
+                $coreSurfacePermissions->roles();
+
+            $coreSurfacePureUser =
+                count($coreSurfaceRoles) === 1
+                && in_array(
+                    'user',
+                    $coreSurfaceRoles,
+                    true
+                );
+
+            $coreSurfacePath =
+                '/'
+                . ltrim(
+                    request()->path(),
+                    '/'
+                );
+
+            if (
+                $coreSurfacePureUser
+                && str_starts_with(
+                    $coreSurfacePath,
+                    '/admin/'
+                )
+                && $coreSurfacePath !== '/admin/logout'
+            ) {
+                throw new
+                    \Illuminate\Http\Exceptions\HttpResponseException(
+                        redirect('/user/dashboard')
+                    );
+            }
+
+            if (
+                !$coreSurfacePureUser
+                && str_starts_with(
+                    $coreSurfacePath,
+                    '/user/'
+                )
+            ) {
+                throw new
+                    \Illuminate\Http\Exceptions\HttpResponseException(
+                        redirect('/admin/dashboard')
+                    );
+            }
+        }
+    } catch (
+        \Illuminate\Http\Exceptions\HttpResponseException $e
+    ) {
+        throw $e;
+    } catch (\Throwable $e) {
+        /*
+         * Do not break public routes if Core RBAC has not
+         * been installed for an older Core database yet.
+         */
+    }
+
+
+        $permissionMap = [
+// Users
             'tenant.cms.users.index' =>
                 'users.view',
 
@@ -2823,7 +2978,8 @@ Route::post(
         }
 
         $event->route->middleware(
-            'core.permission:'
+            \App\Http\Middleware\CorePermissionMiddleware::class
+            . ':'
             . $permissionMap[$routeName]
         );
     }

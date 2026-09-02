@@ -1,3 +1,4 @@
+{{-- ESUBIZ_CORE_ROLE_PERMISSION_INPUT_FIX_V1 --}}
 @extends('tenant.admin.layouts.app')
 
 @section('content')
@@ -157,7 +158,7 @@
                                             type="checkbox"
                                             class="form-check-input mt-1 js-permission-checkbox"
                                             data-group="{{ $groupKey }}"
-                                            name="permissions[]"
+                                            name="permission_ids[]"
                                             value="{{ $permission->id }}"
                                             @checked(
                                                 in_array(

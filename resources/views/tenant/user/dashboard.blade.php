@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+
+    <title>User Dashboard</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: #f7f8fa;
+            color: #101828;
+            font-family:
+                Inter,
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                sans-serif;
+        }
+
+        .core-user-dashboard {
+            width: min(
+                1180px,
+                calc(100% - 32px)
+            );
+            margin: 0 auto;
+            padding: 34px 0 50px;
+        }
+
+        /* ESUBIZ_CORE_USER_SIDEBAR_V1 */
+
+        .core-user-shell {
+            display: grid;
+            grid-template-columns: 250px minmax(0, 1fr);
+            min-height: 100vh;
+        }
+
+        .core-user-sidebar {
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            padding: 24px 18px;
+            background: #101828;
+            color: #fff;
+            overflow-y: auto;
+        }
+
+        .cus-brand {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            padding: 6px 8px 22px;
+            border-bottom:
+                1px solid rgba(255,255,255,.08);
+        }
+
+        .cus-brand-mark {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 38px;
+            height: 38px;
+            border-radius: 11px;
+            background:
+                rgba(255,255,255,.1);
+            font-size: 15px;
+            font-weight: 800;
+        }
+
+        .cus-brand-copy {
+            min-width: 0;
+        }
+
+        .cus-brand-title {
+            overflow: hidden;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 800;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .cus-brand-subtitle {
+            margin-top: 2px;
+            color: #98a2b3;
+            font-size: 10px;
+        }
+
+        .cus-nav-label {
+            margin:
+                24px 10px
+                9px;
+            color: #667085;
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: .09em;
+            text-transform: uppercase;
+        }
+
+        .cus-nav {
+            display: grid;
+            gap: 5px;
+        }
+
+        .cus-link {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            min-height: 44px;
+            padding: 0 12px;
+            border-radius: 11px;
+            color: #d0d5dd;
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: 700;
+            transition:
+                background .18s ease,
+                color .18s ease;
+        }
+
+        .cus-link:hover {
+            background:
+                rgba(255,255,255,.07);
+            color: #fff;
+        }
+
+        .cus-link.active {
+            background: #fff;
+            color: #101828;
+        }
+
+        .cus-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 25px;
+            height: 25px;
+            border-radius: 8px;
+            background:
+                rgba(255,255,255,.08);
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .cus-link.active .cus-icon {
+            background: #f2f4f7;
+        }
+
+        .cus-footer {
+            margin-top: 28px;
+            padding-top: 18px;
+            border-top:
+                1px solid rgba(255,255,255,.08);
+        }
+
+        .cus-logout {
+            width: 100%;
+            border: 0;
+            cursor: pointer;
+            background: transparent;
+            text-align: left;
+        }
+
+        .core-user-content {
+            min-width: 0;
+        }
+
+        .core-user-mobilebar {
+            display: none;
+        }
+
+
+        .user-hero {
+            position: relative;
+            overflow: hidden;
+            padding: 32px;
+            border-radius: 26px;
+            color: #fff;
+            background:
+                radial-gradient(
+                    circle at 90% 5%,
+                    rgba(255,255,255,.17),
+                    transparent 27%
+                ),
+                linear-gradient(
+                    135deg,
+                    #101828,
+                    #1d2939 55%,
+                    #344054
+                );
+            box-shadow:
+                0 22px 48px
+                rgba(16,24,40,.14);
+        }
+
+        .user-hero::after {
+            content: "";
+            position: absolute;
+            right: -90px;
+            bottom: -145px;
+            width: 250px;
+            height: 250px;
+            border-radius: 50%;
+            background:
+                rgba(255,255,255,.06);
+        }
+
+        .hero-inner {
+            position: relative;
+            z-index: 1;
+        }
+
+        .eyebrow {
+            display: inline-flex;
+            padding: 7px 11px;
+            border:
+                1px solid
+                rgba(255,255,255,.16);
+            border-radius: 999px;
+            background:
+                rgba(255,255,255,.08);
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+        }
+
+        .hero-title {
+            margin: 15px 0 8px;
+            font-size:
+                clamp(28px,4vw,40px);
+            line-height: 1.1;
+            font-weight: 800;
+            letter-spacing: -.04em;
+        }
+
+        .hero-copy {
+            max-width: 680px;
+            margin: 0;
+            color:
+                rgba(255,255,255,.72);
+            font-size: 14px;
+            line-height: 1.7;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns:
+                repeat(
+                    4,
+                    minmax(0,1fr)
+                );
+            gap: 16px;
+            margin-top: 22px;
+        }
+
+        .stat-card {
+            min-height: 165px;
+            padding: 22px;
+            border:
+                1px solid transparent;
+            border-radius: 20px;
+        }
+
+        .stat-blue {
+            background:
+                linear-gradient(
+                    145deg,
+                    #eff8ff,
+                    #fff
+                );
+            border-color: #b2ddff;
+        }
+
+        .stat-green {
+            background:
+                linear-gradient(
+                    145deg,
+                    #ecfdf3,
+                    #fff
+                );
+            border-color: #abefc6;
+        }
+
+        .stat-gold {
+            background:
+                linear-gradient(
+                    145deg,
+                    #fffaeb,
+                    #fff
+                );
+            border-color: #fedf89;
+        }
+
+        .stat-purple {
+            background:
+                linear-gradient(
+                    145deg,
+                    #f4f3ff,
+                    #fff
+                );
+            border-color: #d9d6fe;
+        }
+
+        .stat-label {
+            color: #667085;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            margin-top: 12px;
+            color: #101828;
+            font-size: 25px;
+            font-weight: 800;
+            letter-spacing: -.035em;
+        }
+
+        .stat-note {
+            margin-top: 8px;
+            color: #667085;
+            font-size: 11px;
+            line-height: 1.55;
+        }
+
+        .section {
+            margin-top: 34px;
+        }
+
+        .section-title {
+            margin: 0 0 5px;
+            font-size: 19px;
+            font-weight: 800;
+            letter-spacing: -.025em;
+        }
+
+        .section-copy {
+            margin: 0 0 16px;
+            color: #667085;
+            font-size: 12px;
+        }
+
+        .account-card {
+            overflow: hidden;
+            border: 1px solid #eaecf0;
+            border-radius: 20px;
+            background: #fff;
+        }
+
+        .account-row {
+            display: grid;
+            grid-template-columns:
+                180px 1fr;
+            gap: 20px;
+            padding: 18px 22px;
+            border-bottom:
+                1px solid #f2f4f7;
+        }
+
+        .account-row:last-child {
+            border-bottom: 0;
+        }
+
+        .account-key {
+            color: #667085;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .account-value {
+            overflow-wrap: anywhere;
+            color: #101828;
+            font-size: 13px;
+            font-weight: 650;
+        }
+
+        .dashboard-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 18px;
+        }
+
+        .dashboard-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 43px;
+            padding: 0 17px;
+            border-radius: 11px;
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: 750;
+        }
+
+        .button-primary {
+            background: #101828;
+            color: #fff;
+        }
+
+
+        /*
+         * ESUBIZ_CORE_USER_PROFILE_DROPDOWN_V2
+         */
+
+        .core-user-topbar {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            min-height: 68px;
+            padding: 10px 28px;
+            border-bottom: 1px solid #eaecf0;
+            background: #fff;
+        }
+
+        .core-user-profile {
+            position: relative;
+        }
+
+        .core-user-profile-trigger {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            min-height: 42px;
+            padding: 4px 8px 4px 5px;
+            border: 1px solid #eaecf0;
+            border-radius: 12px;
+            background: #fff;
+            color: #101828;
+            cursor: pointer;
+        }
+
+        .core-user-profile-avatar {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            background:
+                linear-gradient(
+                    180deg,
+                    #0b1739 0%,
+                    #10245a 100%
+                );
+            color: #fff;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .core-user-profile-meta {
+            min-width: 0;
+            text-align: left;
+        }
+
+        .core-user-profile-name {
+            display: block;
+            max-width: 170px;
+            overflow: hidden;
+            color: #101828;
+            font-size: 11px;
+            font-weight: 800;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .core-user-profile-email {
+            display: block;
+            max-width: 170px;
+            overflow: hidden;
+            margin-top: 1px;
+            color: #667085;
+            font-size: 9px;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .core-user-profile-menu {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            z-index: 1300;
+            display: none;
+            width: 220px;
+            padding: 7px;
+            border: 1px solid #eaecf0;
+            border-radius: 13px;
+            background: #fff;
+            box-shadow:
+                0 18px 45px rgba(16,24,40,.15);
+        }
+
+        .core-user-profile.open
+        .core-user-profile-menu {
+            display: block;
+        }
+
+        .core-user-profile-summary {
+            padding: 9px 10px 10px;
+            margin-bottom: 5px;
+            border-bottom: 1px solid #f2f4f7;
+        }
+
+        .core-user-profile-summary strong {
+            display: block;
+            color: #101828;
+            font-size: 11px;
+        }
+
+        .core-user-profile-summary span {
+            display: block;
+            margin-top: 2px;
+            overflow-wrap: anywhere;
+            color: #667085;
+            font-size: 9px;
+        }
+
+        .profile-menu-item {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            min-height: 38px;
+            padding: 0 10px;
+            border: 0;
+            border-radius: 8px;
+            background: transparent;
+            color: #344054;
+            text-decoration: none;
+            font-size: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            text-align: left;
+        }
+
+        .profile-menu-item:hover {
+            background: #f9fafb;
+            color: #101828;
+        }
+
+        .profile-menu-item.logout {
+            color: #b42318;
+        }
+
+        /*
+         * ESUBIZ_CORE_USER_MOBILE_SIDEBAR_V2
+         */
+        @media (max-width: 900px) {
+            .core-user-shell {
+                display: block;
+            }
+
+            .core-user-sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 270px;
+                height: 100vh;
+                padding: 22px 18px;
+                z-index: 1100;
+                transform: translateX(-100%);
+                transition: transform .22s ease;
+                box-shadow:
+                    14px 0 35px rgba(16,24,40,.18);
+            }
+
+            body.core-user-sidebar-open
+            .core-user-sidebar {
+                transform: translateX(0);
+            }
+
+            .core-user-sidebar-overlay {
+                position: fixed;
+                inset: 0;
+                z-index: 1090;
+                display: none;
+                background: rgba(16,24,40,.48);
+            }
+
+            body.core-user-sidebar-open
+            .core-user-sidebar-overlay {
+                display: block;
+            }
+
+            /* ESUBIZ_CORE_USER_TOPBAR_MOBILE_HIDE_V1 */
+            .core-user-topbar {
+                display: none;
+            }
+
+            .core-user-mobile-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 14px;
+                min-height: 62px;
+                padding: 10px 16px;
+                border-bottom: 1px solid #eaecf0;
+                background: #fff;
+                position: sticky;
+                top: 0;
+                z-index: 1000;
+            }
+
+            .core-user-mobile-title {
+                min-width: 0;
+                color: #101828;
+                font-size: 13px;
+                font-weight: 800;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .core-user-menu-button {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 42px;
+                height: 42px;
+                flex: 0 0 42px;
+                border: 1px solid #d0d5dd;
+                border-radius: 11px;
+                background: #fff;
+                color: #101828;
+                cursor: pointer;
+                font-size: 20px;
+                line-height: 1;
+            }
+
+            .cus-brand {
+                padding: 6px 8px 22px;
+            }
+
+            .cus-nav-label {
+                display: block;
+            }
+
+            .cus-nav {
+                display: grid;
+                gap: 5px;
+                overflow: visible;
+                padding-top: 0;
+            }
+
+            .cus-link {
+                width: 100%;
+                min-height: 44px;
+                padding: 0 12px;
+            }
+
+            .cus-footer {
+                margin-top: 28px;
+                padding-top: 18px;
+            }
+
+            .cus-footer form {
+                margin: 0;
+            }
+
+            .cus-footer .cus-link {
+                width: 100%;
+            }
+
+            .stats {
+                grid-template-columns:
+                    repeat(
+                        2,
+                        minmax(0,1fr)
+                    );
+            }
+        }
+
+        @media (max-width: 600px) {
+            .core-user-dashboard {
+                width:
+                    calc(100% - 22px);
+                padding-top: 18px;
+            }
+
+            .user-hero {
+                padding: 24px;
+                border-radius: 20px;
+            }
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+
+            .account-row {
+                grid-template-columns: 1fr;
+                gap: 5px;
+            }
+        }
+    
+
+        /*
+         * ESUBIZ_CORE_USER_HEADER_RESPONSIVE_FIX_V1
+         *
+         * Desktop:
+         *   profile navigation only, top-right.
+         *
+         * Mobile:
+         *   hamburger top-left,
+         *   profile navigation top-right.
+         */
+
+        @media (min-width: 901px) {
+            .core-user-topbar {
+                display: flex !important;
+                align-items: center;
+                justify-content: flex-end;
+            }
+
+            .core-user-mobile-header {
+                display: none !important;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .core-user-topbar {
+                display: none !important;
+            }
+
+            .core-user-mobile-header {
+                display: flex !important;
+                align-items: center;
+                justify-content: space-between;
+            }
+
+            .core-user-mobile-header
+            .core-user-profile-meta {
+                display: none;
+            }
+        }
+
+</style>
+</head>
+
+<body>
+
+<div
+    class="core-user-sidebar-overlay"
+    data-core-user-sidebar-close
+></div>
+
+<div class="core-user-shell">
+
+    @include(
+        'tenant.user.partials.sidebar',
+        ['coreUser' => $coreUser]
+    )
+
+
+    <main class="core-user-content">
+
+        {{-- ESUBIZ_CORE_USER_DESKTOP_PROFILE_V2 --}}
+        <div class="core-user-topbar">
+
+            @include(
+                'tenant.user.partials.profile-menu',
+                ['coreUser' => $coreUser]
+            )
+
+        </div>
+
+        <div class="core-user-mobile-header">
+
+            <button
+                type="button"
+                class="core-user-menu-button"
+                aria-label="Open menu"
+                aria-expanded="false"
+                data-core-user-sidebar-toggle
+            >
+                ☰
+            </button>
+
+            @include(
+                'tenant.user.partials.profile-menu',
+                ['coreUser' => $coreUser]
+            )
+
+        </div>
+
+<div class="core-user-dashboard">
+
+    {{-- ESUBIZ_CORE_USER_DASHBOARD_V1 --}}
+
+    <section class="user-hero">
+
+        <div class="hero-inner">
+
+            <span class="eyebrow">
+                User Dashboard
+            </span>
+
+            <h1 class="hero-title">
+                Welcome,
+                {{
+                    trim(
+                        (string) (
+                            $coreUser->name
+                            ?? ''
+                        )
+                    ) ?: 'User'
+                }}
+            </h1>
+
+            <p class="hero-copy">
+                View your account information
+                and manage your experience on
+                this website from one place.
+            </p>
+
+        </div>
+
+    </section>
+
+
+    <div class="stats">
+
+        <div class="stat-card stat-blue">
+
+            <div class="stat-label">
+                Account Status
+            </div>
+
+            <div class="stat-value">
+                {{ $accountStatus }}
+            </div>
+
+            <div class="stat-note">
+                Your current website
+                account status
+            </div>
+
+        </div>
+
+
+        <div class="stat-card stat-green">
+
+            <div class="stat-label">
+                Profile Completion
+            </div>
+
+            <div class="stat-value">
+                {{ $profileCompletion }}%
+            </div>
+
+            <div class="stat-note">
+                Based on your available
+                account information
+            </div>
+
+        </div>
+
+
+        <div class="stat-card stat-gold">
+
+            <div class="stat-label">
+                Member Since
+            </div>
+
+            <div class="stat-value">
+
+                @if($memberSince)
+
+                    {{
+                        \Illuminate\Support\Carbon::parse(
+                            $memberSince
+                        )->format('M Y')
+                    }}
+
+                @else
+
+                    —
+
+                @endif
+
+            </div>
+
+            <div class="stat-note">
+                When your website account
+                was created
+            </div>
+
+        </div>
+
+
+        <div class="stat-card stat-purple">
+
+            <div class="stat-label">
+                Last Login
+            </div>
+
+            <div
+                class="stat-value"
+                style="font-size:20px;"
+            >
+
+                @if($lastLoginAt)
+
+                    {{
+                        \Illuminate\Support\Carbon::parse(
+                            $lastLoginAt
+                        )->format('d M Y')
+                    }}
+
+                @else
+
+                    —
+
+                @endif
+
+            </div>
+
+            <div class="stat-note">
+                Your most recent recorded
+                sign-in
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <section class="section">
+
+        <h2 class="section-title">
+            Account Information
+        </h2>
+
+        <p class="section-copy">
+            Your current account details
+            stored by this website.
+        </p>
+
+
+        <div class="account-card">
+
+            <div class="account-row">
+
+                <div class="account-key">
+                    Name
+                </div>
+
+                <div class="account-value">
+                    {{
+                        $coreUser->name
+                            ?: 'Not provided'
+                    }}
+                </div>
+
+            </div>
+
+
+            <div class="account-row">
+
+                <div class="account-key">
+                    Email
+                </div>
+
+                <div class="account-value">
+                    {{
+                        $coreUser->email
+                            ?: 'Not provided'
+                    }}
+                </div>
+
+            </div>
+
+
+            <div class="account-row">
+
+                <div class="account-key">
+                    Phone
+                </div>
+
+                <div class="account-value">
+                    {{
+                        $coreUser->phone
+                            ?: 'Not provided'
+                    }}
+                </div>
+
+            </div>
+
+
+            <div class="account-row">
+
+                <div class="account-key">
+                    Account Type
+                </div>
+
+                <div class="account-value">
+                    User
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="dashboard-actions">
+
+            <a
+                href="/"
+                class="
+                    dashboard-button
+                    button-primary
+                "
+            >
+                Visit Website
+            </a>
+
+        </div>
+
+    </section>
+
+</div>
+
+    </main>
+
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const body = document.body;
+
+    // ESUBIZ_CORE_USER_PROFILE_DROPDOWN_JS_V1
+    const coreUserProfiles = document.querySelectorAll(
+        '[data-core-user-profile]'
+    );
+
+    const closeCoreUserProfiles = function () {
+        coreUserProfiles.forEach(function (profile) {
+            profile.classList.remove('open');
+
+            const trigger = profile.querySelector(
+                '[data-core-user-profile-toggle]'
+            );
+
+            if (trigger) {
+                trigger.setAttribute(
+                    'aria-expanded',
+                    'false'
+                );
+            }
+        });
+    };
+
+    coreUserProfiles.forEach(function (profile) {
+        const trigger = profile.querySelector(
+            '[data-core-user-profile-toggle]'
+        );
+
+        if (!trigger) {
+            return;
+        }
+
+        trigger.addEventListener(
+            'click',
+            function (event) {
+                event.stopPropagation();
+
+                const wasOpen =
+                    profile.classList.contains('open');
+
+                closeCoreUserProfiles();
+
+                if (!wasOpen) {
+                    profile.classList.add('open');
+
+                    trigger.setAttribute(
+                        'aria-expanded',
+                        'true'
+                    );
+                }
+            }
+        );
+
+        const menu = profile.querySelector(
+            '.core-user-profile-menu'
+        );
+
+        if (menu) {
+            menu.addEventListener(
+                'click',
+                function (event) {
+                    event.stopPropagation();
+                }
+            );
+        }
+    });
+
+    document.addEventListener(
+        'click',
+        closeCoreUserProfiles
+    );
+    const toggle = document.querySelector(
+        '[data-core-user-sidebar-toggle]'
+    );
+    const closers = document.querySelectorAll(
+        '[data-core-user-sidebar-close]'
+    );
+
+    const closeSidebar = function () {
+        body.classList.remove(
+            'core-user-sidebar-open'
+        );
+
+        if (toggle) {
+            toggle.setAttribute(
+                'aria-expanded',
+                'false'
+            );
+        }
+    };
+
+    if (toggle) {
+        toggle.addEventListener(
+            'click',
+            function () {
+                const open =
+                    body.classList.toggle(
+                        'core-user-sidebar-open'
+                    );
+
+                toggle.setAttribute(
+                    'aria-expanded',
+                    open ? 'true' : 'false'
+                );
+            }
+        );
+    }
+
+    closers.forEach(function (closer) {
+        closer.addEventListener(
+            'click',
+            closeSidebar
+        );
+    });
+
+    document.addEventListener(
+        'keydown',
+        function (event) {
+            if (event.key === 'Escape') {
+                closeSidebar();
+            }
+        }
+    );
+
+    document.querySelectorAll(
+        '.core-user-sidebar a'
+    ).forEach(function (link) {
+        link.addEventListener(
+            'click',
+            closeSidebar
+        );
+    });
+});
+</script>
+
+</body>
+</html>

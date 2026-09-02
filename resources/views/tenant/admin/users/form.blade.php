@@ -237,6 +237,266 @@
 
         </div>
 
-    </form>
+    
+
+    {{-- ESUBIZ_CORE_PARTNER_MANAGEMENT_FORM_V1 --}}
+    @if(
+        !empty($partnerRoleId)
+        && !empty($canManagePartners)
+    )
+        @php
+            $corePartnerSelected = in_array(
+                (int) $partnerRoleId,
+                array_map(
+                    'intval',
+                    old(
+                        'roles',
+                        $selectedRoleIds ?? []
+                    )
+                ),
+                true
+            );
+
+            $corePartnerPercentage = old(
+                'partner_investment_percentage',
+                $partnerInvestment
+                    ->investment_percentage
+                    ?? 0
+            );
+
+            $corePartnerBasis = old(
+                'partner_profit_basis',
+                $partnerInvestment
+                    ->profit_basis
+                    ?? 'net'
+            );
+
+            $corePartnerActive = old(
+                'partner_is_active',
+                isset($partnerInvestment)
+                    ? (bool) $partnerInvestment->is_active
+                    : true
+            );
+
+            $corePartnerNotes = old(
+                'partner_notes',
+                $partnerInvestment
+                    ->notes
+                    ?? ''
+            );
+        @endphp
+
+        <div
+            id="corePartnerInvestmentPanel"
+            class="card border-0 shadow-sm mt-4"
+            style="{{
+                $corePartnerSelected
+                    ? ''
+                    : 'display:none;'
+            }}"
+        >
+            <div class="card-body p-4">
+                <div
+                    class="d-flex flex-column flex-lg-row
+                           justify-content-between
+                           align-items-lg-start gap-3 mb-4"
+                >
+                    <div>
+                        <h5 class="mb-1">
+                            Partner / Investor Configuration
+                        </h5>
+
+                        <p class="text-muted mb-0">
+                            Manage this business administrator's
+                            investment participation and financial
+                            profit/loss basis.
+                        </p>
+                    </div>
+
+                    <span
+                        class="badge rounded-pill text-bg-warning"
+                    >
+                        Business Administrator
+                    </span>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-12 col-lg-6">
+                        <label
+                            class="form-label"
+                            for="partnerInvestmentPercentage"
+                        >
+                            Investment Share
+                        </label>
+
+                        <div class="input-group">
+                            <input
+                                type="number"
+                                id="partnerInvestmentPercentage"
+                                name="partner_investment_percentage"
+                                class="form-control"
+                                min="0"
+                                max="100"
+                                step="0.0001"
+                                value="{{ $corePartnerPercentage }}"
+                            >
+
+                            <span class="input-group-text">%</span>
+                        </div>
+
+                        @error('partner_investment_percentage')
+                            <div class="text-danger small mt-1">
+                                {{ $message }}
+                            </div>
+                        @enderror
+                    </div>
+
+                    <div class="col-12 col-lg-6">
+                        <label
+                            class="form-label"
+                            for="partnerProfitBasis"
+                        >
+                            Profit / Loss Basis
+                        </label>
+
+                        <select
+                            id="partnerProfitBasis"
+                            name="partner_profit_basis"
+                            class="form-select"
+                        >
+                            <option
+                                value="gross"
+                                @selected(
+                                    $corePartnerBasis === 'gross'
+                                )
+                            >
+                                Gross
+                            </option>
+
+                            <option
+                                value="net"
+                                @selected(
+                                    $corePartnerBasis === 'net'
+                                )
+                            >
+                                Net
+                            </option>
+                        </select>
+
+                        @error('partner_profit_basis')
+                            <div class="text-danger small mt-1">
+                                {{ $message }}
+                            </div>
+                        @enderror
+                    </div>
+
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            <input
+                                type="hidden"
+                                name="partner_is_active"
+                                value="0"
+                            >
+
+                            <input
+                                type="checkbox"
+                                class="form-check-input"
+                                id="partnerIsActive"
+                                name="partner_is_active"
+                                value="1"
+                                @checked($corePartnerActive)
+                            >
+
+                            <label
+                                class="form-check-label"
+                                for="partnerIsActive"
+                            >
+                                Active Partner / Investor
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <label
+                            class="form-label"
+                            for="partnerNotes"
+                        >
+                            Internal Notes
+                        </label>
+
+                        <textarea
+                            id="partnerNotes"
+                            name="partner_notes"
+                            class="form-control"
+                            rows="3"
+                        >{{ $corePartnerNotes }}</textarea>
+
+                        @error('partner_notes')
+                            <div class="text-danger small mt-1">
+                                {{ $message }}
+                            </div>
+                        @enderror
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+        document.addEventListener(
+            'DOMContentLoaded',
+            function () {
+                const partnerRoleId =
+                    @json((string) $partnerRoleId);
+
+                const panel =
+                    document.getElementById(
+                        'corePartnerInvestmentPanel'
+                    );
+
+                if (!panel) {
+                    return;
+                }
+
+                const roleCheckboxes =
+                    document.querySelectorAll(
+                        'input[name="roles[]"]'
+                    );
+
+                function refreshPartnerPanel() {
+                    let selected = false;
+
+                    roleCheckboxes.forEach(
+                        function (checkbox) {
+                            if (
+                                String(checkbox.value) ===
+                                    String(partnerRoleId)
+                                && checkbox.checked
+                            ) {
+                                selected = true;
+                            }
+                        }
+                    );
+
+                    panel.style.display =
+                        selected ? '' : 'none';
+                }
+
+                roleCheckboxes.forEach(
+                    function (checkbox) {
+                        checkbox.addEventListener(
+                            'change',
+                            refreshPartnerPanel
+                        );
+                    }
+                );
+
+                refreshPartnerPanel();
+            }
+        );
+        </script>
+    @endif
+
+
+</form>
 </div>
 @endsection
