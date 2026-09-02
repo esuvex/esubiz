@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use Illuminate\Support\Facades\Blade;
+
 use App\Services\SiteAi\Proposals\AiProposalApplierRegistry;
 use App\Services\SiteAi\Proposals\AiProposalDestinationRegistry;
 use App\Services\SiteAi\Proposals\Appliers\ThemeHomepageProposalApplier;
@@ -168,6 +170,85 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        /*
+         * ESUBIZ_CORE_FEATURE_BOOTSTRAP_V1
+         *
+         * Register only Core features actually present in this build.
+         * Other products/features register themselves independently.
+         */
+        $this->app->make(
+            \App\Services\Core\CoreFeatureBootstrapper::class
+        )->boot();
+
+
+        /*
+         * ESUBIZ_CORE_BLADE_PERMISSION_DIRECTIVES_V1
+         *
+         * Universal Core authorization helpers for:
+         * - dashboard widgets
+         * - sidebar/menu items
+         * - buttons/actions
+         * - Core features
+         * - add-ons
+         * - bundles
+         * - themes
+         * - modules
+         * - products
+         * - site functions
+         *
+         * No SaaS/off-server branching.
+         */
+
+        Blade::if('coreCan', function (string $permission) {
+            return app(
+                \App\Services\Core\CorePermissionService::class
+            )->can($permission);
+        });
+
+        Blade::if('coreCannot', function (string $permission) {
+            return app(
+                \App\Services\Core\CorePermissionService::class
+            )->cannot($permission);
+        });
+
+        Blade::if('coreCanAny', function (...$permissions) {
+            if (
+                count($permissions) === 1 &&
+                is_array($permissions[0])
+            ) {
+                $permissions = $permissions[0];
+            }
+
+            return app(
+                \App\Services\Core\CorePermissionService::class
+            )->canAny($permissions);
+        });
+
+        Blade::if('coreCanAll', function (...$permissions) {
+            if (
+                count($permissions) === 1 &&
+                is_array($permissions[0])
+            ) {
+                $permissions = $permissions[0];
+            }
+
+            return app(
+                \App\Services\Core\CorePermissionService::class
+            )->canAll($permissions);
+        });
+
+        Blade::if('coreRole', function (string $role) {
+            return app(
+                \App\Services\Core\CorePermissionService::class
+            )->hasRole($role);
+        });
+
+        Blade::if('coreAdministrator', function () {
+            return app(
+                \App\Services\Core\CorePermissionService::class
+            )->isAdministrator();
+        });
+
         /*
          * ESUBIZ_CORE_SALES_TRIGGER_LOCATION_BOOT_V1
          *

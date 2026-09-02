@@ -940,6 +940,161 @@ Route::post(
 
         /*
         |--------------------------------------------------------------------------
+        | ESUBIZ_CORE_FORM_SUBMISSION_ROUTES_V1
+        | Core CMS - Form Submissions
+        |--------------------------------------------------------------------------
+        */
+
+        Route::get(
+            '/admin/forms/{form}/submissions',
+            [
+                \App\Http\Controllers\TenantFormsController::class,
+                'submissions',
+            ]
+        )
+            ->whereNumber('form')
+            ->name(
+                'tenant.cms.forms.submissions.index'
+            );
+
+        Route::get(
+            '/admin/forms/{form}/submissions/{submission}',
+            [
+                \App\Http\Controllers\TenantFormsController::class,
+                'showSubmission',
+            ]
+        )
+            ->whereNumber('form')
+            ->whereNumber('submission')
+            ->name(
+                'tenant.cms.forms.submissions.show'
+            );
+
+        Route::patch(
+            '/admin/forms/{form}/submissions/{submission}/status',
+            [
+                \App\Http\Controllers\TenantFormsController::class,
+                'updateSubmissionStatus',
+            ]
+        )
+            ->whereNumber('form')
+            ->whereNumber('submission')
+            ->name(
+                'tenant.cms.forms.submissions.status'
+            );
+
+        Route::delete(
+            '/admin/forms/{form}/submissions/{submission}',
+            [
+                \App\Http\Controllers\TenantFormsController::class,
+                'destroySubmission',
+            ]
+        )
+            ->whereNumber('form')
+            ->whereNumber('submission')
+            ->name(
+                'tenant.cms.forms.submissions.destroy'
+            );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | ESUBIZ_CORE_USERS_ROUTES_V1
+        | Core CMS - Users
+        |--------------------------------------------------------------------------
+        */
+
+        Route::get(
+            '/admin/users',
+            [
+                \App\Http\Controllers\TenantUsersController::class,
+                'index',
+            ]
+        )->name('tenant.cms.users.index');
+
+        Route::get(
+            '/admin/users/create',
+            [
+                \App\Http\Controllers\TenantUsersController::class,
+                'create',
+            ]
+        )->name('tenant.cms.users.create');
+
+        Route::post(
+            '/admin/users',
+            [
+                \App\Http\Controllers\TenantUsersController::class,
+                'store',
+            ]
+        )->name('tenant.cms.users.store');
+
+        Route::get(
+            '/admin/users/{user}/edit',
+            [
+                \App\Http\Controllers\TenantUsersController::class,
+                'edit',
+            ]
+        )
+            ->whereNumber('user')
+            ->name('tenant.cms.users.edit');
+
+        Route::put(
+            '/admin/users/{user}',
+            [
+                \App\Http\Controllers\TenantUsersController::class,
+                'update',
+            ]
+        )
+            ->whereNumber('user')
+            ->name('tenant.cms.users.update');
+
+        Route::delete(
+            '/admin/users/{user}',
+            [
+                \App\Http\Controllers\TenantUsersController::class,
+                'destroy',
+            ]
+        )
+            ->whereNumber('user')
+            ->name('tenant.cms.users.destroy');
+
+    /*
+     * ESUBIZ_CORE_ROLES_PERMISSIONS_ROUTES_V1
+     */
+    Route::get(
+        '/admin/users/roles',
+        [\App\Http\Controllers\TenantRolesController::class, 'index']
+    )->name('tenant.cms.roles.index');
+
+    Route::get(
+        '/admin/users/roles/create',
+        [\App\Http\Controllers\TenantRolesController::class, 'create']
+    )->name('tenant.cms.roles.create');
+
+    Route::post(
+        '/admin/users/roles',
+        [\App\Http\Controllers\TenantRolesController::class, 'store']
+    )->name('tenant.cms.roles.store');
+
+    Route::get(
+        '/admin/users/roles/{role}/edit',
+        [\App\Http\Controllers\TenantRolesController::class, 'edit']
+    )->whereNumber('role')->name('tenant.cms.roles.edit');
+
+    Route::put(
+        '/admin/users/roles/{role}',
+        [\App\Http\Controllers\TenantRolesController::class, 'update']
+    )->whereNumber('role')->name('tenant.cms.roles.update');
+
+    Route::delete(
+        '/admin/users/roles/{role}',
+        [\App\Http\Controllers\TenantRolesController::class, 'destroy']
+    )->whereNumber('role')->name('tenant.cms.roles.destroy');
+
+
+
+        /*
+        |--------------------------------------------------------------------------
         | Core CMS - Pages
         |--------------------------------------------------------------------------
         |
@@ -2591,4 +2746,86 @@ Route::post(
 )
     ->whereNumber('form')
     ->name('core.forms.submit');
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_CORE_USERS_ROLES_ROUTE_RBAC_V1
+|--------------------------------------------------------------------------
+|
+| Route-level authorization for established Core Users and Roles actions.
+|
+| Controller authorization remains in place as defense-in-depth.
+|
+| Permission denial is handled by CorePermissionMiddleware /
+| CorePermissionService, which uses the established redirect behavior
+| rather than exposing a 403 page.
+|
+| Future Core/add-on/module routes should use the same
+| core.permission:<feature>.<action> contract.
+|
+*/
+
+\Illuminate\Support\Facades\Route::matched(
+    function (
+        \Illuminate\Routing\Events\RouteMatched $event
+    ): void {
+        $permissionMap = [
+            // Dashboard
+            'tenant.cms.dashboard' =>
+                'dashboard.view',
+
+            // Users
+            'tenant.cms.users.index' =>
+                'users.view',
+
+            'tenant.cms.users.create' =>
+                'users.create',
+
+            'tenant.cms.users.store' =>
+                'users.create',
+
+            'tenant.cms.users.edit' =>
+                'users.edit',
+
+            'tenant.cms.users.update' =>
+                'users.edit',
+
+            'tenant.cms.users.destroy' =>
+                'users.delete',
+
+            // Roles & Permissions
+            'tenant.cms.roles.index' =>
+                'roles.view',
+
+            'tenant.cms.roles.create' =>
+                'roles.create',
+
+            'tenant.cms.roles.store' =>
+                'roles.create',
+
+            'tenant.cms.roles.edit' =>
+                'roles.edit',
+
+            'tenant.cms.roles.update' =>
+                'roles.edit',
+
+            'tenant.cms.roles.destroy' =>
+                'roles.delete',
+        ];
+
+        $routeName = $event->route->getName();
+
+        if (
+            !$routeName
+            || !isset($permissionMap[$routeName])
+        ) {
+            return;
+        }
+
+        $event->route->middleware(
+            'core.permission:'
+            . $permissionMap[$routeName]
+        );
+    }
+);
 

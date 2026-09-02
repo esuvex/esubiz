@@ -1,4 +1,4 @@
-{{-- 
+{{--
 |--------------------------------------------------------------------------
 | Canonical Tenant Core CMS Sidebar
 |--------------------------------------------------------------------------
@@ -8,6 +8,8 @@
 |
 --}}
 
+        {{-- ESUBIZ_CORE_DASHBOARD_PERMISSION_VISIBILITY_V1 --}}
+        @coreCan('dashboard.view')
 <aside
     id="tenantCmsSidebar"
     class="fixed inset-y-0 left-0 z-50 w-[280px] -translate-x-full overflow-y-auto border-r border-white/10 text-white shadow-xl transition-transform duration-300 lg:translate-x-0"
@@ -133,6 +135,7 @@
             <span>⌂</span>
             Dashboard
         </a>
+        @endcoreCan
 
 
         {{-- Site Management --}}
@@ -170,7 +173,7 @@
                 >
                     Pages
                 </a>
-                
+
 
 
                 <a
@@ -194,12 +197,90 @@
                     Forms
                 </a>
 
-                <a
-                    href="#"
-                    class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white"
+                {{-- ESUBIZ_CORE_DYNAMIC_QR_CODE_SIDEBAR_V1 --}}
+                @php
+                    $coreFeatureRegistry = app(
+                        \App\Services\Core\CoreFeatureRegistry::class
+                    );
+
+                    $corePermissionService = app(
+                        \App\Services\Core\CorePermissionService::class
+                    );
+
+                    /*
+                     * Do not assume QR Code is installed.
+                     *
+                     * A QR feature must register itself and be AVAILABLE.
+                     * We locate it by its declared navigation label rather
+                     * than inventing an add-on entitlement identifier.
+                     */
+                    $coreQrFeature = collect(
+                        $coreFeatureRegistry->availableFeatures()
+                    )->first(function (array $feature) {
+                        $navigation = $feature['navigation'] ?? null;
+
+                        if (!is_array($navigation)) {
+                            return false;
+                        }
+
+                        return strcasecmp(
+                            trim((string) (
+                                $navigation['label']
+                                ?? $feature['label']
+                                ?? ''
+                            )),
+                            'QR Code'
+                        ) === 0;
+                    });
+                @endphp
+
+                @if($coreQrFeature)
+                    @php
+                        $coreQrNavigation =
+                            $coreQrFeature['navigation'] ?? [];
+
+                        $coreQrPermission =
+                            $coreQrNavigation['permission'] ?? null;
+
+                        $coreQrUrl =
+                            $coreQrNavigation['url'] ?? null;
+
+                        $coreQrAllowed =
+                            !$coreQrPermission
+                            || $corePermissionService->can(
+                                (string) $coreQrPermission
+                            );
+                    @endphp
+
+                    @if($coreQrAllowed && $coreQrUrl)
+                        <a
+                            href="{{ $coreQrUrl }}"
+                            class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white"
+                        >
+                            QR Code
+                        </a>
+                    @endif
+                @endif
+
+
+                {{-- ESUBIZ_CORE_USERS_SIDEBAR_V1 --}}
+                @coreCan('users.view')
+<a
+                    href="{{ route('tenant.cms.users.index', ['subdomain' => $website->subdomain]) }}"
+                    class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white {{ request()->routeIs('tenant.cms.users.*') ? 'bg-white/10 text-white' : '' }}"
                 >
                     Users
                 </a>
+@endcoreCan
+
+@coreCan('roles.view')
+                <a
+                    href="/admin/users/roles"
+                    class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white {{ request()->routeIs('tenant.cms.roles.*') ? 'bg-white/10 text-white' : '' }}"
+                >
+                    Roles &amp; Permissions
+                </a>
+@endcoreCan
 
 
                 <div
@@ -235,41 +316,187 @@
         </details>
 
 
-        {{-- Module Managers --}}
 
-        <details class="group">
-
-            <summary
-                class="flex cursor-pointer items-center justify-between rounded-xl px-4 py-3 text-sm font-bold text-blue-100 hover:bg-white/10"
-            >
-
-                <span class="flex items-center gap-3">
-                    <span>◫</span>
-                    Module Managers
-                </span>
-
-                <span
-                    class="menu-chevron text-xs transition"
+        {{-- ESUBIZ_CORE_PAYMENT_GATEWAYS_SIDEBAR_V1 --}}
+        @coreCanAny(
+            'payment_gateways.offline.view',
+            'payment_gateways.online.view'
+        )
+            <details class="group">
+                <summary
+                    class="flex cursor-pointer items-center justify-between rounded-xl px-4 py-3 text-sm font-bold text-blue-100 hover:bg-white/10"
                 >
-                    ▼
-                </span>
+                    <span class="flex items-center gap-3">
+                        <span>▣</span>
+                        Payment Gateways
+                    </span>
 
-            </summary>
-
-
-            <div
-                class="ml-4 border-l border-white/10 pl-3"
-            >
+                    <span
+                        class="menu-chevron text-xs transition"
+                    >
+                        ▼
+                    </span>
+                </summary>
 
                 <div
-                    class="rounded-xl border border-dashed border-white/10 px-3 py-3 text-xs leading-5 text-slate-400"
+                    class="ml-4 space-y-1 border-l border-white/10 pl-3"
                 >
-                    Enabled module managers will appear here automatically.
+                    @coreCan('payment_gateways.offline.view')
+                        <a
+                            href="#"
+                            class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white"
+                            data-core-feature="payment_gateways.offline"
+                        >
+                            Offline
+                        </a>
+                    @endcoreCan
+
+                    @coreCan('payment_gateways.online.view')
+                        <a
+                            href="#"
+                            class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white"
+                            data-core-feature="payment_gateways.online"
+                        >
+                            Online
+                        </a>
+                    @endcoreCan
                 </div>
+            </details>
+        @endcoreCanAny
 
-            </div>
+{{-- ESUBIZ_CORE_DYNAMIC_MODULE_MANAGERS_V1 --}}
+        @php
+            $coreModuleRegistry = app(
+                \App\Services\Core\CoreFeatureRegistry::class
+            );
 
-        </details>
+            $coreModulePermissions = app(
+                \App\Services\Core\CorePermissionService::class
+            );
+
+            /*
+             * A module appears here only when:
+             *
+             * 1. it registered through CoreFeatureRegistry;
+             * 2. source_type is "module";
+             * 3. its availability resolver says it is active;
+             * 4. it supplies admin navigation;
+             * 5. the current user's role has its view permission.
+             *
+             * Therefore "Store Manager", "Hotel Manager",
+             * "Real Estate Manager", etc. come from the module itself.
+             * There is no generic hardcoded "Module Managers" menu.
+             */
+            $coreActiveModuleManagers = collect(
+                $coreModuleRegistry->availableFeatures()
+            )
+                ->filter(function (array $feature) use (
+                    $coreModulePermissions
+                ) {
+                    if (
+                        strtolower(
+                            (string) (
+                                $feature['source_type'] ?? ''
+                            )
+                        ) !== 'module'
+                    ) {
+                        return false;
+                    }
+
+                    $navigation =
+                        $feature['navigation'] ?? null;
+
+                    if (!is_array($navigation)) {
+                        return false;
+                    }
+
+                    $permission =
+                        $navigation['permission'] ?? null;
+
+                    return !$permission
+                        || $coreModulePermissions->can(
+                            (string) $permission
+                        );
+                })
+                ->sortBy(function (array $feature) {
+                    return (int) (
+                        $feature['navigation']['order']
+                        ?? PHP_INT_MAX
+                    );
+                });
+        @endphp
+
+        @foreach($coreActiveModuleManagers as $coreModuleManager)
+            @php
+                $coreModuleNav =
+                    $coreModuleManager['navigation'];
+
+                $coreModuleLabel =
+                    $coreModuleNav['label']
+                    ?? $coreModuleManager['label'];
+
+                $coreModuleUrl =
+                    $coreModuleNav['url'] ?? null;
+
+                $coreModuleChildren =
+                    collect(
+                        $coreModuleNav['children'] ?? []
+                    )->filter(function (array $child) use (
+                        $coreModulePermissions
+                    ) {
+                        $permission =
+                            $child['permission'] ?? null;
+
+                        return !$permission
+                            || $coreModulePermissions->can(
+                                (string) $permission
+                            );
+                    });
+            @endphp
+
+            @if($coreModuleChildren->isNotEmpty())
+                <details class="group">
+                    <summary
+                        class="flex cursor-pointer items-center justify-between rounded-xl px-4 py-3 text-sm font-bold text-blue-100 hover:bg-white/10"
+                    >
+                        <span class="flex items-center gap-3">
+                            <span>◫</span>
+                            {{ $coreModuleLabel }}
+                        </span>
+
+                        <span
+                            class="menu-chevron text-xs transition"
+                        >
+                            ▼
+                        </span>
+                    </summary>
+
+                    <div
+                        class="ml-4 space-y-1 border-l border-white/10 pl-3"
+                    >
+                        @foreach($coreModuleChildren as $coreModuleChild)
+                            @if(!empty($coreModuleChild['url']))
+                                <a
+                                    href="{{ $coreModuleChild['url'] }}"
+                                    class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white"
+                                >
+                                    {{ $coreModuleChild['label'] }}
+                                </a>
+                            @endif
+                        @endforeach
+                    </div>
+                </details>
+
+            @elseif($coreModuleUrl)
+                <a
+                    href="{{ $coreModuleUrl }}"
+                    class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-blue-100 hover:bg-white/10"
+                >
+                    <span>◫</span>
+                    {{ $coreModuleLabel }}
+                </a>
+            @endif
+        @endforeach
 
 
         <div
@@ -600,7 +827,7 @@
                     Modules
                 </a>
 
-                
+
 
                 <a href="#" class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10">
                     Credits
@@ -615,7 +842,7 @@
         </details>
 
 
-        
+
         {{-- Referral --}}
         <details class="group">
 

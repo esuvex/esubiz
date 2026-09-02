@@ -1,0 +1,458 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\WebsiteTenant;
+use App\Models\Website;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+
+class TenantRolesController extends Controller
+{
+    /*
+     * ESUBIZ_CORE_ROLES_PERMISSIONS_V1
+     *
+     * Core-owned RBAC manager.
+     *
+     * - Roles belong to the Core website database.
+     * - Permissions belong to the Core website database.
+     * - System roles cannot be deleted.
+     * - System role names/slugs cannot be changed.
+     * - Administrator always owns every Core permission.
+     * - No SaaS/off-server conditional logic exists here.
+     */
+
+    protected function db()
+    {
+        return DB::connection('website_tenant');
+    }
+
+    protected function schema()
+    {
+        return Schema::connection('website_tenant');
+    }
+
+    protected function ensureRbacTables(): void
+    {
+        foreach ([
+            'site_roles',
+            'site_permissions',
+            'site_role_permissions',
+            'site_user_roles',
+            'site_users',
+        ] as $table) {
+            if (!$this->schema()->hasTable($table)) {
+                abort(
+                    503,
+                    'Core Roles & Permissions is not initialized.'
+                );
+            }
+        }
+    }
+
+    public function index()
+    {
+        app(\App\Services\Core\CorePermissionService::class)->authorize('roles.view');
+
+        app(\App\Services\Core\CorePermissionSynchronizer::class)->sync();
+
+        $website = $this->currentWebsite();
+        $this->ensureRbacTables();
+
+        $roles = $this->db()
+            ->table('site_roles as r')
+            ->leftJoin('site_user_roles as ur', 'ur.role_id', '=', 'r.id')
+            ->leftJoin('site_role_permissions as rp', 'rp.role_id', '=', 'r.id')
+            ->select([
+                'r.id',
+                'r.name',
+                'r.slug',
+                'r.description',
+                'r.is_system',
+                'r.created_at',
+            ])
+            ->selectRaw(
+                'COUNT(DISTINCT ur.user_id) as users_count'
+            )
+            ->selectRaw(
+                'COUNT(DISTINCT rp.permission_id) as permissions_count'
+            )
+            ->groupBy([
+                'r.id',
+                'r.name',
+                'r.slug',
+                'r.description',
+                'r.is_system',
+                'r.created_at',
+            ])
+            ->orderByDesc('r.is_system')
+            ->orderBy('r.name')
+            ->get();
+
+        $permissionsCount = $this->db()
+            ->table('site_permissions')
+            ->count();
+
+        return view('tenant.admin.roles.index', [
+            'website' => $website,
+            'roles' => $roles,
+            'permissionsCount' => $permissionsCount,
+        ]);
+    }
+
+    public function create()
+    {
+        app(\App\Services\Core\CorePermissionService::class)->authorize('roles.create');
+
+        app(\App\Services\Core\CorePermissionSynchronizer::class)->sync();
+
+        $permissionGroups = app(
+            \App\Services\Core\CorePermissionRegistry::class
+        )->groups();
+
+
+        $website = $this->currentWebsite();
+        $this->ensureRbacTables();
+
+        return view('tenant.admin.roles.form', [
+            'website' => $website,
+            'role' => null,
+            'permissions' => $this->permissions(),
+            'selectedPermissions' => [],
+            'permissionGroups' => $permissionGroups,
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        app(\App\Services\Core\CorePermissionService::class)->authorize('roles.create');
+
+        $this->ensureRbacTables();
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'description' => ['nullable', 'string', 'max:1000'],
+            'permission_ids' => ['nullable', 'array'],
+            'permission_ids.*' => ['integer'],
+        ]);
+
+        $name = trim($data['name']);
+        $slug = Str::slug($name);
+
+        if ($slug === '') {
+            throw ValidationException::withMessages([
+                'name' => 'Please enter a valid role name.',
+            ]);
+        }
+
+        $exists = $this->db()
+            ->table('site_roles')
+            ->where(function ($query) use ($name, $slug) {
+                $query
+                    ->whereRaw('LOWER(name) = ?', [mb_strtolower($name)])
+                    ->orWhere('slug', $slug);
+            })
+            ->exists();
+
+        if ($exists) {
+            throw ValidationException::withMessages([
+                'name' => 'A role with this name already exists.',
+            ]);
+        }
+
+        $permissionIds = $this->validatedPermissionIds(
+            $request->input('permission_ids', [])
+        );
+
+        $this->db()->transaction(function () use (
+            $name,
+            $slug,
+            $data,
+            $permissionIds
+        ) {
+            $now = now();
+
+            $roleId = $this->db()
+                ->table('site_roles')
+                ->insertGetId([
+                    'name' => $name,
+                    'slug' => $slug,
+                    'description' => $data['description'] ?? null,
+                    'is_system' => false,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+
+            $this->syncPermissions(
+                (int) $roleId,
+                $permissionIds
+            );
+        });
+
+        return redirect('/admin/users/roles')
+            ->with('success', 'Role created successfully.');
+    }
+
+    public function edit(string $subdomain, int $role)
+    {
+        app(\App\Services\Core\CorePermissionService::class)->authorize('roles.edit');
+
+        app(\App\Services\Core\CorePermissionSynchronizer::class)->sync();
+
+        $permissionGroups = app(
+            \App\Services\Core\CorePermissionRegistry::class
+        )->groups();
+
+
+        $website = $this->currentWebsite();
+        $this->ensureRbacTables();
+
+        $roleRecord = $this->db()
+            ->table('site_roles')
+            ->where('id', $role)
+            ->first();
+
+        abort_unless($roleRecord, 404);
+
+        $selectedPermissions = $this->db()
+            ->table('site_role_permissions')
+            ->where('role_id', $role)
+            ->pluck('permission_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        return view('tenant.admin.roles.form', [
+            'website' => $website,
+            'role' => $roleRecord,
+            'permissions' => $this->permissions(),
+            'selectedPermissions' => $selectedPermissions,
+            'permissionGroups' => $permissionGroups,
+        ]);
+    }
+
+    public function update(Request $request, string $subdomain, int $role)
+    {
+        app(\App\Services\Core\CorePermissionService::class)->authorize('roles.edit');
+
+        $this->ensureRbacTables();
+
+        $roleRecord = $this->db()
+            ->table('site_roles')
+            ->where('id', $role)
+            ->first();
+
+        abort_unless($roleRecord, 404);
+
+        $rules = [
+            'description' => ['nullable', 'string', 'max:1000'],
+            'permission_ids' => ['nullable', 'array'],
+            'permission_ids.*' => ['integer'],
+        ];
+
+        if (!$roleRecord->is_system) {
+            $rules['name'] = ['required', 'string', 'max:100'];
+        }
+
+        $data = $request->validate($rules);
+
+        $permissionIds = $this->validatedPermissionIds(
+            $request->input('permission_ids', [])
+        );
+
+        /*
+         * Administrator is the Core super-role.
+         * Its permissions can never be reduced.
+         */
+        if ($roleRecord->slug === 'administrator') {
+            $permissionIds = $this->db()
+                ->table('site_permissions')
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+        }
+
+        $this->db()->transaction(function () use (
+            $role,
+            $roleRecord,
+            $data,
+            $permissionIds
+        ) {
+            $updates = [
+                'description' => $data['description'] ?? null,
+                'updated_at' => now(),
+            ];
+
+            if (!$roleRecord->is_system) {
+                $name = trim($data['name']);
+                $slug = Str::slug($name);
+
+                if ($slug === '') {
+                    throw ValidationException::withMessages([
+                        'name' => 'Please enter a valid role name.',
+                    ]);
+                }
+
+                $duplicate = $this->db()
+                    ->table('site_roles')
+                    ->where('id', '!=', $role)
+                    ->where(function ($query) use ($name, $slug) {
+                        $query
+                            ->whereRaw(
+                                'LOWER(name) = ?',
+                                [mb_strtolower($name)]
+                            )
+                            ->orWhere('slug', $slug);
+                    })
+                    ->exists();
+
+                if ($duplicate) {
+                    throw ValidationException::withMessages([
+                        'name' => 'A role with this name already exists.',
+                    ]);
+                }
+
+                $updates['name'] = $name;
+                $updates['slug'] = $slug;
+            }
+
+            $this->db()
+                ->table('site_roles')
+                ->where('id', $role)
+                ->update($updates);
+
+            $this->syncPermissions(
+                $role,
+                $permissionIds
+            );
+        });
+
+        return redirect('/admin/users/roles')
+            ->with('success', 'Role updated successfully.');
+    }
+
+    public function destroy(string $subdomain, int $role)
+    {
+        app(\App\Services\Core\CorePermissionService::class)->authorize('roles.delete');
+
+        $this->ensureRbacTables();
+
+        $roleRecord = $this->db()
+            ->table('site_roles')
+            ->where('id', $role)
+            ->first();
+
+        abort_unless($roleRecord, 404);
+
+        if ($roleRecord->is_system) {
+            return back()->withErrors([
+                'role' => 'Core system roles cannot be deleted.',
+            ]);
+        }
+
+        $assignedUsers = $this->db()
+            ->table('site_user_roles')
+            ->where('role_id', $role)
+            ->count();
+
+        if ($assignedUsers > 0) {
+            return back()->withErrors([
+                'role' =>
+                    'This role is assigned to users. Reassign those users before deleting it.',
+            ]);
+        }
+
+        $this->db()->transaction(function () use ($role) {
+            $this->db()
+                ->table('site_role_permissions')
+                ->where('role_id', $role)
+                ->delete();
+
+            $this->db()
+                ->table('site_roles')
+                ->where('id', $role)
+                ->delete();
+        });
+
+        return redirect('/admin/users/roles')
+            ->with('success', 'Role deleted successfully.');
+    }
+
+    protected function permissions()
+    {
+        return $this->db()
+            ->table('site_permissions')
+            ->orderBy('name')
+            ->get();
+    }
+
+    protected function validatedPermissionIds(array $ids): array
+    {
+        $ids = collect($ids)
+            ->filter(fn ($id) => is_numeric($id))
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return [];
+        }
+
+        return $this->db()
+            ->table('site_permissions')
+            ->whereIn('id', $ids->all())
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
+    protected function syncPermissions(
+        int $roleId,
+        array $permissionIds
+    ): void {
+        $this->db()
+            ->table('site_role_permissions')
+            ->where('role_id', $roleId)
+            ->delete();
+
+        if (!$permissionIds) {
+            return;
+        }
+
+        $now = now();
+
+        $rows = array_map(
+            fn ($permissionId) => [
+                'role_id' => $roleId,
+                'permission_id' => $permissionId,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            $permissionIds
+        );
+
+        $this->db()
+            ->table('site_role_permissions')
+            ->insert($rows);
+    }
+
+    protected function currentWebsite(): Website
+        {
+            $tenant = WebsiteTenant::current();
+
+            abort_unless(
+                $tenant,
+                404,
+                'Website tenant not found.'
+            );
+
+            return Website::query()
+                ->where('id', $tenant->website_id)
+                ->where('status', 'active')
+                ->where('user_enabled', true)
+                ->firstOrFail();
+        }
+
+}

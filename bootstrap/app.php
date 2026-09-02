@@ -12,6 +12,26 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
 
+        // ESUBIZ_CORE_PERMISSION_MIDDLEWARE_ALIAS_RUNTIME_V2
+        $middleware->alias([
+            'core.permission' =>
+                \App\Http\Middleware\CorePermissionMiddleware::class,
+        ]);
+
+            /*
+             * ESUBIZ_CORE_PERMISSION_MIDDLEWARE_ALIAS_V1
+             *
+             * Universal Core feature/action authorization.
+             *
+             * Example:
+             * ->middleware('core.permission:users.edit')
+             */
+            $middleware->alias([
+                'core.permission' =>
+                    \App\Http\Middleware\CorePermissionMiddleware::class,
+            ]);
+
+
         $middleware->alias([
             'permission' => \App\Http\Middleware\CheckPermission::class,
             'account-mode' => \App\Http\Middleware\CheckAccountMode::class,

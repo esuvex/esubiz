@@ -1,0 +1,160 @@
+@extends('tenant.admin.layouts.app')
+
+@section('content')
+<div style="max-width:1180px;margin:0 auto;padding:24px;">
+    <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+        <div>
+            <h1 style="margin:0;font-size:28px;font-weight:700;color:#111827;">
+                Users
+            </h1>
+
+            <p style="margin:6px 0 0;color:#6b7280;">
+                Manage Core roles and permissions.
+            </p>
+        </div>
+
+        @coreCan('users.view')
+<a
+            href="/admin/users/roles/create"
+            style="display:inline-flex;align-items:center;padding:10px 16px;border-radius:8px;background:#111827;color:#fff;text-decoration:none;font-weight:600;"
+        >
+            Create Role
+        </a>
+@endcoreCan
+    </div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin:20px 0;">
+        @coreCan('users.view')
+<a
+            href="/admin/users"
+            style="display:inline-flex;align-items:center;padding:9px 14px;border:1px solid #d1d5db;border-radius:8px;text-decoration:none;color:#111827;background:#fff;"
+        >
+            Users
+        </a>
+@endcoreCan
+
+        @coreCan('users.view')
+<a
+            href="/admin/users/roles"
+            style="display:inline-flex;align-items:center;padding:9px 14px;border:1px solid #111827;border-radius:8px;text-decoration:none;color:#fff;background:#111827;"
+        >
+            Roles &amp; Permissions
+        </a>
+@endcoreCan
+    </div>
+
+    @if(session('success'))
+        <div style="padding:12px 14px;margin-bottom:16px;border-radius:8px;background:#ecfdf5;color:#065f46;">
+            {{ session('success') }}
+        </div>
+    @endif
+
+    @if($errors->any())
+        <div style="padding:12px 14px;margin-bottom:16px;border-radius:8px;background:#fef2f2;color:#991b1b;">
+            @foreach($errors->all() as $error)
+                <div>{{ $error }}</div>
+            @endforeach
+        </div>
+    @endif
+
+    <div style="margin-bottom:16px;color:#6b7280;font-size:14px;">
+        {{ $roles->count() }} roles · {{ $permissionsCount }} Core permissions
+    </div>
+
+    <div style="overflow-x:auto;background:#fff;border:1px solid #e5e7eb;border-radius:12px;">
+        <table style="width:100%;border-collapse:collapse;">
+            <thead>
+                <tr style="background:#f9fafb;text-align:left;">
+                    <th style="padding:13px 16px;border-bottom:1px solid #e5e7eb;">Role</th>
+                    <th style="padding:13px 16px;border-bottom:1px solid #e5e7eb;">Users</th>
+                    <th style="padding:13px 16px;border-bottom:1px solid #e5e7eb;">Permissions</th>
+                    <th style="padding:13px 16px;border-bottom:1px solid #e5e7eb;">Type</th>
+                    <th style="padding:13px 16px;border-bottom:1px solid #e5e7eb;text-align:right;">Actions</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                @forelse($roles as $role)
+                    <tr>
+                        <td style="padding:14px 16px;border-bottom:1px solid #f3f4f6;">
+                            <div style="font-weight:600;color:#111827;">
+                                {{ $role->name }}
+                            </div>
+
+                            <div style="font-size:12px;color:#9ca3af;margin-top:3px;">
+                                {{ $role->slug }}
+                            </div>
+
+                            @if($role->description)
+                                <div style="font-size:13px;color:#6b7280;margin-top:5px;">
+                                    {{ $role->description }}
+                                </div>
+                            @endif
+                        </td>
+
+                        <td style="padding:14px 16px;border-bottom:1px solid #f3f4f6;">
+                            {{ $role->users_count }}
+                        </td>
+
+                        <td style="padding:14px 16px;border-bottom:1px solid #f3f4f6;">
+                            {{ $role->permissions_count }}
+                        </td>
+
+                        <td style="padding:14px 16px;border-bottom:1px solid #f3f4f6;">
+                            @if($role->is_system)
+                                <span style="display:inline-block;padding:4px 8px;border-radius:999px;background:#f3f4f6;color:#374151;font-size:12px;">
+                                    Core System
+                                </span>
+                            @else
+                                <span style="display:inline-block;padding:4px 8px;border-radius:999px;background:#eff6ff;color:#1d4ed8;font-size:12px;">
+                                    Custom
+                                </span>
+                            @endif
+                        </td>
+
+                        <td style="padding:14px 16px;border-bottom:1px solid #f3f4f6;text-align:right;white-space:nowrap;">
+                            @coreCan('users.view')
+@coreCan('roles.edit')
+<a
+                                href="/admin/users/roles/{{ $role->id }}/edit"
+                                style="text-decoration:none;color:#111827;font-weight:600;margin-right:12px;"
+                            >
+                                Edit
+                            </a>
+@endcoreCan
+@endcoreCan
+
+                            @if(!$role->is_system)
+                                @coreCan('roles.delete')
+<form
+                                    method="POST"
+                                    action="/admin/users/roles/{{ $role->id }}"
+                                    style="display:inline;"
+                                    onsubmit="return confirm('Delete this role?');"
+                                >
+                                    @csrf
+                                    @method('DELETE')
+
+                                    <button
+                                        type="submit"
+                                        style="border:0;background:transparent;color:#b91c1c;font-weight:600;cursor:pointer;padding:0;"
+                                    >
+                                        Delete
+                                    </button>
+                                </form>
+@endcoreCan
+                            @endif
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="5" style="padding:30px;text-align:center;color:#6b7280;">
+                            No roles found.
+                        </td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+</div>
+@endsection
