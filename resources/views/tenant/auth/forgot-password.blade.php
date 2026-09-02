@@ -509,6 +509,91 @@ body {
     .site-note a:hover {
         text-decoration:underline;
     }
+
+
+/* ESUBIZ_AUTH_PROVIDER_TOP_CARDS_V1 */
+
+.esubiz-provider-cards {
+    display: grid;
+    gap: 9px;
+    width: 100%;
+    margin: 0 0 20px;
+}
+
+.esubiz-provider-card {
+    display: flex !important;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 11px;
+
+    width: 100%;
+    min-height: 46px;
+    padding: 8px 12px;
+
+    border: 1px solid rgba(127, 127, 127, .24);
+    border-radius: 10px;
+
+    background: rgba(255, 255, 255, .04);
+
+    color: inherit !important;
+    text-decoration: none !important;
+
+    box-sizing: border-box;
+    transition:
+        transform .15s ease,
+        border-color .15s ease,
+        background .15s ease;
+}
+
+.esubiz-provider-card:hover {
+    transform: translateY(-1px);
+    border-color: rgba(127, 127, 127, .42);
+    background: rgba(127, 127, 127, .07);
+}
+
+.esubiz-provider-logo {
+    width: 29px;
+    height: 29px;
+    flex: 0 0 29px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 8px;
+    overflow: hidden;
+
+    background: #fff;
+    color: #111827;
+
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.esubiz-provider-logo img,
+.esubiz-provider-logo svg {
+    display: block;
+    width: 19px;
+    height: 19px;
+    object-fit: contain;
+}
+
+.esubiz-provider-logo--esubiz {
+    background: #111827;
+    color: #fff;
+}
+
+.esubiz-provider-copy {
+    display: block;
+    min-width: 0;
+
+    color: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
 </style>
 
 </head>
@@ -893,7 +978,308 @@ document.addEventListener(
             });
     }
 
-    async function swapAuthPage(
+    
+    /* ESUBIZ_AUTH_PROVIDER_TOP_CARDS_V1 */
+    function enhanceProviderCards(root, authPath) {
+        if (!root) {
+            return;
+        }
+
+        /*
+         * Providers are useful for Login/Register.
+         * Forgot/Reset remain focused password flows.
+         */
+        const path = (
+            authPath
+            || window.location.pathname
+            || ''
+        ).replace(/\/+$/, '');
+
+        if (
+            path !== '/login'
+            && path !== '/register'
+        ) {
+            return;
+        }
+
+        if (
+            root.querySelector(
+                '.esubiz-provider-cards'
+            )
+        ) {
+            return;
+        }
+
+        const providerNames = [
+            'esubiz',
+            'google',
+            'facebook',
+            'instagram',
+            'tiktok',
+            'x'
+        ];
+
+        const links = Array.from(
+            root.querySelectorAll('a[href]')
+        ).filter(function (link) {
+            const text = (
+                link.textContent
+                || ''
+            ).trim().toLowerCase();
+
+            const href = (
+                link.getAttribute('href')
+                || ''
+            ).toLowerCase();
+
+            return providerNames.some(
+                function (provider) {
+
+                    if (provider === 'x') {
+                        return (
+                            /\bwith\s+x\b/i.test(text)
+                            || href.includes('/x/')
+                            || href.includes('provider=x')
+                            || href.includes('provider%3dx')
+                        );
+                    }
+
+                    return (
+                        text.includes(provider)
+                        || href.includes(
+                            'provider=' + provider
+                        )
+                        || href.includes(
+                            '/' + provider + '/'
+                        )
+                    );
+                }
+            );
+        });
+
+        if (!links.length) {
+            return;
+        }
+
+        const container =
+            document.createElement('div');
+
+        container.className =
+            'esubiz-provider-cards';
+
+        const action =
+            path === '/register'
+                ? 'Register'
+                : 'Login';
+
+        function providerFrom(link) {
+            const haystack = (
+                (
+                    link.textContent
+                    || ''
+                )
+                + ' '
+                + (
+                    link.getAttribute('href')
+                    || ''
+                )
+            ).toLowerCase();
+
+            if (haystack.includes('esubiz')) {
+                return 'esubiz';
+            }
+
+            if (haystack.includes('facebook')) {
+                return 'facebook';
+            }
+
+            if (haystack.includes('instagram')) {
+                return 'instagram';
+            }
+
+            if (haystack.includes('google')) {
+                return 'google';
+            }
+
+            if (haystack.includes('tiktok')) {
+                return 'tiktok';
+            }
+
+            return 'x';
+        }
+
+        function iconMarkup(provider) {
+            if (provider === 'esubiz') {
+                return 'E';
+            }
+
+            if (provider === 'facebook') {
+                return `
+                    <svg
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                    >
+                        <path
+                            fill="#1877F2"
+                            d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.438H7.078v-3.49h3.047V9.413c0-3.024 1.792-4.695 4.533-4.695 1.313 0 2.686.236 2.686.236v2.973h-1.513c-1.49 0-1.956.931-1.956 1.887v2.26h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073Z"
+                        />
+                    </svg>
+                `;
+            }
+
+            if (provider === 'instagram') {
+                return `
+                    <svg
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                    >
+                        <rect
+                            x="3"
+                            y="3"
+                            width="18"
+                            height="18"
+                            rx="5"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        />
+                        <circle
+                            cx="12"
+                            cy="12"
+                            r="4"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        />
+                        <circle
+                            cx="17.4"
+                            cy="6.7"
+                            r="1"
+                            fill="currentColor"
+                        />
+                    </svg>
+                `;
+            }
+
+            if (provider === 'google') {
+                return `
+                    <svg
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                    >
+                        <text
+                            x="4"
+                            y="18"
+                            font-size="18"
+                            font-family="Arial,sans-serif"
+                            font-weight="700"
+                            fill="#4285F4"
+                        >G</text>
+                    </svg>
+                `;
+            }
+
+            if (provider === 'tiktok') {
+                return `
+                    <svg
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                    >
+                        <path
+                            fill="currentColor"
+                            d="M15.6 3c.4 2.2 1.7 3.6 4 4v3.1c-1.5 0-2.8-.4-4-1.2v6.2c0 3.5-2.5 5.9-5.8 5.9-3.2 0-5.8-2.5-5.8-5.7 0-3.6 3.1-6.2 6.7-5.6v3.2c-1.8-.5-3.5.5-3.5 2.4 0 1.4 1.1 2.5 2.5 2.5 1.7 0 2.7-1.3 2.7-3.1V3h3.2Z"
+                        />
+                    </svg>
+                `;
+            }
+
+            return `
+                <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                >
+                    <path
+                        fill="currentColor"
+                        d="M18.9 2H22l-6.8 7.8L23.2 22H17l-4.9-6.4L6.5 22H3.4l7.2-8.2L2.8 2H9.2l4.4 5.8L18.9 2Zm-1.1 17.8h1.7L8.3 4.1H6.5l11.3 15.7Z"
+                    />
+                </svg>
+            `;
+        }
+
+        links.forEach(function (link) {
+            const provider =
+                providerFrom(link);
+
+            const providerLabel =
+                provider === 'x'
+                    ? 'X'
+                    : provider.charAt(0).toUpperCase()
+                        + provider.slice(1);
+
+            link.classList.add(
+                'esubiz-provider-card'
+            );
+
+            /*
+             * Keep the original href/provider route.
+             * Only presentation is changed.
+             */
+            link.innerHTML = `
+                <span
+                    class="esubiz-provider-logo esubiz-provider-logo--${provider}"
+                    aria-hidden="true"
+                >
+                    ${iconMarkup(provider)}
+                </span>
+
+                <span class="esubiz-provider-copy">
+                    ${action} with ${providerLabel}
+                </span>
+            `;
+
+            container.appendChild(link);
+        });
+
+        /*
+         * Providers should be the first usable block
+         * inside the authentication card.
+         */
+        root.insertBefore(
+            container,
+            root.firstElementChild
+        );
+
+        /*
+         * Remove leftover standalone "OR" divider text
+         * from the previous provider location where possible.
+         */
+        Array.from(
+            root.querySelectorAll(
+                'div, p, span'
+            )
+        ).forEach(function (element) {
+            if (
+                element === container
+                || container.contains(element)
+            ) {
+                return;
+            }
+
+            if (
+                element.children.length === 0
+                && /^or$/i.test(
+                    (
+                        element.textContent
+                        || ''
+                    ).trim()
+                )
+            ) {
+                element.style.display = 'none';
+            }
+        });
+    }
+
+async function swapAuthPage(
         url,
         options
     ) {
@@ -1048,6 +1434,11 @@ document.addEventListener(
                 importedCard
             );
 
+            enhanceProviderCards(
+                importedCard,
+                targetUrl.pathname
+            );
+
             if (settings.pushState) {
                 window.history.pushState(
                     {
@@ -1140,6 +1531,13 @@ document.addEventListener(
     );
 
 })();
+
+
+    enhanceProviderCards(
+        document.querySelector('.auth-card'),
+        window.location.pathname
+    );
+
 </script>
 
 </body>

@@ -396,6 +396,89 @@ Route::domain('{subdomain}.esubiz.com')
         | tenant.esubiz.com/admin
         |
         */
+/*
+ * ESUBIZ_TENANT_AUTH_ROUTES_V1
+ *
+ * These routes live inside the existing tenant-domain route group.
+ * They therefore provide /login and /register only for tenant websites
+ * and do not replace esubiz.com's landlord authentication routes.
+ */
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_TENANT_AUTH_SETTINGS_ROUTES_V1
+|--------------------------------------------------------------------------
+|
+| Plug-and-play authentication configuration for the active Core website.
+| Works from the website's own tenant database and is therefore suitable
+| for SaaS and off-server Core installations.
+|
+*/
+
+Route::get(
+    '/admin/settings/authentication',
+    [
+        \App\Http\Controllers\TenantCmsController::class,
+        'authenticationSettings',
+    ]
+)->name('tenant.cms.settings.authentication');
+
+Route::post(
+    '/admin/settings/authentication',
+    [
+        \App\Http\Controllers\TenantCmsController::class,
+        'updateAuthenticationSettings',
+    ]
+)->name('tenant.cms.settings.authentication.update');
+
+
+Route::get(
+    '/login',
+    [\App\Http\Controllers\TenantCmsController::class, 'showLogin']
+)->name('tenant.auth.login');
+
+/*
+ * ESUBIZ_TENANT_NATIVE_LOGIN_ROUTE_V1
+ */
+Route::post(
+    '/login',
+    [\App\Http\Controllers\TenantCmsController::class, 'login']
+)->name('tenant.auth.login.submit');
+
+Route::get(
+    '/register',
+    [\App\Http\Controllers\TenantCmsController::class, 'showRegister']
+)->name('tenant.auth.register');
+
+/*
+ * ESUBIZ_COMPLETE_TENANT_AUTH_ROUTES_V1
+ */
+
+Route::post(
+    '/register',
+    [\App\Http\Controllers\TenantCmsController::class, 'register']
+)->name('tenant.auth.register.submit');
+
+Route::get(
+    '/forgot-password',
+    [\App\Http\Controllers\TenantCmsController::class, 'showForgotPassword']
+)->name('tenant.auth.password.request');
+
+Route::post(
+    '/forgot-password',
+    [\App\Http\Controllers\TenantCmsController::class, 'sendPasswordReset']
+)->name('tenant.auth.password.email');
+
+Route::get(
+    '/reset-password/{token}',
+    [\App\Http\Controllers\TenantCmsController::class, 'showResetPassword']
+)->name('tenant.auth.password.reset');
+
+Route::post(
+    '/reset-password',
+    [\App\Http\Controllers\TenantCmsController::class, 'resetPassword']
+)->name('tenant.auth.password.update');
+
         Route::get(
             '/admin',
             [

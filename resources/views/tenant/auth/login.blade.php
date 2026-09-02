@@ -365,310 +365,131 @@ body[data-theme="dark"] .auth-logo-dark {
     }
 }
 
+
+
+
+<style>
+/* ESUBIZ_PROVIDER_CIRCULAR_UI_CSS_V5 */
+
+.auth-provider-section {
+    width: 100%;
+    margin: 0 0 22px;
+}
+
+.auth-provider-grid {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    flex-wrap: wrap;
+
+    gap: 18px;
+
+    width: 100%;
+}
+
+.auth-provider-item {
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+
+    width: 92px;
+
+    color: inherit !important;
+    text-decoration: none !important;
+}
+
+.auth-provider-circle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 52px;
+    height: 52px;
+
+    border-radius: 50%;
+
+    border:
+        1px solid
+        rgba(127, 127, 127, .20);
+
+    background: #ffffff;
+
+    box-shadow:
+        0 4px 14px
+        rgba(15, 23, 42, .10);
+
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 1;
+
+    transition:
+        transform .15s ease,
+        box-shadow .15s ease;
+}
+
+.auth-provider-item:hover
+.auth-provider-circle {
+    transform:
+        translateY(-2px);
+
+    box-shadow:
+        0 7px 18px
+        rgba(15, 23, 42, .15);
+}
+
+.auth-provider-esubiz {
+    background: #0b1f3a;
+    color: #ffffff;
+}
+
+.auth-provider-caption {
+    display: block;
+
+    width: 100%;
+    margin-top: 7px;
+
+    text-align: center;
+
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.25;
+
+    color: inherit;
+    opacity: .78;
+}
+
 </style>
 
-
-{{-- ESUBIZ_PUBLIC_AUTH_ADMIN_CONFIG_RENDER_V1 --}}
-
-@php
-    $authPublic =
-        $authPageConfig
-        ?? [];
-
-    $authBackground =
-        $authPublic[
-            'background_color'
-        ]
-        ?? '#f5f7fb';
-
-    $authCard =
-        $authPublic[
-            'card_color'
-        ]
-        ?? '#ffffff';
-
-    $authText =
-        $authPublic[
-            'text_color'
-        ]
-        ?? '#111827';
-
-    $authButton =
-        $authPublic[
-            'button_color'
-        ]
-        ?? '#111827';
-@endphp
-
-<style id="esubiz-auth-public-style">
-/* ESUBIZ_SHARED_AUTH_BACKGROUND_FIX_V1 */
-html,
-body {
-    background-color:
-        {{ $authPageConfig['background_color'] ?? '#f5f7fb' }}
-        !important;
-}
-
-.auth-shell,
-.auth-page,
-.auth-wrapper,
-.auth-container {
-    background-color:
-        {{ $authPageConfig['background_color'] ?? '#f5f7fb' }}
-        !important;
-}
-
-.auth-card {
-    background-color:
-        {{ $authPageConfig['card_color'] ?? '#ffffff' }}
-        !important;
-
-    color:
-        {{ $authPageConfig['text_color'] ?? '#111827' }}
-        !important;
-}
-
-.auth-card h1,
-.auth-card h2,
-.auth-card h3,
-.auth-card p,
-.auth-card label {
-    color:
-        {{ $authPageConfig['text_color'] ?? '#111827' }};
-}
-
-.auth-card .btn-primary {
-    background-color:
-        {{ $authPageConfig['button_color'] ?? '#111827' }}
-        !important;
-
-    border-color:
-        {{ $authPageConfig['button_color'] ?? '#111827' }}
-        !important;
-}
-
-
-    body {
-        background:
-            {{ $authBackground }}
-            !important;
-    }
-
-    .auth-card {
-        background:
-            {{ $authCard }}
-            !important;
-        color:
-            {{ $authText }}
-            !important;
-    }
-
-    .auth-card h1,
-    .auth-card h2,
-    .auth-card h3,
-    .auth-card p,
-    .auth-card label,
-    .auth-card .site-note {
-        color:
-            {{ $authText }};
-    }
-
-    .btn-primary {
-        background:
-            {{ $authButton }}
-            !important;
-        border-color:
-            {{ $authButton }}
-            !important;
-    }
-
-    .auth-home-link {
-        margin-top:16px;
-        text-align:center;
-    }
-
-    .auth-home-link a {
-        color:
-            {{ $authText }};
-        font-size:13px;
-        font-weight:700;
-        text-decoration:none;
-        opacity:.72;
-    }
-
-    .auth-home-link a:hover {
-        opacity:1;
-        text-decoration:underline;
-    }
-
-    .site-note a {
-        color:inherit;
-        text-decoration:none;
-    }
-
-    .site-note a:hover {
-        text-decoration:underline;
-    }
-</style>
-
-</head>
-<body>
-<div class="auth-shell">
-<div class="auth-card">
-
-{{-- ESUBIZ_SHARED_AUTH_LOGO_RENDER_V3 --}}
-
-@php
-    $resolvedLightLogo =
-        $authPageConfig['logo_light_url']
-        ?? '';
-
-    $resolvedDarkLogo =
-        $authPageConfig['logo_dark_url']
-        ?? '';
-
-    $hasAuthLogo =
-        $resolvedLightLogo !== ''
-        || $resolvedDarkLogo !== '';
-
-    $authLogoUrl = function ($value) {
-
-        $value = trim(
-            (string) $value
-        );
-
-        if ($value === '') {
-            return '';
-        }
-
-        if (
-            str_starts_with(
-                $value,
-                'http://'
-            )
-            || str_starts_with(
-                $value,
-                'https://'
-            )
-        ) {
-            return $value;
-        }
-
-        if (
-            str_starts_with(
-                $value,
-                '/'
-            )
-        ) {
-            return asset(
-                ltrim(
-                    $value,
-                    '/'
-                )
-            );
-        }
-
-        return asset(
-            'storage/' .
-            ltrim(
-                $value,
-                '/'
-            )
-        );
-    };
-
-    $resolvedLightLogoUrl =
-        $authLogoUrl(
-            $resolvedLightLogo
-        );
-
-    $resolvedDarkLogoUrl =
-        $authLogoUrl(
-            $resolvedDarkLogo
-        );
-@endphp
-
-
-<div
-    class="brand-mark{{ $hasAuthLogo ? ' has-logo' : '' }}"
->
-
-    @if($hasAuthLogo)
-
-        @if($resolvedLightLogoUrl !== '')
-
-            <img
-                class="auth-logo-light"
-                src="{{ $resolvedLightLogoUrl }}"
-                alt="{{ $website->name ?? 'Website' }}"
-            >
-
-        @endif
-
-
-        @if($resolvedDarkLogoUrl !== '')
-
-            <img
-                class="auth-logo-dark"
-                src="{{ $resolvedDarkLogoUrl }}"
-                alt="{{ $website->name ?? 'Website' }}"
-            >
-
-        @endif
-
-    @else
-
-        {{
-            strtoupper(
-                substr(
-                    $website->name
-                        ?? $website->subdomain
-                        ?? 'W',
-                    0,
-                    1
-                )
-            )
-        }}
-
-    @endif
-
-</div>
-
-<div class="auth-heading">
-    <h1>{{ $authPageConfig['heading'] ?? '' }}</h1>
-
-{{-- ESUBIZ_ADMIN_CONFIGURED_AUTH_SUBTITLE_V1 --}}
+{{-- ESUBIZ_PROVIDER_CIRCULAR_UI_V5 --}}
 @if(
-    trim(
-        (string) (
-            $authPageConfig['subheading']
-            ?? ''
-        )
-    ) !== ''
+    !empty(
+        $authPageConfig['providers']['esubiz']['enabled']
+        ?? false
+    )
 )
-    <p
-        class="auth-subheading"
-        style="
-            margin-top:8px;
-            opacity:.72;
-        "
-    >
-        {{ $authPageConfig['subheading'] }}
-    </p>
-@endif
+    <div class="auth-provider-section">
 
+        <div class="auth-provider-grid">
 
-</div>
+            <a
+                href="{{ url('/admin?sso=1') }}"
+                class="auth-provider-item"
+            >
+                <span
+                    class="auth-provider-circle auth-provider-esubiz"
+                    aria-hidden="true"
+                >
+                    E
+                </span>
 
-@if(session('status'))
-    <div class="alert alert-success">
-        {{ session('status') }}
-    </div>
-@endif
+                <span class="auth-provider-caption">
+                    Login with Esubiz
+                </span>
+            </a>
 
-@if($errors->any())
-    <div class="alert alert-error">
-        {{ $errors->first() }}
+        </div>
+
     </div>
 @endif
 
@@ -799,62 +620,7 @@ body {
     </button>
 </form>
 
-{{-- ESUBIZ_ADMIN_PROVIDER_VISIBILITY_V1 --}}
-@if(
-    !empty(
-        $authPageConfig[
-            'providers'
-        ][
-            'esubiz'
-        ][
-            'enabled'
-        ]
-        ?? false
-    )
-)
-    <div class="divider">
-        <span>or</span>
-    </div>
 
-    <a
-        href="{{ url('/admin?sso=1') }}"
-        class="btn btn-secondary"
-    >
-        @if(
-            !empty(
-                $authPageConfig[
-                    'providers'
-                ][
-                    'esubiz'
-                ][
-                    'logo_url'
-                ]
-                ?? ''
-            )
-        )
-            <img
-                src="{{
-                    $authPageConfig[
-                        'providers'
-                    ][
-                        'esubiz'
-                    ][
-                        'logo_url'
-                    ]
-                }}"
-                alt=""
-                style="
-                    width:20px;
-                    height:20px;
-                    object-fit:contain;
-                    margin-right:8px;
-                "
-            >
-        @endif
-
-        Continue with Esubiz
-    </a>
-@endif
 
 <p class="bottom-copy">
     Don't have an account?
@@ -1063,7 +829,324 @@ document.addEventListener(
             });
     }
 
-    async function swapAuthPage(
+    
+    /* ESUBIZ_AUTH_PROVIDER_TOP_CARDS_V1 */
+    function enhanceProviderCards(root, authPath) {
+        if (!root) {
+            return;
+        }
+
+        /*
+         * Providers are useful for Login/Register.
+         * Forgot/Reset remain focused password flows.
+         */
+        const path = (
+            authPath
+            || window.location.pathname
+            || ''
+        ).replace(/\/+$/, '');
+
+        if (
+            path !== '/login'
+            && path !== '/register'
+        ) {
+            return;
+        }
+
+        if (
+            root.querySelector(
+                '.esubiz-provider-cards'
+            )
+        ) {
+            return;
+        }
+
+        const providerNames = [
+            'esubiz',
+            'google',
+            'facebook',
+            'instagram',
+            'tiktok',
+            'x'
+        ];
+
+        const links = Array.from(
+            root.querySelectorAll('a[href]')
+        ).filter(function (link) {
+            const text = (
+                link.textContent
+                || ''
+            ).trim().toLowerCase();
+
+            const href = (
+                link.getAttribute('href')
+                || ''
+            ).toLowerCase();
+
+            return providerNames.some(
+                function (provider) {
+
+                    if (provider === 'x') {
+                        return (
+                            /\bwith\s+x\b/i.test(text)
+                            || href.includes('/x/')
+                            || href.includes('provider=x')
+                            || href.includes('provider%3dx')
+                        );
+                    }
+
+                    return (
+                        text.includes(provider)
+                        || href.includes(
+                            'provider=' + provider
+                        )
+                        || href.includes(
+                            '/' + provider + '/'
+                        )
+                    );
+                }
+            );
+        });
+
+        if (!links.length) {
+            return;
+        }
+
+        const container =
+            document.createElement('div');
+
+        container.className =
+            'esubiz-provider-cards';
+
+        const action =
+            path === '/register'
+                ? 'Register'
+                : 'Login';
+
+        function providerFrom(link) {
+            const haystack = (
+                (
+                    link.textContent
+                    || ''
+                )
+                + ' '
+                + (
+                    link.getAttribute('href')
+                    || ''
+                )
+            ).toLowerCase();
+
+            if (haystack.includes('esubiz')) {
+                return 'esubiz';
+            }
+
+            if (haystack.includes('facebook')) {
+                return 'facebook';
+            }
+
+            if (haystack.includes('instagram')) {
+                return 'instagram';
+            }
+
+            if (haystack.includes('google')) {
+                return 'google';
+            }
+
+            if (haystack.includes('tiktok')) {
+                return 'tiktok';
+            }
+
+            return 'x';
+        }
+
+        function iconMarkup(provider) {
+            if (provider === 'esubiz') {
+                return 'E';
+            }
+
+            if (provider === 'facebook') {
+                return `
+                    <svg
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                    >
+                        <path
+                            fill="#1877F2"
+                            d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.438H7.078v-3.49h3.047V9.413c0-3.024 1.792-4.695 4.533-4.695 1.313 0 2.686.236 2.686.236v2.973h-1.513c-1.49 0-1.956.931-1.956 1.887v2.26h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073Z"
+                        />
+                    </svg>
+                `;
+            }
+
+            if (provider === 'instagram') {
+                return `
+                    <svg
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                    >
+                        <rect
+                            x="3"
+                            y="3"
+                            width="18"
+                            height="18"
+                            rx="5"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        />
+                        <circle
+                            cx="12"
+                            cy="12"
+                            r="4"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        />
+                        <circle
+                            cx="17.4"
+                            cy="6.7"
+                            r="1"
+                            fill="currentColor"
+                        />
+                    </svg>
+                `;
+            }
+
+            if (provider === 'google') {
+                return `
+                    <svg
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                    >
+                        <text
+                            x="4"
+                            y="18"
+                            font-size="18"
+                            font-family="Arial,sans-serif"
+                            font-weight="700"
+                            fill="#4285F4"
+                        >G</text>
+                    </svg>
+                `;
+            }
+
+            if (provider === 'tiktok') {
+                return `
+                    <svg
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                    >
+                        <path
+                            fill="currentColor"
+                            d="M15.6 3c.4 2.2 1.7 3.6 4 4v3.1c-1.5 0-2.8-.4-4-1.2v6.2c0 3.5-2.5 5.9-5.8 5.9-3.2 0-5.8-2.5-5.8-5.7 0-3.6 3.1-6.2 6.7-5.6v3.2c-1.8-.5-3.5.5-3.5 2.4 0 1.4 1.1 2.5 2.5 2.5 1.7 0 2.7-1.3 2.7-3.1V3h3.2Z"
+                        />
+                    </svg>
+                `;
+            }
+
+            return `
+                <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                >
+                    <path
+                        fill="currentColor"
+                        d="M18.9 2H22l-6.8 7.8L23.2 22H17l-4.9-6.4L6.5 22H3.4l7.2-8.2L2.8 2H9.2l4.4 5.8L18.9 2Zm-1.1 17.8h1.7L8.3 4.1H6.5l11.3 15.7Z"
+                    />
+                </svg>
+            `;
+        }
+
+        links.forEach(function (link) {
+            const provider =
+                providerFrom(link);
+
+            const providerLabel =
+                provider === 'x'
+                    ? 'X'
+                    : provider.charAt(0).toUpperCase()
+                        + provider.slice(1);
+
+            link.classList.add(
+                'esubiz-provider-card'
+            );
+
+            /*
+             * Keep the original href/provider route.
+             * Only presentation is changed.
+             */
+            link.innerHTML = `
+                <span
+                    class="esubiz-provider-logo esubiz-provider-logo--${provider}"
+                    aria-hidden="true"
+                >
+                    ${iconMarkup(provider)}
+                </span>
+
+                <span class="esubiz-provider-copy">
+                    ${action} with ${providerLabel}
+                </span>
+            `;
+
+            container.appendChild(link);
+        });
+
+        /*
+         * Providers should be the first usable block
+         * inside the authentication card.
+         */
+        /* ESUBIZ_PROVIDER_TOP_INSERT_BEFORE_FORM_V3 */
+
+        /*
+         * Provider cards belong immediately above the
+         * Login/Register form — not below it and not above
+         * the page heading/branding.
+         */
+        const authForm =
+            root.querySelector('form');
+
+        if (authForm) {
+            root.insertBefore(
+                container,
+                authForm
+            );
+        } else {
+            root.appendChild(
+                container
+            );
+        }
+
+        /*
+         * Remove leftover standalone "OR" divider text
+         * from the previous provider location where possible.
+         */
+        Array.from(
+            root.querySelectorAll(
+                'div, p, span'
+            )
+        ).forEach(function (element) {
+            if (
+                element === container
+                || container.contains(element)
+            ) {
+                return;
+            }
+
+            if (
+                element.children.length === 0
+                && /^or$/i.test(
+                    (
+                        element.textContent
+                        || ''
+                    ).trim()
+                )
+            ) {
+                element.style.display = 'none';
+            }
+        });
+    }
+
+async function swapAuthPage(
         url,
         options
     ) {
@@ -1218,6 +1301,11 @@ document.addEventListener(
                 importedCard
             );
 
+            enhanceProviderCards(
+                importedCard,
+                targetUrl.pathname
+            );
+
             if (settings.pushState) {
                 window.history.pushState(
                     {
@@ -1310,6 +1398,13 @@ document.addEventListener(
     );
 
 })();
+
+
+    enhanceProviderCards(
+        document.querySelector('.auth-card'),
+        window.location.pathname
+    );
+
 </script>
 
 </body>
