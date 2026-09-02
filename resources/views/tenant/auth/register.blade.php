@@ -3899,6 +3899,21 @@ async function swapAuthPage(
         }
     );
 
+
+    /*
+     * ESUBIZ_AUTH_PROVIDER_AJAX_RENDER_FIX_V18_7
+     *
+     * V18.6 detects Login/Register AJAX card replacement
+     * and dispatches this event. Re-run the authoritative
+     * V18.5 provider renderer against the new card.
+     */
+    window.addEventListener(
+        'esubiz:auth-card-swapped',
+        function () {
+            setTimeout(render, 30);
+        }
+    );
+
 })();
 </script>
 

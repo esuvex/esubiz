@@ -1393,6 +1393,38 @@
         </a>
 
 
+        
+
+        {{-- ESUBIZ_CORE_PUBLIC_AUTH_NAV_V2 --}}
+        @php
+            /*
+             * Core-native public authentication state.
+             *
+             * Mirrors the same tenant CMS session contract used
+             * by TenantCmsController::dashboard().
+             *
+             * Portable across SaaS-hosted and off-server Core.
+             */
+            $publicAuthWebsiteId =
+                isset($website) && isset($website->id)
+                    ? (int) $website->id
+                    : null;
+
+            $publicUserAuthenticated = false;
+
+            if ($publicAuthWebsiteId) {
+                $publicUserAuthenticated =
+                    session()->get(
+                        "tenant_cms_sites.{$publicAuthWebsiteId}.authenticated"
+                    ) === true
+                    || (
+                        session()->get('tenant_cms_authenticated') === true
+                        && (int) session()->get('tenant_cms_website_id')
+                            === $publicAuthWebsiteId
+                    );
+            }
+        @endphp
+
         <nav class="desktop-nav">
 
             <a href="/">
@@ -1411,16 +1443,38 @@
                 {{ $theme['nav_contact_label'] ?? 'Contact' }}
             </a>
 
-            <a href="/login">
-                {{ $theme['nav_login_label'] ?? 'Login' }}
-            </a>
+            @if($publicUserAuthenticated)
+                <a href="/admin/dashboard">
+                    Dashboard
+                </a>
 
-            <a
-                href="/register"
-                class="nav-cta"
-            >
-                {{ $theme['nav_register_label'] ?? 'Register' }}
-            </a>
+                <form
+                    method="POST"
+                    action="/admin/logout"
+                    style="display:inline;"
+                >
+                    @csrf
+
+                    <button
+                        type="submit"
+                        class="nav-cta"
+                        style="border:0;cursor:pointer;font:inherit;"
+                    >
+                        Logout
+                    </button>
+                </form>
+            @else
+                <a href="/login">
+                    {{ $theme['nav_login_label'] ?? 'Login' }}
+                </a>
+
+                <a
+                    href="/register"
+                    class="nav-cta"
+                >
+                    {{ $theme['nav_register_label'] ?? 'Register' }}
+                </a>
+            @endif
 
         </nav>
 
@@ -1460,13 +1514,33 @@
             {{ $theme['nav_contact_label'] ?? 'Contact' }}
         </a>
 
-        <a href="/login">
-            {{ $theme['nav_login_label'] ?? 'Login' }}
-        </a>
+        @if($publicUserAuthenticated)
+            <a href="/admin/dashboard">
+                Dashboard
+            </a>
 
-        <a href="/register">
-            {{ $theme['nav_register_label'] ?? 'Register' }}
-        </a>
+            <form
+                method="POST"
+                action="/admin/logout"
+            >
+                @csrf
+
+                <button
+                    type="submit"
+                    style="border:0;background:none;padding:0;font:inherit;cursor:pointer;"
+                >
+                    Logout
+                </button>
+            </form>
+        @else
+            <a href="/login">
+                {{ $theme['nav_login_label'] ?? 'Login' }}
+            </a>
+
+            <a href="/register">
+                {{ $theme['nav_register_label'] ?? 'Register' }}
+            </a>
+        @endif
 
     </div>
 
