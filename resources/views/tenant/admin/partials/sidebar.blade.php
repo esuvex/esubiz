@@ -766,67 +766,26 @@
 
         </details>
 
-{{-- Settings --}}
+{{-- ESUBIZ_UNIFIED_SITE_SETTINGS_MENU_V1 --}}
 
-        <details class="group">
+        <a
+            href="{{ route('tenant.cms.settings.site', ['subdomain' => $website->subdomain]) }}"
+            class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-blue-100 hover:bg-white/10 hover:text-white
+                {{ request()->routeIs('tenant.cms.settings.site') || request()->routeIs('tenant.cms.settings.authentication*') ? 'bg-white/10 text-white' : '' }}"
+        >
+            <span>⚙</span>
+            <span>Settings</span>
+        </a>
 
-            <summary
-                class="flex cursor-pointer items-center justify-between rounded-xl px-4 py-3 text-sm font-bold text-blue-100 hover:bg-white/10"
-            >
-
-                <span class="flex items-center gap-3">
-                    <span>⚙</span>
-                    Settings
-                </span>
-
-                <span
-                    class="menu-chevron text-xs transition"
-                >
-                    ▼
-                </span>
-
-            </summary>
-
-
-            <div
-                class="ml-4 space-y-1 border-l border-white/10 pl-3"
-            >
-
-                <a href="#" class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10">
-                    General
-                </a>
-
-                <a href="#" class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10">
-                    Site Identity
-                </a>
-
-                <a href="#" class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10">
-                    Colors & Branding
-                </a>
-
-                <a href="#" class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10">
-                    Typography
-                </a>
-
-                <a href="#" class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10">
-                    Currency
-                </a>
-
-                <a href="#" class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10">
-                    Timezone
-                </a>
-
-                <a href="#" class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10">
-                    Module Settings
-                </a>
-
-                <a href="#" class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10">
-                    Core Add-ons
-                </a>
-
-            </div>
-
-        </details>
+        {{-- ESUBIZ_MOBILE_PROFILE_SETTINGS_MENU_V1 --}}
+        <a
+            href="{{ route('tenant.cms.settings.profile', ['subdomain' => $website->subdomain]) }}"
+            class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-blue-100 hover:bg-white/10 hover:text-white lg:hidden
+                {{ request()->routeIs('tenant.cms.settings.profile*') ? 'bg-white/10 text-white' : '' }}"
+        >
+            <span>👤</span>
+            <span>Profile Settings</span>
+        </a>
 
     </nav>
 

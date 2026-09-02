@@ -407,6 +407,23 @@ class WebsiteController extends Controller
                 ],
             ]);
 
+            /*
+             * ESUBIZ_CENTRAL_CORE_ADMIN_SYNC_V1
+             *
+             * Capture the old administrator email before Central
+             * changes it. The Core sync service uses this to locate
+             * the same local site_users row after an email change.
+             */
+            $previousAdminEmail =
+                strtolower(
+                    trim(
+                        (string) (
+                            $website->admin_email
+                            ?? ''
+                        )
+                    )
+                );
+
             $updates = [
                 'admin_name' =>
                     trim((string) ($validated['admin_name'] ?? '')),
@@ -423,11 +440,42 @@ class WebsiteController extends Controller
 
             $website->update($updates);
 
+            /*
+             * Synchronize the configured Central Website
+             * administrator into this SaaS website's Core.
+             *
+             * Off-server websites are ignored by the service.
+             */
+            try {
+                app(
+                    \App\Services\Website\CoreWebsiteAdministratorSyncService::class
+                )->sync(
+                    $website,
+                    $previousAdminEmail
+                );
+            } catch (\Throwable $coreAdminSyncError) {
+                report($coreAdminSyncError);
+
+                return redirect()
+                    ->route(
+                        'admin.websites.edit',
+                        $website
+                    )
+                    ->withErrors([
+                        'credentials' =>
+                            'Central administrator credentials were updated, '
+                            . 'but the SaaS Core administrator could not be '
+                            . 'synchronized. Please retry or inspect the '
+                            . 'application log.',
+                    ]);
+            }
+
             return redirect()
                 ->route('admin.websites.edit', $website)
                 ->with(
                     'success',
-                    'Website administrator credentials updated.'
+                    'Website administrator credentials updated '
+                    . 'and synchronized with Core.'
                 );
         }
 

@@ -899,6 +899,1164 @@ return view(
      * Authentication configuration belongs to the current website.
      * Values are stored in the tenant site_settings table.
      */
+    /**
+     * ESUBIZ_CORE_SITE_SETTINGS_V1
+     *
+     * Core-native website settings.
+     * Values live inside the website's own site_settings table,
+     * making this portable across SaaS and off-server Core.
+     */
+    public function siteSettings(Request $request)
+    {
+        $website = $this->currentWebsite();
+
+        $websiteId = (int) $website->id;
+
+        $tenantAuthenticated =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.authenticated"
+            ) === true
+            || (
+                session()->get('tenant_cms_authenticated') === true
+                && (int) session()->get('tenant_cms_website_id')
+                    === $websiteId
+            );
+
+        if (!$tenantAuthenticated) {
+            session()->put(
+                'url.intended',
+                $request->fullUrl()
+            );
+
+            return redirect()->to('/login');
+        }
+
+        $db = DB::connection('tenant');
+
+        $settings = $db->table('site_settings')
+            ->pluck('value', 'key')
+            ->all();
+
+        $currencyConfig = [];
+
+        if (!empty($settings['core_currency'])) {
+            $decoded = json_decode(
+                (string) $settings['core_currency'],
+                true
+            );
+
+            if (is_array($decoded)) {
+                $currencyConfig = $decoded;
+            }
+        }
+
+        $siteConfig = [
+            'website_name' =>
+                $settings['website_name']
+                ?? $website->name
+                ?? '',
+
+            'timezone' =>
+                $settings['timezone']
+                ?? config('app.timezone', 'UTC'),
+
+            'language' =>
+                $settings['language']
+                ?? config('app.locale', 'en'),
+
+            'currency' =>
+                $currencyConfig['primary']
+                ?? 'NGN',
+
+            'date_format' =>
+                $settings['date_format']
+                ?? 'd/m/Y',
+        ];
+
+        $timezones = timezone_identifiers_list();
+
+        $languages = [
+            'en' => 'English',
+            'fr' => 'French',
+            'es' => 'Spanish',
+            'de' => 'German',
+            'pt' => 'Portuguese',
+            'ar' => 'Arabic',
+        ];
+
+        $dateFormats = [
+            'd/m/Y' => 'DD/MM/YYYY',
+            'm/d/Y' => 'MM/DD/YYYY',
+            'Y-m-d' => 'YYYY-MM-DD',
+            'd M Y' => 'DD Mon YYYY',
+            'M d, Y' => 'Mon DD, YYYY',
+        ];
+
+        /*
+         * Reuse the Core currency catalogue when available.
+         * This keeps the Settings UI aligned with Core checkout.
+         */
+        try {
+            $currencies = app(
+                \App\Services\Core\CoreCurrencyCatalog::class
+            )->all();
+        } catch (\Throwable $e) {
+            $currencies = [
+                [
+                    'code' => 'NGN',
+                    'currency' => 'Nigerian Naira',
+                    'symbol' => '₦',
+                ],
+                [
+                    'code' => 'USD',
+                    'currency' => 'US Dollar',
+                    'symbol' => '$',
+                ],
+                [
+                    'code' => 'GBP',
+                    'currency' => 'British Pound',
+                    'symbol' => '£',
+                ],
+                [
+                    'code' => 'EUR',
+                    'currency' => 'Euro',
+                    'symbol' => '€',
+                ],
+            ];
+        }
+
+        return view(
+            'tenant.admin.settings.site',
+            compact(
+                'website',
+                'siteConfig',
+                'timezones',
+                'languages',
+                'dateFormats',
+                'currencies'
+            )
+        );
+    }
+
+
+    /**
+     * ESUBIZ_CORE_SITE_SETTINGS_UPDATE_V1
+     *
+     * Persist Core site settings in the website's own database.
+     */
+    public function updateSiteSettings(Request $request)
+    {
+        $website = $this->currentWebsite();
+
+        $websiteId = (int) $website->id;
+
+        $tenantAuthenticated =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.authenticated"
+            ) === true
+            || (
+                session()->get('tenant_cms_authenticated') === true
+                && (int) session()->get('tenant_cms_website_id')
+                    === $websiteId
+            );
+
+        if (!$tenantAuthenticated) {
+            session()->put(
+                'url.intended',
+                $request->fullUrl()
+            );
+
+            return redirect()->to('/login');
+        }
+
+        $data = $request->validate([
+            'website_name' => [
+                'required',
+                'string',
+                'max:150',
+            ],
+
+            'timezone' => [
+                'required',
+                'string',
+                'max:100',
+            ],
+
+            'language' => [
+                'required',
+                'string',
+                'max:20',
+            ],
+
+            'currency' => [
+                'required',
+                'string',
+                'size:3',
+                'regex:/^[A-Za-z]{3}$/',
+            ],
+
+            'date_format' => [
+                'required',
+                'string',
+                'max:40',
+            ],
+        ]);
+
+        abort_unless(
+            in_array(
+                $data['timezone'],
+                timezone_identifiers_list(),
+                true
+            ),
+            422,
+            'Invalid timezone.'
+        );
+
+        $db = DB::connection('tenant');
+
+        $db->transaction(function () use ($db, $data) {
+
+            $now = now();
+
+            $plainSettings = [
+                'website_name' =>
+                    trim($data['website_name']),
+
+                'timezone' =>
+                    trim($data['timezone']),
+
+                'language' =>
+                    trim($data['language']),
+
+                'date_format' =>
+                    trim($data['date_format']),
+            ];
+
+            foreach ($plainSettings as $key => $value) {
+                $db->table('site_settings')
+                    ->updateOrInsert(
+                        ['key' => $key],
+                        [
+                            'value' => $value,
+                            'updated_at' => $now,
+                            'created_at' => $now,
+                        ]
+                    );
+            }
+
+            /*
+             * Currency is already a Core capability.
+             * Update only the primary currency and preserve
+             * all existing secondary-currency configuration.
+             */
+            $existingCurrency = $db->table('site_settings')
+                ->where('key', 'core_currency')
+                ->value('value');
+
+            $currencyConfig = [];
+
+            if ($existingCurrency) {
+                $decoded = json_decode(
+                    (string) $existingCurrency,
+                    true
+                );
+
+                if (is_array($decoded)) {
+                    $currencyConfig = $decoded;
+                }
+            }
+
+            $currencyConfig['primary'] = strtoupper(
+                trim($data['currency'])
+            );
+
+            $db->table('site_settings')
+                ->updateOrInsert(
+                    ['key' => 'core_currency'],
+                    [
+                        'value' => json_encode(
+                            $currencyConfig,
+                            JSON_UNESCAPED_SLASHES
+                        ),
+                        'updated_at' => $now,
+                        'created_at' => $now,
+                    ]
+                );
+        });
+
+        return back()->with(
+            'success',
+            'Site settings updated successfully.'
+        );
+    }
+
+
+
+    /*
+     * ESUBIZ_SAAS_ADMIN_PROFILE_CONTEXT_V1
+     *
+     * Determines whether the authenticated Core user is
+     * the configured administrator of a centrally managed
+     * SaaS website.
+     *
+     * Only that administrator may synchronize Profile
+     * Settings back to Website.admin_*.
+     */
+    protected function coreProfileAdminContext(
+        $website,
+        $profileUser
+    ): array {
+        $host = strtolower(
+            trim(
+                (string) request()->getHost()
+            )
+        );
+
+        /*
+         * Hosted tenant domains are centrally managed SaaS.
+         *
+         * This deliberately excludes esubiz.com itself and
+         * off-server/custom-domain Core installations.
+         */
+        $isSaas =
+            $host !== 'esubiz.com'
+            && $host !== 'www.esubiz.com'
+            && str_ends_with(
+                $host,
+                '.esubiz.com'
+            );
+
+        $centralAdminEmail = strtolower(
+            trim(
+                (string) (
+                    $website->admin_email
+                    ?? ''
+                )
+            )
+        );
+
+        $localUserEmail = strtolower(
+            trim(
+                (string) (
+                    $profileUser->email
+                    ?? ''
+                )
+            )
+        );
+
+        /*
+         * The Central Website admin_email is the identity
+         * key already used by tenant initialization and the
+         * existing SaaS backfill.
+         */
+        $isWebsiteAdministrator =
+            $centralAdminEmail !== ''
+            && $localUserEmail !== ''
+            && hash_equals(
+                $centralAdminEmail,
+                $localUserEmail
+            );
+
+        return [
+            'is_saas' =>
+                $isSaas,
+
+            'is_website_administrator' =>
+                $isWebsiteAdministrator,
+
+            'sync_central_admin' =>
+                $isSaas
+                && $isWebsiteAdministrator,
+        ];
+    }
+
+
+    /*
+     * ESUBIZ_CORE_PROFILE_SETTINGS_V2
+     *
+     * Core Profile Settings.
+     *
+     * SaaS configured administrator:
+     * Central Website admin details and local site_users
+     * represent the same website administrator.
+     *
+     * Other Core users remain local.
+     * Off-server Core remains local.
+     */
+    public function profileSettings(Request $request)
+    {
+        $website = $this->currentWebsite();
+        $websiteId = (int) $website->id;
+
+        $authenticated =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.authenticated"
+            ) === true
+            || (
+                session()->get('tenant_cms_authenticated') === true
+                && (int) session()->get('tenant_cms_website_id')
+                    === $websiteId
+            );
+
+        if (!$authenticated) {
+            session()->put(
+                'url.intended',
+                $request->fullUrl()
+            );
+
+            return redirect()->to('/login');
+        }
+
+        $userId =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.user_id"
+            )
+            ?? session()->get('tenant_cms_user_id');
+
+        if (!$userId) {
+            return redirect()
+                ->to('/login')
+                ->withErrors([
+                    'profile' =>
+                        'Your website user session could not be resolved.',
+                ]);
+        }
+
+        $db = $this->tenantAuthConnection($website);
+
+        $profileUser = $db
+            ->table('site_users')
+            ->where('id', (int) $userId)
+            ->first();
+
+        if (!$profileUser) {
+            return redirect()
+                ->to('/login')
+                ->withErrors([
+                    'profile' =>
+                        'Your local website account could not be found.',
+                ]);
+        }
+
+        $authMethod =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.auth_method"
+            )
+            ?? session()->get('tenant_cms_auth_method')
+            ?? session()->get('tenant_cms_authenticated_via')
+            ?? 'local';
+
+        $isSso = in_array(
+            (string) $authMethod,
+            ['esubiz_sso', 'sso'],
+            true
+        );
+
+        $adminContext =
+            $this->coreProfileAdminContext(
+                $website,
+                $profileUser
+            );
+
+        $isSaasAdmin =
+            (bool) (
+                $adminContext['sync_central_admin']
+                ?? false
+            );
+
+        /*
+         * Central Website admin details are authoritative
+         * for the configured SaaS administrator.
+         */
+        if ($isSaasAdmin) {
+
+            if (
+                trim(
+                    (string) $website->admin_name
+                ) !== ''
+            ) {
+                $profileUser->name =
+                    $website->admin_name;
+            }
+
+            if (
+                trim(
+                    (string) $website->admin_email
+                ) !== ''
+            ) {
+                $profileUser->email =
+                    strtolower(
+                        trim(
+                            (string)
+                            $website->admin_email
+                        )
+                    );
+            }
+
+            $wizardData =
+                is_array($website->wizard_data)
+                    ? $website->wizard_data
+                    : [];
+
+            if (
+                array_key_exists(
+                    'admin_phone',
+                    $wizardData
+                )
+            ) {
+                $profileUser->phone =
+                    $wizardData['admin_phone'];
+            }
+        }
+
+        return view(
+            'tenant.admin.settings.profile',
+            compact(
+                'website',
+                'profileUser',
+                'authMethod',
+                'isSso',
+                'isSaasAdmin'
+            )
+        );
+    }
+
+
+    /*
+     * ESUBIZ_CORE_PROFILE_UPDATE_V2
+     */
+    public function updateProfileSettings(
+        Request $request
+    ) {
+        $website = $this->currentWebsite();
+        $websiteId = (int) $website->id;
+
+        $authenticated =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.authenticated"
+            ) === true
+            || (
+                session()->get('tenant_cms_authenticated') === true
+                && (int) session()->get('tenant_cms_website_id')
+                    === $websiteId
+            );
+
+        if (!$authenticated) {
+            return redirect()->to('/login');
+        }
+
+        $userId =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.user_id"
+            )
+            ?? session()->get('tenant_cms_user_id');
+
+        abort_unless(
+            $userId,
+            403,
+            'Website user session not found.'
+        );
+
+        $db = $this->tenantAuthConnection($website);
+
+        $profileUser = $db
+            ->table('site_users')
+            ->where('id', (int) $userId)
+            ->first();
+
+        abort_unless(
+            $profileUser,
+            404,
+            'Website user not found.'
+        );
+
+        $adminContext =
+            $this->coreProfileAdminContext(
+                $website,
+                $profileUser
+            );
+
+        $syncCentral =
+            (bool) (
+                $adminContext['sync_central_admin']
+                ?? false
+            );
+
+        $validated = $request->validate([
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+            ],
+            'phone' => [
+                'nullable',
+                'string',
+                'max:50',
+            ],
+
+            /*
+             * ESUBIZ_CORE_USER_AVATAR_V1
+             *
+             * Avatar is always owned by this Core
+             * installation. Central Esubiz does not store it.
+             */
+            'avatar' => [
+                'nullable',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:3072',
+            ],
+        ]);
+
+        $name = trim(
+            (string) $validated['name']
+        );
+
+        $email = strtolower(
+            trim(
+                (string) $validated['email']
+            )
+        );
+
+        $phone =
+            isset($validated['phone'])
+            && trim(
+                (string) $validated['phone']
+            ) !== ''
+                ? trim(
+                    (string) $validated['phone']
+                )
+                : null;
+
+        $emailExists = $db
+            ->table('site_users')
+            ->whereRaw(
+                'LOWER(email) = ?',
+                [$email]
+            )
+            ->where(
+                'id',
+                '<>',
+                (int) $userId
+            )
+            ->exists();
+
+        if ($emailExists) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'email' =>
+                        'Another account already uses this email address.',
+                ]);
+        }
+
+        /*
+         * ESUBIZ_CORE_USER_AVATAR_STORAGE_V1
+         *
+         * Avatar files always live on this Core
+         * installation's local public disk.
+         *
+         * SaaS and off-server Core therefore use the exact
+         * same storage contract.
+         */
+        $avatarPath =
+            $profileUser->avatar_path
+            ?? null;
+
+        if ($request->hasFile('avatar')) {
+
+            $avatarFile =
+                $request->file('avatar');
+
+            if (
+                !$avatarFile
+                || !$avatarFile->isValid()
+            ) {
+                return back()
+                    ->withInput()
+                    ->withErrors([
+                        'avatar' =>
+                            'The profile photo could not be uploaded.',
+                    ]);
+            }
+
+            $avatarDirectory =
+                'core/profile-avatars/'
+                . $websiteId;
+
+            $extension = strtolower(
+                $avatarFile
+                    ->getClientOriginalExtension()
+            );
+
+            if (
+                !in_array(
+                    $extension,
+                    [
+                        'jpg',
+                        'jpeg',
+                        'png',
+                        'webp',
+                    ],
+                    true
+                )
+            ) {
+                $extension = 'jpg';
+            }
+
+            $newAvatarPath =
+                $avatarFile->storeAs(
+                    $avatarDirectory,
+                    (string)
+                    \Illuminate\Support\Str::uuid()
+                    . '.'
+                    . $extension,
+                    'public'
+                );
+
+            if (!$newAvatarPath) {
+                return back()
+                    ->withInput()
+                    ->withErrors([
+                        'avatar' =>
+                            'The profile photo could not be saved.',
+                    ]);
+            }
+
+            /*
+             * Delete the previous local avatar only after
+             * the replacement has been stored successfully.
+             */
+            if (
+                $avatarPath
+                && $avatarPath !== $newAvatarPath
+            ) {
+                \Illuminate\Support\Facades\Storage
+                    ::disk('public')
+                    ->delete($avatarPath);
+            }
+
+            $avatarPath =
+                $newAvatarPath;
+        }
+
+        /*
+         * Update the Core local administrator/user.
+         */
+        $db
+            ->table('site_users')
+            ->where('id', (int) $userId)
+            ->update([
+                'name' => $name,
+                'email' => $email,
+                'phone' => $phone,
+                'avatar_path' => $avatarPath,
+                'updated_at' => now(),
+            ]);
+
+        /*
+         * SaaS configured administrator:
+         *
+         * Synchronize the same administrator information
+         * back to the Central Website record.
+         */
+        if ($syncCentral) {
+
+            $wizardData =
+                is_array($website->wizard_data)
+                    ? $website->wizard_data
+                    : [];
+
+            $wizardData['admin_phone'] =
+                $phone;
+
+            $website->admin_name = $name;
+            $website->admin_email = $email;
+            $website->wizard_data = $wizardData;
+            $website->save();
+        }
+
+        return back()->with(
+            'success',
+            $syncCentral
+                ? 'Profile settings saved and synchronized with Esubiz.'
+                : 'Profile settings saved successfully.'
+        );
+    }
+
+
+    /*
+     * ESUBIZ_CORE_PROFILE_AVATAR_DELIVERY_V1
+     *
+     * Avatar files remain Core-local.
+     *
+     * The file is streamed through Laravel because Core installations
+     * must not depend on a public/storage web-server mapping.
+     */
+    public function profileAvatar(
+        Request $request
+    ) {
+        $website = $this->currentWebsite();
+        $websiteId = (int) $website->id;
+
+        $authenticated =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.authenticated"
+            ) === true
+            || (
+                session()->get('tenant_cms_authenticated') === true
+                && (int) session()->get('tenant_cms_website_id')
+                    === $websiteId
+            );
+
+        abort_unless(
+            $authenticated,
+            403,
+            'Website user session not found.'
+        );
+
+        $userId =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.user_id"
+            )
+            ?? session()->get('tenant_cms_user_id');
+
+        abort_unless(
+            $userId,
+            403,
+            'Website user session not found.'
+        );
+
+        $db = $this->tenantAuthConnection($website);
+
+        $profileUser = $db
+            ->table('site_users')
+            ->where('id', (int) $userId)
+            ->first();
+
+        abort_unless(
+            $profileUser,
+            404,
+            'Website user not found.'
+        );
+
+        $avatarPath =
+            trim(
+                (string) (
+                    $profileUser->avatar_path
+                    ?? ''
+                )
+            );
+
+        abort_if(
+            $avatarPath === '',
+            404,
+            'Profile photo not found.'
+        );
+
+        /*
+         * Only permit files from this website's Core
+         * profile-avatar directory.
+         */
+        $allowedPrefix =
+            'core/profile-avatars/'
+            . $websiteId
+            . '/';
+
+        abort_unless(
+            str_starts_with(
+                $avatarPath,
+                $allowedPrefix
+            ),
+            404,
+            'Profile photo not found.'
+        );
+
+        $disk =
+            \Illuminate\Support\Facades\Storage
+                ::disk('public');
+
+        abort_unless(
+            $disk->exists($avatarPath),
+            404,
+            'Profile photo not found.'
+        );
+
+        $absolutePath =
+            $disk->path($avatarPath);
+
+        $mimeType =
+            $disk->mimeType($avatarPath)
+            ?: 'application/octet-stream';
+
+        return response()->file(
+            $absolutePath,
+            [
+                'Content-Type' => $mimeType,
+                'Cache-Control' =>
+                    'private, max-age=300',
+                'X-Content-Type-Options' =>
+                    'nosniff',
+            ]
+        );
+    }
+
+
+    /*
+     * ESUBIZ_CORE_PROFILE_AVATAR_DELETE_V1
+     *
+     * Avatar ownership is exclusively Core-local.
+     * Central Esubiz is intentionally not modified.
+     */
+    public function deleteProfileAvatar(
+        Request $request
+    ) {
+        $website = $this->currentWebsite();
+        $websiteId = (int) $website->id;
+
+        $authenticated =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.authenticated"
+            ) === true
+            || (
+                session()->get('tenant_cms_authenticated') === true
+                && (int) session()->get('tenant_cms_website_id')
+                    === $websiteId
+            );
+
+        if (!$authenticated) {
+            return redirect()->to('/login');
+        }
+
+        $userId =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.user_id"
+            )
+            ?? session()->get('tenant_cms_user_id');
+
+        abort_unless(
+            $userId,
+            403,
+            'Website user session not found.'
+        );
+
+        $db = $this->tenantAuthConnection($website);
+
+        $profileUser = $db
+            ->table('site_users')
+            ->where('id', (int) $userId)
+            ->first();
+
+        abort_unless(
+            $profileUser,
+            404,
+            'Website user not found.'
+        );
+
+        $avatarPath =
+            trim(
+                (string) (
+                    $profileUser->avatar_path
+                    ?? ''
+                )
+            );
+
+        /*
+         * Clear the database reference first.
+         *
+         * This guarantees the deleted avatar immediately disappears
+         * from Core even if filesystem cleanup encounters a problem.
+         */
+        $db
+            ->table('site_users')
+            ->where('id', (int) $userId)
+            ->update([
+                'avatar_path' => null,
+                'updated_at' => now(),
+            ]);
+
+        if ($avatarPath !== '') {
+
+            $allowedPrefix =
+                'core/profile-avatars/'
+                . $websiteId
+                . '/';
+
+            if (
+                str_starts_with(
+                    $avatarPath,
+                    $allowedPrefix
+                )
+            ) {
+                try {
+                    \Illuminate\Support\Facades\Storage
+                        ::disk('public')
+                        ->delete($avatarPath);
+                } catch (\Throwable $avatarDeleteError) {
+                    report($avatarDeleteError);
+                }
+            }
+        }
+
+        return back()->with(
+            'success',
+            'Profile photo deleted successfully.'
+        );
+    }
+
+
+    /*
+     * ESUBIZ_CORE_PROFILE_PASSWORD_UPDATE_V2
+     */
+    public function updateProfilePassword(
+        Request $request
+    ) {
+        $website = $this->currentWebsite();
+        $websiteId = (int) $website->id;
+
+        $authenticated =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.authenticated"
+            ) === true
+            || (
+                session()->get('tenant_cms_authenticated') === true
+                && (int) session()->get('tenant_cms_website_id')
+                    === $websiteId
+            );
+
+        if (!$authenticated) {
+            return redirect()->to('/login');
+        }
+
+        $userId =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.user_id"
+            )
+            ?? session()->get('tenant_cms_user_id');
+
+        abort_unless(
+            $userId,
+            403,
+            'Website user session not found.'
+        );
+
+        $db = $this->tenantAuthConnection($website);
+
+        $profileUser = $db
+            ->table('site_users')
+            ->where('id', (int) $userId)
+            ->first();
+
+        abort_unless(
+            $profileUser,
+            404,
+            'Website user not found.'
+        );
+
+        $adminContext =
+            $this->coreProfileAdminContext(
+                $website,
+                $profileUser
+            );
+
+        $syncCentral =
+            (bool) (
+                $adminContext['sync_central_admin']
+                ?? false
+            );
+
+        $authMethod =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.auth_method"
+            )
+            ?? session()->get('tenant_cms_auth_method')
+            ?? session()->get('tenant_cms_authenticated_via')
+            ?? 'local';
+
+        $isSso = in_array(
+            (string) $authMethod,
+            ['esubiz_sso', 'sso'],
+            true
+        );
+
+        $rules = [
+            'password' => [
+                'required',
+                'string',
+                'min:8',
+                'confirmed',
+            ],
+        ];
+
+        if (!$isSso) {
+            $rules['current_password'] = [
+                'required',
+                'string',
+            ];
+        }
+
+        $validated = $request->validate(
+            $rules
+        );
+
+        if (
+            !$isSso
+            && !\Illuminate\Support\Facades\Hash::check(
+                (string)
+                $validated['current_password'],
+                (string)
+                $profileUser->password
+            )
+        ) {
+            return back()->withErrors([
+                'current_password' =>
+                    'The current password is incorrect.',
+            ]);
+        }
+
+        /*
+         * One password hash is generated and reused.
+         * Never hash an already-hashed password.
+         */
+        $passwordHash =
+            \Illuminate\Support\Facades\Hash::make(
+                (string)
+                $validated['password']
+            );
+
+        $db
+            ->table('site_users')
+            ->where('id', (int) $userId)
+            ->update([
+                'password' => $passwordHash,
+                'updated_at' => now(),
+            ]);
+
+        /*
+         * Keep Central Website admin_password synchronized
+         * for the configured SaaS administrator.
+         */
+        if ($syncCentral) {
+            $website->admin_password =
+                $passwordHash;
+
+            $website->save();
+        }
+
+        return back()->with(
+            'password_success',
+            $syncCentral
+                ? 'Administrator password changed and synchronized with Esubiz.'
+                : 'Password changed successfully.'
+        );
+    }
+
+
     public function authenticationSettings(Request $request)
     {
         $website = $this->currentWebsite();

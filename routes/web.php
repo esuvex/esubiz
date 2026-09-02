@@ -415,6 +415,86 @@ Route::domain('{subdomain}.esubiz.com')
 |
 */
 
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_UNIFIED_SITE_SETTINGS_ROUTE_V1
+|--------------------------------------------------------------------------
+|
+| Main website Settings page.
+| Site Settings is the first tab.
+|
+*/
+
+Route::get(
+    '/admin/settings',
+    [
+        \App\Http\Controllers\TenantCmsController::class,
+        'siteSettings',
+    ]
+)->name('tenant.cms.settings.site');
+
+/*
+ * ESUBIZ_CORE_SITE_SETTINGS_UPDATE_ROUTE_V1
+ */
+Route::post(
+    '/admin/settings',
+    [
+        \App\Http\Controllers\TenantCmsController::class,
+        'updateSiteSettings',
+    ]
+)->name('tenant.cms.settings.site.update');
+
+
+/*
+ * ESUBIZ_CORE_PROFILE_SETTINGS_ROUTES_V1
+ */
+Route::get(
+    '/admin/settings/profile',
+    [
+        \App\Http\Controllers\TenantCmsController::class,
+        'profileSettings',
+    ]
+)->name('tenant.cms.settings.profile');
+
+Route::post(
+    '/admin/settings/profile',
+    [
+        \App\Http\Controllers\TenantCmsController::class,
+        'updateProfileSettings',
+    ]
+)->name('tenant.cms.settings.profile.update');
+
+Route::post(
+    '/admin/settings/profile/password',
+    [
+        \App\Http\Controllers\TenantCmsController::class,
+        'updateProfilePassword',
+    ]
+)->name('tenant.cms.settings.profile.password.update');
+
+/*
+ * ESUBIZ_CORE_PROFILE_AVATAR_ROUTES_V1
+ *
+ * Core serves its own avatar through Laravel.
+ * This avoids dependency on public/storage web-server mapping.
+ */
+Route::get(
+    '/admin/settings/profile/avatar',
+    [
+        \App\Http\Controllers\TenantCmsController::class,
+        'profileAvatar',
+    ]
+)->name('tenant.cms.settings.profile.avatar');
+
+Route::delete(
+    '/admin/settings/profile/avatar',
+    [
+        \App\Http\Controllers\TenantCmsController::class,
+        'deleteProfileAvatar',
+    ]
+)->name('tenant.cms.settings.profile.avatar.delete');
+
+
 Route::get(
     '/admin/settings/authentication',
     [

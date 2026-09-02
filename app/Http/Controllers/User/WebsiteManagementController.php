@@ -200,6 +200,22 @@ class WebsiteManagementController extends Controller
                 ],
             ]);
 
+            /*
+             * ESUBIZ_CENTRAL_CORE_ADMIN_SYNC_V1
+             *
+             * Preserve the previous Central administrator email
+             * so an email change updates the same Core user row.
+             */
+            $previousAdminEmail =
+                strtolower(
+                    trim(
+                        (string) (
+                            $website->admin_email
+                            ?? ''
+                        )
+                    )
+                );
+
             $updates = [
                 'admin_name' =>
                     trim(
@@ -232,6 +248,34 @@ class WebsiteManagementController extends Controller
                 $updates
             );
 
+            /*
+             * Keep the SaaS Core administrator synchronized
+             * with the Central Website administrator record.
+             */
+            try {
+                app(
+                    \App\Services\Website\CoreWebsiteAdministratorSyncService::class
+                )->sync(
+                    $website,
+                    $previousAdminEmail
+                );
+            } catch (\Throwable $coreAdminSyncError) {
+                report($coreAdminSyncError);
+
+                return redirect()
+                    ->route(
+                        'user.websites.edit',
+                        $website
+                    )
+                    ->withErrors([
+                        'credentials' =>
+                            'Central administrator credentials were updated, '
+                            . 'but the SaaS Core administrator could not be '
+                            . 'synchronized. Please retry or inspect the '
+                            . 'application log.',
+                    ]);
+            }
+
             return redirect()
                 ->route(
                     'user.websites.edit',
@@ -239,7 +283,8 @@ class WebsiteManagementController extends Controller
                 )
                 ->with(
                     'success',
-                    'Website login credentials updated successfully.'
+                    'Website login credentials updated and '
+                    . 'synchronized with Core.'
                 );
         }
 
