@@ -971,6 +971,20 @@ Route::get('/oauth/authorize', [SsoController::class, 'authorize'])
 |
 */
 
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_TENANT_SSO_START_ROUTE_V1
+|--------------------------------------------------------------------------
+|
+| Public SaaS tenant entry point for central Esubiz authentication.
+|
+*/
+
+Route::domain('{subdomain}.esubiz.com')
+    ->get('/sso/start', [SsoController::class, 'start'])
+    ->name('tenant.sso.start');
+
+
 Route::domain('esubiz.com')
     ->get('/sso/callback', [SsoController::class, 'callback'])
     ->name('sso.callback.central');

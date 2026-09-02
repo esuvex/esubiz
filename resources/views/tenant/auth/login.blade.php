@@ -582,7 +582,7 @@ body[data-theme="dark"] .auth-logo-dark {
         <div class="auth-provider-grid">
 
             <a
-                href="{{ url('/admin?sso=1') }}"
+                href="{{ route('tenant.sso.start', ['subdomain' => request()->route('subdomain')]) }}"
                 class="auth-provider-item"
             >
                 <span
@@ -3104,6 +3104,14 @@ async function swapAuthPage(
      * Then V18.3 collapses their output into one row.
      */
     window.addEventListener(
+        'esubiz:auth-card-swapped',
+        function () {
+            setTimeout(render, 30);
+        }
+    );
+
+
+    window.addEventListener(
         'load',
         function () {
             setTimeout(
@@ -3628,6 +3636,82 @@ async function swapAuthPage(
              * then remain authoritative.
              */
             setTimeout(render, 150);
+        }
+    );
+
+})();
+</script>
+
+
+{{-- ESUBIZ_AUTH_PROVIDER_AJAX_OBSERVER_V18_6 --}}
+<script>
+(function () {
+
+    let providerRenderTimer = null;
+
+    function requestProviderRender() {
+
+        clearTimeout(providerRenderTimer);
+
+        providerRenderTimer = setTimeout(
+            function () {
+
+                const card =
+                    document.querySelector('.auth-card');
+
+                if (!card) {
+                    return;
+                }
+
+                if (!card.querySelector('form')) {
+                    return;
+                }
+
+                /*
+                 * V18.5 already rendered this AJAX card.
+                 */
+                if (
+                    card.querySelector(
+                        '.esubiz-auth-provider-final'
+                    )
+                ) {
+                    return;
+                }
+
+                /*
+                 * V18.5 exposes its rendering through the
+                 * page's load-time provider code. Re-trigger
+                 * the same result by dispatching a dedicated
+                 * event consumed below.
+                 */
+                window.dispatchEvent(
+                    new CustomEvent(
+                        'esubiz:auth-card-swapped'
+                    )
+                );
+
+            },
+            60
+        );
+    }
+
+
+    /*
+     * Detect complete .auth-card replacement performed
+     * by the existing AJAX authentication navigation.
+     */
+    const observer =
+        new MutationObserver(
+            function () {
+                requestProviderRender();
+            }
+        );
+
+    observer.observe(
+        document.body,
+        {
+            childList:true,
+            subtree:true
         }
     );
 

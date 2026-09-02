@@ -88,6 +88,119 @@ class SsoController extends Controller
         ]);
     }
 
+    /**
+     * ESUBIZ_TENANT_SSO_START_V1
+     *
+     * Start central Esubiz authentication for a SaaS tenant website.
+     */
+    public function start(Request $request, SsoService $sso)
+    {
+        $host = strtolower($request->getHost());
+        $baseDomain = 'esubiz.com';
+
+        abort_unless(
+            str_ends_with($host, '.' . $baseDomain),
+            400,
+            'Invalid website host.'
+        );
+
+        $subdomain = substr(
+            $host,
+            0,
+            -strlen('.' . $baseDomain)
+        );
+
+        abort_unless(
+            $subdomain !== ''
+            && !str_contains($subdomain, '.'),
+            400,
+            'Invalid website subdomain.'
+        );
+
+        $website = Website::query()
+            ->where('subdomain', $subdomain)
+            ->where('status', 'active')
+            ->first();
+
+        abort_unless(
+            $website,
+            404,
+            'Website not found.'
+        );
+
+        $application = $sso->findWebsiteApplication(
+            (int) $website->id
+        );
+
+        abort_unless(
+            $application,
+            400,
+            'Website SSO application not found.'
+        );
+
+        $redirectUri = $request->getScheme()
+            . '://'
+            . $request->getHost()
+            . '/sso/callback';
+
+        abort_unless(
+            $sso->validateAuthorizationRequest(
+                $application,
+                $redirectUri
+            ),
+            400,
+            'Website SSO callback is not registered.'
+        );
+
+        $state = \Illuminate\Support\Str::random(64);
+
+        $request->session()->put(
+            'tenant_cms_sso_state',
+            $state
+        );
+
+        /*
+         * Only request scopes already allowed for this application.
+         * An empty scope is valid and avoids inventing permissions.
+         */
+        $scopes = $application
+            ->applicationScopes()
+            ->where('is_allowed', true)
+            ->with('scope')
+            ->get()
+            ->pluck('scope.slug')
+            ->filter()
+            ->values()
+            ->all();
+
+        $query = [
+            'client_id' => $application->client_id,
+            'redirect_uri' => $redirectUri,
+            'state' => $state,
+        ];
+
+        if (!empty($scopes)) {
+            $query['scope'] = implode(' ', $scopes);
+        }
+
+        /*
+         * IMPORTANT:
+         * Authorization is performed on CENTRAL esubiz.com,
+         * not on the tenant subdomain.
+         */
+        $authorizeUrl = 'https://esubiz.com/oauth/authorize'
+            . '?'
+            . http_build_query(
+                $query,
+                '',
+                '&',
+                PHP_QUERY_RFC3986
+            );
+
+        return redirect()->away($authorizeUrl);
+    }
+
+
     public function authorize(Request $request, SsoService $sso)
     {
         $clientId = $request->string('client_id')->toString();
@@ -284,6 +397,18 @@ class SsoController extends Controller
                 (int) $user->id,
 
             'tenant_cms_authenticated_via' =>
+                'esubiz_sso',
+
+            /*
+             * ESUBIZ_MULTI_SITE_SSO_CALLBACK_SESSION_V1
+             */
+            "tenant_cms_sites.{$website->id}.authenticated" =>
+                true,
+
+            "tenant_cms_sites.{$website->id}.user_id" =>
+                (int) $user->id,
+
+            "tenant_cms_sites.{$website->id}.auth_method" =>
                 'esubiz_sso',
         ]);
 
