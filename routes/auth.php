@@ -74,6 +74,21 @@ Route::middleware('auth')->group(function () {
 
     Route::put('password', [PasswordController::class, 'update'])->name('password.update');
 
-    Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
+    /*
+| ESUBIZ_CENTRAL_GET_LOGOUT_COMPAT_V2
+|
+| Central-only compatibility fallback for GET /logout.
+| Existing POST logout remains authoritative.
+*/
+Route::get('logout', function (\Illuminate\Http\Request $request) {
+    \Illuminate\Support\Facades\Auth::guard('web')->logout();
+
+    $request->session()->invalidate();
+    $request->session()->regenerateToken();
+
+    return redirect('/');
+})->middleware('auth')->name('logout.get');
+
+Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
         ->name('logout');
 });

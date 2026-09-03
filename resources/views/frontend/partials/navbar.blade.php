@@ -219,10 +219,30 @@ Contact Us
 @auth
 
     @php
+        /* ESUBIZ_CENTRAL_NAVBAR_DASHBOARD_SAFE_V1 */
         $dashboardRoute = match (session('account_mode')) {
-            'admin' => route('admin.dashboard'),
-            'developer' => route('developer.dashboard'),
-            default => route('user.dashboard'),
+            'admin' =>
+                \Illuminate\Support\Facades\Route::has('admin.dashboard')
+                    ? route('admin.dashboard')
+                    : (
+                        \Illuminate\Support\Facades\Route::has('user.dashboard')
+                            ? route('user.dashboard')
+                            : url('/')
+                    ),
+
+            'developer' =>
+                \Illuminate\Support\Facades\Route::has('developer.dashboard')
+                    ? route('developer.dashboard')
+                    : (
+                        \Illuminate\Support\Facades\Route::has('user.dashboard')
+                            ? route('user.dashboard')
+                            : url('/')
+                    ),
+
+            default =>
+                \Illuminate\Support\Facades\Route::has('user.dashboard')
+                    ? route('user.dashboard')
+                    : url('/'),
         };
     @endphp
 
@@ -235,7 +255,8 @@ Contact Us
         @csrf
 
         <button
-            type="submit"
+            type="button"
+            onclick="event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation(); this.closest('form').submit(); return false;"
             class="px-6 py-3 rounded-xl bg-slate-900 text-white font-bold hover:bg-slate-800">
             Logout
         </button>
@@ -433,10 +454,30 @@ Contact Us
 @auth
 
     @php
+        /* ESUBIZ_CENTRAL_NAVBAR_DASHBOARD_SAFE_V1 */
         $dashboardRoute = match (session('account_mode')) {
-            'admin' => route('admin.dashboard'),
-            'developer' => route('developer.dashboard'),
-            default => route('user.dashboard'),
+            'admin' =>
+                \Illuminate\Support\Facades\Route::has('admin.dashboard')
+                    ? route('admin.dashboard')
+                    : (
+                        \Illuminate\Support\Facades\Route::has('user.dashboard')
+                            ? route('user.dashboard')
+                            : url('/')
+                    ),
+
+            'developer' =>
+                \Illuminate\Support\Facades\Route::has('developer.dashboard')
+                    ? route('developer.dashboard')
+                    : (
+                        \Illuminate\Support\Facades\Route::has('user.dashboard')
+                            ? route('user.dashboard')
+                            : url('/')
+                    ),
+
+            default =>
+                \Illuminate\Support\Facades\Route::has('user.dashboard')
+                    ? route('user.dashboard')
+                    : url('/'),
         };
     @endphp
 
@@ -449,7 +490,8 @@ Contact Us
         @csrf
 
         <button
-            type="submit"
+            type="button"
+            onclick="event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation(); this.closest('form').submit(); return false;"
             class="w-full px-5 py-3 text-left text-red-600">
             Logout
         </button>

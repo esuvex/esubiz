@@ -92,6 +92,30 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+/*
+ * ESUBIZ_CORE_GOOGLE_PRIORITY_V52
+ *
+ * Core Google authentication routes.
+ */
+
+Route::middleware('web')->group(function () {
+    Route::get(
+        '/auth/google',
+        [
+            \App\Http\Controllers\TenantSocialAuthController::class,
+            'googleRedirect',
+        ]
+    )->name('tenant.auth.google.redirect');
+
+    Route::get(
+        '/auth/google/callback',
+        [
+            \App\Http\Controllers\TenantSocialAuthController::class,
+            'googleCallback',
+        ]
+    )->name('tenant.auth.google.callback');
+});
+
 Route::get(
     '/media/central/{path}',
     [
@@ -343,6 +367,10 @@ Route::domain('www.esubiz.com')
     })
     ->where('path', '.+')
     ->name('www.central.redirect');
+
+
+
+
 
 
 
@@ -1133,7 +1161,34 @@ Route::post(
     /*
      * ESUBIZ_CORE_ROLES_PERMISSIONS_ROUTES_V1
      */
-    Route::get(
+    
+        /*
+         * ESUBIZ_CORE_PARTNER_ADMIN_CONFIG_ROUTES_V2
+         *
+         * Dedicated Partner / Investor configuration.
+         * Static routes intentionally declared before
+         * dynamic /admin/users/{user} routes.
+         */
+        Route::get(
+            '/admin/users/partners',
+            [
+                \App\Http\Controllers\TenantUsersController::class,
+                'partners',
+            ]
+        )->name('tenant.cms.users.partners');
+
+        Route::put(
+            '/admin/users/partners/{user}',
+            [
+                \App\Http\Controllers\TenantUsersController::class,
+                'updatePartner',
+            ]
+        )
+            ->whereNumber('user')
+            ->name('tenant.cms.users.partners.update');
+
+
+Route::get(
         '/admin/users/roles',
         [\App\Http\Controllers\TenantRolesController::class, 'index']
     )->name('tenant.cms.roles.index');
@@ -1292,11 +1347,16 @@ Route::get(
             ->name('tenant.theme.asset');
 
 
-        Route::get(
+        
+
+
+
+Route::get(
             '/{slug}',
             [TenantWebsiteController::class, 'page']
         )
-            ->where('slug', '^(?!(?:admin|sso)(?:/|$)).+')
+            ->where('slug', '^(?!auth(?:/|$))(?:^(?!(?:admin|sso)(?:/|$)).+)$')
+    /* ESUBIZ_CORE_RESERVED_AUTH_NAMESPACE_V54 */
             ->name('tenant.website.page');
 
     });
@@ -1316,6 +1376,46 @@ Route::domain('esubiz.com')
         ]
     )
     ->name('user.websites.dashboard');
+
+
+
+/*
+|--------------------------------------------------------------------------
+| Esubiz Managed Authentication Broker
+|--------------------------------------------------------------------------
+|
+| ESUBIZ_MANAGED_AUTH_BROKER_V1
+|
+| Central broker for external authentication providers used by Core.
+| Provider-specific OAuth transport is configured separately.
+|
+*/
+
+Route::get(
+    '/oauth/provider/{provider}',
+    [
+        \App\Http\Controllers\ManagedAuthController::class,
+        'start',
+    ]
+)
+    ->where(
+        'provider',
+        'google|facebook|instagram|tiktok|x'
+    )
+    ->name('managed-auth.start');
+
+Route::get(
+    '/oauth/provider/{provider}/callback',
+    [
+        \App\Http\Controllers\ManagedAuthController::class,
+        'callback',
+    ]
+)
+    ->where(
+        'provider',
+        'google|facebook|instagram|tiktok|x'
+    )
+    ->name('managed-auth.callback');
 
 Route::get('/oauth/authorize', [SsoController::class, 'authorize'])
     ->middleware('auth')
