@@ -740,11 +740,27 @@ body[data-theme="dark"] .auth-logo-dark {
 
                     if ($providerKey === 'esubiz') {
                         $providerHref = route(
-                            'tenant.sso.start',
+                            'tenant.auth.esubiz.redirect',
                             [
                                 'subdomain' =>
                                     request()->route('subdomain'),
                             ]
+                        );
+                    }
+
+                    /*
+                     * ESUBIZ_CORE_GOOGLE_PROVIDER_LINK_V43
+                     *
+                     * Google now has a proven Core OAuth route.
+                     */
+                    if (
+                        $providerKey === 'google'
+                        && \Illuminate\Support\Facades\Route::has(
+                            'tenant.auth.google.redirect'
+                        )
+                    ) {
+                        $providerHref = route(
+                            'tenant.auth.google.redirect'
                         );
                     }
                 @endphp

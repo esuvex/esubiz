@@ -127,20 +127,37 @@ class WebsiteService
 
         /*
         |--------------------------------------------------------------------------
-        | Ensure SSO application exists
+        | Ensure universal Core Esubiz OAuth application exists
         |--------------------------------------------------------------------------
+        |
+        | ESUBIZ_UNIVERSAL_CORE_SSO_PROVISIONING_V1
+        |
+        | Esubiz authentication uses one OAuth protocol for every Core
+        | installation. The deployment location does not change the auth flow.
+        |
+        | This hosted provisioning path only creates the installation's
+        | internal OAuth application identity. The credentials are platform
+        | infrastructure and are not exposed through the Core admin UI.
+        |
+        | Off-server Core installations will receive the same application
+        | contract through the external deployment provisioning layer.
+        |
         */
 
         if (!$website->apiApplication()->exists()) {
 
             $this->ssoService->registerApplication(
-                name: $website->name . ' SSO',
-                slug: $website->slug . '-sso',
+                name: $website->name . ' Core',
+                slug: $website->slug . '-core',
                 userId: $website->owner_id,
                 workspaceId: $website->workspace_id,
                 websiteId: $website->id,
                 redirectUrls: [
-                    'https://' . $website->subdomain . '.esubiz.com/sso/callback',
+                    'https://' . $website->subdomain . '.esubiz.com/auth/esubiz/callback',
+                ],
+                applicationType: 'core',
+                scopes: [
+                    'identity.read',
                 ],
             );
         }

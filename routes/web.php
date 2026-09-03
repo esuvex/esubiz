@@ -96,9 +96,29 @@ use Illuminate\Support\Facades\Route;
  * ESUBIZ_CORE_GOOGLE_PRIORITY_V52
  *
  * Core Google authentication routes.
+ *
+ * ESUBIZ_CORE_UNIVERSAL_ESUBIZ_PROVIDER_ROUTES_V1
+ * Esubiz uses the same Core provider surface regardless of deployment.
  */
 
 Route::middleware('web')->group(function () {
+
+    Route::get(
+        '/auth/esubiz',
+        [
+            \App\Http\Controllers\TenantSocialAuthController::class,
+            'esubizRedirect',
+        ]
+    )->name('tenant.auth.esubiz.redirect');
+
+    Route::get(
+        '/auth/esubiz/callback',
+        [
+            \App\Http\Controllers\TenantSocialAuthController::class,
+            'esubizCallback',
+        ]
+    )->name('tenant.auth.esubiz.callback');
+
     Route::get(
         '/auth/google',
         [
@@ -1734,7 +1754,19 @@ Route::middleware(['auth'])->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    Route::get('/admin/site-settings/payment-gateways', [\App\Http\Controllers\Admin\OnlinePaymentController::class, 'gateways'])
+    
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_CENTRAL_SITE_SETTINGS_SHELL_V1
+|--------------------------------------------------------------------------
+| Central configuration hub. Existing feature controllers remain
+| authoritative; this page only provides the unified settings navigation.
+*/
+Route::get('/admin/site-settings', function () {
+    return view('admin.site-settings.index');
+})->middleware(['auth'])->name('admin.site-settings.index');
+
+Route::get('/admin/site-settings/payment-gateways', [\App\Http\Controllers\Admin\OnlinePaymentController::class, 'gateways'])
         ->name('admin.payment-gateways.index');
 
     Route::prefix('admin/site-settings/payment-gateways')

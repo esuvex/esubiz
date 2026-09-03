@@ -300,12 +300,21 @@ class OffServerApiCredentialService
                         $domain =
                             $website->registeredHost();
 
+                        /*
+                         * ESUBIZ_OFFSERVER_UNIVERSAL_SSO_V1
+                         *
+                         * The same Core Esubiz OAuth callback is used
+                         * regardless of deployment location.
+                         *
+                         * The OAuth application credentials remain
+                         * internal infrastructure credentials.
+                         */
                         $values['redirect_urls'] =
                             $domain
                                 ? [
                                     'https://'
                                     . $domain
-                                    . '/admin/esubiz/callback',
+                                    . '/auth/esubiz/callback',
                                 ]
                                 : [];
                     }
@@ -318,7 +327,14 @@ class OffServerApiCredentialService
                         )
                     ) {
                         $values['allowed_scopes'] =
-                            $this->defaultScopes();
+                            array_values(
+                                array_unique(
+                                    array_merge(
+                                        $this->defaultScopes(),
+                                        ['identity.read']
+                                    )
+                                )
+                            );
                     }
 
 
@@ -329,7 +345,14 @@ class OffServerApiCredentialService
                         )
                     ) {
                         $values['scopes'] =
-                            $this->defaultScopes();
+                            array_values(
+                                array_unique(
+                                    array_merge(
+                                        $this->defaultScopes(),
+                                        ['identity.read']
+                                    )
+                                )
+                            );
                     }
 
 
