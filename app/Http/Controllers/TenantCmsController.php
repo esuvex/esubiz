@@ -355,6 +355,158 @@ class TenantCmsController extends Controller
         }
 
         if (!$tenantAuthenticated) {
+            /*
+             * ESUBIZ_CORE_REMEMBER_LOGIN_RESTORE_V37
+             *
+             * Restore authentication only for this Core website.
+             */
+            $rememberCookieName =
+                'core_remember_' . $websiteId;
+
+            $rememberValue =
+                request()->cookie(
+                    $rememberCookieName
+                );
+
+            if (
+                is_string($rememberValue)
+                && strpos(
+                    $rememberValue,
+                    ':'
+                ) !== false
+            ) {
+                [$rememberSelector, $rememberPlainToken] =
+                    array_pad(
+                        explode(
+                            ':',
+                            $rememberValue,
+                            2
+                        ),
+                        2,
+                        null
+                    );
+
+                if (
+                    is_string($rememberSelector)
+                    && $rememberSelector !== ''
+                    && is_string($rememberPlainToken)
+                    && $rememberPlainToken !== ''
+                ) {
+                    $rememberTenantService = app(
+                        \App\Services\Website\WebsiteTenantDatabaseService::class
+                    );
+
+                    $rememberTenantService
+                        ->connect($website);
+
+                    $rememberDb =
+                        $rememberTenantService
+                            ->connection();
+
+                    $rememberUser =
+                        $rememberDb
+                            ->table('site_users')
+                            ->where(
+                                'is_active',
+                                true
+                            )
+                            ->where(
+                                'remember_token',
+                                'like',
+                                $rememberSelector . ':%'
+                            )
+                            ->first();
+
+                    if (
+                        $rememberUser
+                        && is_string(
+                            $rememberUser
+                                ->remember_token
+                        )
+                    ) {
+                        $storedParts = explode(
+                            ':',
+                            $rememberUser
+                                ->remember_token,
+                            2
+                        );
+
+                        $storedHash =
+                            $storedParts[1]
+                            ?? '';
+
+                        $incomingHash =
+                            hash(
+                                'sha256',
+                                $rememberPlainToken
+                            );
+
+                        if (
+                            $storedHash !== ''
+                            && hash_equals(
+                                $storedHash,
+                                $incomingHash
+                            )
+                        ) {
+                            session()->put(
+                                "tenant_cms_sites.{$websiteId}.authenticated",
+                                true
+                            );
+
+                            session()->put(
+                                "tenant_cms_sites.{$websiteId}.user_id",
+                                (int) $rememberUser->id
+                            );
+
+                            session()->put(
+                                "tenant_cms_sites.{$websiteId}.auth_method",
+                                'local_remember'
+                            );
+
+                            session()->put(
+                                "tenant_cms_sites.{$websiteId}.support_access",
+                                false
+                            );
+
+                            /*
+                             * Keep compatibility with existing
+                             * Core session consumers.
+                             */
+                            session()->put(
+                                'tenant_cms_authenticated',
+                                true
+                            );
+
+                            session()->put(
+                                'tenant_cms_user_id',
+                                (int) $rememberUser->id
+                            );
+
+                            session()->put(
+                                'tenant_cms_website_id',
+                                $websiteId
+                            );
+
+                            session()->put(
+                                'tenant_cms_auth_method',
+                                'local_remember'
+                            );
+
+                            session()->put(
+                                'tenant_cms_support_access',
+                                false
+                            );
+
+                            session()->regenerate();
+
+                            $tenantAuthenticated = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!$tenantAuthenticated) {
             session()->put(
                 'url.intended',
                 request()->fullUrl()
@@ -4570,6 +4722,10 @@ private function tenantAuthBranding($website): array
                 'required',
                 'string',
             ],
+            'remember' => [
+                'nullable',
+                'boolean',
+            ],
         ]);
 
         $email = strtolower(
@@ -4733,6 +4889,68 @@ private function tenantAuthBranding($website): array
 
         $websiteId = (int) $website->id;
 
+        /*
+         * ESUBIZ_CORE_REMEMBER_LOGIN_V37
+         *
+         * Core-local persistent authentication.
+         *
+         * Browser receives selector + raw random token.
+         * site_users stores selector + SHA-256 hash only.
+         *
+         * This does not use or alter Central Esubiz auth.
+         */
+        $rememberCookie = null;
+
+        if ($request->boolean('remember')) {
+            $rememberSelector = bin2hex(
+                random_bytes(12)
+            );
+
+            $rememberPlainToken = bin2hex(
+                random_bytes(32)
+            );
+
+            $db
+                ->table('site_users')
+                ->where('id', $siteUser->id)
+                ->update([
+                    'remember_token' =>
+                        $rememberSelector
+                        . ':'
+                        . hash(
+                            'sha256',
+                            $rememberPlainToken
+                        ),
+                    'updated_at' => now(),
+                ]);
+
+            $rememberCookie = cookie(
+                'core_remember_' . $websiteId,
+                $rememberSelector
+                    . ':'
+                    . $rememberPlainToken,
+                60 * 24 * 30,
+                '/',
+                null,
+                $request->isSecure(),
+                true,
+                false,
+                'Lax'
+            );
+        } else {
+            /*
+             * A normal non-remembered login invalidates any
+             * old persistent token for this Core user.
+             */
+            $db
+                ->table('site_users')
+                ->where('id', $siteUser->id)
+                ->update([
+                    'remember_token' => null,
+                    'updated_at' => now(),
+                ]);
+        }
+
         $request->session()->put(
             "tenant_cms_sites.{$websiteId}.authenticated",
             true
@@ -4798,12 +5016,26 @@ private function tenantAuthBranding($website): array
 
         $request->session()->regenerate();
 
-        return redirect()->route(
+        $response = redirect()->route(
             'tenant.cms.dashboard',
             [
                 'subdomain' => $website->subdomain,
             ]
         );
+
+        if ($rememberCookie !== null) {
+            $response->withCookie(
+                $rememberCookie
+            );
+        } else {
+            $response->withCookie(
+                cookie()->forget(
+                    'core_remember_' . $websiteId
+                )
+            );
+        }
+
+        return $response;
     }
 
 
