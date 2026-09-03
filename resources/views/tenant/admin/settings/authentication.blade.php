@@ -2047,147 +2047,584 @@ main,
     @endphp
 
 
-    <div class="auth-forms-v11-header">
-        <div>
-            <h3>Authentication Forms</h3>
-            <p>
-                Manage multiple login and registration forms.
-                Each form can have its own fields, settings, offers,
-                roles, providers and payment behaviour.
-            </p>
-        </div>
-
-        <button
-            type="button"
-            class="auth-forms-v11-primary"
-            data-auth-form-create-v11
-            title="Multiple-form persistence will be connected through the Auth Form service."
-        >
-            + Add Form
-        </button>
+    {{-- ESUBIZ_CORE_AUTH_FORMS_CANONICAL_UI_V1 --}}
+<div class="auth-forms-v11-header">
+    <div>
+        <h3>Authentication Forms</h3>
+        <p>
+            Core authentication forms use the same Form Builder
+            records as every other Core form. Edit a form here
+            without creating a second copy of its fields.
+        </p>
     </div>
 
-    <div class="auth-forms-v11-shell">
+    
+{{-- ESUBIZ_CORE_AUTH_FORM_CONFIG_V2 --}}
 
-        <aside class="auth-forms-v11-list">
+<button
+    type="button"
+    class="btn btn-primary"
+    id="esubiz-auth-add-form-v2"
+>
+    Add Form
+</button>
 
-            <button
-                type="button"
-                class="auth-forms-v11-form-card is-active"
-                data-auth-form-selector-v11="default"
+<div
+    id="esubiz-auth-form-config-v2"
+    style="
+        display:none;
+        margin-top:18px;
+        padding:20px;
+        border:1px solid #e5e7eb;
+        border-radius:14px;
+        background:#fff;
+    "
+>
+    <div style="display:grid;gap:18px;">
+
+        <div>
+            <label
+                for="esubiz-auth-form-select-v2"
+                style="
+                    display:block;
+                    font-weight:700;
+                    margin-bottom:7px;
+                "
             >
-                <span class="auth-forms-v11-form-title">
-                    Default
-                </span>
+                Authentication Form
+            </label>
 
-                <span class="auth-forms-v11-form-type">
-                    Login + Registration
-                </span>
+            <select
+                id="esubiz-auth-form-select-v2"
+                style="
+                    width:100%;
+                    min-height:44px;
+                "
+            >
+                <option value="">
+                    Select authentication form
+                </option>
 
-                <span class="auth-forms-v11-default">
-                    Default
-                </span>
-            </button>
+                @foreach(($authForms ?? []) as $authForm)
+                    <option
+                        value="{{ $authForm['id'] }}"
+                        data-purpose="{{
+                            $authForm['purpose'] ?? ''
+                        }}"
+                        data-redirect="{{
+                            $authForm['auth_config']['redirect']
+                            ?? ''
+                        }}"
+                        data-role="{{
+                            $authForm['auth_config']['role_id']
+                            ?? ''
+                        }}"
+                        data-edit="{{
+                            $authForm['edit_url'] ?? ''
+                        }}"
+                    >
+                        {{
+                            $authForm['name']
+                            ?? 'Authentication Form'
+                        }}
 
-            <div class="auth-forms-v11-list-help">
-                Additional forms created for memberships, customers,
-                vendors, students, staff or modules will appear here.
-            </div>
+                        @if(!empty($authForm['purpose']))
+                            — {{
+                                ucwords(
+                                    str_replace(
+                                        '-',
+                                        ' ',
+                                        $authForm['purpose']
+                                    )
+                                )
+                            }}
+                        @endif
+                    </option>
+                @endforeach
+            </select>
+        </div>
 
-        </aside>
+        <div
+            id="esubiz-auth-form-fields-v2"
+            style="display:none;"
+        >
+            <div style="display:grid;gap:18px;">
 
-        <section class="auth-forms-v11-editor">
-
-            <div class="auth-forms-v11-editor-head">
                 <div>
-                    <h4>Default Auth Form</h4>
-                    <p>
-                        Primary authentication form for this website.
-                    </p>
-                </div>
+                    <label
+                        for="esubiz-auth-redirect-v2"
+                        style="
+                            display:block;
+                            font-weight:700;
+                            margin-bottom:7px;
+                        "
+                    >
+                        Redirect After Successful Authentication
+                    </label>
 
-                <span class="auth-forms-v11-active">
-                    Active
-                </span>
-            </div>
-
-            <div class="auth-forms-v11-meta-grid">
-
-                <div class="auth-forms-v11-control">
-                    <label>Form Name</label>
                     <input
                         type="text"
-                        value="Default"
-                        readonly
+                        id="esubiz-auth-redirect-v2"
+                        placeholder="/user/dashboard"
+                        style="
+                            width:100%;
+                            min-height:44px;
+                        "
                     >
                 </div>
 
-                <div class="auth-forms-v11-control">
-                    <label>Form Type</label>
-                    <select disabled>
-                        <option selected>
-                            Login + Registration
+                <div
+                    id="esubiz-auth-role-container-v2"
+                    style="display:none;"
+                >
+                    <label
+                        for="esubiz-auth-role-v2"
+                        style="
+                            display:block;
+                            font-weight:700;
+                            margin-bottom:7px;
+                        "
+                    >
+                        User Role
+                    </label>
+
+                    <select
+                        id="esubiz-auth-role-v2"
+                        style="
+                            width:100%;
+                            min-height:44px;
+                        "
+                    >
+                        <option value="">
+                            No automatic role
                         </option>
+
+                        @foreach(($authRoles ?? []) as $authRole)
+                            <option value="{{ $authRole['id'] }}">
+                                {{ $authRole['name'] }}
+
+                                @if(!empty($authRole['slug']))
+                                    ({{ $authRole['slug'] }})
+                                @endif
+                            </option>
+                        @endforeach
                     </select>
                 </div>
 
-                <div class="auth-forms-v11-control">
-                    <label>Login URL</label>
-                    <input
-                        type="text"
-                        value="/login"
-                        readonly
+                <div
+                    style="
+                        display:flex;
+                        flex-wrap:wrap;
+                        gap:10px;
+                    "
+                >
+                    <a
+                        href="#"
+                        id="esubiz-auth-edit-form-v2"
+                        class="btn btn-light"
+                        style="display:none;"
                     >
-                </div>
+                        Edit Form Fields
+                    </a>
 
-                <div class="auth-forms-v11-control">
-                    <label>Registration URL</label>
-                    <input
-                        type="text"
-                        value="/register"
-                        readonly
+                    <a
+                        href="{{ route(
+                            'tenant.cms.forms.create',
+                            [
+                                'subdomain' =>
+                                    $website->subdomain
+                            ]
+                        ) }}"
+                        class="btn btn-light"
                     >
+                        Create New Auth Form
+                    </a>
                 </div>
 
             </div>
+        </div>
 
-            <div class="auth-forms-v11-inner-tabs">
+    </div>
+</div>
 
-                <button
-                    type="button"
-                    class="auth-forms-v11-inner-tab is-active"
-                    data-auth-form-tab-v11="fields"
-                >
-                    Fields
-                </button>
+<script>
+document.addEventListener(
+    'DOMContentLoaded',
+    function () {
+        const add =
+            document.getElementById(
+                'esubiz-auth-add-form-v2'
+            );
 
-                <button
-                    type="button"
-                    class="auth-forms-v11-inner-tab"
-                    data-auth-form-tab-v11="offers"
-                >
-                    Plans & Products
-                </button>
+        const box =
+            document.getElementById(
+                'esubiz-auth-form-config-v2'
+            );
 
-                <button
-                    type="button"
-                    class="auth-forms-v11-inner-tab"
-                    data-auth-form-tab-v11="settings"
-                >
-                    Form Settings
-                </button>
+        const selector =
+            document.getElementById(
+                'esubiz-auth-form-select-v2'
+            );
 
-            </div>
+        const fields =
+            document.getElementById(
+                'esubiz-auth-form-fields-v2'
+            );
 
-            {{-- =====================================================
-                 FIELDS
-                 ===================================================== --}}
-            <div
-                class="auth-forms-v11-panel is-active"
-                data-auth-form-panel-v11="fields"
+        const redirect =
+            document.getElementById(
+                'esubiz-auth-redirect-v2'
+            );
+
+        const roleWrap =
+            document.getElementById(
+                'esubiz-auth-role-container-v2'
+            );
+
+        const role =
+            document.getElementById(
+                'esubiz-auth-role-v2'
+            );
+
+        const edit =
+            document.getElementById(
+                'esubiz-auth-edit-form-v2'
+            );
+
+        if (
+            !add
+            || !box
+            || !selector
+            || !fields
+            || !redirect
+            || !roleWrap
+            || !role
+        ) {
+            return;
+        }
+
+        function clearNames() {
+            redirect.removeAttribute('name');
+            role.removeAttribute('name');
+        }
+
+        function loadSelected() {
+            clearNames();
+
+            const option =
+                selector.options[
+                    selector.selectedIndex
+                ];
+
+            if (!option || !option.value) {
+                fields.style.display = 'none';
+                return;
+            }
+
+            const formId = option.value;
+            const purpose =
+                option.dataset.purpose || '';
+
+            redirect.value =
+                option.dataset.redirect || '';
+
+            role.value =
+                option.dataset.role || '';
+
+            redirect.name =
+                'auth_form_config['
+                + formId
+                + '][redirect]';
+
+            if (purpose === 'registration') {
+                roleWrap.style.display = '';
+
+                role.name =
+                    'auth_form_config['
+                    + formId
+                    + '][role_id]';
+            } else {
+                roleWrap.style.display = 'none';
+                role.value = '';
+            }
+
+            if (
+                edit
+                && option.dataset.edit
+            ) {
+                edit.href = option.dataset.edit;
+                edit.style.display = '';
+            } else if (edit) {
+                edit.style.display = 'none';
+            }
+
+            fields.style.display = '';
+        }
+
+        add.addEventListener(
+            'click',
+            function () {
+                box.style.display =
+                    box.style.display === 'none'
+                        ? ''
+                        : 'none';
+            }
+        );
+
+        selector.addEventListener(
+            'change',
+            loadSelected
+        );
+
+        redirect.addEventListener(
+            'input',
+            function () {
+                const option =
+                    selector.options[
+                        selector.selectedIndex
+                    ];
+
+                if (option) {
+                    option.dataset.redirect =
+                        redirect.value;
+                }
+            }
+        );
+
+        role.addEventListener(
+            'change',
+            function () {
+                const option =
+                    selector.options[
+                        selector.selectedIndex
+                    ];
+
+                if (option) {
+                    option.dataset.role =
+                        role.value;
+                }
+            }
+        );
+    }
+);
+</script>
+
+</div>
+
+@php
+    /*
+     * Core registry supplied by TenantCmsController.
+     * Each item points to the canonical Core Form Builder record.
+     */
+    $coreAuthFormsV1 =
+        isset($authForms) && is_array($authForms)
+            ? $authForms
+            : [];
+
+    $coreAuthPurposeLabelsV1 = [
+        'registration' => 'Registration',
+        'login' => 'Login',
+        'password-reset' => 'Password Reset',
+    ];
+@endphp
+
+<div class="auth-forms-v11-shell">
+
+    <aside class="auth-forms-v11-list">
+
+        @forelse($coreAuthFormsV1 as $coreAuthFormV1)
+
+            <a
+                href="{{ $coreAuthFormV1['edit_url'] }}"
+                class="auth-forms-v11-form-card"
+                style="
+                    display:block;
+                    text-decoration:none;
+                    color:inherit;
+                "
             >
+                <span class="auth-forms-v11-form-title">
+                    {{ $coreAuthFormV1['name'] }}
+                </span>
 
-                <div class="auth-fields-v11-head">
+                <span class="auth-forms-v11-form-type">
+                    {{
+                        $coreAuthPurposeLabelsV1[
+                            $coreAuthFormV1['purpose']
+                        ]
+                        ?? ucfirst(
+                            str_replace(
+                                '-',
+                                ' ',
+                                $coreAuthFormV1['purpose']
+                            )
+                        )
+                    }}
+                </span>
+
+                @if(!empty($coreAuthFormV1['is_system']))
+                    <span class="auth-forms-v11-default">
+                        Core
+                    </span>
+                @endif
+            </a>
+
+        @empty
+
+            <div class="auth-forms-v11-list-help">
+                No Core Authentication Forms were found.
+                Create a Core Form and set its Form Type to
+                Authentication Form.
+            </div>
+
+        @endforelse
+
+    </aside>
+
+    <section class="auth-forms-v11-editor">
+
+        <div class="auth-forms-v11-editor-head">
+            <div>
+                <h4>Core Authentication Forms</h4>
+                <p>
+                    Registration, Login and Password Reset
+                    forms are managed by Core Forms.
+                </p>
+            </div>
+
+            <span class="auth-forms-v11-active">
+                Core
+            </span>
+        </div>
+
+        <div
+            style="
+                margin-top:18px;
+                padding:22px;
+                border:1px solid #e2e8f0;
+                border-radius:16px;
+                background:#f8fafc;
+            "
+        >
+            <div
+                style="
+                    font-size:15px;
+                    font-weight:800;
+                    color:#0f172a;
+                    margin-bottom:8px;
+                "
+            >
+                One form. One field source.
+            </div>
+
+            <p
+                style="
+                    margin:0;
+                    color:#64748b;
+                    font-size:13px;
+                    line-height:1.7;
+                "
+            >
+                Select an Authentication Form from the left
+                to edit its fields, order, type and settings
+                in the Core Form Builder. Changes apply to
+                the public authentication form directly.
+            </p>
+        </div>
+
+        @if(!empty($coreAuthFormsV1))
+
+            <div
+                style="
+                    margin-top:18px;
+                    display:grid;
+                    gap:12px;
+                "
+            >
+                @foreach($coreAuthFormsV1 as $coreAuthFormV1)
+
+                    <a
+                        href="{{ $coreAuthFormV1['edit_url'] }}"
+                        style="
+                            display:flex;
+                            align-items:center;
+                            justify-content:space-between;
+                            gap:14px;
+                            border:1px solid #e2e8f0;
+                            border-radius:14px;
+                            padding:15px 16px;
+                            text-decoration:none;
+                            color:#0f172a;
+                            background:#fff;
+                        "
+                    >
+                        <span>
+                            <strong
+                                style="
+                                    display:block;
+                                    font-size:14px;
+                                "
+                            >
+                                {{ $coreAuthFormV1['name'] }}
+                            </strong>
+
+                            <span
+                                style="
+                                    display:block;
+                                    margin-top:3px;
+                                    font-size:12px;
+                                    color:#64748b;
+                                "
+                            >
+                                {{
+                                    $coreAuthPurposeLabelsV1[
+                                        $coreAuthFormV1['purpose']
+                                    ]
+                                    ?? ucfirst(
+                                        str_replace(
+                                            '-',
+                                            ' ',
+                                            $coreAuthFormV1['purpose']
+                                        )
+                                    )
+                                }}
+
+                                @if(
+                                    !empty(
+                                        $coreAuthFormV1[
+                                            'is_system'
+                                        ]
+                                    )
+                                )
+                                    · Protected Core Form
+                                @endif
+                            </span>
+                        </span>
+
+                        <span
+                            style="
+                                font-size:13px;
+                                font-weight:800;
+                                color:#2563eb;
+                            "
+                        >
+                            Edit Form →
+                        </span>
+                    </a>
+
+                @endforeach
+            </div>
+
+        @endif
+
+    </section>
+
+</div>
+
+{{-- Legacy duplicate registration editor intentionally suppressed.
+     Core Forms/form_fields is now the canonical field editor. --}}
+<div style="display:none !important;" aria-hidden="true">
+<div class="auth-fields-v11-head">
                     <div>
                         <h4>Registration Fields</h4>
                         <p>
@@ -2336,14 +2773,14 @@ main,
 
                                 <input
                                     type="hidden"
-                                    name="registration_fields[{{ $fieldIndexV11 }}][key]"
+                                    name="legacy_registration_fields[{{ $fieldIndexV11 }}][key]"
                                     value="{{ $fieldKeyV11 }}"
                                     data-auth-field-name-v11="key"
                                 >
 
                                 <input
                                     type="hidden"
-                                    name="registration_fields[{{ $fieldIndexV11 }}][system]"
+                                    name="legacy_registration_fields[{{ $fieldIndexV11 }}][system]"
                                     value="{{ $isProtectedV11 ? 1 : 0 }}"
                                     data-auth-field-name-v11="system"
                                 >
@@ -2358,7 +2795,7 @@ main,
 
                                         <input
                                             type="text"
-                                            name="registration_fields[{{ $fieldIndexV11 }}][label]"
+                                            name="legacy_registration_fields[{{ $fieldIndexV11 }}][label]"
                                             value="{{ $fieldLabelV11 }}"
                                             data-auth-field-name-v11="label"
                                             data-auth-field-label-input-v11
@@ -2375,7 +2812,7 @@ main,
 
                                         <input
                                             type="text"
-                                            name="registration_fields[{{ $fieldIndexV11 }}][placeholder]"
+                                            name="legacy_registration_fields[{{ $fieldIndexV11 }}][placeholder]"
                                             value="{{ $fieldV11['placeholder'] ?? '' }}"
                                             data-auth-field-name-v11="placeholder"
                                         >
@@ -2398,7 +2835,7 @@ main,
 
                                             <input
                                                 type="hidden"
-                                                name="registration_fields[{{ $fieldIndexV11 }}][type]"
+                                                name="legacy_registration_fields[{{ $fieldIndexV11 }}][type]"
                                                 value="{{ $fieldTypeV11 }}"
                                                 data-auth-field-name-v11="type"
                                             >
@@ -2406,7 +2843,7 @@ main,
                                         @else
 
                                             <select
-                                                name="registration_fields[{{ $fieldIndexV11 }}][type]"
+                                                name="legacy_registration_fields[{{ $fieldIndexV11 }}][type]"
                                                 data-auth-field-name-v11="type"
                                                 data-auth-field-type-input-v11
                                             >
@@ -2448,7 +2885,7 @@ main,
 
                                             <input
                                                 type="hidden"
-                                                name="registration_fields[{{ $fieldIndexV11 }}][required]"
+                                                name="legacy_registration_fields[{{ $fieldIndexV11 }}][required]"
                                                 value="{{ $fieldRequiredV11 ? 1 : 0 }}"
                                                 data-auth-field-name-v11="required"
                                             >
@@ -2463,14 +2900,14 @@ main,
 
                                                 <input
                                                     type="hidden"
-                                                    name="registration_fields[{{ $fieldIndexV11 }}][required]"
+                                                    name="legacy_registration_fields[{{ $fieldIndexV11 }}][required]"
                                                     value="0"
                                                     data-auth-field-name-v11="required"
                                                 >
 
                                                 <input
                                                     type="checkbox"
-                                                    name="registration_fields[{{ $fieldIndexV11 }}][required]"
+                                                    name="legacy_registration_fields[{{ $fieldIndexV11 }}][required]"
                                                     value="1"
                                                     data-auth-field-checkbox-v11="required"
                                                     @checked($fieldRequiredV11)
@@ -2494,7 +2931,7 @@ main,
 
                                             <input
                                                 type="hidden"
-                                                name="registration_fields[{{ $fieldIndexV11 }}][enabled]"
+                                                name="legacy_registration_fields[{{ $fieldIndexV11 }}][enabled]"
                                                 value="1"
                                                 data-auth-field-name-v11="enabled"
                                             >
@@ -2509,14 +2946,14 @@ main,
 
                                                 <input
                                                     type="hidden"
-                                                    name="registration_fields[{{ $fieldIndexV11 }}][enabled]"
+                                                    name="legacy_registration_fields[{{ $fieldIndexV11 }}][enabled]"
                                                     value="0"
                                                     data-auth-field-name-v11="enabled"
                                                 >
 
                                                 <input
                                                     type="checkbox"
-                                                    name="registration_fields[{{ $fieldIndexV11 }}][enabled]"
+                                                    name="legacy_registration_fields[{{ $fieldIndexV11 }}][enabled]"
                                                     value="1"
                                                     data-auth-field-checkbox-v11="enabled"
                                                     @checked($fieldEnabledV11)
@@ -3379,6 +3816,8 @@ input[type="checkbox"]:checked + span:before{
 }
 </style>
 
+</div>
+
 <script>
 document.addEventListener(
     'DOMContentLoaded',
@@ -3419,7 +3858,7 @@ document.addEventListener(
                                 );
 
                             input.name =
-                                'registration_fields['
+                                'legacy_registration_fields['
                                 + index
                                 + ']['
                                 + key
@@ -3438,7 +3877,7 @@ document.addEventListener(
                                 );
 
                             input.name =
-                                'registration_fields['
+                                'legacy_registration_fields['
                                 + index
                                 + ']['
                                 + key
@@ -3801,13 +4240,13 @@ document.addEventListener(
 
         <input
             type="hidden"
-            name="registration_fields[__INDEX__][key]"
+            name="legacy_registration_fields[__INDEX__][key]"
             value=""
         >
 
         <input
             type="hidden"
-            name="registration_fields[__INDEX__][system]"
+            name="legacy_registration_fields[__INDEX__][system]"
             value="0"
         >
 
@@ -3817,7 +4256,7 @@ document.addEventListener(
             <input
                 type="text"
                 class="esubiz-field-label-input"
-                name="registration_fields[__INDEX__][label]"
+                name="legacy_registration_fields[__INDEX__][label]"
                 placeholder="Field label"
                 required
             >
@@ -3825,7 +4264,7 @@ document.addEventListener(
             <input
                 type="text"
                 class="esubiz-field-placeholder-input"
-                name="registration_fields[__INDEX__][placeholder]"
+                name="legacy_registration_fields[__INDEX__][placeholder]"
                 placeholder="Placeholder"
             >
 
@@ -3836,7 +4275,7 @@ document.addEventListener(
 
             <select
                 class="esubiz-field-type-select"
-                name="registration_fields[__INDEX__][type]"
+                name="legacy_registration_fields[__INDEX__][type]"
             >
                 <option value="text">Text</option>
                 <option value="email">Email</option>
@@ -3855,7 +4294,7 @@ document.addEventListener(
 
             <input
                 type="hidden"
-                name="registration_fields[__INDEX__][required]"
+                name="legacy_registration_fields[__INDEX__][required]"
                 value="0"
             >
 
@@ -3863,7 +4302,7 @@ document.addEventListener(
 
                 <input
                     type="checkbox"
-                    name="registration_fields[__INDEX__][required]"
+                    name="legacy_registration_fields[__INDEX__][required]"
                     value="1"
                 >
 
@@ -3878,7 +4317,7 @@ document.addEventListener(
 
             <input
                 type="hidden"
-                name="registration_fields[__INDEX__][enabled]"
+                name="legacy_registration_fields[__INDEX__][enabled]"
                 value="0"
             >
 
@@ -3886,7 +4325,7 @@ document.addEventListener(
 
                 <input
                     type="checkbox"
-                    name="registration_fields[__INDEX__][enabled]"
+                    name="legacy_registration_fields[__INDEX__][enabled]"
                     value="1"
                     checked
                 >
@@ -4347,7 +4786,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     );
 
                 input.name =
-                    'registration_fields['
+                    'legacy_registration_fields['
                     + index
                     + ']['
                     + key
@@ -4358,7 +4797,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 '[data-field-required-hidden]'
             ).forEach(function (input) {
                 input.name =
-                    'registration_fields['
+                    'legacy_registration_fields['
                     + index
                     + '][required]';
             });
@@ -4367,7 +4806,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 '[data-field-required-system]'
             ).forEach(function (input) {
                 input.name =
-                    'registration_fields['
+                    'legacy_registration_fields['
                     + index
                     + '][required]';
             });

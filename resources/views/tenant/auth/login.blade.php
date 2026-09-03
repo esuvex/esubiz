@@ -982,6 +982,48 @@ form .error{
 >
     @csrf
 
+    {{-- ESUBIZ_CORE_AUTH_FORM_BLADE_BINDING_V1 --}}
+    @php
+        $coreLoginFields = collect(
+            $authFormFields ?? []
+        )->keyBy('name');
+
+        $coreLoginEmail =
+            $coreLoginFields->get(
+                'email',
+                [
+                    'label' => 'Email address',
+                    'type' => 'email',
+                    'required' => true,
+                ]
+            );
+
+        $coreLoginPassword =
+            $coreLoginFields->get(
+                'password',
+                [
+                    'label' => 'Password',
+                    'type' => 'password',
+                    'required' => true,
+                ]
+            );
+
+        /*
+         * Credential semantics stay protected even if a custom
+         * Form Builder type is incompatible with authentication.
+         */
+        $coreLoginEmailType =
+            in_array(
+                $coreLoginEmail['type'] ?? '',
+                ['email', 'text'],
+                true
+            )
+                ? $coreLoginEmail['type']
+                : 'email';
+
+        $coreLoginPasswordType = 'password';
+    @endphp
+
     {{-- ESUBIZ_AUTH_BOT_FORM_FIELDS_V1 --}}
     @if(
         !empty(
@@ -1034,13 +1076,13 @@ form .error{
 
     <div class="field">
         <label for="email">
-            Email address
+            {{ $coreLoginEmail['label'] ?? 'Email address' }}
         </label>
 
         <input
             id="email"
             name="email"
-            type="email"
+            type="{{ $coreLoginEmailType }}"
             value="{{ old('email') }}"
             required
             autofocus
@@ -1053,7 +1095,7 @@ form .error{
 
         <div class="label-row">
             <label for="password">
-                Password
+                {{ $coreLoginPassword['label'] ?? 'Password' }}
             </label>
 
             <a

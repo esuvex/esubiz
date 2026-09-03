@@ -159,6 +159,8 @@ class TenantFormsController extends Controller
                 'form' => null,
                 'fields' => collect(),
                 'isSystemForm' => false,
+                'isAuthenticationForm' => false,
+                'authenticationPurpose' => '',
             ]
         );
     }
@@ -198,6 +200,12 @@ class TenantFormsController extends Controller
                     'settings' => json_encode([
                         'system' => false,
                         'source' => 'core_forms',
+                        'purpose' =>
+                            ($data['form_type'] ?? 'standard')
+                                === 'authentication'
+                                    ? 'authentication.'
+                                        . $data['authentication_purpose']
+                                    : null,
                     ]),
                     'is_active' =>
                         (bool) ($data['is_active'] ?? false),
@@ -261,6 +269,58 @@ class TenantFormsController extends Controller
             is_array($formSettings)
             && (($formSettings['system'] ?? false) === true);
 
+        $formPurpose = is_array($formSettings)
+            ? (string) ($formSettings['purpose'] ?? '')
+            : '';
+
+        $isAuthenticationForm =
+            str_starts_with(
+                $formPurpose,
+                'authentication.'
+            )
+            || in_array(
+                (string) (
+                    $formSettings['core_default_form']
+                    ?? ''
+                ),
+                [
+                    'registration',
+                    'login',
+                    'password-reset',
+                    'password_reset',
+                ],
+                true
+            );
+
+        $authenticationPurpose = '';
+
+        if (
+            str_starts_with(
+                $formPurpose,
+                'authentication.'
+            )
+        ) {
+            $authenticationPurpose =
+                substr(
+                    $formPurpose,
+                    strlen('authentication.')
+                );
+        } elseif ($isAuthenticationForm) {
+            $authenticationPurpose =
+                (string) (
+                    $formSettings['core_default_form']
+                    ?? ''
+                );
+
+            if (
+                $authenticationPurpose
+                === 'password_reset'
+            ) {
+                $authenticationPurpose =
+                    'password-reset';
+            }
+        }
+
         return view(
             'tenant.admin.forms.form',
             [
@@ -269,6 +329,10 @@ class TenantFormsController extends Controller
                 'form' => $formRecord,
                 'fields' => $fields,
                 'isSystemForm' => $isSystemForm,
+                'isAuthenticationForm' =>
+                    $isAuthenticationForm,
+                'authenticationPurpose' =>
+                    $authenticationPurpose,
             ]
         );
     }
@@ -326,6 +390,19 @@ class TenantFormsController extends Controller
                 $settings['source'] ?? 'core_forms';
 
             $settings['system'] = $isSystemForm;
+
+            if (!$isSystemForm) {
+                if (
+                    ($data['form_type'] ?? 'standard')
+                    === 'authentication'
+                ) {
+                    $settings['purpose'] =
+                        'authentication.'
+                        . $data['authentication_purpose'];
+                } else {
+                    unset($settings['purpose']);
+                }
+            }
 
             $db->table('forms')
                 ->where('id', $form)
@@ -439,6 +516,29 @@ class TenantFormsController extends Controller
                 'boolean',
             ],
 
+            /*
+             * ESUBIZ_CORE_AUTH_FORM_CLASSIFICATION_V1
+             *
+             * Core Forms owns authentication-form classification.
+             */
+            'form_type' => [
+                'required',
+                Rule::in([
+                    'standard',
+                    'authentication',
+                ]),
+            ],
+
+            'authentication_purpose' => [
+                'nullable',
+                Rule::in([
+                    'registration',
+                    'login',
+                    'password-reset',
+                ]),
+                'required_if:form_type,authentication',
+            ],
+
             'fields' => [
                 'nullable',
                 'array',
@@ -489,58 +589,299 @@ class TenantFormsController extends Controller
     protected function replaceFields(
         int $formId,
         array $fields
-    ): void {
-        $db = $this->db();
+    ): void
+{
+    /*
+     * ESUBIZ_CORE_AUTH_REQUIRED_FIELDS_V1
+     *
+     * Core Authentication Forms remain ordinary forms, but
+     * credential fields required by authentication handlers
+     * cannot be removed or weakened.
+     */
+    $form = $db
+        ->table('forms')
+        ->where('id', $formId)
+        ->first();
 
-        $db->table('form_fields')
-            ->where('form_id', $formId)
-            ->delete();
+    $settings = json_decode(
+        (string) ($form->settings ?? ''),
+        true
+    );
+
+    $settings = is_array($settings)
+        ? $settings
+        : [];
+
+    $purpose = (string) (
+        $settings['purpose']
+        ?? ''
+    );
+
+    $coreDefault = (string) (
+        $settings['core_default_form']
+        ?? ''
+    );
+
+    if ($coreDefault === 'password_reset') {
+        $coreDefault = 'password-reset';
+    }
+
+    $authPurpose = null;
+
+    if (
+        str_starts_with(
+            $purpose,
+            'authentication.'
+        )
+    ) {
+        $authPurpose = substr(
+            $purpose,
+            strlen('authentication.')
+        );
+    }
+
+    if (
+        !$authPurpose
+        && in_array(
+            $coreDefault,
+            [
+                'registration',
+                'login',
+                'password-reset',
+            ],
+            true
+        )
+    ) {
+        $authPurpose = $coreDefault;
+    }
+
+    $requiredAuthFields = [];
+
+    if ($authPurpose === 'registration') {
+        $requiredAuthFields = [
+            'name' => [
+                'label' => 'Name',
+                'type' => 'text',
+            ],
+            'email' => [
+                'label' => 'Email',
+                'type' => 'email',
+            ],
+            'password' => [
+                'label' => 'Password',
+                'type' => 'password',
+            ],
+            'password_confirmation' => [
+                'label' => 'Confirm Password',
+                'type' => 'password',
+            ],
+        ];
+    }
+
+    if ($authPurpose === 'login') {
+        $requiredAuthFields = [
+            'email' => [
+                'label' => 'Email',
+                'type' => 'email',
+            ],
+            'password' => [
+                'label' => 'Password',
+                'type' => 'password',
+            ],
+        ];
+    }
+
+    if ($authPurpose === 'password-reset') {
+        $requiredAuthFields = [
+            'email' => [
+                'label' => 'Email',
+                'type' => 'email',
+            ],
+            'password' => [
+                'label' => 'New Password',
+                'type' => 'password',
+            ],
+            'password_confirmation' => [
+                'label' => 'Confirm New Password',
+                'type' => 'password',
+            ],
+        ];
+    }
+
+    $normalizedFields = [];
+
+    foreach (
+        array_values($fields)
+        as $field
+    ) {
+        if (!is_array($field)) {
+            continue;
+        }
+
+        $name = trim(
+            (string) (
+                $field['name']
+                ?? ''
+            )
+        );
+
+        $label = trim(
+            (string) (
+                $field['label']
+                ?? ''
+            )
+        );
+
+        if ($name === '' || $label === '') {
+            continue;
+        }
+
+        /*
+         * Preserve editable labels/order, but force the
+         * credential machine semantics required by Core.
+         */
+        if (
+            isset(
+                $requiredAuthFields[$name]
+            )
+        ) {
+            $field['name'] = $name;
+
+            $field['type'] =
+                $requiredAuthFields[
+                    $name
+                ]['type'];
+
+            $field['required'] = true;
+        }
+
+        $normalizedFields[] = $field;
+    }
+
+    /*
+     * Self-heal any required field removed in Form Builder.
+     */
+    if (!empty($requiredAuthFields)) {
+        $existingNames = [];
 
         foreach (
-            array_values($fields)
-            as $index => $field
+            $normalizedFields
+            as $field
         ) {
-            $name = trim(
-                (string) ($field['name'] ?? '')
+            $existingNames[] = trim(
+                (string) (
+                    $field['name']
+                    ?? ''
+                )
             );
+        }
 
-            $label = trim(
-                (string) ($field['label'] ?? '')
-            );
-
-            if ($name === '' || $label === '') {
+        foreach (
+            $requiredAuthFields
+            as $requiredName => $definition
+        ) {
+            if (
+                in_array(
+                    $requiredName,
+                    $existingNames,
+                    true
+                )
+            ) {
                 continue;
             }
 
-            $options = $this->parseOptions(
-                $field['options'] ?? null
-            );
-
-            $db->table('form_fields')
-                ->insert([
-                    'form_id' => $formId,
-                    'name' => $name,
-                    'label' => $label,
-                    'type' =>
-                        (string) (
-                            $field['type']
-                            ?? 'text'
-                        ),
-                    'required' =>
-                        (bool) (
-                            $field['required']
-                            ?? false
-                        ),
-                    'options' =>
-                        $options === null
-                            ? null
-                            : json_encode($options),
-                    'sort_order' => $index,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
+            $normalizedFields[] = [
+                'name' =>
+                    $requiredName,
+                'label' =>
+                    $definition['label'],
+                'type' =>
+                    $definition['type'],
+                'required' =>
+                    true,
+                'options' =>
+                    null,
+            ];
         }
     }
+
+    $db
+        ->table('form_fields')
+        ->where(
+            'form_id',
+            $formId
+        )
+        ->delete();
+
+    foreach (
+        array_values($normalizedFields)
+        as $index => $field
+    ) {
+        $name = trim(
+            (string) (
+                $field['name']
+                ?? ''
+            )
+        );
+
+        $label = trim(
+            (string) (
+                $field['label']
+                ?? ''
+            )
+        );
+
+        if ($name === '' || $label === '') {
+            continue;
+        }
+
+        $options = $this->parseOptions(
+            $field['options']
+            ?? null
+        );
+
+        $db
+            ->table('form_fields')
+            ->insert([
+                'form_id' =>
+                    $formId,
+
+                'name' =>
+                    $name,
+
+                'label' =>
+                    $label,
+
+                'type' =>
+                    (string) (
+                        $field['type']
+                        ?? 'text'
+                    ),
+
+                'required' =>
+                    (bool) (
+                        $field['required']
+                        ?? false
+                    ),
+
+                'options' =>
+                    $options === null
+                        ? null
+                        : json_encode(
+                            $options
+                        ),
+
+                'sort_order' =>
+                    $index,
+
+                'created_at' =>
+                    now(),
+
+                'updated_at' =>
+                    now(),
+            ]);
+    }
+}
 
     protected function parseOptions(
         ?string $value

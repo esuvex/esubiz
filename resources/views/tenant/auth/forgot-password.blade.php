@@ -857,15 +857,41 @@ form .error{
 >
     @csrf
 
+    {{-- ESUBIZ_CORE_AUTH_FORM_BLADE_BINDING_V1 --}}
+    @php
+        $coreResetFields = collect(
+            $authFormFields ?? []
+        )->keyBy('name');
+
+        $coreResetEmail =
+            $coreResetFields->get(
+                'email',
+                [
+                    'label' => 'Email address',
+                    'type' => 'email',
+                    'required' => true,
+                ]
+            );
+
+        $coreResetEmailType =
+            in_array(
+                $coreResetEmail['type'] ?? '',
+                ['email', 'text'],
+                true
+            )
+                ? $coreResetEmail['type']
+                : 'email';
+    @endphp
+
     <div class="field">
         <label for="email">
-            Email address
+            {{ $coreResetEmail['label'] ?? 'Email address' }}
         </label>
 
         <input
             id="email"
             name="email"
-            type="email"
+            type="{{ $coreResetEmailType }}"
             value="{{ old('email') }}"
             required
             autofocus

@@ -2833,11 +2833,327 @@ return view(
             ),
         ];
 
+        /*
+         * ESUBIZ_CORE_AUTH_FORM_REGISTRY_V1
+         *
+         * Core Forms is the canonical authentication-form registry.
+         *
+         * Registration/Login/Password Reset forms are ordinary Core
+         * forms classified through forms.settings.purpose.
+         *
+         * Legacy auth.registration_fields is only used to seed the
+         * protected Registration Core Form when that form has no
+         * form_fields yet. It is not the long-term field source.
+         */
+        $coreDb = DB::connection('tenant');
+
+        $authForms = [];
+
+        if (
+            \Illuminate\Support\Facades\Schema::connection('tenant')
+                ->hasTable('forms')
+            && \Illuminate\Support\Facades\Schema::connection('tenant')
+                ->hasTable('form_fields')
+        ) {
+            $formRecords = $coreDb->table('forms')
+                ->orderBy('id')
+                ->get();
+
+            foreach ($formRecords as $formRecord) {
+                $formSettings = json_decode(
+                    (string) ($formRecord->settings ?? ''),
+                    true
+                );
+
+                $formSettings = is_array($formSettings)
+                    ? $formSettings
+                    : [];
+
+                $purpose = (string) (
+                    $formSettings['purpose'] ?? ''
+                );
+
+                $coreDefault = (string) (
+                    $formSettings['core_default_form'] ?? ''
+                );
+
+                if (
+                    $purpose === ''
+                    && in_array(
+                        $coreDefault,
+                        [
+                            'registration',
+                            'login',
+                            'password-reset',
+                            'password_reset',
+                        ],
+                        true
+                    )
+                ) {
+                    $normalizedDefault =
+                        $coreDefault === 'password_reset'
+                            ? 'password-reset'
+                            : $coreDefault;
+
+                    $purpose =
+                        'authentication.'
+                        . $normalizedDefault;
+                }
+
+                if (
+                    !in_array(
+                        $purpose,
+                        [
+                            'authentication.registration',
+                            'authentication.login',
+                            'authentication.password-reset',
+                        ],
+                        true
+                    )
+                ) {
+                    continue;
+                }
+
+                $purposeName = substr(
+                    $purpose,
+                    strlen('authentication.')
+                );
+
+                $authForms[] = [
+                    'id' => (int) $formRecord->id,
+                    'name' => (string) $formRecord->name,
+                    'slug' => (string) $formRecord->slug,
+                    'purpose' => $purposeName,
+                    'is_system' =>
+                        ($formSettings['system'] ?? false)
+                        === true,
+                    'is_active' =>
+                        (bool) ($formRecord->is_active ?? false),
+                                        /*
+                     * ESUBIZ_CORE_AUTH_FORM_CONFIG_V2
+                     */
+                    'auth_config' =>
+                        is_array(
+                            $formSettings['auth_config'] ?? null
+                        )
+                            ? $formSettings['auth_config']
+                            : [],
+
+'edit_url' => route(
+                        'tenant.cms.forms.edit',
+                        [
+                            'subdomain' => $website->subdomain,
+                            'form' => $formRecord->id,
+                        ]
+                    ),
+                ];
+            }
+
+            /*
+             * One-time safe legacy migration:
+             *
+             * If the canonical protected Registration form exists but
+             * has no fields, seed it from auth.registration_fields.
+             *
+             * We deliberately do NOT overwrite existing Core fields.
+             */
+            $registrationForm = collect($formRecords)
+                ->first(function ($formRecord) {
+                    $settings = json_decode(
+                        (string) ($formRecord->settings ?? ''),
+                        true
+                    );
+
+                    $settings = is_array($settings)
+                        ? $settings
+                        : [];
+
+                    return
+                        ($settings['purpose'] ?? null)
+                            === 'authentication.registration'
+                        || ($settings['core_default_form'] ?? null)
+                            === 'registration';
+                });
+
+            if ($registrationForm) {
+                $existingFieldCount =
+                    $coreDb->table('form_fields')
+                        ->where(
+                            'form_id',
+                            $registrationForm->id
+                        )
+                        ->count();
+
+                if ($existingFieldCount === 0) {
+                    $legacyFields =
+                        $authConfig['registration_fields']
+                        ?? [];
+
+                    if (
+                        is_array($legacyFields)
+                        && !empty($legacyFields)
+                    ) {
+                        $now = now();
+                        $sortOrder = 0;
+
+                        foreach ($legacyFields as $legacyField) {
+                            if (!is_array($legacyField)) {
+                                continue;
+                            }
+
+                            if (
+                                array_key_exists(
+                                    'enabled',
+                                    $legacyField
+                                )
+                                && !filter_var(
+                                    $legacyField['enabled'],
+                                    FILTER_VALIDATE_BOOLEAN
+                                )
+                            ) {
+                                continue;
+                            }
+
+                            $name = trim(
+                                (string) (
+                                    $legacyField['key']
+                                    ?? ''
+                                )
+                            );
+
+                            $label = trim(
+                                (string) (
+                                    $legacyField['label']
+                                    ?? ''
+                                )
+                            );
+
+                            if (
+                                $name === ''
+                                || $label === ''
+                            ) {
+                                continue;
+                            }
+
+                            $type = (string) (
+                                $legacyField['type']
+                                ?? 'text'
+                            );
+
+                            if (
+                                !in_array(
+                                    $type,
+                                    [
+                                        'text',
+                                        'email',
+                                        'tel',
+                                        'number',
+                                        'textarea',
+                                        'select',
+                                        'checkbox',
+                                        'radio',
+                                        'password',
+                                        'date',
+                                    ],
+                                    true
+                                )
+                            ) {
+                                $type = 'text';
+                            }
+
+                            $options =
+                                $legacyField['options']
+                                ?? null;
+
+                            if (
+                                is_string($options)
+                                && trim($options) !== ''
+                            ) {
+                                $options = array_values(
+                                    array_filter(
+                                        array_map(
+                                            'trim',
+                                            preg_split(
+                                                '/[\r\n,]+/',
+                                                $options
+                                            )
+                                        ),
+                                        static fn ($value) =>
+                                            $value !== ''
+                                    )
+                                );
+                            }
+
+                            if (
+                                !is_array($options)
+                                || empty($options)
+                            ) {
+                                $options = null;
+                            }
+
+                            $coreDb->table('form_fields')
+                                ->insert([
+                                    'form_id' =>
+                                        (int) $registrationForm->id,
+                                    'name' => $name,
+                                    'label' => $label,
+                                    'type' => $type,
+                                    'required' =>
+                                        (bool) (
+                                            $legacyField['required']
+                                            ?? false
+                                        ),
+                                    'options' =>
+                                        $options === null
+                                            ? null
+                                            : json_encode($options),
+                                    'sort_order' => $sortOrder++,
+                                    'created_at' => $now,
+                                    'updated_at' => $now,
+                                ]);
+                        }
+                    }
+                }
+            }
+        }
+
+
+        /*
+         * ESUBIZ_CORE_AUTH_FORM_DYNAMIC_ROLES_V2
+         */
+        $authRoles = [];
+
+        if (
+            \Illuminate\Support\Facades\Schema::connection('tenant')
+                ->hasTable('site_roles')
+        ) {
+            $authRoles = $coreDb
+                ->table('site_roles')
+                ->orderBy('name')
+                ->get([
+                    'id',
+                    'name',
+                    'slug',
+                ])
+                ->map(
+                    static fn ($role) => [
+                        'id' => (int) $role->id,
+                        'name' => (string) $role->name,
+                        'slug' => (string) $role->slug,
+                    ]
+                )
+                ->values()
+                ->all();
+        }
+
+
         return view(
             'tenant.admin.settings.authentication',
             compact(
                 'website',
-                'authConfig'
+                'authConfig',
+                'authForms',
+                'authRoles'
             )
         );
     }
@@ -2936,6 +3252,23 @@ return view(
                 'string',
                 'max:500',
             ],
+
+            'auth_form_config' => [
+                'nullable',
+                'array',
+            ],
+
+            'auth_form_config.*.redirect' => [
+                'nullable',
+                'string',
+                'max:500',
+            ],
+
+            'auth_form_config.*.role_id' => [
+                'nullable',
+                'integer',
+            ],
+
 
             'login.heading' => [
                 'nullable',
@@ -3532,11 +3865,16 @@ return view(
             }
         }
 
-        $save(
-            $db,
-            'auth.registration_fields',
-            $normalizedFields
-        );
+        /*
+         * ESUBIZ_CORE_REGISTRATION_FIELDS_MIGRATION_ONLY_V1
+         *
+         * Registration fields are now owned exclusively by
+         * Core forms + form_fields.
+         *
+         * auth.registration_fields remains readable only by
+         * the backward-compatible migration paths and is no
+         * longer written by Authentication Settings.
+         */
 
 
         foreach ([
@@ -3652,6 +3990,160 @@ return view(
          * This is intentionally performed AFTER the existing settings
          * persistence logic so no old behaviour is replaced.
          */
+
+        /*
+         * ESUBIZ_CORE_AUTH_FORM_CONFIG_PERSISTENCE_V2
+         */
+        $submittedAuthFormConfigs =
+            $data['auth_form_config'] ?? [];
+
+        if (
+            is_array($submittedAuthFormConfigs)
+            && \Illuminate\Support\Facades\Schema::connection('tenant')
+                ->hasTable('forms')
+        ) {
+            foreach (
+                $submittedAuthFormConfigs
+                as $submittedFormId => $submittedConfig
+            ) {
+                if (
+                    !is_numeric($submittedFormId)
+                    || !is_array($submittedConfig)
+                ) {
+                    continue;
+                }
+
+                $submittedFormId = (int) $submittedFormId;
+
+                $formRecord = $db
+                    ->table('forms')
+                    ->where('id', $submittedFormId)
+                    ->first();
+
+                if (!$formRecord) {
+                    continue;
+                }
+
+                $formSettings = json_decode(
+                    (string) ($formRecord->settings ?? ''),
+                    true
+                );
+
+                $formSettings = is_array($formSettings)
+                    ? $formSettings
+                    : [];
+
+                $purpose = (string) (
+                    $formSettings['purpose'] ?? ''
+                );
+
+                $coreDefault = (string) (
+                    $formSettings['core_default_form'] ?? ''
+                );
+
+                if ($coreDefault === 'password_reset') {
+                    $coreDefault = 'password-reset';
+                }
+
+                $authPurpose = null;
+
+                if (
+                    str_starts_with(
+                        $purpose,
+                        'authentication.'
+                    )
+                ) {
+                    $authPurpose = substr(
+                        $purpose,
+                        strlen('authentication.')
+                    );
+                }
+
+                if (
+                    !$authPurpose
+                    && in_array(
+                        $coreDefault,
+                        [
+                            'registration',
+                            'login',
+                            'password-reset',
+                        ],
+                        true
+                    )
+                ) {
+                    $authPurpose = $coreDefault;
+                }
+
+                if (
+                    !in_array(
+                        $authPurpose,
+                        [
+                            'registration',
+                            'login',
+                            'password-reset',
+                        ],
+                        true
+                    )
+                ) {
+                    continue;
+                }
+
+                $redirect = trim(
+                    (string) (
+                        $submittedConfig['redirect']
+                        ?? ''
+                    )
+                );
+
+                $roleId =
+                    $submittedConfig['role_id']
+                    ?? null;
+
+                $roleId = is_numeric($roleId)
+                    ? (int) $roleId
+                    : null;
+
+                if (
+                    $authPurpose === 'registration'
+                    && $roleId !== null
+                ) {
+                    $roleExists =
+                        \Illuminate\Support\Facades\Schema::connection('tenant')
+                            ->hasTable('site_roles')
+                        && $db
+                            ->table('site_roles')
+                            ->where('id', $roleId)
+                            ->exists();
+
+                    if (!$roleExists) {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            'auth_form_config' =>
+                                'The selected Core user role no longer exists.',
+                        ]);
+                    }
+                }
+
+                $authConfig = [
+                    'redirect' => $redirect,
+                ];
+
+                if ($authPurpose === 'registration') {
+                    $authConfig['role_id'] = $roleId;
+                }
+
+                $formSettings['auth_config'] = $authConfig;
+
+                $db
+                    ->table('forms')
+                    ->where('id', $submittedFormId)
+                    ->update([
+                        'settings' => json_encode($formSettings),
+                        'updated_at' => now(),
+                    ]);
+            }
+        }
+
+
         $authFormService =
             app(TenantAuthFormService::class);
 
@@ -4459,6 +4951,170 @@ private function tenantAuthBranding($website): array
     }
 
 
+    /*
+     * ESUBIZ_CORE_AUTH_FORM_RUNTIME_RESOLVER_V1
+     *
+     * Core forms + form_fields are the canonical public
+     * authentication-form definitions.
+     *
+     * This resolver supplies presentation metadata only.
+     * Existing authentication/security handlers remain
+     * authoritative.
+     */
+    private function tenantPublicAuthFormFields(
+        string $purpose
+    ): array {
+        $supported = [
+            'registration',
+            'login',
+            'password-reset',
+        ];
+
+        if (!in_array($purpose, $supported, true)) {
+            return [];
+        }
+
+        $schema =
+            \Illuminate\Support\Facades\Schema::connection(
+                'tenant'
+            );
+
+        if (
+            !$schema->hasTable('forms')
+            || !$schema->hasTable('form_fields')
+        ) {
+            return [];
+        }
+
+        $db = DB::connection('tenant');
+
+        $forms = $db->table('forms')
+            ->orderBy('id')
+            ->get();
+
+        $authForm = null;
+
+        /*
+         * Protected Core default takes priority.
+         */
+        foreach ($forms as $form) {
+            $settings = json_decode(
+                (string) ($form->settings ?? ''),
+                true
+            );
+
+            $settings = is_array($settings)
+                ? $settings
+                : [];
+
+            $coreDefault = (string) (
+                $settings['core_default_form']
+                ?? ''
+            );
+
+            if ($coreDefault === 'password_reset') {
+                $coreDefault = 'password-reset';
+            }
+
+            if ($coreDefault === $purpose) {
+                $authForm = $form;
+                break;
+            }
+        }
+
+        /*
+         * Explicit Authentication Form fallback.
+         */
+        if (!$authForm) {
+            $expected =
+                'authentication.' . $purpose;
+
+            foreach ($forms as $form) {
+                $settings = json_decode(
+                    (string) ($form->settings ?? ''),
+                    true
+                );
+
+                $settings = is_array($settings)
+                    ? $settings
+                    : [];
+
+                if (
+                    ($settings['purpose'] ?? null)
+                    === $expected
+                ) {
+                    $authForm = $form;
+                    break;
+                }
+            }
+        }
+
+        if (!$authForm) {
+            return [];
+        }
+
+        return $db->table('form_fields')
+            ->where(
+                'form_id',
+                (int) $authForm->id
+            )
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get()
+            ->map(
+                static function ($record) {
+                    $options = [];
+
+                    if (
+                        isset($record->options)
+                        && is_string($record->options)
+                        && trim($record->options) !== ''
+                    ) {
+                        $decoded = json_decode(
+                            $record->options,
+                            true
+                        );
+
+                        if (is_array($decoded)) {
+                            $options = $decoded;
+                        }
+                    }
+
+                    return [
+                        'key' => (string) (
+                            $record->name
+                            ?? ''
+                        ),
+                        'name' => (string) (
+                            $record->name
+                            ?? ''
+                        ),
+                        'label' => (string) (
+                            $record->label
+                            ?? ''
+                        ),
+                        'type' => (string) (
+                            $record->type
+                            ?? 'text'
+                        ),
+                        'required' =>
+                            (bool) (
+                                $record->required
+                                ?? false
+                            ),
+                        'options' => $options,
+                    ];
+                }
+            )
+            ->filter(
+                static fn ($field) =>
+                    trim($field['name']) !== ''
+                    && trim($field['label']) !== ''
+            )
+            ->values()
+            ->all();
+    }
+
     public function showLogin()
     {
         $website = $this->currentWebsite();
@@ -4493,6 +5149,12 @@ private function tenantAuthBranding($website): array
                 'authPageConfig',
                 $this->tenantPublicAuthConfig(
                     $website,
+                    'login'
+                )
+            )
+            ->with(
+                'authFormFields',
+                $this->tenantPublicAuthFormFields(
                     'login'
                 )
             );
@@ -4696,6 +5358,12 @@ private function tenantAuthBranding($website): array
 
     public function login(Request $request)
     {
+
+        $coreLoginAuthConfig =
+            $this->tenantCoreAuthFormConfig(
+                'login'
+            );
+
         $website = $this->currentWebsite();
 
         /*
@@ -5035,7 +5703,43 @@ private function tenantAuthBranding($website): array
             );
         }
 
-        return $response;
+        
+        /*
+         * ESUBIZ_CORE_AUTH_FORM_LOGIN_REDIRECT_V4
+         *
+         * Successful Core Login may use the redirect configured
+         * on its canonical Login Auth Form.
+         *
+         * Empty or unsafe values preserve the existing login
+         * success destination below.
+         */
+        $coreLoginRedirect =
+            trim(
+                (string) (
+                    $coreLoginAuthConfig[
+                        'redirect'
+                    ]
+                    ?? ''
+                )
+            );
+
+        $coreLoginRedirectIsLocal =
+            $coreLoginRedirect !== ''
+            && str_starts_with(
+                $coreLoginRedirect,
+                '/'
+            )
+            && !str_starts_with(
+                $coreLoginRedirect,
+                '//'
+            );
+
+        if ($coreLoginRedirectIsLocal) {
+            return redirect()->to(
+                $coreLoginRedirect
+            );
+        }
+return $response;
     }
 
 
@@ -5061,6 +5765,13 @@ private function tenantAuthBranding($website): array
 
     public function register(Request $request)
     {
+
+        $coreRegistrationAuthConfig =
+            $this->tenantCoreAuthFormConfig(
+                'registration'
+            );
+
+
         $website = $this->currentWebsite();
 
         /*
@@ -5145,6 +5856,65 @@ private function tenantAuthBranding($website): array
                 'updated_at' => now(),
             ]);
 
+        /*
+         * ESUBIZ_CORE_AUTH_FORM_REGISTRATION_ROLE_V3
+         *
+         * Apply the role configured for this Registration
+         * Auth Form.
+         */
+        $coreRegistrationRoleId =
+            $coreRegistrationAuthConfig[
+                'role_id'
+            ]
+            ?? null;
+
+        if (
+            $coreRegistrationRoleId
+            && \Illuminate\Support\Facades\Schema::connection('tenant')
+                ->hasTable('site_roles')
+            && \Illuminate\Support\Facades\Schema::connection('tenant')
+                ->hasTable('site_user_roles')
+            && $db
+                ->table('site_roles')
+                ->where(
+                    'id',
+                    $coreRegistrationRoleId
+                )
+                ->exists()
+        ) {
+            $coreRegistrationRoleAttached = $db
+                ->table('site_user_roles')
+                ->where(
+                    'user_id',
+                    $userId
+                )
+                ->where(
+                    'role_id',
+                    $coreRegistrationRoleId
+                )
+                ->exists();
+
+            if (!$coreRegistrationRoleAttached) {
+                $db
+                    ->table('site_user_roles')
+                    ->insert([
+                        'user_id' =>
+                            $userId,
+
+                        'role_id' =>
+                            $coreRegistrationRoleId,
+
+                        'created_at' =>
+                            now(),
+
+                        'updated_at' =>
+                            now(),
+                    ]);
+            }
+        }
+
+
+
         $websiteId = (int) $website->id;
 
         $request->session()->put(
@@ -5197,6 +5967,30 @@ private function tenantAuthBranding($website): array
 
         $request->session()->regenerate();
 
+
+        /*
+         * ESUBIZ_CORE_AUTH_FORM_REGISTRATION_REDIRECT_V3
+         *
+         * A configured Core Auth Form redirect overrides the
+         * existing success destination. Empty configuration
+         * leaves the existing Core redirect untouched.
+         */
+        $coreRegistrationRedirect =
+            trim(
+                (string) (
+                    $coreRegistrationAuthConfig[
+                        'redirect'
+                    ]
+                    ?? ''
+                )
+            );
+
+        if ($coreRegistrationRedirect !== '') {
+            return redirect()->to(
+                $coreRegistrationRedirect
+            );
+        }
+
         return redirect()->route(
             'tenant.cms.dashboard',
             [
@@ -5224,6 +6018,19 @@ private function tenantAuthBranding($website): array
                 $this->tenantPublicAuthConfig(
                     $website,
                     'forgot'
+                )
+            )
+            ->with(
+                'authFormFields',
+                array_values(
+                    array_filter(
+                        $this->tenantPublicAuthFormFields(
+                            'password-reset'
+                        ),
+                        static fn ($field) =>
+                            ($field['name'] ?? '')
+                            === 'email'
+                    )
                 )
             );
     }
@@ -5383,6 +6190,25 @@ private function tenantAuthBranding($website): array
                     $website,
                     'reset'
                 )
+            )
+            ->with(
+                'authFormFields',
+                array_values(
+                    array_filter(
+                        $this->tenantPublicAuthFormFields(
+                            'password-reset'
+                        ),
+                        static fn ($field) =>
+                            in_array(
+                                $field['name'] ?? '',
+                                [
+                                    'password',
+                                    'password_confirmation',
+                                ],
+                                true
+                            )
+                    )
+                )
             );
     }
 
@@ -5537,48 +6363,362 @@ private function tenantAuthBranding($website): array
      * Same Core behaviour for SaaS and off-server.
      */
     private function tenantPublicRegistrationFields(): array
-    {
-        $raw = DB::connection('tenant')
-            ->table('site_settings')
-            ->where(
-                'key',
-                'auth.registration_fields'
-            )
-            ->value('value');
+{
+    /*
+     * ESUBIZ_CORE_REGISTRATION_FORM_RUNTIME_V1
+     *
+     * Core Forms/form_fields is the canonical source for the
+     * public Registration form.
+     *
+     * Legacy auth.registration_fields is used only to seed an
+     * empty canonical Registration form. Once Core fields exist,
+     * the legacy setting is never used as the runtime source.
+     */
+    $db = DB::connection('tenant');
 
-        if (
-            !is_string($raw)
-            || trim($raw) === ''
-        ) {
-            return [];
-        }
+    if (
+        !\Illuminate\Support\Facades\Schema::connection('tenant')
+            ->hasTable('forms')
+        || !\Illuminate\Support\Facades\Schema::connection('tenant')
+            ->hasTable('form_fields')
+    ) {
+        return [];
+    }
 
-        $fields = json_decode(
-            $raw,
+    $registrationForm = null;
+
+    $forms = $db->table('forms')
+        ->orderBy('id')
+        ->get();
+
+    /*
+     * Prefer the protected Core default Registration form.
+     */
+    foreach ($forms as $form) {
+        $settings = json_decode(
+            (string) ($form->settings ?? ''),
             true
         );
 
-        if (!is_array($fields)) {
-            return [];
+        $settings = is_array($settings)
+            ? $settings
+            : [];
+
+        if (
+            ($settings['core_default_form'] ?? null)
+                === 'registration'
+        ) {
+            $registrationForm = $form;
+            break;
         }
+    }
 
-        return array_values(
-            array_filter(
-                $fields,
-                static function ($field) {
+    /*
+     * If no Core-default record exists, use the first Core Form
+     * explicitly classified for Registration authentication.
+     */
+    if (!$registrationForm) {
+        foreach ($forms as $form) {
+            $settings = json_decode(
+                (string) ($form->settings ?? ''),
+                true
+            );
 
-                    if (!is_array($field)) {
-                        return false;
-                    }
+            $settings = is_array($settings)
+                ? $settings
+                : [];
 
-                    return filter_var(
-                        $field['enabled'] ?? true,
+            if (
+                ($settings['purpose'] ?? null)
+                    === 'authentication.registration'
+            ) {
+                $registrationForm = $form;
+                break;
+            }
+        }
+    }
+
+    if (!$registrationForm) {
+        return [];
+    }
+
+    $formId = (int) $registrationForm->id;
+
+    /*
+     * Safe one-time migration for older Core installs.
+     *
+     * Never overwrite an existing Core Form Builder definition.
+     */
+    $existingCount = $db->table('form_fields')
+        ->where('form_id', $formId)
+        ->count();
+
+    if ($existingCount === 0) {
+        $rawLegacy = $db->table('site_settings')
+            ->where('key', 'auth.registration_fields')
+            ->value('value');
+
+        $legacyFields = is_string($rawLegacy)
+            ? json_decode($rawLegacy, true)
+            : null;
+
+        if (is_array($legacyFields)) {
+            $now = now();
+            $sortOrder = 0;
+
+            foreach ($legacyFields as $legacyField) {
+                if (!is_array($legacyField)) {
+                    continue;
+                }
+
+                if (
+                    array_key_exists('enabled', $legacyField)
+                    && !filter_var(
+                        $legacyField['enabled'],
                         FILTER_VALIDATE_BOOLEAN
+                    )
+                ) {
+                    continue;
+                }
+
+                $name = trim(
+                    (string) (
+                        $legacyField['key']
+                        ?? $legacyField['name']
+                        ?? ''
+                    )
+                );
+
+                $label = trim(
+                    (string) (
+                        $legacyField['label']
+                        ?? ''
+                    )
+                );
+
+                if ($name === '' || $label === '') {
+                    continue;
+                }
+
+                $type = (string) (
+                    $legacyField['type']
+                    ?? 'text'
+                );
+
+                if (
+                    !in_array(
+                        $type,
+                        [
+                            'text',
+                            'email',
+                            'tel',
+                            'number',
+                            'date',
+                            'textarea',
+                            'select',
+                            'checkbox',
+                            'radio',
+                            'password',
+                        ],
+                        true
+                    )
+                ) {
+                    $type = 'text';
+                }
+
+                $options =
+                    $legacyField['options']
+                    ?? null;
+
+                if (
+                    is_string($options)
+                    && trim($options) !== ''
+                ) {
+                    $options = array_values(
+                        array_filter(
+                            array_map(
+                                'trim',
+                                preg_split(
+                                    '/[\r\n,]+/',
+                                    $options
+                                )
+                            ),
+                            static fn ($value) =>
+                                $value !== ''
+                        )
                     );
                 }
-            )
-        );
+
+                if (
+                    !is_array($options)
+                    || empty($options)
+                ) {
+                    $options = null;
+                }
+
+                $db->table('form_fields')->insert([
+                    'form_id' => $formId,
+                    'name' => $name,
+                    'label' => $label,
+                    'type' => $type,
+                    'required' => (bool) (
+                        $legacyField['required']
+                        ?? false
+                    ),
+                    'options' =>
+                        $options === null
+                            ? null
+                            : json_encode($options),
+                    'sort_order' => $sortOrder++,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
+        }
     }
+
+    $records = $db->table('form_fields')
+        ->where('form_id', $formId)
+        ->orderBy('sort_order')
+        ->orderBy('id')
+        ->get();
+
+    $protected = [
+        'name',
+        'email',
+        'password',
+        'password_confirmation',
+    ];
+
+    $fields = [];
+
+    foreach ($records as $record) {
+        $name = trim(
+            (string) ($record->name ?? '')
+        );
+
+        $label = trim(
+            (string) ($record->label ?? '')
+        );
+
+        if ($name === '' || $label === '') {
+            continue;
+        }
+
+        $options = null;
+
+        if (
+            isset($record->options)
+            && is_string($record->options)
+            && trim($record->options) !== ''
+        ) {
+            $decoded = json_decode(
+                $record->options,
+                true
+            );
+
+            if (is_array($decoded)) {
+                $options = $decoded;
+            }
+        }
+
+        $fields[] = [
+            'key' => $name,
+            'name' => $name,
+            'label' => $label,
+            'type' => (string) (
+                $record->type
+                ?? 'text'
+            ),
+            'placeholder' => '',
+            'required' =>
+                (bool) ($record->required ?? false),
+            'system' =>
+                in_array(
+                    $name,
+                    $protected,
+                    true
+                ),
+            'enabled' => true,
+            'options' => $options ?? [],
+        ];
+    }
+
+    /*
+     * Registration authentication cannot operate without these
+     * protected Core identity/credential fields.
+     *
+     * Keep them available even if an old/custom Form Builder
+     * record was incomplete.
+     */
+    $requiredSystemFields = [
+        'name' => [
+            'key' => 'name',
+            'name' => 'name',
+            'label' => 'Name',
+            'type' => 'text',
+            'placeholder' => '',
+            'required' => true,
+            'system' => true,
+            'enabled' => true,
+            'options' => [],
+        ],
+        'email' => [
+            'key' => 'email',
+            'name' => 'email',
+            'label' => 'Email',
+            'type' => 'email',
+            'placeholder' => '',
+            'required' => true,
+            'system' => true,
+            'enabled' => true,
+            'options' => [],
+        ],
+        'password' => [
+            'key' => 'password',
+            'name' => 'password',
+            'label' => 'Password',
+            'type' => 'password',
+            'placeholder' => '',
+            'required' => true,
+            'system' => true,
+            'enabled' => true,
+            'options' => [],
+        ],
+        'password_confirmation' => [
+            'key' => 'password_confirmation',
+            'name' => 'password_confirmation',
+            'label' => 'Confirm Password',
+            'type' => 'password',
+            'placeholder' => '',
+            'required' => true,
+            'system' => true,
+            'enabled' => true,
+            'options' => [],
+        ],
+    ];
+
+    $existingNames = array_values(
+        array_filter(
+            array_map(
+                static fn ($field) =>
+                    $field['key'] ?? null,
+                $fields
+            )
+        )
+    );
+
+    foreach (
+        $requiredSystemFields
+        as $name => $definition
+    ) {
+        if (!in_array($name, $existingNames, true)) {
+            $fields[] = $definition;
+        }
+    }
+
+    return $fields;
+}
 
 
     public function showRegister()
@@ -5633,6 +6773,106 @@ private function tenantAuthBranding($website): array
      */
     public function logout(Request $request)
     {
+
+        /*
+         * ESUBIZ_CORE_REMEMBER_LOGOUT_CLEANUP_V5
+         *
+         * Revoke Core-local persistent Remember Me state
+         * before the existing logout/session cleanup runs.
+         */
+        $coreLogoutUserId =
+            session(
+                'tenant_cms_user_id'
+            );
+
+        if (
+            $coreLogoutUserId
+            && \Illuminate\Support\Facades\Schema::connection('tenant')
+                ->hasTable('site_users')
+        ) {
+            $coreSiteUserColumns =
+                \Illuminate\Support\Facades\Schema::connection('tenant')
+                    ->getColumnListing(
+                        'site_users'
+                    );
+
+            $coreRememberClear = [];
+
+            foreach (
+                $coreSiteUserColumns
+                as $coreSiteUserColumn
+            ) {
+                $coreRememberColumnName =
+                    strtolower(
+                        (string) $coreSiteUserColumn
+                    );
+
+                $coreIsRememberTokenColumn =
+                    str_contains(
+                        $coreRememberColumnName,
+                        'remember'
+                    )
+                    && (
+                        str_contains(
+                            $coreRememberColumnName,
+                            'token'
+                        )
+                        || str_contains(
+                            $coreRememberColumnName,
+                            'expire'
+                        )
+                    );
+
+                if ($coreIsRememberTokenColumn) {
+                    $coreRememberClear[
+                        $coreSiteUserColumn
+                    ] = null;
+                }
+            }
+
+            if ($coreRememberClear !== []) {
+                DB::connection('tenant')
+                    ->table('site_users')
+                    ->where(
+                        'id',
+                        $coreLogoutUserId
+                    )
+                    ->update(
+                        $coreRememberClear
+                    );
+            }
+        }
+
+        /*
+         * Forget persistent Core remember cookies.
+         *
+         * This is scoped to cookies present on the current
+         * Core request and does not touch Central Esubiz.
+         */
+        foreach (
+            array_keys(
+                request()
+                    ->cookies
+                    ->all()
+            )
+            as $coreCookieName
+        ) {
+            if (
+                str_contains(
+                    strtolower(
+                        (string) $coreCookieName
+                    ),
+                    'remember'
+                )
+            ) {
+                \Illuminate\Support\Facades\Cookie::queue(
+                    \Illuminate\Support\Facades\Cookie::forget(
+                        $coreCookieName
+                    )
+                );
+            }
+        }
+
         $website = $this->currentWebsite();
         $websiteId = (int) $website->id;
 
@@ -5666,5 +6906,156 @@ private function tenantAuthBranding($website): array
 
         return redirect()->to('/login');
     }
+
+
+
+    /*
+     * ESUBIZ_CORE_AUTH_FORM_RUNTIME_CONFIG_V3
+     *
+     * Runtime configuration is read directly from the
+     * canonical Core Form settings record.
+     */
+    private function tenantCoreAuthFormConfig(
+        string $purpose
+    ): array {
+        $purpose = trim(
+            strtolower($purpose)
+        );
+
+        if (
+            !in_array(
+                $purpose,
+                [
+                    'registration',
+                    'login',
+                    'password-reset',
+                ],
+                true
+            )
+        ) {
+            return [];
+        }
+
+        if (
+            !\Illuminate\Support\Facades\Schema::connection('tenant')
+                ->hasTable('forms')
+        ) {
+            return [];
+        }
+
+        $db = DB::connection('tenant');
+
+        $forms = $db
+            ->table('forms')
+            ->orderBy('id')
+            ->get();
+
+        $selected = null;
+
+        /*
+         * Core protected default form has priority.
+         */
+        foreach ($forms as $form) {
+            $settings = json_decode(
+                (string) ($form->settings ?? ''),
+                true
+            );
+
+            $settings = is_array($settings)
+                ? $settings
+                : [];
+
+            $coreDefault = (string) (
+                $settings['core_default_form']
+                ?? ''
+            );
+
+            if (
+                $coreDefault === 'password_reset'
+            ) {
+                $coreDefault = 'password-reset';
+            }
+
+            if (
+                $coreDefault === $purpose
+            ) {
+                $selected = [
+                    'form' => $form,
+                    'settings' => $settings,
+                ];
+
+                break;
+            }
+        }
+
+        /*
+         * Otherwise use a custom Core Auth Form.
+         */
+        if (!$selected) {
+            foreach ($forms as $form) {
+                $settings = json_decode(
+                    (string) ($form->settings ?? ''),
+                    true
+                );
+
+                $settings = is_array($settings)
+                    ? $settings
+                    : [];
+
+                if (
+                    (
+                        $settings['purpose']
+                        ?? null
+                    )
+                    ===
+                    'authentication.' . $purpose
+                ) {
+                    $selected = [
+                        'form' => $form,
+                        'settings' => $settings,
+                    ];
+
+                    break;
+                }
+            }
+        }
+
+        if (!$selected) {
+            return [];
+        }
+
+        $authConfig =
+            $selected['settings']['auth_config']
+            ?? [];
+
+        $authConfig = is_array($authConfig)
+            ? $authConfig
+            : [];
+
+        return [
+            'form_id' =>
+                (int) $selected['form']->id,
+
+            'purpose' =>
+                $purpose,
+
+            'redirect' =>
+                trim(
+                    (string) (
+                        $authConfig['redirect']
+                        ?? ''
+                    )
+                ),
+
+            'role_id' =>
+                is_numeric(
+                    $authConfig['role_id']
+                    ?? null
+                )
+                    ? (int) $authConfig['role_id']
+                    : null,
+        ];
+    }
+
 
 }

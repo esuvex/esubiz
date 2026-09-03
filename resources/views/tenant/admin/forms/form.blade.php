@@ -106,6 +106,119 @@
                 </div>
             </div>
 
+            {{-- ESUBIZ_CORE_AUTH_FORM_CLASSIFICATION_V1 --}}
+            <div class="mt-5 grid gap-5 md:grid-cols-2">
+
+                <div>
+                    <label class="mb-2 block text-sm font-black text-slate-700">
+                        Form Type
+                    </label>
+
+                    @php
+                        $selectedFormType = old(
+                            'form_type',
+                            !empty($isAuthenticationForm)
+                                ? 'authentication'
+                                : 'standard'
+                        );
+                    @endphp
+
+                    <select
+                        name="form_type"
+                        data-core-form-type
+                        {{ $isSystemForm ? 'disabled' : '' }}
+                        class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-700"
+                    >
+                        <option
+                            value="standard"
+                            {{ $selectedFormType === 'standard' ? 'selected' : '' }}
+                        >
+                            Standard Form
+                        </option>
+
+                        <option
+                            value="authentication"
+                            {{ $selectedFormType === 'authentication' ? 'selected' : '' }}
+                        >
+                            Authentication Form
+                        </option>
+                    </select>
+
+                    @if($isSystemForm)
+                        <input
+                            type="hidden"
+                            name="form_type"
+                            value="{{ !empty($isAuthenticationForm) ? 'authentication' : 'standard' }}"
+                        >
+                    @endif
+
+                    <p class="mt-2 text-xs text-slate-500">
+                        Authentication forms are used by Core login, registration or password reset.
+                    </p>
+                </div>
+
+                <div
+                    data-core-auth-purpose-wrap
+                    class="{{ $selectedFormType === 'authentication' ? '' : 'hidden' }}"
+                >
+                    <label class="mb-2 block text-sm font-black text-slate-700">
+                        Authentication Purpose
+                    </label>
+
+                    @php
+                        $selectedAuthPurpose = old(
+                            'authentication_purpose',
+                            $authenticationPurpose ?? ''
+                        );
+                    @endphp
+
+                    <select
+                        name="authentication_purpose"
+                        data-core-auth-purpose
+                        {{ $isSystemForm ? 'disabled' : '' }}
+                        class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-slate-700"
+                    >
+                        <option value="">
+                            Select purpose
+                        </option>
+
+                        <option
+                            value="registration"
+                            {{ $selectedAuthPurpose === 'registration' ? 'selected' : '' }}
+                        >
+                            Registration
+                        </option>
+
+                        <option
+                            value="login"
+                            {{ $selectedAuthPurpose === 'login' ? 'selected' : '' }}
+                        >
+                            Login
+                        </option>
+
+                        <option
+                            value="password-reset"
+                            {{ $selectedAuthPurpose === 'password-reset' ? 'selected' : '' }}
+                        >
+                            Password Reset
+                        </option>
+                    </select>
+
+                    @if($isSystemForm)
+                        <input
+                            type="hidden"
+                            name="authentication_purpose"
+                            value="{{ $selectedAuthPurpose }}"
+                        >
+                    @endif
+
+                    <p class="mt-2 text-xs text-slate-500">
+                        This tells Core where the form is used in authentication.
+                    </p>
+                </div>
+
+            </div>
+
             <div class="mt-5">
                 <label class="mb-2 block text-sm font-black text-slate-700">
                     Description
@@ -1290,3 +1403,46 @@ document.addEventListener(
 
 </script>
 @endsection
+
+
+{{-- ESUBIZ_CORE_AUTH_FORM_CLASSIFICATION_UI_V1 --}}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const type = document.querySelector(
+        '[data-core-form-type]'
+    );
+
+    const purposeWrap = document.querySelector(
+        '[data-core-auth-purpose-wrap]'
+    );
+
+    const purpose = document.querySelector(
+        '[data-core-auth-purpose]'
+    );
+
+    if (!type || !purposeWrap) {
+        return;
+    }
+
+    const syncAuthPurpose = function () {
+        const isAuth =
+            type.value === 'authentication';
+
+        purposeWrap.classList.toggle(
+            'hidden',
+            !isAuth
+        );
+
+        if (purpose) {
+            purpose.required = isAuth;
+        }
+    };
+
+    type.addEventListener(
+        'change',
+        syncAuthPurpose
+    );
+
+    syncAuthPurpose();
+});
+</script>

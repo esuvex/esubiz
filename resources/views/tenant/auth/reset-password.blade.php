@@ -856,6 +856,38 @@ form .error{
 >
     @csrf
 
+    {{-- ESUBIZ_CORE_AUTH_FORM_BLADE_BINDING_V1 --}}
+    @php
+        $coreResetFields = collect(
+            $authFormFields ?? []
+        )->keyBy('name');
+
+        /*
+         * The reset URL's email remains part of the secure
+         * token/account flow. Password labels come from the
+         * canonical Password Reset Core Form.
+         */
+        $coreResetPassword =
+            $coreResetFields->get(
+                'password',
+                [
+                    'label' => 'New password',
+                    'type' => 'password',
+                    'required' => true,
+                ]
+            );
+
+        $coreResetPasswordConfirmation =
+            $coreResetFields->get(
+                'password_confirmation',
+                [
+                    'label' => 'Confirm new password',
+                    'type' => 'password',
+                    'required' => true,
+                ]
+            );
+    @endphp
+
     <input
         type="hidden"
         name="token"
@@ -879,7 +911,7 @@ form .error{
 
     <div class="field">
         <label for="password">
-            New password
+            {{ $coreResetPassword['label'] ?? 'New password' }}
         </label>
 
         <div class="input-wrap">
@@ -906,7 +938,10 @@ form .error{
 
     <div class="field">
         <label for="password_confirmation">
-            Confirm new password
+            {{
+                $coreResetPasswordConfirmation['label']
+                ?? 'Confirm new password'
+            }}
         </label>
 
         <div class="input-wrap">
