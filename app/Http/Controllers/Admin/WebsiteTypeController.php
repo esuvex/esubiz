@@ -43,6 +43,13 @@ class WebsiteTypeController extends Controller
             'icon' => ['nullable', 'string', 'max:255'],
             'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:5120'],
             'is_active' => ['nullable', 'boolean'],
+            'show_in_user_wizard' => ['nullable', 'boolean'],
+            'show_in_developer_wizard' => ['nullable', 'boolean'],
+            'wizard_settings' => ['nullable', 'array'],
+            'saas_price' => ['nullable', 'numeric', 'min:0'],
+            'saas_billing_period' => ['nullable', 'integer', 'min:1', 'required_with:saas_price'],
+            'saas_billing_interval' => ['nullable', 'string', 'max:20', 'required_with:saas_price'],
+            'off_server_price' => ['nullable', 'numeric', 'min:0'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ]);
 
@@ -91,6 +98,10 @@ class WebsiteTypeController extends Controller
                 );
         }
 
+        $validated['is_active'] = $request->boolean('is_active');
+        $validated['show_in_user_wizard'] = $request->boolean('show_in_user_wizard');
+        $validated['show_in_developer_wizard'] = $request->boolean('show_in_developer_wizard');
+
         WebsiteType::create($validated);
 
         return redirect()
@@ -126,6 +137,13 @@ class WebsiteTypeController extends Controller
             'icon' => ['nullable', 'string', 'max:255'],
             'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:5120'],
             'is_active' => ['nullable', 'boolean'],
+            'show_in_user_wizard' => ['nullable', 'boolean'],
+            'show_in_developer_wizard' => ['nullable', 'boolean'],
+            'wizard_settings' => ['nullable', 'array'],
+            'saas_price' => ['nullable', 'numeric', 'min:0'],
+            'saas_billing_period' => ['nullable', 'integer', 'min:1', 'required_with:saas_price'],
+            'saas_billing_interval' => ['nullable', 'string', 'max:20', 'required_with:saas_price'],
+            'off_server_price' => ['nullable', 'numeric', 'min:0'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ]);
 
@@ -192,6 +210,10 @@ class WebsiteTypeController extends Controller
                 $validated['image']
             );
         }
+
+        $validated['is_active'] = $request->boolean('is_active');
+        $validated['show_in_user_wizard'] = $request->boolean('show_in_user_wizard');
+        $validated['show_in_developer_wizard'] = $request->boolean('show_in_developer_wizard');
 
         $websiteType->update($validated);
 

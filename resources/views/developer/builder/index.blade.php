@@ -66,18 +66,108 @@
                 <label for="website_type" class="block text-sm font-semibold text-slate-700">
                     Website Type
                 </label>
-                <select
-                    id="website_type"
-                    name="website_type"
-                    required
-                    class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
-                    <option value="">Select website type</option>
-                    <option value="business" @selected(old('website_type') === 'business')>Business Website</option>
-                    <option value="ecommerce" @selected(old('website_type') === 'ecommerce')>E-commerce Website</option>
-                    <option value="portfolio" @selected(old('website_type') === 'portfolio')>Portfolio Website</option>
-                    <option value="blog" @selected(old('website_type') === 'blog')>Blog / Magazine</option>
-                    <option value="landing" @selected(old('website_type') === 'landing')>Landing Page</option>
-                </select>
+                {{-- ESUBIZ_DEVELOPER_WEBSITE_TYPE_PICKER_V2 --}}
+                <div
+                    id="website-type-picker"
+                    class="relative"
+                    data-selected="{{ old('website_type') }}"
+                >
+                    <input
+                        type="hidden"
+                        name="website_type"
+                        id="website_type"
+                        value="{{ old('website_type') }}"
+                    >
+
+                    <button
+                        type="button"
+                        id="website-type-trigger"
+                        class="flex w-full items-center justify-between gap-4 rounded-xl border border-slate-300 bg-white px-4 py-3 text-left outline-none transition hover:border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    >
+                        <span class="flex min-w-0 items-center gap-3">
+                            <span
+                                id="website-type-selected-icon"
+                                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-lg"
+                            >
+                                ◈
+                            </span>
+
+                            <span class="min-w-0">
+                                <span
+                                    id="website-type-selected-name"
+                                    class="block truncate font-semibold text-slate-700"
+                                >
+                                    Select Website Type
+                                </span>
+
+                                <span
+                                    id="website-type-selected-price"
+                                    class="hidden text-xs font-semibold text-slate-500"
+                                ></span>
+                            </span>
+                        </span>
+
+                        <span class="shrink-0 text-slate-400">⌄</span>
+                    </button>
+
+                    <div
+                        id="website-type-menu"
+                        class="absolute left-0 right-0 z-30 mt-2 hidden max-h-80 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-xl"
+                    >
+                        @forelse($websiteTypes as $websiteType)
+                            @php
+                                $showDeveloperPrice = (bool) data_get(
+                                    $websiteType->wizard_settings,
+                                    'show_developer_price',
+                                    true
+                                );
+
+                                $developerPrice = $websiteType->off_server_price;
+
+                                $developerPriceLabel = $developerPrice === null
+                                    ? 'Free'
+                                    : '₦' . number_format((float) $developerPrice, 2);
+                                $iconSymbol = config(
+                                    'website_type_icons.' . $websiteType->icon,
+                                    '🌐'
+                                );
+
+                            @endphp
+
+                            <button
+                                type="button"
+                                class="website-type-option flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-slate-50"
+                                data-value="{{ $websiteType->slug }}"
+                                data-name="{{ $websiteType->name }}"
+                                data-icon="{{ $websiteType->icon }}"
+                                data-icon-symbol="{{ $iconSymbol }}"
+                                data-show-price="{{ $showDeveloperPrice ? '1' : '0' }}"
+                                data-price="{{ $developerPrice ?? 0 }}"
+                                data-price-label="{{ $developerPriceLabel }}"
+                            >
+                                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-lg">
+                                    <span>{{ $iconSymbol }}</span>
+                                </span>
+
+                                <span class="min-w-0 flex-1">
+                                    <span class="block truncate font-bold text-slate-900">
+                                        {{ $websiteType->name }}
+                                    </span>
+
+                                    @if($showDeveloperPrice)
+                                        <span class="mt-0.5 block text-xs font-semibold text-slate-500">
+                                            {{ $developerPriceLabel }}
+                                        </span>
+                                    @endif
+                                </span>
+                            </button>
+                        @empty
+                            <div class="px-4 py-5 text-center text-sm text-slate-500">
+                                No Website Types are currently available.
+                            </div>
+                        @endforelse
+                    </div>
+                </div>
                 @error('website_type')
                     <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                 @enderror
@@ -86,59 +176,107 @@
     </section>
 
     {{-- Add-ons --}}
+    {{-- ESUBIZ_OPTIONAL_COMPACT_BUNDLES_V2 --}}
     <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div class="mb-6">
-            <h2 class="text-lg font-bold text-slate-900">Add-ons</h2>
-            <p class="mt-1 text-sm text-slate-500">
-                Choose the add-on bundle that will be included in the compiled website.
-            </p>
+        <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <div class="flex items-center gap-2">
+                    <h2 class="text-lg font-bold text-slate-900">Add-ons</h2>
+
+                    <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-500">
+                        Optional
+                    </span>
+                </div>
+
+                <p class="mt-1 text-sm text-slate-500">
+                    Add an off-server bundle to your compiled website if required.
+                </p>
+            </div>
+
+            <button
+                type="button"
+                id="clear-addon-bundle"
+                class="hidden rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-50"
+            >
+                Remove selection
+            </button>
         </div>
 
         @if($addonBundles->isEmpty())
-            <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
+            <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center">
                 <p class="font-semibold text-slate-700">No add-on bundles available</p>
                 <p class="mt-1 text-sm text-slate-500">
                     Add-on bundles created by Esubiz will appear here.
                 </p>
             </div>
         @else
-            <div class="grid gap-4 md:grid-cols-2">
+            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 @foreach($addonBundles as $bundle)
-                    <label class="block cursor-pointer rounded-2xl border border-slate-200 bg-slate-50 p-5 hover:border-blue-300 hover:bg-blue-50">
+                    @php
+                        $bundlePrice = $bundle->off_server_available
+                            ? (float) $bundle->off_server_price
+                            : 0;
+
+                        $bundlePriceLabel = $bundle->off_server_available
+                            ? $bundle->off_server_currency . ' ' . number_format($bundlePrice, 2)
+                            : 'Included';
+                    @endphp
+
+                    <div
+                        class="addon-bundle-card rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-blue-300 hover:shadow-sm"
+                        data-bundle-id="{{ $bundle->id }}"
+                    >
                         <div class="flex items-start gap-3">
                             <input
                                 type="radio"
                                 name="addon_bundle"
                                 value="{{ $bundle->id }}"
+                                data-price="{{ $bundlePrice }}"
                                 @checked(old('addon_bundle') == $bundle->id)
-                                class="mt-1"
+                                class="addon-bundle-radio mt-1 h-4 w-4 border-slate-300 text-blue-600 focus:ring-blue-500"
                             >
 
-                            <div class="flex-1">
-                                <p class="font-bold text-slate-900">
-                                    {{ $bundle->name }}
-                                </p>
-
-                                @if($bundle->description)
-                                    <p class="mt-1 text-sm text-slate-500">
-                                        {{ $bundle->description }}
-                                    </p>
-                                @endif
-
-                                @if($bundle->items->isNotEmpty())
-                                    <div class="mt-4">
-                                        <p class="text-xs font-bold uppercase tracking-wide text-slate-500">
-                                            Included add-ons
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="min-w-0">
+                                        <p class="truncate font-bold text-slate-900">
+                                            {{ $bundle->name }}
                                         </p>
 
-                                        <div class="mt-2 space-y-1">
+                                        @if($bundle->description)
+                                            <p class="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
+                                                {{ $bundle->description }}
+                                            </p>
+                                        @endif
+                                    </div>
+
+                                    <span class="shrink-0 text-sm font-bold text-slate-900">
+                                        {{ $bundlePriceLabel }}
+                                    </span>
+                                </div>
+
+                                @if($bundle->items->isNotEmpty())
+                                    <div class="mt-3 border-t border-slate-100 pt-3">
+                                        <div class="mb-2 flex items-center justify-between gap-3">
+                                            <p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                                                Included resources
+                                            </p>
+
+                                            <span class="text-[11px] font-semibold text-slate-400">
+                                                {{ $bundle->items->count() }}
+                                            </span>
+                                        </div>
+
+                                        <div class="space-y-1.5">
                                             @foreach($bundle->items as $item)
-                                                <div class="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-xs">
-                                                    <span class="font-semibold text-slate-700">
+                                                <div
+                                                    class="bundle-resource flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-xs {{ $loop->index >= 5 ? 'hidden' : '' }}"
+                                                >
+                                                    <span class="min-w-0 truncate font-semibold text-slate-700">
                                                         {{ $item->name }}
                                                     </span>
 
-                                                    <span class="font-medium text-slate-500">
+                                                    <span class="shrink-0 font-bold text-slate-500">
                                                         @if($item->is_unlimited)
                                                             Unlimited
                                                         @else
@@ -148,35 +286,21 @@
                                                 </div>
                                             @endforeach
                                         </div>
+
+                                        @if($bundle->items->count() > 5)
+                                            <button
+                                                type="button"
+                                                class="bundle-resource-toggle mt-2 text-xs font-bold text-blue-600 hover:text-blue-800"
+                                                data-expanded="0"
+                                            >
+                                                View more
+                                            </button>
+                                        @endif
                                     </div>
                                 @endif
-
-                                <div class="mt-3 text-sm font-semibold text-slate-700">
-                                    @if($bundle->saas_available)
-                                        {{ $bundle->saas_currency }}
-                                        {{ number_format((float) $bundle->saas_price, 2) }}
-                                        <span class="text-xs font-medium text-slate-400">
-                                            / {{ $bundle->saas_billing_period }}
-                                            {{ $bundle->saas_billing_interval }}
-                                        </span>
-                                    @elseif($bundle->off_server_available)
-                                        {{ $bundle->off_server_currency }}
-                                        {{ number_format((float) $bundle->off_server_price, 2) }}
-                                    @else
-                                        Included
-                                    @endif
-                                </div>
-
-                                <a
-                                    href="{{ route('marketplace.product', ['type' => 'bundle', 'id' => $bundle->id]) }}"
-                                    target="_blank"
-                                    class="mt-2 inline-block text-xs font-semibold text-blue-600 hover:text-blue-800"
-                                >
-                                    View Bundle →
-                                </a>
                             </div>
                         </div>
-                    </label>
+                    </div>
                 @endforeach
             </div>
         @endif
@@ -190,11 +314,27 @@
 
     {{-- Theme --}}
     <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div class="mb-6">
-            <h2 class="text-lg font-bold text-slate-900">Theme</h2>
+        <div class="mb-6 flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <div class="flex items-center gap-2">
+                    <h2 class="text-lg font-bold text-slate-900">Theme</h2>
+
+                    <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-500">
+                        Optional
+                    </span>
+                </div>
             <p class="mt-1 text-sm text-slate-500">
-                Select a marketplace theme or generate a custom theme with AI.
-            </p>
+                    Select a marketplace theme or generate a custom theme with AI.
+                </p>
+            </div>
+
+            <button
+                type="button"
+                id="clear-theme-selection"
+                class="hidden rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-50"
+            >
+                Remove selection
+            </button>
         </div>
 
         @if($themes->isEmpty())
@@ -212,7 +352,9 @@
                             type="radio"
                             name="theme"
                             value="{{ $theme->id }}"
-                            class="peer sr-only"
+                            class="theme-radio peer sr-only"
+                            data-price="{{ $theme->marketplace_price !== null ? (float) $theme->marketplace_price : 0 }}"
+                            data-listing-id="{{ $theme->marketplace_listing_id }}"
                             @checked(old('theme') == $theme->id)>
 
                         <div class="h-full rounded-2xl border border-slate-200 p-5 transition peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:ring-2 peer-checked:ring-blue-100 hover:border-blue-300">
@@ -413,7 +555,13 @@
     {{-- Modules --}}
     <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <div class="mb-6">
-            <h2 class="text-lg font-bold text-slate-900">Modules</h2>
+            <div class="flex items-center gap-2">
+                <h2 class="text-lg font-bold text-slate-900">Modules</h2>
+
+                <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-500">
+                    Optional
+                </span>
+            </div>
             <p class="mt-1 text-sm text-slate-500">
                 Add the business components required by this website.
             </p>
@@ -434,6 +582,8 @@
                             type="checkbox"
                             name="modules[]"
                             value="{{ $module->id }}"
+                                data-price="{{ $module->marketplace_price !== null ? (float) $module->marketplace_price : 0 }}"
+                                data-listing-id="{{ $module->marketplace_listing_id }}"
                             class="peer sr-only"
                             @checked(in_array($module->id, old('modules', [])))>
 
@@ -461,6 +611,38 @@
         @enderror
     </section>
 
+    {{-- ESUBIZ_DEVELOPER_BUILD_TOTAL_V1 --}}
+    <section class="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Compilation total
+                </p>
+
+                <h2 class="mt-1 text-lg font-bold text-slate-900">
+                    Total payable
+                </h2>
+
+                <p class="mt-1 text-sm text-slate-500">
+                    Website Type plus any optional products selected.
+                </p>
+            </div>
+
+            <div class="sm:text-right">
+                <div
+                    id="developer-build-total"
+                    class="text-3xl font-extrabold text-slate-900"
+                >
+                    ₦0.00
+                </div>
+
+                <p class="mt-1 text-xs font-medium text-slate-400">
+                    Off-server purchase
+                </p>
+            </div>
+        </div>
+    </section>
+
     {{-- Submit --}}
     <section class="rounded-3xl bg-slate-900 p-6 text-white shadow-xl">
         <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
@@ -486,6 +668,227 @@
 </form>
 
 <script>
+    (() => {
+        let websiteTypeTotal = 0;
+
+        const renderDeveloperTotal = () => {
+            let total = websiteTypeTotal;
+
+            const readPrice = (element) => {
+                if (!element) {
+                    return 0;
+                }
+
+                const value = Number.parseFloat(
+                    element.dataset.price || '0'
+                );
+
+                return Number.isFinite(value) ? value : 0;
+            };
+
+            total += readPrice(
+                document.querySelector(
+                    'input[name="addon_bundle"]:checked'
+                )
+            );
+
+            total += readPrice(
+                document.querySelector(
+                    'input[name="theme"]:checked'
+                )
+            );
+
+            document.querySelectorAll(
+                'input[name="modules[]"]:checked'
+            ).forEach(module => {
+                total += readPrice(module);
+            });
+
+            const totalDisplay = document.getElementById(
+                'developer-build-total'
+            );
+
+            if (totalDisplay) {
+                totalDisplay.textContent =
+                    '₦' +
+                    total.toLocaleString(
+                        'en-NG',
+                        {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                        }
+                    );
+            }
+        };
+
+        // Website Type custom picker.
+        const picker = document.getElementById('website-type-picker');
+        const trigger = document.getElementById('website-type-trigger');
+        const menu = document.getElementById('website-type-menu');
+        const input = document.getElementById('website_type');
+        const selectedIcon = document.getElementById('website-type-selected-icon');
+        const selectedName = document.getElementById('website-type-selected-name');
+        const selectedPrice = document.getElementById('website-type-selected-price');
+
+        if (picker && trigger && menu && input) {
+            const options = [...picker.querySelectorAll('.website-type-option')];
+
+            const selectOption = (option) => {
+                input.value = option.dataset.value || '';
+
+                const rawWebsiteTypePrice = Number.parseFloat(
+                    option.dataset.price || '0'
+                );
+
+                websiteTypeTotal = Number.isFinite(rawWebsiteTypePrice)
+                    ? rawWebsiteTypePrice
+                    : 0;
+
+                renderDeveloperTotal();
+
+                selectedName.textContent = option.dataset.name || 'Select Website Type';
+
+                const icon = option.dataset.iconSymbol || '◈';
+                selectedIcon.textContent = icon;
+
+                if (option.dataset.showPrice === '1') {
+                    selectedPrice.textContent = option.dataset.priceLabel || 'Free';
+                    selectedPrice.classList.remove('hidden');
+                } else {
+                    selectedPrice.textContent = '';
+                    selectedPrice.classList.add('hidden');
+                }
+
+                menu.classList.add('hidden');
+
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            };
+
+            trigger.addEventListener('click', () => {
+                menu.classList.toggle('hidden');
+            });
+
+            options.forEach(option => {
+                option.addEventListener('click', () => selectOption(option));
+
+                if (option.dataset.value === input.value) {
+                    selectOption(option);
+                }
+            });
+
+            document.addEventListener('click', event => {
+                if (!picker.contains(event.target)) {
+                    menu.classList.add('hidden');
+                }
+            });
+        }
+
+        // Live total for optional Developer products.
+        document.addEventListener('change', event => {
+            if (
+                event.target.matches('input[name="addon_bundle"]') ||
+                event.target.matches('input[name="theme"]') ||
+                event.target.matches('input[name="modules[]"]')
+            ) {
+                renderDeveloperTotal();
+            }
+        });
+
+        document.addEventListener('click', event => {
+            if (
+                event.target.closest('#clear-addon-bundle') ||
+                event.target.closest('#clear-theme-selection')
+            ) {
+                window.requestAnimationFrame(renderDeveloperTotal);
+            }
+        });
+
+        // Optional bundle selection + remove selection.
+        const bundleRadios = [...document.querySelectorAll('.addon-bundle-radio')];
+        const clearBundle = document.getElementById('clear-addon-bundle');
+
+        const syncBundleSelection = () => {
+            const selected = bundleRadios.find(radio => radio.checked);
+
+            document.querySelectorAll('.addon-bundle-card').forEach(card => {
+                const active = selected && card.dataset.bundleId === selected.value;
+
+                card.classList.toggle('border-blue-500', !!active);
+                card.classList.toggle('ring-2', !!active);
+                card.classList.toggle('ring-blue-100', !!active);
+                card.classList.toggle('bg-blue-50', !!active);
+            });
+
+            if (clearBundle) {
+                clearBundle.classList.toggle('hidden', !selected);
+            }
+        };
+
+        bundleRadios.forEach(radio => {
+            radio.addEventListener('change', syncBundleSelection);
+        });
+
+        if (clearBundle) {
+            clearBundle.addEventListener('click', () => {
+                bundleRadios.forEach(radio => {
+                    radio.checked = false;
+                });
+
+                syncBundleSelection();
+            });
+        }
+
+        syncBundleSelection();
+
+        // Optional marketplace theme selection.
+        const themeRadios = [...document.querySelectorAll('.theme-radio')];
+        const clearTheme = document.getElementById('clear-theme-selection');
+
+        const syncThemeSelection = () => {
+            const selectedTheme = themeRadios.find(radio => radio.checked);
+
+            if (clearTheme) {
+                clearTheme.classList.toggle('hidden', !selectedTheme);
+            }
+        };
+
+        themeRadios.forEach(radio => {
+            radio.addEventListener('change', syncThemeSelection);
+        });
+
+        if (clearTheme) {
+            clearTheme.addEventListener('click', () => {
+                themeRadios.forEach(radio => {
+                    radio.checked = false;
+                });
+
+                syncThemeSelection();
+            });
+        }
+
+        syncThemeSelection();
+
+        // Show only five bundle resources until expanded.
+        document.querySelectorAll('.bundle-resource-toggle').forEach(button => {
+            button.addEventListener('click', () => {
+                const card = button.closest('.addon-bundle-card');
+                if (!card) return;
+
+                const resources = [...card.querySelectorAll('.bundle-resource')];
+                const expanded = button.dataset.expanded === '1';
+
+                resources.forEach((resource, index) => {
+                    if (index >= 5) {
+                        resource.classList.toggle('hidden', expanded);
+                    }
+                });
+
+                button.dataset.expanded = expanded ? '0' : '1';
+                button.textContent = expanded ? 'View more' : 'View less';
+            });
+        });
+    })();
+
     (() => {
         const checkbox = document.getElementById('ai_theme');
         const panel = document.getElementById('ai-theme-panel');
@@ -691,6 +1094,75 @@
 
         renderPhotos();
         updatePhotoCount();
+
+        // ESUBIZ_DEVELOPER_BUILD_TOTAL_JS_V1
+        const buildTotal = document.getElementById('developer-build-total');
+
+        const getNumericPrice = (element) => {
+            if (!element) {
+                return 0;
+            }
+
+            const price = Number.parseFloat(element.dataset.price || '0');
+
+            return Number.isFinite(price) ? price : 0;
+        };
+
+        const updateDeveloperBuildTotal = () => {
+            let total = 0;
+
+            total += websiteTypeTotal;
+
+            total += getNumericPrice(
+                document.querySelector('input[name="addon_bundle"]:checked')
+            );
+
+            total += getNumericPrice(
+                document.querySelector('input[name="theme"]:checked')
+            );
+
+            document.querySelectorAll(
+                'input[name="modules[]"]:checked'
+            ).forEach(module => {
+                total += getNumericPrice(module);
+            });
+
+            if (buildTotal) {
+                buildTotal.textContent = new Intl.NumberFormat(
+                    'en-NG',
+                    {
+                        style: 'currency',
+                        currency: 'NGN',
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                    }
+                ).format(total);
+            }
+        };
+
+        document.addEventListener('change', event => {
+            if (
+                event.target.matches('#website_type') ||
+                event.target.matches('input[name="addon_bundle"]') ||
+                event.target.matches('input[name="theme"]') ||
+                event.target.matches('input[name="modules[]"]')
+            ) {
+                updateDeveloperBuildTotal();
+            }
+        });
+
+        document.addEventListener('click', event => {
+            if (
+                event.target.closest('.website-type-option') ||
+                event.target.closest('#clear-bundle-selection') ||
+                event.target.closest('#clear-theme-selection')
+            ) {
+                window.requestAnimationFrame(updateDeveloperBuildTotal);
+            }
+        });
+
+        updateDeveloperBuildTotal();
+
     })();
 </script>
 

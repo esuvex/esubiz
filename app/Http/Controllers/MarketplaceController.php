@@ -3877,8 +3877,14 @@ class MarketplaceController extends Controller
 
     public function checkoutPage(int $order)
     {
+        // ESUBIZ_DEVELOPER_BUILD_CHECKOUT_PAGE_V1
+        //
+        // Use a left join because Developer Builder purchases are
+        // platform-owned orders and intentionally have no Marketplace
+        // listing. Normal Marketplace products continue resolving through
+        // their existing listing and MarketplaceProductResolver path.
         $order = DB::table('marketplace_orders')
-            ->join(
+            ->leftJoin(
                 'marketplace_listings',
                 'marketplace_listings.id',
                 '=',
@@ -3897,16 +3903,45 @@ class MarketplaceController extends Controller
 
         abort_unless($order, 404);
 
-        $resolver = app(
-            \App\Services\Marketplace\MarketplaceProductResolver::class
-        );
+        $developerBuild = null;
+        $resolver = null;
+        $product = null;
 
-        $product = $resolver->resolve(
-            $order->product_type,
-            (int) $order->product_id
-        );
+        if ($order->developer_build_id) {
+            $developerBuild = \App\Models\DeveloperBuild::query()
+                ->where('id', $order->developer_build_id)
+                ->where('developer_id', auth()->id())
+                ->first();
 
-        abort_unless($product, 404);
+            abort_unless($developerBuild, 404);
+
+            $order->product_type = 'developer_build';
+            $order->product_id = $developerBuild->id;
+            $order->listing_title = $developerBuild->project_name;
+            $order->listing_slug = $developerBuild->build_id;
+
+            /*
+             * Give the existing generic checkout view a product-shaped
+             * object without creating a fake Marketplace product/listing.
+             */
+            $product = (object) [
+                'id' => $developerBuild->id,
+                'name' => $developerBuild->project_name,
+                'title' => $developerBuild->project_name,
+                'description' => 'Compiled off-server website',
+            ];
+        } else {
+            $resolver = app(
+                \App\Services\Marketplace\MarketplaceProductResolver::class
+            );
+
+            $product = $resolver->resolve(
+                $order->product_type,
+                (int) $order->product_id
+            );
+
+            abort_unless($product, 404);
+        }
 
         /*
          * Unified checkout route:
@@ -3929,16 +3964,27 @@ class MarketplaceController extends Controller
             'Invalid marketplace deployment type.'
         );
 
-        abort_unless(
-            $resolver->available($product, $deploymentType),
-            422,
-            'This product is not available for the selected deployment type.'
-        );
+        if ($developerBuild) {
+            abort_unless(
+                $deploymentType === 'off_server',
+                422,
+                'Developer Build checkout requires off-server deployment.'
+            );
 
-        $price = $resolver->price($product, $deploymentType);
-        $currency = $resolver->currency($product, $deploymentType);
+            $price = (float) $order->amount;
+            $currency = strtoupper($order->currency ?: 'NGN');
+        } else {
+            abort_unless(
+                $resolver->available($product, $deploymentType),
+                422,
+                'This product is not available for the selected deployment type.'
+            );
 
-        abort_unless($price !== null, 422);
+            $price = $resolver->price($product, $deploymentType);
+            $currency = $resolver->currency($product, $deploymentType);
+
+            abort_unless($price !== null, 422);
+        }
 
         $onlineGateways = DB::table('payment_providers as providers')
             ->join(
