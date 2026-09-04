@@ -218,6 +218,65 @@ class SsoController extends Controller
             'Invalid client.'
         );
 
+        /*
+        |----------------------------------------------------------------------
+        | ESUBIZ_CENTRAL_SSO_POLICY_V1
+        |----------------------------------------------------------------------
+        |
+        | Central controls availability of the universal Esubiz identity
+        | provider. Missing settings intentionally default to enabled.
+        |
+        | Hosted Core applications use application_type=core.
+        | Off-server Core applications use internally provisioned core_
+        | client IDs. Both are governed by the same Core Applications policy.
+        |
+        */
+
+        $ssoPolicy = \Illuminate\Support\Facades\DB::table('site_settings')
+            ->whereNull('workspace_id')
+            ->whereIn('key', [
+                'auth.esubiz_sso.enabled',
+                'auth.esubiz_sso.core_enabled',
+                'auth.esubiz_sso.external_enabled',
+            ])
+            ->pluck('value', 'key');
+
+        $ssoEnabled =
+            ($ssoPolicy['auth.esubiz_sso.enabled'] ?? '1') === '1';
+
+        abort_unless(
+            $ssoEnabled,
+            403,
+            'Esubiz SSO is currently unavailable.'
+        );
+
+        $isCoreApplication =
+            (string) ($application->application_type ?? '') === 'core'
+            || str_starts_with(
+                (string) ($application->client_id ?? ''),
+                'core_'
+            );
+
+        if ($isCoreApplication) {
+            $coreEnabled =
+                ($ssoPolicy['auth.esubiz_sso.core_enabled'] ?? '1') === '1';
+
+            abort_unless(
+                $coreEnabled,
+                403,
+                'Esubiz SSO is currently unavailable for Core applications.'
+            );
+        } else {
+            $externalEnabled =
+                ($ssoPolicy['auth.esubiz_sso.external_enabled'] ?? '1') === '1';
+
+            abort_unless(
+                $externalEnabled,
+                403,
+                'Esubiz SSO is currently unavailable for this application.'
+            );
+        }
+
         abort_unless(
             $sso->validateAuthorizationRequest(
                 $application,

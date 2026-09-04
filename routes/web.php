@@ -1766,6 +1766,15 @@ Route::get('/admin/site-settings', function () {
     return view('admin.site-settings.index');
 })->middleware(['auth'])->name('admin.site-settings.index');
 
+
+/*
+ * ESUBIZ_CENTRAL_SSO_SETTINGS_ROUTE_V1
+ */
+Route::post(
+    '/admin/site-settings/auth/esubiz-sso',
+    [\App\Http\Controllers\Admin\EsubizSsoSettingsController::class, 'update']
+)->middleware(['auth'])->name('admin.site-settings.auth.esubiz-sso.update');
+
 Route::get('/admin/site-settings/payment-gateways', [\App\Http\Controllers\Admin\OnlinePaymentController::class, 'gateways'])
         ->name('admin.payment-gateways.index');
 

@@ -416,8 +416,22 @@ class TenantSocialAuthController extends Controller
 
             $request->session()->regenerate();
 
+            /*
+             * ESUBIZ_CORE_ESUBIZ_WEBSITE_SESSION_V1
+             *
+             * Establish the same website-scoped Core authentication
+             * state used by the native Core login flow.
+             */
+            $websiteId = (int) $website->id;
+
             $request->session()->put([
                 'tenant_cms_authenticated' => true,
+                'tenant_cms_website_id' => $websiteId,
+
+                "tenant_cms_sites.{$websiteId}.authenticated" => true,
+                "tenant_cms_sites.{$websiteId}.user_id" => $userId,
+                "tenant_cms_sites.{$websiteId}.auth_method" => 'esubiz_sso',
+                "tenant_cms_sites.{$websiteId}.support_access" => false,
 
                 'tenant_cms_user_id' =>
                     $userId,
@@ -431,9 +445,14 @@ class TenantSocialAuthController extends Controller
                     'esubiz_sso',
             ]);
 
-            return redirect()->to(
-                $this->loginRedirect()
-            );
+            /*
+             * ESUBIZ_CORE_ESUBIZ_SUCCESS_REDIRECT_V1
+             *
+             * Esubiz SSO has already established the Core authenticated
+             * session at this point. Enter through the canonical Core
+             * dashboard; dashboard dispatch handles the user's role.
+             */
+            return redirect()->to('/admin/dashboard');
 
         } catch (\Throwable $e) {
             report($e);
@@ -931,17 +950,21 @@ class TenantSocialAuthController extends Controller
     }
 
 
+    /*
+     * ESUBIZ_CORE_AUTHFORM_WEBSITE_TENANT_CONNECTION_V1
+     * Auth Form configuration belongs to the active Core installation.
+     */
     private function authFormConfig(
         string $purpose
     ): array {
         if (
-            !Schema::connection('tenant')
+            !Schema::connection('website_tenant')
                 ->hasTable('forms')
         ) {
             return [];
         }
 
-        $forms = DB::connection('tenant')
+        $forms = DB::connection('website_tenant')
             ->table('forms')
             ->orderBy('id')
             ->get();
