@@ -40,12 +40,10 @@
                 Route::has(
                     'user.websites.dashboard'
                 )
-                    ? route(
-                        'user.websites.dashboard',
-                        [
-                            'website' =>
-                                $website->id,
-                        ]
+                    ? secure_url(
+                        '/websites/'
+                        . $website->id
+                        . '/dashboard'
                     )
                     : null
             );

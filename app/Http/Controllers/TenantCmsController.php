@@ -1526,6 +1526,22 @@ return view(
             'date_format' =>
                 $settings['date_format']
                 ?? 'd/m/Y',
+
+            /*
+             * ESUBIZ_CORE_CANONICAL_SITE_BRANDING_V1
+             *
+             * Website identity belongs to this Core installation.
+             * It is not a Central Esubiz account/profile asset.
+             */
+            'logo_path' =>
+                $settings['site_logo_path']
+                ?? $settings['theme.corporate.logo_path']
+                ?? null,
+
+            'favicon_path' =>
+                $settings['site_favicon_path']
+                ?? $settings['theme.corporate.favicon_path']
+                ?? null,
         ];
 
         $timezones = timezone_identifiers_list();
@@ -1655,6 +1671,30 @@ return view(
                 'string',
                 'max:40',
             ],
+
+            'website_logo' => [
+                'nullable',
+                'image',
+                'mimes:jpg,jpeg,png,webp,svg',
+                'max:3072',
+            ],
+
+            'website_favicon' => [
+                'nullable',
+                'file',
+                'mimes:png,ico,jpg,jpeg,webp',
+                'max:1024',
+            ],
+
+            'remove_website_logo' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'remove_website_favicon' => [
+                'nullable',
+                'boolean',
+            ],
         ]);
 
         abort_unless(
@@ -1669,7 +1709,63 @@ return view(
 
         $db = DB::connection('tenant');
 
-        $db->transaction(function () use ($db, $data) {
+        /*
+         * ESUBIZ_CORE_SITE_BRANDING_STORAGE_V1
+         *
+         * Files are stored locally by Core. Only their local paths are
+         * recorded in this tenant database.
+         */
+        $brandingUpdates = [];
+
+        if ($request->boolean('remove_website_logo')) {
+            $brandingUpdates['site_logo_path'] = null;
+            $brandingUpdates['theme.corporate.logo_path'] = null;
+        }
+
+        if ($request->boolean('remove_website_favicon')) {
+            $brandingUpdates['site_favicon_path'] = null;
+            $brandingUpdates['theme.corporate.favicon_path'] = null;
+        }
+
+        if ($request->hasFile('website_logo')) {
+            $file = $request->file('website_logo');
+
+            $brandingUpdates['site_logo_path'] =
+                $file->storeAs(
+                    'core/site-branding',
+                    'logo.'
+                    . strtolower(
+                        $file->getClientOriginalExtension()
+                    ),
+                    'public'
+                );
+
+            /*
+             * Existing corporate theme renderer already consumes this key.
+             */
+            $brandingUpdates['theme.corporate.logo_path'] =
+                $brandingUpdates['site_logo_path'];
+        }
+
+        if ($request->hasFile('website_favicon')) {
+            $file = $request->file('website_favicon');
+
+            $brandingUpdates['site_favicon_path'] =
+                $file->storeAs(
+                    'core/site-branding',
+                    'favicon.'
+                    . strtolower(
+                        $file->getClientOriginalExtension()
+                    ),
+                    'public'
+                );
+
+            $brandingUpdates['theme.corporate.favicon_path'] =
+                $brandingUpdates['site_favicon_path'];
+        }
+
+        $db->transaction(
+            function () use ($db, $data, $brandingUpdates) {
 
             $now = now();
 
@@ -1688,6 +1784,22 @@ return view(
             ];
 
             foreach ($plainSettings as $key => $value) {
+                $db->table('site_settings')
+                    ->updateOrInsert(
+                        ['key' => $key],
+                        [
+                            'value' => $value,
+                            'updated_at' => $now,
+                            'created_at' => $now,
+                        ]
+                    );
+            }
+
+            /*
+             * Persist canonical website branding and mirror it into the
+             * existing corporate theme identity keys.
+             */
+            foreach ($brandingUpdates as $key => $value) {
                 $db->table('site_settings')
                     ->updateOrInsert(
                         ['key' => $key],
@@ -2065,18 +2177,27 @@ return view(
                 ?? false
             );
 
+        /*
+         * ESUBIZ_CORE_INDEPENDENT_PROFILE_FIELDS_V1
+         *
+         * Profile fields are independently editable.
+         * An omitted field preserves its current value.
+         */
         $validated = $request->validate([
             'name' => [
-                'required',
+                'sometimes',
+                'nullable',
                 'string',
                 'max:255',
             ],
             'email' => [
-                'required',
+                'sometimes',
+                'nullable',
                 'email',
                 'max:255',
             ],
             'phone' => [
+                'sometimes',
                 'nullable',
                 'string',
                 'max:50',
@@ -2096,46 +2217,55 @@ return view(
             ],
         ]);
 
-        $name = trim(
-            (string) $validated['name']
-        );
+        $name = array_key_exists('name', $validated)
+            ? trim((string) ($validated['name'] ?? ''))
+            : (string) ($profileUser->name ?? '');
 
-        $email = strtolower(
-            trim(
-                (string) $validated['email']
+        $email = array_key_exists('email', $validated)
+            ? strtolower(
+                trim((string) ($validated['email'] ?? ''))
             )
-        );
+            : strtolower(
+                trim((string) ($profileUser->email ?? ''))
+            );
 
-        $phone =
-            isset($validated['phone'])
-            && trim(
-                (string) $validated['phone']
-            ) !== ''
-                ? trim(
-                    (string) $validated['phone']
+        $phone = array_key_exists('phone', $validated)
+            ? (
+                trim((string) ($validated['phone'] ?? '')) !== ''
+                    ? trim((string) $validated['phone'])
+                    : null
+            )
+            : ($profileUser->phone ?? null);
+
+        /*
+         * Only validate uniqueness when the email field was
+         * actually submitted with a non-empty value.
+         */
+        if (
+            array_key_exists('email', $validated)
+            && $email !== ''
+        ) {
+            $emailExists = $db
+                ->table('site_users')
+                ->whereRaw(
+                    'LOWER(email) = ?',
+                    [$email]
                 )
-                : null;
+                ->where(
+                    'id',
+                    '<>',
+                    (int) $userId
+                )
+                ->exists();
 
-        $emailExists = $db
-            ->table('site_users')
-            ->whereRaw(
-                'LOWER(email) = ?',
-                [$email]
-            )
-            ->where(
-                'id',
-                '<>',
-                (int) $userId
-            )
-            ->exists();
-
-        if ($emailExists) {
-            return back()
-                ->withInput()
-                ->withErrors([
-                    'email' =>
-                        'Another account already uses this email address.',
-                ]);
+            if ($emailExists) {
+                return back()
+                    ->withInput()
+                    ->withErrors([
+                        'email' =>
+                            'Another account already uses this email address.',
+                    ]);
+            }
         }
 
         /*

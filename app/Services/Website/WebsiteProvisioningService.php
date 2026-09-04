@@ -46,6 +46,14 @@ class WebsiteProvisioningService
         try {
 
             /*
+             * ESUBIZ_REAL_DEPLOYMENT_PROGRESS_V2
+             */
+            $website->update([
+                'status' => 'provisioning',
+                'deployment_progress' => 10,
+            ]);
+
+            /*
             |--------------------------------------------------------------------------
             | Dedicated Tenant Database
             |--------------------------------------------------------------------------
@@ -53,13 +61,25 @@ class WebsiteProvisioningService
 
             $this->databaseProvisioningService->provision($website);
 
+            $website->update([
+                'deployment_progress' => 45,
+            ]);
+
             /*
             |--------------------------------------------------------------------------
             | Install Esubiz Core
             |--------------------------------------------------------------------------
             */
 
+            $website->update([
+                'deployment_progress' => 60,
+            ]);
+
             $this->tenantCoreInstallationService->install($website);
+
+            $website->update([
+                'deployment_progress' => 90,
+            ]);
 
             /*
             |--------------------------------------------------------------------------
@@ -85,6 +105,7 @@ class WebsiteProvisioningService
 
             $website->update([
                 'status' => 'active',
+                'deployment_progress' => 98,
             ]);
 
         } catch (\Throwable $e) {
@@ -103,6 +124,7 @@ class WebsiteProvisioningService
 
             $website->update([
                 'status' => 'failed',
+                'deployment_progress' => 0,
             ]);
 
             throw $e;

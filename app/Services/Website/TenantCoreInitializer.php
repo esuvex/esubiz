@@ -263,22 +263,86 @@ class TenantCoreInitializer
     protected function initializeAdministrator($db, Website $website): void
     {
         if (!$website->admin_email) {
-            return;
+            throw new \RuntimeException(
+                'Website Administrator email is required before Core initialization.'
+            );
         }
+
+        /*
+         * ESUBIZ_CORE_DEPLOYMENT_ADMIN_SYNC_V2
+         *
+         * The Central Website administrator and the hosted Core
+         * Administrator are the same website identity.
+         *
+         * admin_password is already a Laravel hash and must be copied
+         * unchanged. Never hash an existing Central password hash.
+         */
+        $passwordHash = trim(
+            (string) ($website->admin_password ?? '')
+        );
+
+        if ($passwordHash === '') {
+            throw new \RuntimeException(
+                'Website administrator password is unavailable during Core deployment.'
+            );
+        }
+
+        $wizardData = is_array($website->wizard_data)
+            ? $website->wizard_data
+            : [];
+
+        $email = strtolower(
+            trim((string) $website->admin_email)
+        );
 
         $db->table('site_users')->updateOrInsert(
             [
-                'email' => $website->admin_email,
+                'email' => $email,
             ],
             [
-                'name' => $website->admin_name ?: $website->name,
-                'phone' => $website->wizard_data['admin_phone'] ?? null,
-                'password' => $website->admin_password
-                    ?: bcrypt(Str::random(32)),
+                'name' => trim(
+                    (string) (
+                        $website->admin_name
+                        ?: $website->name
+                    )
+                ),
+                'phone' => isset($wizardData['admin_phone'])
+                    && trim((string) $wizardData['admin_phone']) !== ''
+                        ? trim((string) $wizardData['admin_phone'])
+                        : null,
+                'password' => $passwordHash,
                 'is_active' => true,
                 'updated_at' => now(),
                 'created_at' => now(),
             ]
+        );
+
+        /*
+         * Guarantee that the synchronized deployment identity is the
+         * protected Core Administrator account.
+         */
+        $administratorUserId = $db
+            ->table('site_users')
+            ->whereRaw('LOWER(email) = ?', [$email])
+            ->value('id');
+
+        $administratorRoleId = $db
+            ->table('site_roles')
+            ->where('slug', 'administrator')
+            ->value('id');
+
+        if (!$administratorUserId || !$administratorRoleId) {
+            throw new \RuntimeException(
+                'Core Administrator user or role could not be resolved during deployment.'
+            );
+        }
+
+        $db->table('site_user_roles')->updateOrInsert(
+            [
+                'user_id' => (int) $administratorUserId,
+                'role_id' => (int) $administratorRoleId,
+            ],
+            []
         );
     }
 

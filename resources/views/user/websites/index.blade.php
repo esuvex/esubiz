@@ -311,7 +311,7 @@
                             >
 
                                 <a
-                                    href="{{ route('user.websites.dashboard', ['website' => $website->id]) }}"
+                                    href="{{ secure_url('/websites/' . $website->id . '/dashboard') }}"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     class="inline-flex w-full min-h-[52px] items-center justify-center rounded-xl bg-red-600 px-4 py-3 text-center text-sm font-bold text-white transition hover:bg-red-700"
@@ -350,7 +350,7 @@
 
 
                                 <a
-                                    href="{{ route('user.websites.dashboard', ['website' => $website->id]) }}"
+                                    href="{{ secure_url('/websites/' . $website->id . '/dashboard') }}"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     class="inline-flex min-h-[52px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-center text-sm font-bold text-slate-700 transition hover:bg-slate-50"

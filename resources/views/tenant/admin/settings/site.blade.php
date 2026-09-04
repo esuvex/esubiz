@@ -67,7 +67,7 @@
     @endif
 
 
-    <form
+    <form enctype="multipart/form-data"
         method="POST"
         action="{{ route('tenant.cms.settings.site.update', ['subdomain' => $website->subdomain]) }}"
         class="rounded-2xl border border-slate-200 bg-white shadow-sm"
@@ -90,6 +90,112 @@
         <div class="grid gap-6 p-6 md:grid-cols-2">
 
             <div>
+
+                {{-- ESUBIZ_CORE_SITE_BRANDING_UI_V1 --}}
+                <div class="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                        <label class="block text-sm font-semibold text-slate-800">
+                            Website Logo
+                        </label>
+
+                        <p class="mt-1 text-xs leading-5 text-slate-500">
+                            Recommended size: 180 × 60 px
+                        </p>
+
+                        <div class="mt-4 flex min-h-24 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-4">
+                            <img
+                                id="coreWebsiteLogoPreview"
+                                src="{{ !empty($siteConfig['logo_path']) ? request()->getSchemeAndHttpHost() . '/media/' . implode('/', array_map('rawurlencode', explode('/', ltrim($siteConfig['logo_path'], '/')))) : '' }}"
+                                alt="Website logo"
+                                class="{{ empty($siteConfig['logo_path']) ? 'hidden ' : '' }}max-h-[60px] max-w-[180px] object-contain"
+                            >
+
+                            <span
+                                id="coreWebsiteLogoPlaceholder"
+                                class="{{ !empty($siteConfig['logo_path']) ? 'hidden ' : '' }}text-sm text-slate-400"
+                            >
+                                No logo uploaded
+                            </span>
+                        </div>
+
+                        <input
+                            type="file"
+                            id="coreWebsiteLogoInput"
+                            name="website_logo"
+                            accept=".jpg,.jpeg,.png,.webp,.svg"
+                            class="mt-4 block w-full rounded-xl border border-slate-300 bg-white p-3 text-sm"
+                        >
+
+                        <label class="mt-3 flex items-center gap-2 text-sm text-slate-600">
+                            <input
+                                type="checkbox"
+                                name="remove_website_logo"
+                                value="1"
+                                class="rounded border-slate-300"
+                            >
+                            Remove current logo
+                        </label>
+
+                        @error('website_logo')
+                            <p class="mt-2 text-sm text-red-600">
+                                {{ $message }}
+                            </p>
+                        @enderror
+                    </div>
+
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                        <label class="block text-sm font-semibold text-slate-800">
+                            Browser Icon
+                        </label>
+
+                        <p class="mt-1 text-xs leading-5 text-slate-500">
+                            Recommended size: 64 × 64 px or 128 × 128 px
+                        </p>
+
+                        <div class="mt-4 flex min-h-24 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-4">
+                            <img
+                                id="coreWebsiteFaviconPreview"
+                                src="{{ !empty($siteConfig['favicon_path']) ? request()->getSchemeAndHttpHost() . '/media/' . implode('/', array_map('rawurlencode', explode('/', ltrim($siteConfig['favicon_path'], '/')))) : '' }}"
+                                alt="Browser icon"
+                                class="{{ empty($siteConfig['favicon_path']) ? 'hidden ' : '' }}h-16 w-16 object-contain"
+                            >
+
+                            <span
+                                id="coreWebsiteFaviconPlaceholder"
+                                class="{{ !empty($siteConfig['favicon_path']) ? 'hidden ' : '' }}text-sm text-slate-400"
+                            >
+                                No browser icon uploaded
+                            </span>
+                        </div>
+
+                        <input
+                            type="file"
+                            id="coreWebsiteFaviconInput"
+                            name="website_favicon"
+                            accept=".png,.ico,.jpg,.jpeg,.webp"
+                            class="mt-4 block w-full rounded-xl border border-slate-300 bg-white p-3 text-sm"
+                        >
+
+                        <label class="mt-3 flex items-center gap-2 text-sm text-slate-600">
+                            <input
+                                type="checkbox"
+                                name="remove_website_favicon"
+                                value="1"
+                                class="rounded border-slate-300"
+                            >
+                            Remove current browser icon
+                        </label>
+
+                        @error('website_favicon')
+                            <p class="mt-2 text-sm text-red-600">
+                                {{ $message }}
+                            </p>
+                        @enderror
+                    </div>
+
+                </div>
+
                 <label
                     for="website_name"
                     class="mb-2 block text-sm font-semibold text-slate-700"
@@ -270,5 +376,58 @@
     </form>
 
 </div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    function bindCoreBrandPreview(
+        inputId,
+        previewId,
+        placeholderId
+    ) {
+        const input = document.getElementById(inputId);
+        const preview = document.getElementById(previewId);
+        const placeholder =
+            document.getElementById(placeholderId);
+
+        if (!input || !preview) {
+            return;
+        }
+
+        input.addEventListener('change', function () {
+            const file = input.files && input.files[0];
+
+            if (!file) {
+                return;
+            }
+
+            const reader = new FileReader();
+
+            reader.onload = function (event) {
+                preview.src = event.target.result;
+                preview.classList.remove('hidden');
+
+                if (placeholder) {
+                    placeholder.classList.add('hidden');
+                }
+            };
+
+            reader.readAsDataURL(file);
+        });
+    }
+
+    bindCoreBrandPreview(
+        'coreWebsiteLogoInput',
+        'coreWebsiteLogoPreview',
+        'coreWebsiteLogoPlaceholder'
+    );
+
+    bindCoreBrandPreview(
+        'coreWebsiteFaviconInput',
+        'coreWebsiteFaviconPreview',
+        'coreWebsiteFaviconPlaceholder'
+    );
+});
+</script>
 
 @endsection

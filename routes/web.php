@@ -1375,8 +1375,8 @@ Route::get(
             '/{slug}',
             [TenantWebsiteController::class, 'page']
         )
-            ->where('slug', '^(?!auth(?:/|$))(?:^(?!(?:admin|sso)(?:/|$)).+)$')
-    /* ESUBIZ_CORE_RESERVED_AUTH_NAMESPACE_V54 */
+            ->where('slug', '(?!(?:auth|admin|sso)$)[^/]+')
+    /* ESUBIZ_CORE_PUBLIC_PAGE_ROUTE_REGEX_V55 */
             ->name('tenant.website.page');
 
     });
@@ -2282,6 +2282,11 @@ Route::post('/websites/{website}/theme', [WebsiteWizardController::class, 'theme
 
     Route::post('/websites/{website}/deploy', [WebsiteWizardController::class, 'deploy'])
         ->name('websites.deploy');
+
+    Route::get(
+        '/websites/{website}/deployment-progress',
+        [WebsiteWizardController::class, 'deploymentProgress']
+    )->name('websites.deployment-progress');
 
     /*
     |--------------------------------------------------------------------------

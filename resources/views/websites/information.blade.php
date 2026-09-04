@@ -35,7 +35,7 @@
     );
 @endphp
 
-<form method="POST" action="{{ route('websites.information.save', $website) }}">
+<form method="POST" action="{{ route('websites.information.save', $website) }}" enctype="multipart/form-data">
 
     @csrf
 
@@ -144,6 +144,155 @@
 
             </div>
 
+
+
+            {{-- ESUBIZ_WEBSITE_INFORMATION_BRANDING_V5 --}}
+            <div class="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+
+                @php
+                    $brandingChoice = old(
+                        'upload_branding',
+                        $wizard['upload_branding'] ?? 'no'
+                    );
+                @endphp
+
+                <div class="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-900">
+                            Website Logo & Browser Icon
+                        </h3>
+
+                        <p class="mt-1 text-sm leading-6 text-slate-500">
+                            Would you like to add your website logo and browser icon?
+                        </p>
+                    </div>
+
+                    {{-- ESUBIZ_STANDARD_YES_NO_TOGGLE_V3 --}}
+                    <div
+                        id="esubizBrandingSwitch"
+                        class="esubiz-branding-switch"
+                        data-value="{{ $brandingChoice === 'yes' ? 'yes' : 'no' }}"
+                    >
+                        <input
+                            type="radio"
+                            name="upload_branding"
+                            id="brandingNo"
+                            value="no"
+                            {{ $brandingChoice !== 'yes' ? 'checked' : '' }}
+                        >
+
+                        <input
+                            type="radio"
+                            name="upload_branding"
+                            id="brandingYes"
+                            value="yes"
+                            {{ $brandingChoice === 'yes' ? 'checked' : '' }}
+                        >
+
+                        <label
+                            for="brandingNo"
+                            class="esubiz-branding-option esubiz-branding-no"
+                        >
+                            No
+                        </label>
+
+                        <label
+                            for="brandingYes"
+                            class="esubiz-branding-option esubiz-branding-yes"
+                        >
+                            Yes
+                        </label>
+                    </div>                </div>
+
+                <div
+                    id="esubizBrandingFields"
+                    class="mt-6 {{ $brandingChoice === 'yes' ? '' : 'hidden' }}"
+                >
+                    <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+
+                        <div>
+                            <label class="font-semibold text-slate-800">
+                                Website Logo
+                            </label>
+
+                            <p class="mt-1 text-sm text-slate-500">
+                                Recommended size: 180 × 60 px
+                            </p>
+
+                            <input
+                                type="file"
+                                id="websiteLogoInput"
+                                name="website_logo"
+                                accept=".jpg,.jpeg,.png,.webp,.svg"
+                                class="mt-3 block w-full rounded-xl border border-slate-300 bg-white p-3"
+                            >
+
+                            @error('website_logo')
+                                <p class="mt-2 text-sm font-medium text-red-600">
+                                    {{ $message }}
+                                </p>
+                            @enderror
+
+                            <div class="mt-4 flex h-24 items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50">
+                                <img
+                                    id="websiteLogoPreview"
+                                    class="hidden max-h-[60px] max-w-[180px] object-contain"
+                                    alt="Website logo preview"
+                                >
+
+                                <span
+                                    id="websiteLogoPlaceholder"
+                                    class="text-sm text-slate-400"
+                                >
+                                    Logo preview
+                                </span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="font-semibold text-slate-800">
+                                Browser Icon
+                            </label>
+
+                            <p class="mt-1 text-sm text-slate-500">
+                                Recommended size: 64 × 64 px or 128 × 128 px
+                            </p>
+
+                            <input
+                                type="file"
+                                id="websiteFaviconInput"
+                                name="website_favicon"
+                                accept=".png,.ico,.jpg,.jpeg,.webp"
+                                class="mt-3 block w-full rounded-xl border border-slate-300 bg-white p-3"
+                            >
+
+                            @error('website_favicon')
+                                <p class="mt-2 text-sm font-medium text-red-600">
+                                    {{ $message }}
+                                </p>
+                            @enderror
+
+                            <div class="mt-4 flex h-24 items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50">
+                                <img
+                                    id="websiteFaviconPreview"
+                                    class="hidden h-16 w-16 object-contain"
+                                    alt="Browser icon preview"
+                                >
+
+                                <span
+                                    id="websiteFaviconPlaceholder"
+                                    class="text-sm text-slate-400"
+                                >
+                                    Icon preview
+                                </span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
 
             {{-- Esubiz Subdomain --}}
 
@@ -545,6 +694,201 @@ document.addEventListener('DOMContentLoaded', function () {
     checkAvailability();
 
 });
+
+
+    /* ESUBIZ_WEBSITE_INFORMATION_BRANDING_JS_V5 */
+
+    const esubizBrandingFields =
+        document.getElementById(
+            'esubizBrandingFields'
+        );
+
+    const esubizBrandingRadios =
+        document.querySelectorAll(
+            'input[name="upload_branding"]'
+        );
+
+    function syncEsubizBrandingFields() {
+
+        if (!esubizBrandingFields) {
+            return;
+        }
+
+        const selected =
+            document.querySelector(
+                'input[name="upload_branding"]:checked'
+            );
+
+        esubizBrandingFields
+            .classList.toggle(
+                'hidden',
+                !selected
+                    || selected.value !== 'yes'
+            );
+    }
+
+    esubizBrandingRadios.forEach(
+        function (radio) {
+            radio.addEventListener(
+                'change',
+                syncEsubizBrandingFields
+            );
+        }
+    );
+
+    syncEsubizBrandingFields();
+
+    function esubizImagePreview(
+        inputId,
+        imageId,
+        placeholderId
+    ) {
+        const input =
+            document.getElementById(
+                inputId
+            );
+
+        const image =
+            document.getElementById(
+                imageId
+            );
+
+        const placeholder =
+            document.getElementById(
+                placeholderId
+            );
+
+        if (
+            !input
+            || !image
+            || !placeholder
+        ) {
+            return;
+        }
+
+        input.addEventListener(
+            'change',
+            function () {
+
+                const file =
+                    input.files
+                    && input.files[0];
+
+                if (!file) {
+
+                    image.classList
+                        .add('hidden');
+
+                    image.removeAttribute(
+                        'src'
+                    );
+
+                    placeholder.classList
+                        .remove('hidden');
+
+                    return;
+                }
+
+                const reader =
+                    new FileReader();
+
+                reader.onload =
+                    function (event) {
+
+                        image.src =
+                            event.target.result;
+
+                        image.classList
+                            .remove('hidden');
+
+                        placeholder.classList
+                            .add('hidden');
+                    };
+
+                reader.readAsDataURL(
+                    file
+                );
+            }
+        );
+    }
+
+    esubizImagePreview(
+        'websiteLogoInput',
+        'websiteLogoPreview',
+        'websiteLogoPlaceholder'
+    );
+
+    esubizImagePreview(
+        'websiteFaviconInput',
+        'websiteFaviconPreview',
+        'websiteFaviconPlaceholder'
+    );
+
 </script>
+
+
+<style>
+/* ESUBIZ_STANDARD_YES_NO_TOGGLE_STYLE_V3 */
+.esubiz-branding-switch {
+    display: inline-grid;
+    grid-template-columns: 1fr 1fr;
+    width: 116px;
+    height: 38px;
+    padding: 3px;
+    border: 1px solid #d0d5dd;
+    border-radius: 9999px;
+    background: #f2f4f7;
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
+
+.esubiz-branding-switch input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.esubiz-branding-option {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 30px;
+    border-radius: 9999px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    color: #667085;
+    user-select: none;
+    transition:
+        background-color .18s ease,
+        color .18s ease,
+        box-shadow .18s ease;
+}
+
+#brandingNo:checked ~ .esubiz-branding-no {
+    background: #dc2626;
+    color: #ffffff;
+    box-shadow: 0 1px 3px rgba(16, 24, 40, .18);
+}
+
+#brandingYes:checked ~ .esubiz-branding-yes {
+    background: #16a34a;
+    color: #ffffff;
+    box-shadow: 0 1px 3px rgba(16, 24, 40, .18);
+}
+
+@media (max-width: 640px) {
+    .esubiz-branding-switch {
+        width: 108px;
+        height: 36px;
+    }
+
+    .esubiz-branding-option {
+        height: 28px;
+        font-size: 12px;
+    }
+}
+</style>
 
 @endsection

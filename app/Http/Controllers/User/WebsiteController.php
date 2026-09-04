@@ -167,7 +167,7 @@ class WebsiteController extends Controller
             config('app.key')
         );
 
-        $scheme = app()->environment('local') ? 'http' : 'https';
+        $scheme = 'https'; // ESUBIZ_TRUSTED_MANAGE_WEBSITE_HTTPS_V1
 
         $tenantUrl =
             $scheme

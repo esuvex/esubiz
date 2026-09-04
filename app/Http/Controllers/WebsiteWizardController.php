@@ -9,6 +9,8 @@ use App\Services\WebsiteDraftService;
 use App\Services\WebsiteService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 class WebsiteWizardController extends Controller
@@ -168,59 +170,305 @@ class WebsiteWizardController extends Controller
 
         if ($request->isMethod('post')) {
 
-            $data = $request->except([
-                '_token',
-                'password_confirmation',
-            ]);
-
-            $name = trim($data['name'] ?? '');
-
-            if ($name === '') {
-                return back()
-                    ->withInput()
-                    ->withErrors([
-                        'name' => 'Please enter a website name.',
-                    ]);
-            }
-
-            $data['name'] = $name;
-
             /*
-            |--------------------------------------------------------------------------
-            | Keep the central website identity synchronized with the wizard.
-            |--------------------------------------------------------------------------
-            */
+             * ESUBIZ_WEBSITE_INFORMATION_IDENTITY_V5
+             *
+             * The primary website Administrator identity is persisted
+             * before Core provisioning.
+             *
+             * Plaintext passwords never enter wizard_data.
+             */
+            $validated = $request->validate([
+                'name' => [
+                    'required',
+                    'string',
+                    'max:255',
+                ],
 
-            $website->update([
-                'name' => $name,
+                'subdomain' => [
+                    'required',
+                    'string',
+                    'max:255',
+                ],
+
+                'domain' => [
+                    'nullable',
+                    'string',
+                    'max:255',
+                ],
+
+                'admin_name' => [
+                    'required',
+                    'string',
+                    'max:255',
+                ],
+
+                'admin_email' => [
+                    'required',
+                    'email',
+                    'max:255',
+                ],
+
+                'admin_phone' => [
+                    'nullable',
+                    'string',
+                    'max:50',
+                ],
+
+                'password' => [
+                    'required',
+                    'string',
+                    'min:8',
+                    'confirmed',
+                ],
+
+                'upload_branding' => [
+                    'required',
+                    'in:no,yes',
+                ],
+
+                'website_logo' => [
+                    'nullable',
+                    'file',
+                    'mimes:jpg,jpeg,png,webp,svg',
+                    'max:3072',
+                ],
+
+                'website_favicon' => [
+                    'nullable',
+                    'file',
+                    'mimes:png,ico,jpg,jpeg,webp',
+                    'max:1024',
+                ],
             ]);
 
-            $subdomain = \Illuminate\Support\Str::slug(
-                $data['subdomain'] ?? \Illuminate\Support\Str::slug($name)
+            $name = trim(
+                (string) $validated['name']
             );
+
+            $subdomain =
+                \Illuminate\Support\Str::slug(
+                    (string) $validated['subdomain']
+                );
 
             if ($subdomain === '') {
                 return back()
                     ->withInput()
                     ->withErrors([
-                        'subdomain' => 'Please enter a subdomain name.',
+                        'subdomain' =>
+                            'Please enter a subdomain name.',
                     ]);
             }
 
             $taken = Website::query()
-                ->where('subdomain', $subdomain)
-                ->where('id', '!=', $website->id)
+                ->where(
+                    'subdomain',
+                    $subdomain
+                )
+                ->where(
+                    'id',
+                    '!=',
+                    $website->id
+                )
                 ->exists();
 
             if ($taken) {
                 return back()
                     ->withInput()
                     ->withErrors([
-                        'subdomain' => 'This subdomain is already taken. Please choose another name.',
+                        'subdomain' =>
+                            'This subdomain is already taken. Please choose another name.',
                     ]);
             }
 
-            $data['subdomain'] = $subdomain;
+            $adminName = trim(
+                (string) $validated['admin_name']
+            );
+
+            $adminEmail = strtolower(
+                trim(
+                    (string) $validated['admin_email']
+                )
+            );
+
+            $adminPhone =
+                isset($validated['admin_phone'])
+                    ? trim(
+                        (string)
+                        $validated['admin_phone']
+                    )
+                    : null;
+
+            /*
+             * Generate the password hash exactly once.
+             *
+             * TenantCoreInitializer copies this exact hash unchanged
+             * into site_users.password.
+             */
+            $passwordHash = Hash::make(
+                $validated['password']
+            );
+
+            $website->update([
+                'name' =>
+                    $name,
+
+                'subdomain' =>
+                    $subdomain,
+
+                'domain' =>
+                    $validated['domain']
+                    ?? null,
+
+                'admin_name' =>
+                    $adminName,
+
+                'admin_email' =>
+                    $adminEmail,
+
+                'admin_password' =>
+                    $passwordHash,
+            ]);
+
+            /*
+             * ESUBIZ_DEPLOYMENT_BRANDING_STAGING_V1
+             *
+             * Branding is website installation data, never Central
+             * account/profile data.
+             *
+             * During the wizard it is held only in private temporary
+             * deployment storage.
+             */
+            $brandingEnabled =
+                (
+                    $validated['upload_branding']
+                    ?? 'no'
+                ) === 'yes';
+
+            $temporaryDirectory =
+                'deployment-branding/'
+                . (int) $website->id;
+
+            if (!$brandingEnabled) {
+
+                Storage::disk('local')
+                    ->deleteDirectory(
+                        $temporaryDirectory
+                    );
+
+            } else {
+
+                if (
+                    $request->hasFile(
+                        'website_logo'
+                    )
+                ) {
+                    foreach (
+                        Storage::disk('local')
+                            ->files(
+                                $temporaryDirectory
+                            )
+                        as $existing
+                    ) {
+                        if (
+                            str_starts_with(
+                                strtolower(
+                                    basename($existing)
+                                ),
+                                'logo.'
+                            )
+                        ) {
+                            Storage::disk('local')
+                                ->delete($existing);
+                        }
+                    }
+
+                    $file =
+                        $request->file(
+                            'website_logo'
+                        );
+
+                    $file->storeAs(
+                        $temporaryDirectory,
+                        'logo.'
+                        . strtolower(
+                            $file
+                                ->getClientOriginalExtension()
+                        ),
+                        'local'
+                    );
+                }
+
+                if (
+                    $request->hasFile(
+                        'website_favicon'
+                    )
+                ) {
+                    foreach (
+                        Storage::disk('local')
+                            ->files(
+                                $temporaryDirectory
+                            )
+                        as $existing
+                    ) {
+                        if (
+                            str_starts_with(
+                                strtolower(
+                                    basename($existing)
+                                ),
+                                'favicon.'
+                            )
+                        ) {
+                            Storage::disk('local')
+                                ->delete($existing);
+                        }
+                    }
+
+                    $file =
+                        $request->file(
+                            'website_favicon'
+                        );
+
+                    $file->storeAs(
+                        $temporaryDirectory,
+                        'favicon.'
+                        . strtolower(
+                            $file
+                                ->getClientOriginalExtension()
+                        ),
+                        'local'
+                    );
+                }
+            }
+
+            /*
+             * Only safe deployment metadata enters wizard_data.
+             */
+            $data = [
+                'name' =>
+                    $name,
+
+                'subdomain' =>
+                    $subdomain,
+
+                'domain' =>
+                    $validated['domain']
+                    ?? null,
+
+                'admin_name' =>
+                    $adminName,
+
+                'admin_email' =>
+                    $adminEmail,
+
+                'admin_phone' =>
+                    $adminPhone,
+
+                'upload_branding' =>
+                    $brandingEnabled
+                        ? 'yes'
+                        : 'no',
+            ];
 
             $this->draftService->save(
                 $website,
@@ -448,18 +696,31 @@ class WebsiteWizardController extends Controller
         Website $website
     ) {
         /*
+         * ESUBIZ_DEPLOYMENT_BRANDING_SOURCE_V5
+         *
+         * Branding was collected and staged during
+         * Website Information.
+         */
+
+
+        /*
         |--------------------------------------------------------------------------
         | Final wizard data merge
         |--------------------------------------------------------------------------
         */
 
-        if (!empty($request->all())) {
+        $draftInput = $request->except([
+            '_token',
+            'website_logo',
+            'website_favicon',
+            'password',
+            'password_confirmation',
+        ]);
 
+        if (!empty($draftInput)) {
             $this->draftService->save(
                 $website,
-                $request->except([
-                    '_token',
-                ]),
+                $draftInput,
                 5
             );
 
@@ -473,6 +734,28 @@ class WebsiteWizardController extends Controller
         */
 
         $website->markProvisioning();
+
+        /*
+         * ESUBIZ_DEPLOYMENT_PROGRESS_STAGE_01_V1
+         *
+         * Fixed backend milestone:
+         * 1% = deployment request accepted.
+         */
+        $website->forceFill([
+            'deployment_progress' => 1,
+        ])->save();
+
+        /*
+         * Release PHP session lock so the progress endpoint can
+         * continue responding while deployment is running.
+         */
+        if ($request->hasSession()) {
+            $request->session()->save();
+
+            if (function_exists('session_write_close')) {
+                @session_write_close();
+            }
+        }
 
         /*
         |--------------------------------------------------------------------------
@@ -490,19 +773,380 @@ class WebsiteWizardController extends Controller
                 )
             );
 
+            /*
+             * ESUBIZ_DEPLOYMENT_INTEGRITY_GUARD_V2
+             *
+             * Deployment cannot reach 100% until the actual Core
+             * Administrator and published Core pages exist.
+             */
+            $tenantDatabaseService = app(
+                \App\Services\Website\WebsiteTenantDatabaseService::class
+            );
+
+            $tenantDatabaseService
+                ->connect(
+                    $deployedWebsite
+                );
+
+            try {
+                $tenantDb =
+                    $tenantDatabaseService
+                        ->connection();
+
+                $administratorExists =
+                    $tenantDb
+                        ->table(
+                            'site_users as users'
+                        )
+                        ->join(
+                            'site_user_roles as user_roles',
+                            'user_roles.user_id',
+                            '=',
+                            'users.id'
+                        )
+                        ->join(
+                            'site_roles as roles',
+                            'roles.id',
+                            '=',
+                            'user_roles.role_id'
+                        )
+                        ->whereRaw(
+                            'LOWER(users.email) = ?',
+                            [
+                                strtolower(
+                                    trim(
+                                        (string)
+                                        $deployedWebsite
+                                            ->admin_email
+                                    )
+                                ),
+                            ]
+                        )
+                        ->where(
+                            'roles.slug',
+                            'administrator'
+                        )
+                        ->exists();
+
+                if (!$administratorExists) {
+                    throw new \RuntimeException(
+                        'Website Administrator account was not installed.'
+                    );
+                }
+
+                $publishedPageCount =
+                    $tenantDb
+                        ->table('pages')
+                        ->where(
+                            'status',
+                            'published'
+                        )
+                        ->count();
+
+                if ($publishedPageCount < 6) {
+                    throw new \RuntimeException(
+                        'Website default pages were not installed.'
+                    );
+                }
+
+                /*
+                 * Branding is promoted only after Core passes
+                 * installation verification.
+                 */
+                $brandingEnabled =
+                    (
+                        $deployedWebsite
+                            ->wizard_data[
+                                'upload_branding'
+                            ]
+                        ?? 'no'
+                    ) === 'yes';
+
+                if ($brandingEnabled) {
+
+                    $temporaryDirectory =
+                        'deployment-branding/'
+                        . (int)
+                            $deployedWebsite->id;
+
+                    $temporaryFiles =
+                        Storage::disk('local')
+                            ->files(
+                                $temporaryDirectory
+                            );
+
+                    $logoTemporaryPath =
+                        null;
+
+                    $faviconTemporaryPath =
+                        null;
+
+                    foreach (
+                        $temporaryFiles
+                        as $temporaryFile
+                    ) {
+                        $basename =
+                            strtolower(
+                                basename(
+                                    $temporaryFile
+                                )
+                            );
+
+                        if (
+                            str_starts_with(
+                                $basename,
+                                'logo.'
+                            )
+                        ) {
+                            $logoTemporaryPath =
+                                $temporaryFile;
+                        }
+
+                        if (
+                            str_starts_with(
+                                $basename,
+                                'favicon.'
+                            )
+                        ) {
+                            $faviconTemporaryPath =
+                                $temporaryFile;
+                        }
+                    }
+
+                    if ($logoTemporaryPath) {
+
+                        $extension =
+                            strtolower(
+                                pathinfo(
+                                    $logoTemporaryPath,
+                                    PATHINFO_EXTENSION
+                                )
+                            );
+
+                        $logoPath =
+                            'tenant-websites/'
+                            . (int)
+                                $deployedWebsite->id
+                            . '/media/branding/logo.'
+                            . $extension;
+
+                        // ESUBIZ_CORE_CANONICAL_BRANDING_MEDIA_V1
+                        Storage::disk('local')
+                            ->put(
+                                $logoPath,
+                                Storage::disk('local')
+                                    ->get(
+                                        $logoTemporaryPath
+                                    )
+                            );
+
+                        foreach (
+                            [
+                                'site_logo_path',
+                                'theme.corporate.logo_path',
+                            ]
+                            as $key
+                        ) {
+                            $tenantDb
+                                ->table(
+                                    'site_settings'
+                                )
+                                ->updateOrInsert(
+                                    [
+                                        'key' =>
+                                            $key,
+                                    ],
+                                    [
+                                        'value' =>
+                                            $logoPath,
+
+                                        'updated_at' =>
+                                            now(),
+                                    ]
+                                );
+                        }
+                    }
+
+                    if ($faviconTemporaryPath) {
+
+                        $extension =
+                            strtolower(
+                                pathinfo(
+                                    $faviconTemporaryPath,
+                                    PATHINFO_EXTENSION
+                                )
+                            );
+
+                        $faviconPath =
+                            'tenant-websites/'
+                            . (int)
+                                $deployedWebsite->id
+                            . '/media/branding/favicon.'
+                            . $extension;
+
+                        Storage::disk('local')
+                            ->put(
+                                $faviconPath,
+                                Storage::disk('local')
+                                    ->get(
+                                        $faviconTemporaryPath
+                                    )
+                            );
+
+                        foreach (
+                            [
+                                'site_favicon_path',
+                                'theme.corporate.favicon_path',
+                            ]
+                            as $key
+                        ) {
+                            $tenantDb
+                                ->table(
+                                    'site_settings'
+                                )
+                                ->updateOrInsert(
+                                    [
+                                        'key' =>
+                                            $key,
+                                    ],
+                                    [
+                                        'value' =>
+                                            $faviconPath,
+
+                                        'updated_at' =>
+                                            now(),
+                                    ]
+                                );
+                        }
+                    }
+
+                    Storage::disk('local')
+                        ->deleteDirectory(
+                            $temporaryDirectory
+                        );
+                }
+
+            } finally {
+                $tenantDatabaseService
+                    ->disconnect();
+            }
+
+            /*
+             * 100% = verified success only.
+             */
+            $deployedWebsite->forceFill([
+                'status' =>
+                    'active',
+
+                'deployment_progress' =>
+                    100,
+            ])->save();
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'status' => 'active',
+                    'progress' => 100,
+                    /*
+                     * ESUBIZ_CENTRAL_MANAGE_WEBSITE_HTTPS_V1
+                     *
+                     * Only force HTTPS for this trusted Central
+                     * Manage Website entry URL.
+                     */
+                    'manage_url' => secure_url(
+                        '/websites/'
+                        . (int) $deployedWebsite->id
+                        . '/dashboard'
+                    ),
+                    'dashboard_url' => route(
+                        'user.dashboard'
+                    ),
+                ]);
+            }
+
             return redirect()
                 ->route('user.websites.index')
-                ->with('deployment_success', $deployedWebsite->id);
+                ->with(
+                    'deployment_success',
+                    $deployedWebsite->id
+                );
 
         } catch (\Throwable $e) {
             report($e);
+
+            $website->refresh();
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'status' => 'failed',
+                    'progress' => (int) (
+                        $website->deployment_progress ?? 0
+                    ),
+                    'message' =>
+                        'Website creation was not completed. Please try again.',
+                ], 422);
+            }
 
             return redirect()
                 ->route('websites.review', $website)
                 ->withInput()
                 ->withErrors([
-                    'deployment' => 'Website deployment was not completed. Please try again.',
+                    'deployment' =>
+                        'Website creation was not completed. Please try again.',
                 ]);
         }
+    }
+
+    /*
+     * ESUBIZ_DEPLOYMENT_PROGRESS_ENDPOINT_V2
+     */
+    public function deploymentProgress(
+        Request $request,
+        Website $website
+    ) {
+        abort_unless(
+            (int) $website->owner_id
+                === (int) $request->user()->id,
+            403
+        );
+
+        $website->refresh();
+
+        $progress = (int) (
+            $website->deployment_progress ?? 0
+        );
+
+        /*
+         * ESUBIZ_DEPLOYMENT_PROGRESS_DEFAULT_TEXT_V1
+         *
+         * Percentages are fixed backend milestones.
+         * Central Admin will later manage only the display wording
+         * associated with these milestone percentages.
+         */
+        $stages = [
+            1 => 'Starting website creation...',
+            10 => 'Preparing your website...',
+            45 => 'Setting up your website database...',
+            60 => 'Installing Esubiz Core...',
+            90 => 'Configuring your website...',
+            98 => 'Running final deployment checks...',
+            100 => 'Website created successfully.',
+        ];
+
+        $stageProgress = 1;
+
+        foreach (array_keys($stages) as $milestone) {
+            if ($progress >= $milestone) {
+                $stageProgress = $milestone;
+            }
+        }
+
+        return response()->json([
+            'status' => (string) $website->status,
+            'progress' => $progress,
+            'stage' => $stages[$stageProgress],
+            'stage_progress' => $stageProgress,
+        ]);
     }
 }

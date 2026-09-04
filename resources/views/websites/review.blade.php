@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Review & Deploy')
+@section('title', 'Review & Create')
 
 @section('content')
 
@@ -25,7 +25,7 @@
     $adminPassword = $wizard['password'] ?? '—';
 @endphp
 
-<form method="POST" action="{{ route('websites.deploy', $website) }}">
+<form method="POST" enctype="multipart/form-data" id="esubizDeploymentForm" action="{{ route('websites.deploy', $website) }}">
 
     @csrf
 
@@ -42,7 +42,7 @@
                 </h1>
 
                 <p class="mt-3 text-slate-500">
-                    Check your website details and administrator account before deployment.
+                    Check your website details and administrator account before creating your website.
                 </p>
 
             </div>
@@ -270,7 +270,7 @@
 
                     <div>
                         <h2 class="text-lg font-bold text-red-900">
-                            Deployment failed
+                            Website creation failed
                         </h2>
 
                         <p class="mt-1 text-sm leading-6 text-red-800">
@@ -278,7 +278,7 @@
                         </p>
 
                         <p class="mt-2 text-sm text-red-700">
-                            Your website has not been lost. You can review the details and click Deploy Website again to retry.
+                            Your website has not been lost. You can review the details and click Create again to retry.
                         </p>
                     </div>
                 </div>
@@ -290,14 +290,15 @@
         <div class="mt-10 rounded-3xl border border-blue-200 bg-blue-50 p-8">
 
             <h3 class="text-xl font-bold text-blue-700">
-                Ready to Deploy
+                Ready to Create
             </h3>
 
             <p class="mt-3 leading-7 text-slate-600">
-                Everything is ready. Click the button below to deploy your website.
+                Everything is ready. Click the button below to create your website.
             </p>
 
         </div>
+
 
 
         {{-- Navigation --}}
@@ -316,7 +317,7 @@
                 type="submit"
                 class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-8 py-3 font-semibold text-white transition hover:bg-blue-700">
 
-                🚀 Deploy Website
+                Create
 
             </button>
 
@@ -325,5 +326,492 @@
     </div>
 
 </form>
+
+
+{{-- ESUBIZ_DEPLOYMENT_MODAL_V2 --}}
+<div
+    id="deploymentModal"
+    class="fixed inset-0 z-[100] hidden items-center justify-center bg-slate-950/60 p-4"
+>
+    <div class="w-full max-w-xl rounded-3xl bg-white p-8 shadow-2xl">
+
+        <div id="deploymentRunning">
+            <h2 class="text-2xl font-bold text-slate-900">
+                Creating Your Website
+            </h2>
+
+            <p class="mt-2 text-slate-500">
+                Your website is being prepared. Please keep this page open.
+            </p>
+
+            {{-- ESUBIZ_DEPLOYMENT_TIMER_AND_STAGE_V1 --}}
+            <div class="mt-8 text-center">
+
+                <div class="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">
+                    Creation Time
+                </div>
+
+                <div
+                    id="deploymentTimer"
+                    class="mt-2 text-4xl font-black tabular-nums text-orange-500"
+                >
+                    0:00
+                </div>
+
+                <div
+                    id="deploymentStage"
+                    class="mt-4 min-h-[24px] text-sm font-semibold text-blue-700"
+                >
+                    Starting website creation...
+                </div>
+
+            </div>
+
+            <div class="mt-6 overflow-hidden rounded-full border border-blue-100 bg-blue-50 p-1 shadow-inner">
+                <div class="h-4 overflow-hidden rounded-full bg-blue-100">
+                    <div
+                        id="deploymentBar"
+                        class="h-full rounded-full bg-gradient-to-r from-blue-600 via-blue-500 to-blue-600 shadow-sm transition-all duration-500 ease-out"
+                        style="width:0%"
+                    ></div>
+                </div>
+            </div>
+
+            <div class="mt-4 flex justify-between">
+                <span class="text-sm font-medium text-slate-500">
+                    Creation progress
+                </span>
+
+                <span
+                    id="deploymentPercent"
+                    class="font-bold text-blue-700"
+                >
+                    0%
+                </span>
+            </div>
+        </div>
+
+        <div id="deploymentSuccess" class="hidden text-center">
+            <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-2xl font-bold text-emerald-700">
+                ✓
+            </div>
+
+            <h2 class="mt-5 text-2xl font-bold text-slate-900">
+                Website created successfully.
+            </h2>
+
+            <p class="mt-2 text-slate-500">
+                Your website is active and ready.
+            </p>
+
+            <div class="mt-6 rounded-2xl border border-orange-100 bg-orange-50 px-5 py-4">
+                <div class="text-xs font-bold uppercase tracking-[0.16em] text-orange-400">
+                    Creation Time
+                </div>
+
+                <div
+                    id="deploymentSuccessTimer"
+                    class="mt-1 text-3xl font-black tabular-nums text-orange-500"
+                >
+                    0:00
+                </div>
+            </div>
+
+            <div class="mt-8 grid gap-3 sm:grid-cols-2">
+                <a
+                    id="manageWebsiteButton"
+                    href="#"
+                    class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700"
+                >
+                    Manage Website
+                </a>
+
+                <a
+                    id="esubizDashboardButton"
+                    href="#"
+                    class="inline-flex items-center justify-center rounded-xl border border-blue-600 bg-white px-6 py-3 font-semibold text-blue-700 hover:bg-blue-50"
+                >
+                    Esubiz Dashboard
+                </a>
+            </div>
+        </div>
+
+        <div id="deploymentFailed" class="hidden text-center">
+            <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-2xl font-bold text-red-700">
+                !
+            </div>
+
+            <h2 class="mt-5 text-2xl font-bold text-slate-900">
+                Website Creation Failed
+            </h2>
+
+            <p id="deploymentFailureMessage" class="mt-2 text-slate-500">
+                Website creation was not completed.
+            </p>
+
+            <div class="mt-6 rounded-2xl border border-orange-100 bg-orange-50 px-5 py-4">
+                <div class="text-xs font-bold uppercase tracking-[0.16em] text-orange-400">
+                    Creation Time
+                </div>
+
+                <div
+                    id="deploymentFailureTimer"
+                    class="mt-1 text-3xl font-black tabular-nums text-orange-500"
+                >
+                    0:00
+                </div>
+            </div>
+
+            <button
+                type="button"
+                id="redeployButton"
+                class="mt-8 inline-flex w-full items-center justify-center rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700"
+            >
+                Redeploy
+            </button>
+        </div>
+
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('esubizDeploymentForm');
+    if (!form) return;
+
+    const modal = document.getElementById('deploymentModal');
+    const running = document.getElementById('deploymentRunning');
+    const success = document.getElementById('deploymentSuccess');
+    const failed = document.getElementById('deploymentFailed');
+    const bar = document.getElementById('deploymentBar');
+    const percent = document.getElementById('deploymentPercent');
+    const stage = document.getElementById('deploymentStage');
+
+    const timer = document.getElementById('deploymentTimer');
+    const successTimer =
+        document.getElementById('deploymentSuccessTimer');
+    const failureTimer =
+        document.getElementById('deploymentFailureTimer');
+
+    const progressUrl =
+        @json(route('websites.deployment-progress', $website));
+
+    let poller = null;
+    let timerInterval = null;
+    let deploymentStartedAt = null;
+    let finalElapsedSeconds = 0;
+
+    function formatElapsed(totalSeconds) {
+        totalSeconds = Math.max(
+            0,
+            Math.floor(totalSeconds || 0)
+        );
+
+        const minutes = Math.floor(
+            totalSeconds / 60
+        );
+
+        const seconds =
+            totalSeconds % 60;
+
+        return (
+            minutes
+            + ':'
+            + String(seconds).padStart(2, '0')
+        );
+    }
+
+    function elapsedSeconds() {
+        if (!deploymentStartedAt) {
+            return finalElapsedSeconds;
+        }
+
+        return Math.floor(
+            (
+                Date.now()
+                - deploymentStartedAt
+            ) / 1000
+        );
+    }
+
+    function renderTimer() {
+        const value = formatElapsed(
+            elapsedSeconds()
+        );
+
+        if (timer) {
+            timer.textContent = value;
+        }
+
+        return value;
+    }
+
+    function startTimer() {
+        clearInterval(timerInterval);
+
+        deploymentStartedAt =
+            Date.now();
+
+        finalElapsedSeconds = 0;
+
+        if (timer) {
+            timer.textContent = '0:00';
+        }
+
+        if (successTimer) {
+            successTimer.textContent = '0:00';
+        }
+
+        if (failureTimer) {
+            failureTimer.textContent = '0:00';
+        }
+
+        timerInterval = setInterval(
+            renderTimer,
+            250
+        );
+    }
+
+    function stopTimer(destination) {
+        if (deploymentStartedAt) {
+            finalElapsedSeconds =
+                elapsedSeconds();
+        }
+
+        clearInterval(timerInterval);
+        timerInterval = null;
+
+        const value =
+            formatElapsed(
+                finalElapsedSeconds
+            );
+
+        if (timer) {
+            timer.textContent = value;
+        }
+
+        if (
+            destination === 'success'
+            && successTimer
+        ) {
+            successTimer.textContent =
+                value;
+        }
+
+        if (
+            destination === 'failed'
+            && failureTimer
+        ) {
+            failureTimer.textContent =
+                value;
+        }
+
+        deploymentStartedAt = null;
+    }
+
+    function state(name) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+
+        running.classList.toggle(
+            'hidden',
+            name !== 'running'
+        );
+
+        success.classList.toggle(
+            'hidden',
+            name !== 'success'
+        );
+
+        failed.classList.toggle(
+            'hidden',
+            name !== 'failed'
+        );
+    }
+
+    function progress(value) {
+        value = Math.max(
+            0,
+            Math.min(
+                100,
+                Number(value) || 0
+            )
+        );
+
+        bar.style.width =
+            value + '%';
+
+        percent.textContent =
+            value + '%';
+    }
+
+    function stageText(value) {
+        if (
+            stage
+            && typeof value === 'string'
+            && value.trim() !== ''
+        ) {
+            stage.textContent =
+                value.trim();
+        }
+    }
+
+    async function pollProgress() {
+        try {
+            const response = await fetch(
+                progressUrl,
+                {
+                    headers: {
+                        'Accept':
+                            'application/json',
+                        'X-Requested-With':
+                            'XMLHttpRequest'
+                    },
+                    credentials:
+                        'same-origin',
+                    cache:
+                        'no-store'
+                }
+            );
+
+            if (!response.ok) {
+                return;
+            }
+
+            const data =
+                await response.json();
+
+            progress(
+                data.progress
+            );
+
+            stageText(
+                data.stage
+            );
+
+        } catch (e) {
+            /*
+             * Deployment POST remains authoritative.
+             */
+        }
+    }
+
+    function startPolling() {
+        clearInterval(poller);
+
+        pollProgress();
+
+        poller = setInterval(
+            pollProgress,
+            750
+        );
+    }
+
+    async function deploy() {
+        clearInterval(poller);
+        clearInterval(timerInterval);
+
+        state('running');
+
+        progress(1);
+
+        stageText(
+            'Starting website creation...'
+        );
+
+        startTimer();
+        startPolling();
+
+        try {
+            const response = await fetch(
+                form.action,
+                {
+                    method: 'POST',
+                    body:
+                        new FormData(form),
+                    headers: {
+                        'Accept':
+                            'application/json',
+                        'X-Requested-With':
+                            'XMLHttpRequest'
+                    },
+                    credentials:
+                        'same-origin'
+                }
+            );
+
+            clearInterval(poller);
+
+            const data =
+                await response.json()
+                    .catch(function () {
+                        return {};
+                    });
+
+            if (
+                !response.ok
+                || !data.success
+            ) {
+                throw new Error(
+                    data.message
+                    || 'Website creation was not completed.'
+                );
+            }
+
+            /*
+             * The POST is authoritative.
+             * 100% is displayed only after successful response.
+             */
+            progress(100);
+
+            stageText(
+                'Website created successfully.'
+            );
+
+            stopTimer('success');
+
+            document.getElementById(
+                'manageWebsiteButton'
+            ).href =
+                data.manage_url;
+
+            document.getElementById(
+                'esubizDashboardButton'
+            ).href =
+                data.dashboard_url;
+
+            state('success');
+
+        } catch (error) {
+            clearInterval(poller);
+
+            stopTimer('failed');
+
+            document.getElementById(
+                'deploymentFailureMessage'
+            ).textContent =
+                error.message
+                || 'Website creation was not completed.';
+
+            state('failed');
+        }
+    }
+
+    form.addEventListener(
+        'submit',
+        function (event) {
+            event.preventDefault();
+            deploy();
+        }
+    );
+
+    document.getElementById(
+        'redeployButton'
+    ).addEventListener(
+        'click',
+        deploy
+    );
+});
+</script>
 
 @endsection
