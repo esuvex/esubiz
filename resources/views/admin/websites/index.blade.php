@@ -477,7 +477,7 @@
                                                     rel="noopener noreferrer"
                                                     class="block px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
                                                 >
-                                                    Website Dashboard
+                                                    Manage Website
                                                 </a>
 
                                             @endif

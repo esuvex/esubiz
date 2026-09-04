@@ -355,7 +355,7 @@
                                     rel="noopener noreferrer"
                                     class="inline-flex min-h-[52px] items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-center text-sm font-bold text-slate-700 transition hover:bg-slate-50"
                                 >
-                                    Website Dashboard
+                                    Manage Website
                                 </a>
 
 

@@ -250,7 +250,7 @@
                         rel="noopener noreferrer"
                         class="inline-flex min-h-[46px] items-center justify-center rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-sm hover:bg-blue-700"
                     >
-                        Website Dashboard
+                        Manage Website
                     </a>
 
                 @endif

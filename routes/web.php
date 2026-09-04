@@ -1392,7 +1392,7 @@ Route::domain('esubiz.com')
         '/websites/{website}/dashboard',
         [
             \App\Http\Controllers\User\WebsiteController::class,
-            'openDashboard',
+            'dashboard',
         ]
     )
     ->name('user.websites.dashboard');

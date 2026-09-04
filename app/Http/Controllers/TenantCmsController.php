@@ -64,11 +64,12 @@ class TenantCmsController extends Controller
             $signature = (string) $request->query('signature');
 
             /*
-             * ESUBIZ_CENTRAL_ADMIN_TENANT_SUPPORT_LOGIN_V1
+             * ESUBIZ_TRUSTED_CENTRAL_TENANT_HANDOFF_V2
              *
-             * Empty access preserves the original website-owner SSO
-             * signature format. admin_support uses a separate signed
-             * payload and authorization path.
+             * Trusted Central entry modes are signed explicitly:
+             *
+             * - owner_admin   => verified website owner
+             * - admin_support => verified Central Administrator
              */
             $access = (string) $request->query('access', '');
 
@@ -87,18 +88,25 @@ class TenantCmsController extends Controller
                 'Website SSO request has expired.'
             );
 
-            $payload = $access === 'admin_support'
-                ? implode('|', [
-                    $websiteId,
-                    $userId,
-                    $expires,
+            abort_unless(
+                in_array(
                     $access,
-                ])
-                : implode('|', [
-                    $websiteId,
-                    $userId,
-                    $expires,
-                ]);
+                    [
+                        'owner_admin',
+                        'admin_support',
+                    ],
+                    true
+                ),
+                403,
+                'Invalid website SSO access type.'
+            );
+
+            $payload = implode('|', [
+                $websiteId,
+                $userId,
+                $expires,
+                $access,
+            ]);
 
             $expected = hash_hmac(
                 'sha256',
@@ -136,11 +144,20 @@ class TenantCmsController extends Controller
                  * can troubleshoot it.
                  */
                 $website = $websiteQuery->first();
-            } else {
+            } elseif ($access === 'owner_admin') {
+                /*
+                 * The Central owner route already proves that the
+                 * authenticated Central account owns this website.
+                 */
                 $website = $websiteQuery
                     ->where('owner_id', $userId)
                     ->where('user_enabled', true)
                     ->first();
+            } else {
+                abort(
+                    403,
+                    'Website SSO authorization failed.'
+                );
             }
 
             abort_unless(
@@ -155,23 +172,63 @@ class TenantCmsController extends Controller
              * Authentication is persisted independently for each website.
              * Legacy keys remain temporarily for compatibility.
              */
+            /*
+             * ESUBIZ_TRUSTED_CENTRAL_CORE_ADMIN_SESSION_V1
+             *
+             * Never use the Central account ID as a Core site_users ID.
+             * Resolve the protected local Administrator identity from
+             * the tenant RBAC tables so both trusted Central entry paths
+             * receive the correct Core Administrator permissions.
+             */
+            $tenantDb = \Illuminate\Support\Facades\DB::connection(
+                'website_tenant'
+            );
+
+            $administratorUserId = $tenantDb
+                ->table('site_user_roles as sur')
+                ->join(
+                    'site_roles as sr',
+                    'sr.id',
+                    '=',
+                    'sur.role_id'
+                )
+                ->join(
+                    'site_users as su',
+                    'su.id',
+                    '=',
+                    'sur.user_id'
+                )
+                ->where('sr.slug', 'administrator')
+                ->where('su.is_active', true)
+                ->orderBy('su.id')
+                ->value('su.id');
+
+            abort_unless(
+                $administratorUserId,
+                403,
+                'Website Administrator account is unavailable.'
+            );
+
+            $administratorUserId =
+                (int) $administratorUserId;
+
             $authMethod =
                 $access === 'admin_support'
                     ? 'esubiz_admin_support'
-                    : 'esubiz_sso';
+                    : 'esubiz_owner_admin';
 
             $supportAccess =
                 $access === 'admin_support';
 
             session([
                 'tenant_cms_authenticated' => true,
-                'tenant_cms_user_id' => $userId,
+                'tenant_cms_user_id' => $administratorUserId,
                 'tenant_cms_website_id' => $websiteId,
                 'tenant_cms_auth_method' => $authMethod,
                 'tenant_cms_support_access' => $supportAccess,
 
                 "tenant_cms_sites.{$websiteId}.authenticated" => true,
-                "tenant_cms_sites.{$websiteId}.user_id" => $userId,
+                "tenant_cms_sites.{$websiteId}.user_id" => $administratorUserId,
                 "tenant_cms_sites.{$websiteId}.auth_method" => $authMethod,
                 "tenant_cms_sites.{$websiteId}.support_access" => $supportAccess,
             ]);
@@ -2650,6 +2707,14 @@ return view(
                     'label' => 'Google',
                     'enabled' =>
                         ($settings['auth.google.enabled'] ?? '0') === '1',
+                    'connection_mode' =>
+                        in_array(
+                            $settings['auth.google.connection_mode'] ?? 'esubiz',
+                            ['esubiz', 'custom'],
+                            true
+                        )
+                            ? ($settings['auth.google.connection_mode'] ?? 'esubiz')
+                            : 'esubiz',
                     'client_id' =>
                         $settings['auth.google.client_id'] ?? '',
                     'has_secret' =>
@@ -2660,6 +2725,14 @@ return view(
                     'label' => 'Facebook',
                     'enabled' =>
                         ($settings['auth.facebook.enabled'] ?? '0') === '1',
+                    'connection_mode' =>
+                        in_array(
+                            $settings['auth.facebook.connection_mode'] ?? 'esubiz',
+                            ['esubiz', 'custom'],
+                            true
+                        )
+                            ? ($settings['auth.facebook.connection_mode'] ?? 'esubiz')
+                            : 'esubiz',
                     'client_id' =>
                         $settings['auth.facebook.client_id'] ?? '',
                     'has_secret' =>
@@ -2670,6 +2743,14 @@ return view(
                     'label' => 'Instagram',
                     'enabled' =>
                         ($settings['auth.instagram.enabled'] ?? '0') === '1',
+                    'connection_mode' =>
+                        in_array(
+                            $settings['auth.instagram.connection_mode'] ?? 'esubiz',
+                            ['esubiz', 'custom'],
+                            true
+                        )
+                            ? ($settings['auth.instagram.connection_mode'] ?? 'esubiz')
+                            : 'esubiz',
                     'client_id' =>
                         $settings['auth.instagram.client_id'] ?? '',
                     'has_secret' =>
@@ -2680,6 +2761,14 @@ return view(
                     'label' => 'TikTok',
                     'enabled' =>
                         ($settings['auth.tiktok.enabled'] ?? '0') === '1',
+                    'connection_mode' =>
+                        in_array(
+                            $settings['auth.tiktok.connection_mode'] ?? 'esubiz',
+                            ['esubiz', 'custom'],
+                            true
+                        )
+                            ? ($settings['auth.tiktok.connection_mode'] ?? 'esubiz')
+                            : 'esubiz',
                     'client_id' =>
                         $settings['auth.tiktok.client_key'] ?? '',
                     'has_secret' =>
@@ -2690,6 +2779,14 @@ return view(
                     'label' => 'X',
                     'enabled' =>
                         ($settings['auth.x.enabled'] ?? '0') === '1',
+                    'connection_mode' =>
+                        in_array(
+                            $settings['auth.x.connection_mode'] ?? 'esubiz',
+                            ['esubiz', 'custom'],
+                            true
+                        )
+                            ? ($settings['auth.x.connection_mode'] ?? 'esubiz')
+                            : 'esubiz',
                     'client_id' =>
                         $settings['auth.x.client_id'] ?? '',
                     'has_secret' =>
@@ -3195,6 +3292,12 @@ return view(
                 'boolean',
             ],
 
+            /* ESUBIZ_CORE_AUTH_PROVIDER_CONNECTION_MODE_V1C */
+            'providers.*.connection_mode' => [
+                'nullable',
+                'in:esubiz,custom',
+            ],
+
             'providers.*.client_id' => [
                 'nullable',
                 'string',
@@ -3487,6 +3590,26 @@ return view(
             if ($provider === 'esubiz') {
                 continue;
             }
+
+            $connectionMode =
+                $providerData['connection_mode']
+                ?? 'esubiz';
+
+            if (
+                !in_array(
+                    $connectionMode,
+                    ['esubiz', 'custom'],
+                    true
+                )
+            ) {
+                $connectionMode = 'esubiz';
+            }
+
+            $save(
+                $db,
+                "auth.{$provider}.connection_mode",
+                $connectionMode
+            );
 
             $clientKey =
                 $provider === 'tiktok'

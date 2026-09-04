@@ -145,10 +145,20 @@ class WebsiteController extends Controller
          */
         $expires = now()->addMinutes(2)->timestamp;
 
+        /*
+         * ESUBIZ_CENTRAL_OWNER_TENANT_ADMIN_HANDOFF_V1
+         *
+         * The verified Central website owner enters their own Core
+         * installation as the website Administrator. This trusted
+         * handoff is separate from ordinary public Esubiz OAuth login.
+         */
+        $access = 'owner_admin';
+
         $payload = implode('|', [
             $website->id,
             $user->id,
             $expires,
+            $access,
         ]);
 
         $signature = hash_hmac(
@@ -168,6 +178,7 @@ class WebsiteController extends Controller
             . '&website=' . urlencode((string) $website->id)
             . '&user=' . urlencode((string) $user->id)
             . '&expires=' . urlencode((string) $expires)
+            . '&access=' . urlencode($access)
             . '&signature=' . urlencode($signature);
 
         return redirect()->away($tenantUrl);
