@@ -1766,6 +1766,20 @@ Route::get('/admin/site-settings', function () {
     return view('admin.site-settings.index');
 })->middleware(['auth'])->name('admin.site-settings.index');
 
+/*
+ * ESUBIZ_WEBSITE_WIZARD_SETTINGS_ROUTE_V1
+ */
+Route::post(
+    '/admin/site-settings/website-wizard',
+    [
+        \App\Http\Controllers\Admin\WebsiteWizardSettingsController::class,
+        'update'
+    ]
+)
+    ->middleware(['auth'])
+    ->name('admin.site-settings.website-wizard.update');
+
+
 
 /*
  * ESUBIZ_CENTRAL_SSO_SETTINGS_ROUTE_V1
@@ -2111,6 +2125,31 @@ Route::domain('esubiz.com')
     Route::post('/developer/builder/create', [DeveloperBuilderController::class, 'create'])
         ->middleware('account-mode:developer')
         ->name('developer.builder.create');
+
+// ESUBIZ_DEVELOPER_BUILD_ACTION_ROUTES_V1
+
+// ESUBIZ_DEVELOPER_LIVE_COMPILATION_V1
+Route::post(
+    '/developer/builder/builds/{build}/compile',
+    [DeveloperBuilderController::class, 'compile']
+)->name('developer.builder.compile');
+
+// ESUBIZ_DEVELOPER_BUILD_STATUS_V1
+Route::get(
+    '/developer/builder/builds/{build}/status',
+    [DeveloperBuilderController::class, 'status']
+)->name('developer.builder.status');
+
+Route::post(
+    '/developer/builder/builds/{build}/recompile',
+    [DeveloperBuilderController::class, 'recompile']
+)->name('developer.builder.recompile');
+
+Route::post(
+    '/developer/builder/builds/{build}/payment',
+    [DeveloperBuilderController::class, 'proceedToPayment']
+)->name('developer.builder.payment');
+
 
     Route::get('/user/financials', [\App\Http\Controllers\User\DashboardController::class, 'financialRecords'])
     ->middleware('auth')

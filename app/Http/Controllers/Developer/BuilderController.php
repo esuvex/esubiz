@@ -112,7 +112,7 @@ class BuilderController extends Controller
         ]);
     }
 
-    public function create(Request $request): RedirectResponse
+    public function create(Request $request)
     {
         $validated = $request->validate([
             'project_name' => ['required', 'string', 'max:100'],
@@ -366,74 +366,446 @@ class BuilderController extends Controller
             ],
         ]);
 
-        // ESUBIZ_DEVELOPER_BUILD_CHECKOUT_HANDOFF_V1
+        // ESUBIZ_DEVELOPER_LIVE_COMPILATION_V1
         //
-        // A compiled Developer Build is an Esubiz-owned purchase.
-        // Website Types are intentionally not Marketplace listings, so
-        // this order references developer_build_id instead of inventing
-        // a Marketplace listing/vendor.
-        $checkoutOrderId = \Illuminate\Support\Facades\DB::transaction(
-            function () use ($build, $authoritativeSubtotal) {
-                $currency = 'NGN';
+        // AJAX Developer Builder lifecycle:
+        // 1. Create authoritative queued build.
+        // 2. Return its ID immediately.
+        // 3. Frontend starts compilation through the dedicated endpoint.
+        // 4. Frontend polls the read-only status endpoint for REAL progress.
+        //
+        // The normal non-AJAX path below remains as a safe fallback.
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok' => true,
+                'build' => [
+                    'id' => $build->id,
+                    'build_id' => $build->build_id,
+                    'project_name' => $build->project_name,
+                    'status' => $build->status,
+                    'percent' => 0,
+                    'total_cost' => $build->total_cost,
+                ],
+                'compile_url' => route(
+                    'developer.builder.compile',
+                    ['build' => $build->id]
+                ),
+                'status_url' => route(
+                    'developer.builder.status',
+                    ['build' => $build->id]
+                ),
+                'payment_url' => route(
+                    'developer.builder.payment',
+                    ['build' => $build->id]
+                ),
+                'recompile_url' => route(
+                    'developer.builder.recompile',
+                    ['build' => $build->id]
+                ),
+            ]);
+        }
 
-                $orderId = \Illuminate\Support\Facades\DB::table(
+        // ESUBIZ_DEVELOPER_COMPILE_BEFORE_PAYMENT_V1
+        //
+        // Developer Builds are compiled before payment.
+        // Payment later releases the already-compiled package.
+        //
+        // WebsiteCompilerService owns the compilation lifecycle and
+        // records success/failure/package metadata on DeveloperBuild.
+        try {
+            app(
+                \App\Services\Developer\WebsiteCompilerService::class
+            )->compile($build->build_id);
+
+            $build->refresh();
+
+            return redirect()
+                ->route('developer.builder')
+                ->with('build', [
+                    'id' => $build->id,
+                    'build_id' => $build->build_id,
+                    'project_name' => $build->project_name,
+                    'status' => $build->status,
+                    'files_count' => $build->files_count,
+                    'package_size' => $build->package_size,
+                    'total_cost' => $build->total_cost,
+                ]);
+
+        } catch (\Throwable $e) {
+            $build->refresh();
+
+            return redirect()
+                ->route('developer.builder')
+                ->with('build', [
+                    'id' => $build->id,
+                    'build_id' => $build->build_id,
+                    'project_name' => $build->project_name,
+                    'status' => 'failed',
+                    'error_message' =>
+                        $build->error_message ?: $e->getMessage(),
+                    'total_cost' => $build->total_cost,
+                ]);
+        }
+    }
+
+
+    /*
+     * ESUBIZ_DEVELOPER_LIVE_COMPILATION_V1
+     *
+     * Starts compilation for an already-created Developer Build.
+     * The compiler itself persists authoritative progress checkpoints.
+     */
+    public function compile(
+        \Illuminate\Http\Request $request,
+        \App\Services\Developer\WebsiteCompilerService $compiler,
+        int $build
+    ) {
+        $developerBuild = \App\Models\DeveloperBuild::query()
+            ->where('id', $build)
+            ->where('developer_id', auth()->id())
+            ->firstOrFail();
+
+        if ($developerBuild->payment_status === 'paid') {
+            return response()->json([
+                'ok' => false,
+                'message' => 'A paid build cannot be compiled again.',
+            ], 422);
+        }
+
+        if ($developerBuild->status === 'success') {
+            return response()->json([
+                'ok' => true,
+                'status' => 'success',
+                'percent' => 100,
+            ]);
+        }
+
+        try {
+            $compiler->compile($developerBuild->build_id);
+            $developerBuild->refresh();
+
+            $configuration =
+                is_array($developerBuild->configuration)
+                    ? $developerBuild->configuration
+                    : [];
+
+            $progress =
+                is_array($configuration['progress'] ?? null)
+                    ? $configuration['progress']
+                    : [];
+
+            return response()->json([
+                'ok' => $developerBuild->status === 'success',
+                'status' => $developerBuild->status,
+                'percent' => max(
+                    0,
+                    min(100, (int) ($progress['percent'] ?? 0))
+                ),
+                'stage' => $progress['stage'] ?? null,
+            ]);
+        } catch (\Throwable $e) {
+            $developerBuild->refresh();
+
+            return response()->json([
+                'ok' => false,
+                'status' => 'failed',
+                'message' =>
+                    $developerBuild->error_message
+                    ?: $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /*
+     * ESUBIZ_DEVELOPER_BUILD_STATUS_V1
+     *
+     * Authoritative read-only compilation status.
+     * Percentage comes only from backend compiler checkpoints.
+     */
+    public function status(
+        \Illuminate\Http\Request $request,
+        int $build
+    ) {
+        $developerBuild = \App\Models\DeveloperBuild::query()
+            ->where('id', $build)
+            ->where('developer_id', auth()->id())
+            ->firstOrFail();
+
+        $configuration =
+            is_array($developerBuild->configuration)
+                ? $developerBuild->configuration
+                : [];
+
+        $progress =
+            is_array($configuration['progress'] ?? null)
+                ? $configuration['progress']
+                : [];
+
+        $percent = (int) ($progress['percent'] ?? 0);
+        $percent = max(0, min(100, $percent));
+
+        return response()->json([
+            'id' => $developerBuild->id,
+            'build_id' => $developerBuild->build_id,
+            'status' => $developerBuild->status,
+            'percent' => $percent,
+            'stage' => $progress['stage'] ?? null,
+            'progress_updated_at' =>
+                $progress['updated_at'] ?? null,
+            'files_count' => $developerBuild->files_count,
+            'package_size' => $developerBuild->package_size,
+
+            'completed' =>
+                $developerBuild->status === 'success'
+                && $percent === 100,
+
+            'failed' =>
+                $developerBuild->status === 'failed',
+        ]);
+    }
+
+    /*
+     * ESUBIZ_DEVELOPER_BUILD_ACTIONS_V1
+     *
+     * Recompile keeps the same build and primary Central licence.
+     */
+    public function recompile(
+        \Illuminate\Http\Request $request,
+        \App\Services\Developer\WebsiteCompilerService $compiler,
+        int $build
+    ) {
+        $developerBuild = \App\Models\DeveloperBuild::query()
+            ->where('id', $build)
+            ->where('developer_id', auth()->id())
+            ->firstOrFail();
+
+        if ($developerBuild->payment_status === 'paid') {
+            return redirect()
+                ->route('developer.builder')
+                ->with('error', 'A paid build cannot be recompiled.');
+        }
+
+        try {
+            $compiler->compile($developerBuild->build_id);
+
+            $developerBuild->refresh();
+
+            return redirect()
+                ->route('developer.builder')
+                ->with('build', [
+                    'id' => $developerBuild->id,
+                    'build_id' => $developerBuild->build_id,
+                    'project_name' => $developerBuild->project_name,
+                    'status' => $developerBuild->status,
+                    'files_count' => $developerBuild->files_count,
+                    'package_size' => $developerBuild->package_size,
+                    'total_cost' => $developerBuild->total_cost,
+                ]);
+        } catch (\Throwable $e) {
+            $developerBuild->refresh();
+
+            return redirect()
+                ->route('developer.builder')
+                ->with('build', [
+                    'id' => $developerBuild->id,
+                    'build_id' => $developerBuild->build_id,
+                    'project_name' => $developerBuild->project_name,
+                    'status' => 'failed',
+                    'error_message' =>
+                        $developerBuild->error_message
+                        ?: $e->getMessage(),
+                    'total_cost' => $developerBuild->total_cost,
+                ]);
+        }
+    }
+
+
+    /*
+     * Compilation happens before payment.
+     *
+     * This action only creates/reuses checkout for an already
+     * successfully compiled private package.
+     */
+    public function proceedToPayment(
+        \Illuminate\Http\Request $request,
+        int $build
+    ) {
+        $developerBuild = \App\Models\DeveloperBuild::query()
+            ->where('id', $build)
+            ->where('developer_id', auth()->id())
+            ->firstOrFail();
+
+        if (
+            $developerBuild->status !== 'success'
+            || !$developerBuild->package_reference
+            || !\Illuminate\Support\Facades\File::exists(
+                $developerBuild->package_reference
+            )
+        ) {
+            return redirect()
+                ->route('developer.builder')
+                ->with(
+                    'error',
+                    'This build must compile successfully before payment.'
+                );
+        }
+
+        if ($developerBuild->payment_status === 'paid') {
+            return redirect()
+                ->route('developer.builder')
+                ->with(
+                    'error',
+                    'This Developer Build has already been paid.'
+                );
+        }
+
+        $orderId = \Illuminate\Support\Facades\DB::transaction(
+            function () use ($developerBuild) {
+                $order = \Illuminate\Support\Facades\DB::table(
                     'marketplace_orders'
-                )->insertGetId([
-                    'marketplace_listing_id' => null,
-                    'developer_build_id' => $build->id,
-                    'vendor_id' => null,
-                    'workspace_id' => null,
-                    'buyer_id' => auth()->id(),
-                    'uuid' => (string) \Illuminate\Support\Str::uuid(),
-                    'reference' => 'DEVBLD-' . strtoupper(
-                        \Illuminate\Support\Str::random(12)
-                    ),
-                    'amount' => $authoritativeSubtotal,
-                    'commission_amount' => 0,
-                    'vendor_amount' => 0,
-                    'currency' => $currency,
-                    'payment_status' => 'pending',
-                    'status' => 'pending',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
+                )
+                    ->where(
+                        'developer_build_id',
+                        $developerBuild->id
+                    )
+                    ->where('payment_status', 'pending')
+                    ->orderByDesc('id')
+                    ->lockForUpdate()
+                    ->first();
 
-                \Illuminate\Support\Facades\DB::table(
+                if (!$order) {
+                    $orderId = \Illuminate\Support\Facades\DB::table(
+                        'marketplace_orders'
+                    )->insertGetId([
+                        'marketplace_listing_id' => null,
+                        'developer_build_id' =>
+                            $developerBuild->id,
+                        'vendor_id' => null,
+                        'workspace_id' => null,
+                        'buyer_id' => auth()->id(),
+                        'uuid' =>
+                            (string) \Illuminate\Support\Str::uuid(),
+                        'reference' =>
+                            'DEVBLD-'
+                            . strtoupper(
+                                \Illuminate\Support\Str::random(20)
+                            ),
+                        'amount' => $developerBuild->total_cost,
+                        'commission_amount' => 0,
+                        'vendor_amount' => 0,
+                        'currency' => 'NGN',
+                        'payment_status' => 'pending',
+                        'status' => 'pending',
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                } else {
+                    $orderId = $order->id;
+                }
+
+                /*
+                 * Link the already-generated compile-time licence.
+                 * Never generate another licence during checkout.
+                 */
+                $license = \Illuminate\Support\Facades\DB::table(
+                    'off_server_license_registrations'
+                )
+                    ->where(
+                        'id',
+                        $developerBuild->license_registration_id
+                    )
+                    ->where(
+                        'user_id',
+                        $developerBuild->developer_id
+                    )
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$license) {
+                    throw new \RuntimeException(
+                        'Developer Build primary licence is invalid.'
+                    );
+                }
+
+                if (
+                    $license->marketplace_order_id !== null
+                    && (int) $license->marketplace_order_id
+                        !== (int) $orderId
+                ) {
+                    throw new \RuntimeException(
+                        'Developer Build licence belongs to another order.'
+                    );
+                }
+
+                if ($license->marketplace_order_id === null) {
+                    \Illuminate\Support\Facades\DB::table(
+                        'off_server_license_registrations'
+                    )
+                        ->where('id', $license->id)
+                        ->update([
+                            'marketplace_order_id' => $orderId,
+                            'updated_at' => now(),
+                        ]);
+                }
+
+                /*
+                 * Reuse an existing pending checkout session.
+                 */
+                $session = \Illuminate\Support\Facades\DB::table(
                     'marketplace_checkout_sessions'
-                )->insert([
-                    'user_id' => auth()->id(),
-                    'account_mode' => 'developer',
-                    'checkout_origin' => 'developer_builder',
-                    'return_url' => route('developer.builder'),
-                    'return_area' => 'developer',
-                    'wallet_allowed' => true,
-                    'origin_token_id' => null,
-                    'deployment_type' => 'off_server',
-                    'product_type' => 'developer_build',
-                    'product_id' => $build->id,
-                    'website_id' => null,
-                    'workspace_id' => null,
-                    'quantity' => 1,
-                    'unit_price' => $authoritativeSubtotal,
-                    'total_amount' => $authoritativeSubtotal,
-                    'currency' => $currency,
-                    'is_commissionable' => false,
-                    'payment_method_id' => null,
-                    'payment_provider_id' => null,
-                    'marketplace_order_id' => $orderId,
-                    'payment_transaction_id' => null,
-                    'status' => 'pending_payment',
-                    'expires_at' => now()->addHours(24),
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
+                )
+                    ->where('marketplace_order_id', $orderId)
+                    ->where('user_id', auth()->id())
+                    ->where('product_type', 'developer_build')
+                    ->where('product_id', $developerBuild->id)
+                    ->where('status', 'pending_payment')
+                    ->orderByDesc('id')
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$session) {
+                    \Illuminate\Support\Facades\DB::table(
+                        'marketplace_checkout_sessions'
+                    )->insert([
+                        'user_id' => auth()->id(),
+                        'account_mode' => 'developer',
+                        'checkout_origin' =>
+                            'developer_builder',
+                        'return_url' => null,
+                        'return_area' => 'developer',
+                        'wallet_allowed' => 1,
+                        'origin_token_id' => null,
+                        'deployment_type' => 'off_server',
+                        'product_type' => 'developer_build',
+                        'product_id' => $developerBuild->id,
+                        'website_id' => null,
+                        'workspace_id' => null,
+                        'quantity' => 1,
+                        'unit_price' =>
+                            $developerBuild->total_cost,
+                        'total_amount' =>
+                            $developerBuild->total_cost,
+                        'currency' => 'NGN',
+                        'is_commissionable' => 0,
+                        'payment_method_id' => null,
+                        'payment_provider_id' => null,
+                        'marketplace_order_id' => $orderId,
+                        'payment_transaction_id' => null,
+                        'status' => 'pending_payment',
+                        'expires_at' => now()->addHours(24),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
 
                 return $orderId;
             }
         );
 
-        return redirect()->route('marketplace.checkout', [
-            'order' => $checkoutOrderId,
-        ]);
+        return redirect()->route(
+            'marketplace.checkout',
+            ['order' => $orderId]
+        );
     }
+
 }

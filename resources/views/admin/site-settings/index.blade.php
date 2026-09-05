@@ -19,6 +19,91 @@
 
     $esubizSsoExternalEnabled =
         ($esubizSsoSettings['auth.esubiz_sso.external_enabled'] ?? '1') === '1';
+
+
+    /*
+     * ESUBIZ_WEBSITE_WIZARD_GLOBAL_SETTINGS_V1
+     */
+    $wizardSettingDefaults = [
+        /*
+         * ESUBIZ_SEPARATE_WIZARD_PROGRESS_TIMERS_V1
+         */
+        'wizard.user.progress_minimum_seconds' => '8',
+        'wizard.developer.progress_minimum_seconds' => '8',
+
+        'wizard.user.progress_title' =>
+            'Creating Your Website',
+        /*
+         * ESUBIZ_WIZARD_REAL_PROGRESS_CONFIG_V1
+         */
+        'wizard.user.progress_text.0_19' =>
+            'Preparing your website...',
+        'wizard.user.progress_text.20_39' =>
+            'Preparing your website configuration...',
+        'wizard.user.progress_text.40_59' =>
+            'Installing your website...',
+        'wizard.user.progress_text.60_79' =>
+            'Configuring your website...',
+        'wizard.user.progress_text.80_99' =>
+            'Finalizing your website...',
+        'wizard.user.progress_text.100' =>
+            'Website deployment completed.',
+        'wizard.user.success_title' =>
+            'Website Created Successfully',
+        'wizard.user.success_text' =>
+            'Your website is ready.',
+        'wizard.user.failure_title' =>
+            'Website Creation Failed',
+        'wizard.user.failure_text' =>
+            'Your website could not be created. Please try again.',
+
+        'wizard.developer.progress_title' =>
+            'Compiling Your Website',
+        'wizard.developer.progress_text.0_19' =>
+            'Preparing your build...',
+        'wizard.developer.progress_text.20_39' =>
+            'Preparing the Website Type package...',
+        'wizard.developer.progress_text.40_59' =>
+            'Assembling selected products...',
+        'wizard.developer.progress_text.60_79' =>
+            'Preparing licensing and documentation...',
+        'wizard.developer.progress_text.80_99' =>
+            'Packaging your website...',
+        'wizard.developer.progress_text.100' =>
+            'Website compilation completed.',
+        'wizard.developer.success_title' =>
+            'Compilation Successful',
+        'wizard.developer.success_text' =>
+            'Your website package is ready.',
+        'wizard.developer.failure_title' =>
+            'Compilation Failed',
+        'wizard.developer.failure_text' =>
+            'The website package could not be compiled.',
+
+        'wizard.developer.payment_label' =>
+            'Proceed to Payment',
+        'wizard.developer.recompile_label' =>
+            'Recompile',
+        'wizard.developer.dashboard_label' =>
+            'Dashboard',
+    ];
+
+    $wizardSettings = \Illuminate\Support\Facades\DB::table(
+        'site_settings'
+    )
+        ->whereNull('workspace_id')
+        ->whereIn(
+            'key',
+            array_keys($wizardSettingDefaults)
+        )
+        ->pluck('value', 'key');
+
+    foreach ($wizardSettingDefaults as $key => $default) {
+        if (!isset($wizardSettings[$key])) {
+            $wizardSettings[$key] = $default;
+        }
+    }
+
 @endphp
 
 @extends('admin.layouts.app')
@@ -358,6 +443,7 @@
         'whatsapp'   => 'Esubiz WhatsApp',
         'marketing'  => 'Marketing & Ads',
         'api'        => 'API',
+        'website-wizard' => 'Website Wizard',
     ];
 
     $subTabs = [
@@ -724,6 +810,575 @@
                         <span class="es-open">Open Theme Manager →</span>
                     </a>
                 </div>
+
+            @elseif($tab === 'website-wizard')
+
+                <p class="es-settings-section-copy">
+                    Control the progress presentation and display text used
+                    during User website deployment and Developer compilation.
+                    These settings do not change actual backend processing.
+                </p>
+
+                @if(session('success'))
+                    <div class="alert alert-success mb-4">
+                        {{ session('success') }}
+                    </div>
+                @endif
+
+                <form
+                    method="POST"
+                    action="{{ route('admin.site-settings.website-wizard.update') }}"
+                >
+                    @csrf
+
+                    <div class="es-settings-grid">
+
+                        <div class="es-setting-card">
+                            <h3>User Website Deployment</h3>
+
+                            <p class="mt-2 text-muted">
+                                Configure the SaaS website deployment
+                                progress presentation. The percentage shown
+                                to the user will come from the real backend
+                                deployment progress.
+                            </p>
+
+                            <div class="mb-3 mt-3">
+                                <label class="form-label fw-semibold">
+                                    Minimum Progress Display Time
+                                </label>
+
+                                <div class="input-group">
+                                    <input
+                                        type="number"
+                                        name="user_progress_minimum_seconds"
+                                        min="0"
+                                        max="60"
+                                        required
+                                        class="form-control"
+                                        value="{{ old(
+                                            'user_progress_minimum_seconds',
+                                            $wizardSettings[
+                                                'wizard.user.progress_minimum_seconds'
+                                            ]
+                                        ) }}"
+                                    >
+                                    <span class="input-group-text">
+                                        seconds
+                                    </span>
+                                </div>
+
+                                <small class="text-muted d-block mt-2">
+                                    Presentation only. It never slows or
+                                    controls the real deployment process.
+                                </small>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">
+                                    Progress Title
+                                </label>
+                                <input
+                                    class="form-control"
+                                    name="user_progress_title"
+                                    maxlength="120"
+                                    required
+                                    value="{{ old(
+                                        'user_progress_title',
+                                        $wizardSettings[
+                                            'wizard.user.progress_title'
+                                        ]
+                                    ) }}"
+                                >
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">
+                                    Progress Texts by Real Percentage
+                                </label>
+
+                                <small class="text-muted d-block mb-3">
+                                    Each text is displayed only when the real
+                                    backend deployment percentage is inside
+                                    its configured range.
+                                </small>
+
+                                <div class="mb-3">
+                                    <label class="form-label">0–19%</label>
+                                    <textarea
+                                        class="form-control"
+                                        name="user_progress_text_0_19"
+                                        rows="2"
+                                        maxlength="500"
+                                        required
+                                    >{{ old(
+                                        'user_progress_text_0_19',
+                                        $wizardSettings[
+                                            'wizard.user.progress_text.0_19'
+                                        ]
+                                    ) }}</textarea>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">20–39%</label>
+                                    <textarea
+                                        class="form-control"
+                                        name="user_progress_text_20_39"
+                                        rows="2"
+                                        maxlength="500"
+                                        required
+                                    >{{ old(
+                                        'user_progress_text_20_39',
+                                        $wizardSettings[
+                                            'wizard.user.progress_text.20_39'
+                                        ]
+                                    ) }}</textarea>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">40–59%</label>
+                                    <textarea
+                                        class="form-control"
+                                        name="user_progress_text_40_59"
+                                        rows="2"
+                                        maxlength="500"
+                                        required
+                                    >{{ old(
+                                        'user_progress_text_40_59',
+                                        $wizardSettings[
+                                            'wizard.user.progress_text.40_59'
+                                        ]
+                                    ) }}</textarea>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">60–79%</label>
+                                    <textarea
+                                        class="form-control"
+                                        name="user_progress_text_60_79"
+                                        rows="2"
+                                        maxlength="500"
+                                        required
+                                    >{{ old(
+                                        'user_progress_text_60_79',
+                                        $wizardSettings[
+                                            'wizard.user.progress_text.60_79'
+                                        ]
+                                    ) }}</textarea>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">80–99%</label>
+                                    <textarea
+                                        class="form-control"
+                                        name="user_progress_text_80_99"
+                                        rows="2"
+                                        maxlength="500"
+                                        required
+                                    >{{ old(
+                                        'user_progress_text_80_99',
+                                        $wizardSettings[
+                                            'wizard.user.progress_text.80_99'
+                                        ]
+                                    ) }}</textarea>
+                                </div>
+
+                                <div>
+                                    <label class="form-label">100%</label>
+                                    <textarea
+                                        class="form-control"
+                                        name="user_progress_text_100"
+                                        rows="2"
+                                        maxlength="500"
+                                        required
+                                    >{{ old(
+                                        'user_progress_text_100',
+                                        $wizardSettings[
+                                            'wizard.user.progress_text.100'
+                                        ]
+                                    ) }}</textarea>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">
+                                    Success Title
+                                </label>
+                                <input
+                                    class="form-control"
+                                    name="user_success_title"
+                                    maxlength="120"
+                                    required
+                                    value="{{ old(
+                                        'user_success_title',
+                                        $wizardSettings[
+                                            'wizard.user.success_title'
+                                        ]
+                                    ) }}"
+                                >
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">
+                                    Success Text
+                                </label>
+                                <textarea
+                                    class="form-control"
+                                    name="user_success_text"
+                                    rows="2"
+                                    maxlength="500"
+                                    required
+                                >{{ old(
+                                    'user_success_text',
+                                    $wizardSettings[
+                                        'wizard.user.success_text'
+                                    ]
+                                ) }}</textarea>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">
+                                    Failure Title
+                                </label>
+                                <input
+                                    class="form-control"
+                                    name="user_failure_title"
+                                    maxlength="120"
+                                    required
+                                    value="{{ old(
+                                        'user_failure_title',
+                                        $wizardSettings[
+                                            'wizard.user.failure_title'
+                                        ]
+                                    ) }}"
+                                >
+                            </div>
+
+                            <div>
+                                <label class="form-label fw-semibold">
+                                    Failure Text
+                                </label>
+                                <textarea
+                                    class="form-control"
+                                    name="user_failure_text"
+                                    rows="2"
+                                    maxlength="500"
+                                    required
+                                >{{ old(
+                                    'user_failure_text',
+                                    $wizardSettings[
+                                        'wizard.user.failure_text'
+                                    ]
+                                ) }}</textarea>
+                            </div>
+                        </div>
+
+                        <div class="es-setting-card">
+                            <h3>Developer Compilation</h3>
+
+                            <p class="mt-2 text-muted">
+                                Configure Developer compilation progress.
+                                The percentage displayed in the compilation
+                                modal will come from the real backend compiler
+                                progress.
+                            </p>
+
+                            <div class="mb-3 mt-3">
+                                <label class="form-label fw-semibold">
+                                    Minimum Progress Display Time
+                                </label>
+
+                                <div class="input-group">
+                                    <input
+                                        type="number"
+                                        name="developer_progress_minimum_seconds"
+                                        min="0"
+                                        max="60"
+                                        required
+                                        class="form-control"
+                                        value="{{ old(
+                                            'developer_progress_minimum_seconds',
+                                            $wizardSettings[
+                                                'wizard.developer.progress_minimum_seconds'
+                                            ]
+                                        ) }}"
+                                    >
+                                    <span class="input-group-text">
+                                        seconds
+                                    </span>
+                                </div>
+
+                                <small class="text-muted d-block mt-2">
+                                    Presentation only. It never slows or
+                                    controls the real compilation process.
+                                </small>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">
+                                    Progress Title
+                                </label>
+                                <input
+                                    class="form-control"
+                                    name="developer_progress_title"
+                                    maxlength="120"
+                                    required
+                                    value="{{ old(
+                                        'developer_progress_title',
+                                        $wizardSettings[
+                                            'wizard.developer.progress_title'
+                                        ]
+                                    ) }}"
+                                >
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">
+                                    Progress Texts by Real Percentage
+                                </label>
+
+                                <small class="text-muted d-block mb-3">
+                                    Each text is displayed only when the real
+                                    backend compiler percentage is inside its
+                                    configured range.
+                                </small>
+
+                                <div class="mb-3">
+                                    <label class="form-label">0–19%</label>
+                                    <textarea
+                                        class="form-control"
+                                        name="developer_progress_text_0_19"
+                                        rows="2"
+                                        maxlength="500"
+                                        required
+                                    >{{ old(
+                                        'developer_progress_text_0_19',
+                                        $wizardSettings[
+                                            'wizard.developer.progress_text.0_19'
+                                        ]
+                                    ) }}</textarea>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">20–39%</label>
+                                    <textarea
+                                        class="form-control"
+                                        name="developer_progress_text_20_39"
+                                        rows="2"
+                                        maxlength="500"
+                                        required
+                                    >{{ old(
+                                        'developer_progress_text_20_39',
+                                        $wizardSettings[
+                                            'wizard.developer.progress_text.20_39'
+                                        ]
+                                    ) }}</textarea>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">40–59%</label>
+                                    <textarea
+                                        class="form-control"
+                                        name="developer_progress_text_40_59"
+                                        rows="2"
+                                        maxlength="500"
+                                        required
+                                    >{{ old(
+                                        'developer_progress_text_40_59',
+                                        $wizardSettings[
+                                            'wizard.developer.progress_text.40_59'
+                                        ]
+                                    ) }}</textarea>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">60–79%</label>
+                                    <textarea
+                                        class="form-control"
+                                        name="developer_progress_text_60_79"
+                                        rows="2"
+                                        maxlength="500"
+                                        required
+                                    >{{ old(
+                                        'developer_progress_text_60_79',
+                                        $wizardSettings[
+                                            'wizard.developer.progress_text.60_79'
+                                        ]
+                                    ) }}</textarea>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">80–99%</label>
+                                    <textarea
+                                        class="form-control"
+                                        name="developer_progress_text_80_99"
+                                        rows="2"
+                                        maxlength="500"
+                                        required
+                                    >{{ old(
+                                        'developer_progress_text_80_99',
+                                        $wizardSettings[
+                                            'wizard.developer.progress_text.80_99'
+                                        ]
+                                    ) }}</textarea>
+                                </div>
+
+                                <div>
+                                    <label class="form-label">100%</label>
+                                    <textarea
+                                        class="form-control"
+                                        name="developer_progress_text_100"
+                                        rows="2"
+                                        maxlength="500"
+                                        required
+                                    >{{ old(
+                                        'developer_progress_text_100',
+                                        $wizardSettings[
+                                            'wizard.developer.progress_text.100'
+                                        ]
+                                    ) }}</textarea>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">
+                                    Success Title
+                                </label>
+                                <input
+                                    class="form-control"
+                                    name="developer_success_title"
+                                    maxlength="120"
+                                    required
+                                    value="{{ old(
+                                        'developer_success_title',
+                                        $wizardSettings[
+                                            'wizard.developer.success_title'
+                                        ]
+                                    ) }}"
+                                >
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">
+                                    Success Text
+                                </label>
+                                <textarea
+                                    class="form-control"
+                                    name="developer_success_text"
+                                    rows="2"
+                                    maxlength="500"
+                                    required
+                                >{{ old(
+                                    'developer_success_text',
+                                    $wizardSettings[
+                                        'wizard.developer.success_text'
+                                    ]
+                                ) }}</textarea>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">
+                                    Failure Title
+                                </label>
+                                <input
+                                    class="form-control"
+                                    name="developer_failure_title"
+                                    maxlength="120"
+                                    required
+                                    value="{{ old(
+                                        'developer_failure_title',
+                                        $wizardSettings[
+                                            'wizard.developer.failure_title'
+                                        ]
+                                    ) }}"
+                                >
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">
+                                    Failure Text
+                                </label>
+                                <textarea
+                                    class="form-control"
+                                    name="developer_failure_text"
+                                    rows="2"
+                                    maxlength="500"
+                                    required
+                                >{{ old(
+                                    'developer_failure_text',
+                                    $wizardSettings[
+                                        'wizard.developer.failure_text'
+                                    ]
+                                ) }}</textarea>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">
+                                    Proceed to Payment Button
+                                </label>
+                                <input
+                                    class="form-control"
+                                    name="developer_payment_label"
+                                    maxlength="60"
+                                    required
+                                    value="{{ old(
+                                        'developer_payment_label',
+                                        $wizardSettings[
+                                            'wizard.developer.payment_label'
+                                        ]
+                                    ) }}"
+                                >
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">
+                                    Recompile Button
+                                </label>
+                                <input
+                                    class="form-control"
+                                    name="developer_recompile_label"
+                                    maxlength="60"
+                                    required
+                                    value="{{ old(
+                                        'developer_recompile_label',
+                                        $wizardSettings[
+                                            'wizard.developer.recompile_label'
+                                        ]
+                                    ) }}"
+                                >
+                            </div>
+
+                            <div>
+                                <label class="form-label fw-semibold">
+                                    Dashboard Button
+                                </label>
+                                <input
+                                    class="form-control"
+                                    name="developer_dashboard_label"
+                                    maxlength="60"
+                                    required
+                                    value="{{ old(
+                                        'developer_dashboard_label',
+                                        $wizardSettings[
+                                            'wizard.developer.dashboard_label'
+                                        ]
+                                    ) }}"
+                                >
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="mt-4">
+                        <button
+                            type="submit"
+                            class="btn px-4 fw-semibold"
+                            style="background:#1464f4;color:#ffffff;border-color:#1464f4;border-radius:10px;"
+                        >
+                            Save Website Wizard Settings
+                        </button>
+                    </div>
+                </form>
 
             @else
 

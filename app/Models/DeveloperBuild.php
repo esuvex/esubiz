@@ -36,6 +36,8 @@ class DeveloperBuild extends Model
         'subtotal',
         'total_cost',
         'payment_status',
+        'license_registration_id',
+        'license_key',
         'paid_at',
         'package_reference',
         'download_url',

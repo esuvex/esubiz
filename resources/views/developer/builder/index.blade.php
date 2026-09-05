@@ -14,21 +14,249 @@
     </p>
 </div>
 
-@if(session('build'))
-    <div class="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-        <p class="font-semibold text-emerald-800">
-            Build project created
-        </p>
-        <p class="mt-1 text-sm text-emerald-700">
-            {{ session('build')['project_name'] ?? '' }}
-        </p>
-        <p class="mt-1 text-xs text-emerald-600">
-            Build ID: {{ session('build')['build_id'] ?? '' }}
-        </p>
+{{-- ESUBIZ_DEVELOPER_LIVE_COMPILATION_V1 --}}
+@php
+    /*
+     * Global Developer Wizard presentation settings.
+     * These texts accompany REAL backend percentages.
+     */
+    $developerWizardSettings = \Illuminate\Support\Facades\DB::table(
+        'site_settings'
+    )
+        ->whereNull('workspace_id')
+        ->whereIn('key', [
+            'wizard.developer.progress_minimum_seconds',
+            'wizard.developer.progress_title',
+            'wizard.developer.progress_text.0_19',
+            'wizard.developer.progress_text.20_39',
+            'wizard.developer.progress_text.40_59',
+            'wizard.developer.progress_text.60_79',
+            'wizard.developer.progress_text.80_99',
+            'wizard.developer.progress_text.100',
+            'wizard.developer.success_title',
+            'wizard.developer.success_text',
+            'wizard.developer.failure_title',
+            'wizard.developer.failure_text',
+            'wizard.developer.payment_label',
+            'wizard.developer.recompile_label',
+            'wizard.developer.dashboard_label',
+        ])
+        ->pluck('value', 'key');
+
+    $developerProgressMinimumSeconds = max(
+        0,
+        min(
+            60,
+            (int) (
+                $developerWizardSettings[
+                    'wizard.developer.progress_minimum_seconds'
+                ] ?? 8
+            )
+        )
+    );
+
+    $developerProgressTexts = [
+        '0_19' =>
+            $developerWizardSettings[
+                'wizard.developer.progress_text.0_19'
+            ] ?? 'Preparing your build...',
+
+        '20_39' =>
+            $developerWizardSettings[
+                'wizard.developer.progress_text.20_39'
+            ] ?? 'Preparing the Website Type package...',
+
+        '40_59' =>
+            $developerWizardSettings[
+                'wizard.developer.progress_text.40_59'
+            ] ?? 'Preparing the compiled website...',
+
+        '60_79' =>
+            $developerWizardSettings[
+                'wizard.developer.progress_text.60_79'
+            ] ?? 'Preparing licensing and documentation...',
+
+        '80_99' =>
+            $developerWizardSettings[
+                'wizard.developer.progress_text.80_99'
+            ] ?? 'Packaging your website...',
+
+        '100' =>
+            $developerWizardSettings[
+                'wizard.developer.progress_text.100'
+            ] ?? 'Website compilation completed.',
+    ];
+@endphp
+
+<div
+    id="developer-live-build-modal"
+    class="fixed inset-0 z-[100] hidden items-center justify-center bg-slate-950/60 px-4 py-8 backdrop-blur-sm"
+    data-minimum-seconds="{{ $developerProgressMinimumSeconds }}"
+    data-progress-texts='@json($developerProgressTexts)'
+    data-success-title="{{ $developerWizardSettings['wizard.developer.success_title'] ?? 'Compilation Successful' }}"
+    data-success-text="{{ $developerWizardSettings['wizard.developer.success_text'] ?? 'Your website package is ready.' }}"
+    data-failure-title="{{ $developerWizardSettings['wizard.developer.failure_title'] ?? 'Compilation Failed' }}"
+    data-failure-text="{{ $developerWizardSettings['wizard.developer.failure_text'] ?? 'The website package could not be compiled.' }}"
+    role="dialog"
+    aria-modal="true"
+>
+    <div class="w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl">
+        <div class="p-7 sm:p-8">
+
+            <div id="developer-live-progress-phase">
+                <div class="flex justify-center">
+                    <div class="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                        <svg
+                            class="h-8 w-8 animate-spin"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2.2"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                d="M12 3a9 9 0 1 1-6.364 2.636"
+                            />
+                        </svg>
+                    </div>
+                </div>
+
+                <div class="mt-5 text-center">
+                    {{-- Developer compilation elapsed timer --}}
+                    <div class="mb-4 flex justify-center">
+                        <div
+                            class="inline-flex items-center rounded-full bg-orange-50 px-4 py-2 text-sm font-extrabold text-orange-600 ring-1 ring-orange-100"
+                        >
+                            <span
+                                id="developer-live-elapsed"
+                                class="tabular-nums"
+                            >
+                                00:00
+                            </span>
+                        </div>
+                    </div>
+
+                    <h2
+                        class="text-2xl font-bold tracking-tight text-slate-900"
+                    >
+                        {{ $developerWizardSettings[
+                            'wizard.developer.progress_title'
+                        ] ?? 'Compiling Website' }}
+                    </h2>
+
+                    <p
+                        id="developer-live-project-name"
+                        class="mt-2 text-sm text-slate-500"
+                    >
+                        Developer Website
+                    </p>
+
+                    <p
+                        id="developer-live-build-id"
+                        class="mt-1 text-xs text-slate-400"
+                    ></p>
+                </div>
+
+                <div class="mt-7">
+                    <div class="mb-2 flex items-center justify-between">
+                        <span
+                            id="developer-live-progress-text"
+                            class="text-xs font-semibold text-blue-600"
+                        >
+                            {{ $developerProgressTexts['0_19'] }}
+                        </span>
+
+                        <div class="flex items-center gap-3">
+                            <span
+                                id="developer-live-percent"
+                                class="text-sm font-extrabold tabular-nums text-blue-700"
+                            >
+                                0%
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="h-2.5 overflow-hidden rounded-full bg-slate-100">
+                        <div
+                            id="developer-live-progress-bar"
+                            class="h-full rounded-full bg-blue-600 transition-all duration-300"
+                            style="width: 0%"
+                        ></div>
+                    </div>
+                </div>
+            </div>
+
+            <div
+                id="developer-live-final-phase"
+                class="hidden"
+            >
+                <div class="text-center">
+                    <h2
+                        id="developer-live-final-title"
+                        class="text-2xl font-bold tracking-tight text-slate-900"
+                    ></h2>
+
+                    <p
+                        id="developer-live-final-text"
+                        class="mt-2 text-sm leading-6 text-slate-500"
+                    ></p>
+
+                    <p
+                        id="developer-live-final-error"
+                        class="mt-3 hidden break-words text-xs leading-5 text-red-700"
+                    ></p>
+                </div>
+
+                <div class="mt-7 grid gap-3 sm:grid-cols-2">
+                    <form
+                        id="developer-live-payment-form"
+                        method="POST"
+                        class="hidden"
+                    >
+                        @csrf
+                        <button
+                            type="submit"
+                            class="flex w-full items-center justify-center rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-700"
+                        >
+                            {{ $developerWizardSettings[
+                                'wizard.developer.payment_label'
+                            ] ?? 'Proceed to Payment' }}
+                        </button>
+                    </form>
+
+                    <form
+                        id="developer-live-recompile-form"
+                        method="POST"
+                        class="hidden"
+                    >
+                        @csrf
+                        <button
+                            type="submit"
+                            class="flex w-full items-center justify-center rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-700"
+                        >
+                            {{ $developerWizardSettings[
+                                'wizard.developer.recompile_label'
+                            ] ?? 'Recompile' }}
+                        </button>
+                    </form>
+
+                    <a
+                        href="{{ route('developer.dashboard') }}"
+                        class="flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                    >
+                        {{ $developerWizardSettings[
+                            'wizard.developer.dashboard_label'
+                        ] ?? 'Dashboard' }}
+                    </a>
+                </div>
+            </div>
+
+        </div>
     </div>
-@endif
+</div>
 
 <form method="POST"
+      id="developer-builder-form"
       action="{{ route('developer.builder.create') }}"
       enctype="multipart/form-data"
       class="space-y-6">
@@ -1164,6 +1392,454 @@
         updateDeveloperBuildTotal();
 
     })();
+</script>
+
+
+<script>
+(() => {
+    const form = document.getElementById('developer-builder-form');
+    const modal = document.getElementById('developer-live-build-modal');
+
+    if (!form || !modal) {
+        return;
+    }
+
+    const progressPhase =
+        document.getElementById('developer-live-progress-phase');
+
+    const finalPhase =
+        document.getElementById('developer-live-final-phase');
+
+    const progressBar =
+        document.getElementById('developer-live-progress-bar');
+
+    const percentDisplay =
+        document.getElementById('developer-live-percent');
+
+    const progressText =
+        document.getElementById('developer-live-progress-text');
+
+    const elapsedDisplay =
+        document.getElementById('developer-live-elapsed');
+
+    const projectDisplay =
+        document.getElementById('developer-live-project-name');
+
+    const buildIdDisplay =
+        document.getElementById('developer-live-build-id');
+
+    const finalTitle =
+        document.getElementById('developer-live-final-title');
+
+    const finalText =
+        document.getElementById('developer-live-final-text');
+
+    const finalError =
+        document.getElementById('developer-live-final-error');
+
+    const paymentForm =
+        document.getElementById('developer-live-payment-form');
+
+    const recompileForm =
+        document.getElementById('developer-live-recompile-form');
+
+    const submitButton =
+        form.querySelector('button[type="submit"]');
+
+    const csrf =
+        form.querySelector('input[name="_token"]')?.value || '';
+
+    let progressTexts = {};
+
+    try {
+        progressTexts = JSON.parse(
+            modal.dataset.progressTexts || '{}'
+        );
+    } catch (error) {
+        progressTexts = {};
+    }
+
+    const minimumMilliseconds =
+        Math.max(
+            0,
+            Math.min(
+                60,
+                Number(modal.dataset.minimumSeconds || 0)
+            )
+        ) * 1000;
+
+    let startedAt = 0;
+    let statusUrl = null;
+    let paymentUrl = null;
+    let recompileUrl = null;
+    let pollTimer = null;
+    let elapsedTimer = null;
+    let finalState = null;
+
+    const textForPercent = (percent) => {
+        if (percent >= 100) {
+            return progressTexts['100'] || '';
+        }
+
+        if (percent >= 80) {
+            return progressTexts['80_99'] || '';
+        }
+
+        if (percent >= 60) {
+            return progressTexts['60_79'] || '';
+        }
+
+        if (percent >= 40) {
+            return progressTexts['40_59'] || '';
+        }
+
+        if (percent >= 20) {
+            return progressTexts['20_39'] || '';
+        }
+
+        return progressTexts['0_19'] || '';
+    };
+
+    const renderProgress = (percent) => {
+        const safePercent = Math.max(
+            0,
+            Math.min(100, Number(percent || 0))
+        );
+
+        percentDisplay.textContent =
+            Math.round(safePercent) + '%';
+
+        progressBar.style.width =
+            safePercent + '%';
+
+        progressText.textContent =
+            textForPercent(safePercent);
+    };
+
+    const formatElapsed = (milliseconds) => {
+        const seconds = Math.floor(milliseconds / 1000);
+        const minutes = Math.floor(seconds / 60);
+
+        return String(minutes).padStart(2, '0')
+            + ':'
+            + String(seconds % 60).padStart(2, '0');
+    };
+
+    const resetModal = () => {
+        finalState = null;
+
+        progressPhase.classList.remove('hidden');
+        finalPhase.classList.add('hidden');
+
+        paymentForm.classList.add('hidden');
+        recompileForm.classList.add('hidden');
+
+        finalError.classList.add('hidden');
+        finalError.textContent = '';
+
+        buildIdDisplay.textContent = '';
+
+        renderProgress(0);
+    };
+
+    const openModal = () => {
+        resetModal();
+
+        startedAt = Date.now();
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+
+        document.body.classList.add('overflow-hidden');
+
+        elapsedDisplay.textContent = '00:00';
+
+        window.clearInterval(elapsedTimer);
+
+        elapsedTimer = window.setInterval(() => {
+            elapsedDisplay.textContent =
+                formatElapsed(Date.now() - startedAt);
+        }, 250);
+    };
+
+    const revealFinalWhenAllowed = () => {
+        if (!finalState) {
+            return;
+        }
+
+        const remaining =
+            Math.max(
+                0,
+                minimumMilliseconds - (Date.now() - startedAt)
+            );
+
+        window.setTimeout(() => {
+            if (!finalState) {
+                return;
+            }
+
+            window.clearInterval(elapsedTimer);
+            window.clearTimeout(pollTimer);
+
+            progressPhase.classList.add('hidden');
+            finalPhase.classList.remove('hidden');
+
+            const succeeded =
+                finalState.status === 'success'
+                && Number(finalState.percent) === 100;
+
+            if (succeeded) {
+                finalTitle.textContent =
+                    modal.dataset.successTitle
+                    || 'Compilation Successful';
+
+                finalText.textContent =
+                    modal.dataset.successText
+                    || 'Your website package is ready.';
+
+                paymentForm.action = paymentUrl;
+                paymentForm.classList.remove('hidden');
+
+                recompileForm.classList.add('hidden');
+            } else {
+                finalTitle.textContent =
+                    modal.dataset.failureTitle
+                    || 'Compilation Failed';
+
+                finalText.textContent =
+                    modal.dataset.failureText
+                    || 'The website package could not be compiled.';
+
+                if (finalState.message) {
+                    finalError.textContent =
+                        finalState.message;
+
+                    finalError.classList.remove('hidden');
+                }
+
+                recompileForm.action = recompileUrl;
+                recompileForm.classList.remove('hidden');
+
+                paymentForm.classList.add('hidden');
+            }
+        }, remaining);
+    };
+
+    const pollStatus = async () => {
+        if (!statusUrl || finalState) {
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                statusUrl,
+                {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin',
+                    cache: 'no-store'
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(
+                    'Unable to read compilation progress.'
+                );
+            }
+
+            const data = await response.json();
+
+            renderProgress(data.percent);
+
+            if (data.completed) {
+                renderProgress(100);
+
+                finalState = {
+                    status: 'success',
+                    percent: 100
+                };
+
+                revealFinalWhenAllowed();
+                return;
+            }
+
+            if (data.failed) {
+                finalState = {
+                    status: 'failed',
+                    percent: data.percent || 0,
+                    message:
+                        data.message
+                        || 'Compilation failed.'
+                };
+
+                revealFinalWhenAllowed();
+                return;
+            }
+
+            pollTimer =
+                window.setTimeout(pollStatus, 350);
+
+        } catch (error) {
+            pollTimer =
+                window.setTimeout(pollStatus, 750);
+        }
+    };
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        if (submitButton?.disabled) {
+            return;
+        }
+
+        openModal();
+
+        projectDisplay.textContent =
+            form.querySelector(
+                'input[name="project_name"]'
+            )?.value || 'Developer Website';
+
+        if (submitButton) {
+            submitButton.disabled = true;
+        }
+
+        try {
+            const createResponse = await fetch(
+                form.action,
+                {
+                    method: 'POST',
+                    body: new FormData(form),
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin'
+                }
+            );
+
+            const createData =
+                await createResponse.json();
+
+            if (!createResponse.ok) {
+                const validationErrors =
+                    createData.errors
+                        ? Object.values(
+                            createData.errors
+                        ).flat().join(' ')
+                        : null;
+
+                throw new Error(
+                    validationErrors
+                    || createData.message
+                    || 'Unable to create Developer Build.'
+                );
+            }
+
+            const build = createData.build || {};
+
+            statusUrl = createData.status_url;
+            paymentUrl = createData.payment_url;
+            recompileUrl = createData.recompile_url;
+
+            projectDisplay.textContent =
+                build.project_name
+                || 'Developer Website';
+
+            buildIdDisplay.textContent =
+                build.build_id
+                    ? 'Build ID: ' + build.build_id
+                    : '';
+
+            renderProgress(build.percent || 0);
+
+            /*
+             * Start status polling BEFORE the compile request.
+             * Polling reads only backend-persisted percentages.
+             */
+            pollStatus();
+
+            /*
+             * This request performs the real compilation.
+             * Its response is NOT used to manufacture progress.
+             */
+            fetch(
+                createData.compile_url,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': csrf
+                    },
+                    credentials: 'same-origin'
+                }
+            )
+            .then(async response => {
+                let data = {};
+
+                try {
+                    data = await response.json();
+                } catch (error) {
+                    data = {};
+                }
+
+                if (!response.ok && !finalState) {
+                    finalState = {
+                        status: 'failed',
+                        percent:
+                            Number(data.percent || 0),
+                        message:
+                            data.message
+                            || 'Compilation failed.'
+                    };
+
+                    revealFinalWhenAllowed();
+                    return;
+                }
+
+                /*
+                 * Status endpoint remains authoritative.
+                 * Trigger an immediate read after compile returns.
+                 */
+                if (!finalState) {
+                    window.clearTimeout(pollTimer);
+                    pollStatus();
+                }
+            })
+            .catch(error => {
+                if (!finalState) {
+                    finalState = {
+                        status: 'failed',
+                        percent: 0,
+                        message:
+                            error.message
+                            || 'Compilation failed.'
+                    };
+
+                    revealFinalWhenAllowed();
+                }
+            });
+
+        } catch (error) {
+            finalState = {
+                status: 'failed',
+                percent: 0,
+                message:
+                    error.message
+                    || 'Unable to start compilation.'
+            };
+
+            revealFinalWhenAllowed();
+
+        } finally {
+            if (submitButton) {
+                submitButton.disabled = false;
+            }
+        }
+    });
+})();
 </script>
 
 @endsection
