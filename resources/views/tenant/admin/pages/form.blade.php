@@ -1042,6 +1042,53 @@
     }
 
 
+    /*
+     * ESUBIZ_PAGE_BUILDER_PRO_SECTION_COLUMN_DEFAULTS_V1
+     *
+     * Local page-document metadata.
+     *
+     * Uploaded background media belongs to this website's
+     * own media storage. The page document stores only the
+     * resulting local media reference / URL.
+     */
+    function proContainerDefaults() {
+
+        return {
+            visibility: {
+                desktop: true,
+                tablet: true,
+                mobile: true
+            },
+
+            background: {
+                type: 'color',
+
+                color: '',
+
+                image: '',
+                imagePosition: 'center center',
+                imageSize: 'cover',
+                imageRepeat: 'no-repeat',
+
+                video: {
+                    source: 'none',
+                    upload: '',
+                    url: '',
+                    poster: '',
+                    fit: 'cover',
+                    position: 'center center'
+                },
+
+                overlay: {
+                    enabled: false,
+                    color: '#000000',
+                    opacity: 0
+                }
+            }
+        };
+    }
+
+
     function createSection(ratios) {
 
         ratios =
@@ -1070,10 +1117,17 @@
                 gap: 24
             },
 
+            pro:
+                proContainerDefaults(),
+
             columns:
                 ratios.map(
                     () => ({
                         id: uid(),
+
+                        pro:
+                            proContainerDefaults(),
+
                         widgets: []
                     })
                 )
@@ -1150,6 +1204,31 @@
                             column.id
                             || uid(),
 
+                        pro: {
+                            ...proContainerDefaults(),
+                            ...(column.pro || {}),
+
+                            visibility: {
+                                ...proContainerDefaults().visibility,
+                                ...(column.pro?.visibility || {})
+                            },
+
+                            background: {
+                                ...proContainerDefaults().background,
+                                ...(column.pro?.background || {}),
+
+                                video: {
+                                    ...proContainerDefaults().background.video,
+                                    ...(column.pro?.background?.video || {})
+                                },
+
+                                overlay: {
+                                    ...proContainerDefaults().background.overlay,
+                                    ...(column.pro?.background?.overlay || {})
+                                }
+                            }
+                        },
+
                         widgets:
                             Array.isArray(
                                 column.widgets
@@ -1157,6 +1236,31 @@
                                 ? column.widgets
                                 : []
                     }));
+
+            section.pro = {
+                ...proContainerDefaults(),
+                ...(section.pro || {}),
+
+                visibility: {
+                    ...proContainerDefaults().visibility,
+                    ...(section.pro?.visibility || {})
+                },
+
+                background: {
+                    ...proContainerDefaults().background,
+                    ...(section.pro?.background || {}),
+
+                    video: {
+                        ...proContainerDefaults().background.video,
+                        ...(section.pro?.background?.video || {})
+                    },
+
+                    overlay: {
+                        ...proContainerDefaults().background.overlay,
+                        ...(section.pro?.background?.overlay || {})
+                    }
+                }
+            };
 
             return section;
         });
@@ -1456,10 +1560,23 @@
         };
 
 
+        /*
+         * Existing Core Basic widgets continue using their original
+         * hard-coded widgetData defaults above.
+         *
+         * Module and Pro widgets can provide defaults through their
+         * registered widget definition without taking ownership of
+         * Core widget data.
+         */
+        const registeredDefaults =
+            widgetDefinitions?.[type]?.defaults
+            || {};
+
         widget.data =
             JSON.parse(
                 JSON.stringify(
                     widgetData[type]
+                    || registeredDefaults
                     || {}
                 )
             );
@@ -1477,28 +1594,412 @@
             .replaceAll('"','&quot;');
     }
 
+    /*
+     * ESUBIZ_PAGE_BUILDER_PRO_WIDGET_UI_REGISTRY_V1
+     *
+     * Central integration:
+     * - Core's existing widgetDefinitions remain untouched.
+     * - Pro definitions are appended from ProWidgetRegistry.
+     * - Pro ownership is explicit for side-panel grouping.
+     * - Pro defaults are used only when creating Pro widgets.
+     *
+     * A host entitlement gate will wrap this block when the
+     * packaged Page Builder Pro add-on is activated/deactivated.
+     */
+    const pageBuilderProWidgetDefinitions =
+        {{ Js::from(
+            app(
+                \App\Services\PageBuilderPro\ProWidgetRegistry::class
+            )->all()
+        ) }};
+
+    /*
+     * ESUBIZ_PAGE_BUILDER_PRO_DEFAULT_WIDGET_SETTINGS_V1
+     *
+     * Canonical optional Pro enhancement metadata.
+     *
+     * This remains completely separate from:
+     * - widget.data
+     * - widget.settings
+     *
+     * Therefore Basic and Module widget content ownership
+     * remains untouched.
+     */
+    const pageBuilderProDefaultWidgetSettings =
+        {{ Js::from(
+            \App\Services\PageBuilderPro\BuilderSettings::widget()
+        ) }};
+
+
+    Object.entries(
+        pageBuilderProWidgetDefinitions
+    ).forEach(
+        ([type, definition]) => {
+
+            /*
+             * Never permit Pro to replace a widget already supplied
+             * by Core or another source.
+             */
+            if (
+                Object.prototype
+                    .hasOwnProperty
+                    .call(
+                        widgetDefinitions,
+                        type
+                    )
+            ) {
+                console.warn(
+                    `Page Builder Pro widget [${type}] was not loaded because that type already exists.`
+                );
+
+                return;
+            }
+
+            widgetDefinitions[type] = {
+                ...definition,
+                source: 'pro'
+            };
+        }
+    );
+
+
     function renderLibrary(filter='') {
         library.innerHTML = '';
 
-        Object.entries(widgetDefinitions).forEach(([type, def]) => {
-            if (
-                filter &&
-                !def.label.toLowerCase().includes(filter.toLowerCase())
-            ) return;
+        const query =
+            String(filter || '')
+                .trim()
+                .toLowerCase();
 
-            const button = document.createElement('button');
+        const groups = {
+            basic: [],
+            modules: {},
+            pro: []
+        };
+
+        Object.entries(widgetDefinitions).forEach(([type, def]) => {
+
+            const label =
+                String(
+                    def.label
+                    || type
+                );
+
+            if (
+                query
+                && !label
+                    .toLowerCase()
+                    .includes(query)
+            ) {
+                return;
+            }
+
+            /*
+             * Existing Core widgets do not need ownership metadata.
+             * Missing source therefore means Basic/Core.
+             */
+            const source =
+                String(
+                    def.source
+                    || def.owner
+                    || 'core'
+                ).toLowerCase();
+
+            if (source === 'pro') {
+                groups.pro.push([type, def]);
+                return;
+            }
+
+            if (
+                source === 'module'
+                || source.startsWith('module:')
+                || def.module
+                || def.moduleName
+            ) {
+                const moduleName =
+                    String(
+                        def.moduleName
+                        || def.module
+                        || (
+                            source.startsWith('module:')
+                                ? source.substring(7)
+                                : 'Module'
+                        )
+                    ).trim()
+                    || 'Module';
+
+                groups.modules[moduleName] ??= [];
+                groups.modules[moduleName].push([type, def]);
+
+                return;
+            }
+
+            groups.basic.push([type, def]);
+        });
+
+
+        function widgetButton(type, def) {
+
+            const button =
+                document.createElement(
+                    'button'
+                );
+
             button.type = 'button';
+
             button.className =
                 'rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left hover:border-blue-300 hover:bg-blue-50';
 
             button.innerHTML = `
-                <div class="text-lg font-black">${escapeHtml(def.icon)}</div>
-                <div class="mt-1 text-xs font-black">${escapeHtml(def.label)}</div>
+                <div class="text-lg font-black">
+                    ${escapeHtml(def.icon || '□')}
+                </div>
+
+                <div class="mt-1 text-xs font-black">
+                    ${escapeHtml(def.label || type)}
+                </div>
             `;
 
-            button.addEventListener('click', () => addWidget(type));
-            library.appendChild(button);
-        });
+            button.addEventListener(
+                'click',
+                () => addWidget(type)
+            );
+
+            return button;
+        }
+
+
+        function widgetGrid(items) {
+
+            const grid =
+                document.createElement(
+                    'div'
+                );
+
+            grid.className =
+                'grid grid-cols-2 gap-2 pt-3';
+
+            items.forEach(
+                ([type, def]) => {
+                    grid.appendChild(
+                        widgetButton(
+                            type,
+                            def
+                        )
+                    );
+                }
+            );
+
+            return grid;
+        }
+
+
+        function section(title, items, open=false) {
+
+            if (!items.length) {
+                return null;
+            }
+
+            const details =
+                document.createElement(
+                    'details'
+                );
+
+            details.className =
+                'rounded-2xl border border-slate-200 bg-white p-3';
+
+            details.open = open || Boolean(query);
+
+            const summary =
+                document.createElement(
+                    'summary'
+                );
+
+            summary.className =
+                'flex cursor-pointer select-none items-center justify-between text-xs font-black uppercase tracking-wide text-slate-600';
+
+            summary.innerHTML = `
+                <span>${escapeHtml(title)}</span>
+
+                <span class="text-[10px] font-black text-slate-400">
+                    ${items.length}
+                </span>
+            `;
+
+            details.appendChild(
+                summary
+            );
+
+            details.appendChild(
+                widgetGrid(items)
+            );
+
+            return details;
+        }
+
+
+        /*
+         * Basic Widgets:
+         * always present and expanded by default.
+         */
+        const basicSection =
+            section(
+                'Basic Widgets',
+                groups.basic,
+                true
+            );
+
+        if (basicSection) {
+            library.appendChild(
+                basicSection
+            );
+        }
+
+
+        /*
+         * Module Widgets:
+         * section exists only when an active module has registered widgets.
+         * Closed by default.
+         *
+         * Each active module gets its own sub-heading.
+         */
+        const moduleNames =
+            Object.keys(
+                groups.modules
+            );
+
+        if (moduleNames.length) {
+
+            const moduleDetails =
+                document.createElement(
+                    'details'
+                );
+
+            moduleDetails.className =
+                'mt-3 rounded-2xl border border-slate-200 bg-white p-3';
+
+            moduleDetails.open =
+                Boolean(query);
+
+            const moduleSummary =
+                document.createElement(
+                    'summary'
+                );
+
+            const moduleCount =
+                moduleNames.reduce(
+                    (total, name) =>
+                        total
+                        + groups.modules[name].length,
+                    0
+                );
+
+            moduleSummary.className =
+                'flex cursor-pointer select-none items-center justify-between text-xs font-black uppercase tracking-wide text-slate-600';
+
+            moduleSummary.innerHTML = `
+                <span>Module Widgets</span>
+
+                <span class="text-[10px] font-black text-slate-400">
+                    ${moduleCount}
+                </span>
+            `;
+
+            moduleDetails.appendChild(
+                moduleSummary
+            );
+
+            const moduleBody =
+                document.createElement(
+                    'div'
+                );
+
+            moduleBody.className =
+                'space-y-4 pt-3';
+
+            moduleNames
+                .sort()
+                .forEach(
+                    moduleName => {
+
+                        const moduleBlock =
+                            document.createElement(
+                                'div'
+                            );
+
+                        moduleBlock.innerHTML = `
+                            <div class="mb-2 text-[11px] font-black uppercase tracking-wide text-slate-400">
+                                ${escapeHtml(moduleName)}
+                            </div>
+                        `;
+
+                        moduleBlock.appendChild(
+                            widgetGrid(
+                                groups.modules[
+                                    moduleName
+                                ]
+                            )
+                        );
+
+                        moduleBody.appendChild(
+                            moduleBlock
+                        );
+                    }
+                );
+
+            moduleDetails.appendChild(
+                moduleBody
+            );
+
+            library.appendChild(
+                moduleDetails
+            );
+        }
+
+
+        /*
+         * Pro Widgets:
+         * section exists only when Pro definitions are supplied.
+         * Closed by default.
+         */
+        const proSection =
+            section(
+                'Pro Widgets',
+                groups.pro,
+                false
+            );
+
+        if (proSection) {
+            proSection.classList.add(
+                'mt-3'
+            );
+
+            library.appendChild(
+                proSection
+            );
+        }
+
+
+        if (
+            !groups.basic.length
+            && !moduleNames.length
+            && !groups.pro.length
+        ) {
+            const empty =
+                document.createElement(
+                    'div'
+                );
+
+            empty.className =
+                'rounded-2xl border border-dashed border-slate-200 p-5 text-center text-xs font-bold text-slate-400';
+
+            empty.textContent =
+                'No widgets found.';
+
+            library.appendChild(
+                empty
+            );
+        }
     }
 
     function addWidget(type) {
@@ -1744,14 +2245,612 @@
                         </div>
                     </div>`;
 
-            default:
+            default: {
+
+                const definition =
+                    widgetDefinitions?.[
+                        widget.type
+                    ];
+
+                /*
+                 * Pro preview fallback.
+                 *
+                 * Core's existing dedicated preview cases remain
+                 * completely untouched.
+                 */
+                if (
+                    definition?.source === 'pro'
+                ) {
+
+                    const entries =
+                        Object.entries(
+                            d
+                        );
+
+                    const primaryTextKeys = [
+                        'heading',
+                        'title',
+                        'text',
+                        'label',
+                        'name',
+                        'quote',
+                        'description'
+                    ];
+
+                    let primaryText = '';
+
+                    for (
+                        const key of primaryTextKeys
+                    ) {
+
+                        if (
+                            typeof d[key] === 'string'
+                            && d[key].trim() !== ''
+                        ) {
+                            primaryText =
+                                d[key];
+
+                            break;
+                        }
+                    }
+
+
+                    const summaryItems =
+                        entries
+                            .filter(
+                                ([key, value]) => {
+
+                                    if (
+                                        primaryTextKeys.includes(key)
+                                        && value === primaryText
+                                    ) {
+                                        return false;
+                                    }
+
+                                    return (
+                                        typeof value === 'string'
+                                        || typeof value === 'number'
+                                        || typeof value === 'boolean'
+                                        || Array.isArray(value)
+                                    );
+                                }
+                            )
+                            .slice(
+                                0,
+                                4
+                            )
+                            .map(
+                                ([key, value]) => {
+
+                                    const label =
+                                        String(key)
+                                            .replaceAll(
+                                                '_',
+                                                ' '
+                                            )
+                                            .replace(
+                                                /\b\w/g,
+                                                character =>
+                                                    character.toUpperCase()
+                                            );
+
+                                    let displayValue = '';
+
+                                    if (
+                                        Array.isArray(value)
+                                    ) {
+
+                                        displayValue =
+                                            `${value.length} item${
+                                                value.length === 1
+                                                    ? ''
+                                                    : 's'
+                                            }`;
+
+                                    } else if (
+                                        typeof value === 'boolean'
+                                    ) {
+
+                                        displayValue =
+                                            value
+                                                ? 'Yes'
+                                                : 'No';
+
+                                    } else {
+
+                                        displayValue =
+                                            String(value);
+
+                                        if (
+                                            displayValue.length > 45
+                                        ) {
+                                            displayValue =
+                                                displayValue.substring(
+                                                    0,
+                                                    42
+                                                )
+                                                + '...';
+                                        }
+                                    }
+
+                                    return `
+                                        <div
+                                            class="rounded-lg border border-slate-200 bg-white px-3 py-2"
+                                        >
+                                            <div
+                                                class="text-[10px] font-black uppercase tracking-wide text-slate-400"
+                                            >
+                                                ${escapeHtml(label)}
+                                            </div>
+
+                                            <div
+                                                class="mt-1 text-xs font-bold text-slate-700"
+                                            >
+                                                ${escapeHtml(displayValue)}
+                                            </div>
+                                        </div>
+                                    `;
+                                }
+                            )
+                            .join('');
+
+
+                    return `
+                        <div
+                            class="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-5"
+                        >
+
+                            <div
+                                class="flex items-start justify-between gap-4"
+                            >
+
+                                <div>
+
+                                    <div
+                                        class="text-[10px] font-black uppercase tracking-[.18em] text-blue-600"
+                                    >
+                                        Pro Widget
+                                    </div>
+
+                                    <div
+                                        class="mt-1 text-lg font-black text-slate-900"
+                                    >
+                                        ${escapeHtml(
+                                            definition.label
+                                            || widget.type
+                                        )}
+                                    </div>
+
+                                </div>
+
+                                <div
+                                    class="rounded-lg border border-blue-100 bg-white px-2 py-1 text-[10px] font-black uppercase text-blue-600"
+                                >
+                                    Pro
+                                </div>
+
+                            </div>
+
+
+                            ${
+                                primaryText
+                                    ? `
+                                        <div
+                                            class="mt-4 text-sm leading-6 text-slate-600"
+                                        >
+                                            ${escapeHtml(
+                                                primaryText
+                                            )}
+                                        </div>
+                                    `
+                                    : ''
+                            }
+
+
+                            ${
+                                summaryItems
+                                    ? `
+                                        <div
+                                            class="mt-4 grid gap-2 sm:grid-cols-2"
+                                        >
+                                            ${summaryItems}
+                                        </div>
+                                    `
+                                    : `
+                                        <div
+                                            class="mt-4 text-xs text-slate-400"
+                                        >
+                                            Select this widget to configure its content.
+                                        </div>
+                                    `
+                            }
+
+                        </div>
+                    `;
+                }
+
+
+                /*
+                 * Preserve the existing generic fallback for
+                 * module/unknown widgets.
+                 */
                 return `
                     <div class="rounded-xl bg-slate-50 p-5">
                         <div class="font-black">${escapeHtml(widgetDefinitions[widget.type]?.label || widget.type)}</div>
                         <div class="mt-1 text-xs text-slate-500">Select to configure this widget.</div>
                     </div>`;
+            }
         }
     }
+
+    /*
+     * ESUBIZ_PAGE_BUILDER_PRO_CANVAS_STYLES_V1
+     *
+     * Converts locally persisted widget.pro metadata into
+     * builder-canvas presentation styles.
+     *
+     * This does NOT modify:
+     * - widget.data
+     * - widget.settings
+     * - Core widget preview renderers
+     * - Module widget preview renderers
+     *
+     * The website's own page document remains the source of
+     * truth for all Pro enhancement values.
+     */
+    function proCanvasDevice() {
+
+        /*
+         * Existing responsive editor implementations may expose
+         * the active device differently. Until that selector is
+         * connected, the builder canvas safely represents desktop.
+         */
+        return 'desktop';
+    }
+
+
+    function proSpacingCss(
+        values
+    ) {
+
+        const spacing =
+            values || {};
+
+        return [
+            Number(
+                spacing.top
+                ?? 0
+            ),
+            Number(
+                spacing.right
+                ?? 0
+            ),
+            Number(
+                spacing.bottom
+                ?? 0
+            ),
+            Number(
+                spacing.left
+                ?? 0
+            )
+        ]
+            .map(
+                value =>
+                    Number.isFinite(value)
+                        ? `${value}px`
+                        : '0px'
+            )
+            .join(' ');
+    }
+
+
+    function proWidgetCanvasStyle(
+        widget
+    ) {
+
+        const pro =
+            widget?.pro;
+
+        if (
+            !pro
+            || typeof pro !== 'object'
+        ) {
+            return '';
+        }
+
+
+        const device =
+            proCanvasDevice();
+
+        const styles = [];
+
+
+        
+
+
+        /*
+         * Responsive spacing.
+         */
+        if (
+            pro.margin?.[device]
+        ) {
+            styles.push(
+                `margin:${proSpacingCss(
+                    pro.margin[device]
+                )}`
+            );
+        }
+
+        if (
+            pro.padding?.[device]
+        ) {
+            styles.push(
+                `padding:${proSpacingCss(
+                    pro.padding[device]
+                )}`
+            );
+        }
+
+
+        /*
+         * Background.
+         */
+        const background =
+            pro.background
+            || {};
+
+        if (
+            background.type === 'color'
+            && background.color
+        ) {
+            styles.push(
+                `background-color:${background.color}`
+            );
+        }
+
+        if (
+            background.type === 'gradient'
+            && (
+                background.gradient?.from
+                || background.gradient?.to
+            )
+        ) {
+
+            const from =
+                background.gradient?.from
+                || 'transparent';
+
+            const to =
+                background.gradient?.to
+                || 'transparent';
+
+            const direction =
+                background.gradient?.direction
+                || 'to bottom right';
+
+            styles.push(
+                `background-image:linear-gradient(${direction},${from},${to})`
+            );
+        }
+
+        if (
+            background.type === 'image'
+            && background.image
+        ) {
+
+            const safeImage =
+                String(
+                    background.image
+                )
+                    .replaceAll(
+                        '"',
+                        '%22'
+                    )
+                    .replaceAll(
+                        "'",
+                        '%27'
+                    );
+
+            styles.push(
+                `background-image:url("${safeImage}")`
+            );
+
+            styles.push(
+                `background-position:${background.position || 'center center'}`
+            );
+
+            styles.push(
+                `background-size:${background.size || 'cover'}`
+            );
+
+            styles.push(
+                `background-repeat:${background.repeat || 'no-repeat'}`
+            );
+        }
+
+
+        /*
+         * Border.
+         */
+        if (
+            Number(
+                pro.border?.width
+                ?? 0
+            ) > 0
+        ) {
+
+            styles.push(
+                `border-width:${Number(pro.border.width)}px`
+            );
+
+            styles.push(
+                `border-style:${pro.border.style || 'solid'}`
+            );
+
+            if (
+                pro.border.color
+            ) {
+                styles.push(
+                    `border-color:${pro.border.color}`
+                );
+            }
+        }
+
+
+        /*
+         * Radius.
+         */
+        if (
+            pro.radius
+        ) {
+
+            styles.push(
+                `border-radius:${
+                    Number(
+                        pro.radius.top_left
+                        ?? 0
+                    )
+                }px ${
+                    Number(
+                        pro.radius.top_right
+                        ?? 0
+                    )
+                }px ${
+                    Number(
+                        pro.radius.bottom_right
+                        ?? 0
+                    )
+                }px ${
+                    Number(
+                        pro.radius.bottom_left
+                        ?? 0
+                    )
+                }px`
+            );
+        }
+
+
+        /*
+         * Shadow.
+         */
+        if (
+            pro.shadow?.enabled
+        ) {
+
+            styles.push(
+                `box-shadow:${
+                    Number(
+                        pro.shadow.x
+                        ?? 0
+                    )
+                }px ${
+                    Number(
+                        pro.shadow.y
+                        ?? 0
+                    )
+                }px ${
+                    Number(
+                        pro.shadow.blur
+                        ?? 0
+                    )
+                }px ${
+                    Number(
+                        pro.shadow.spread
+                        ?? 0
+                    )
+                }px ${
+                    pro.shadow.color
+                    || 'rgba(15,23,42,.12)'
+                }`
+            );
+        }
+
+
+        /*
+         * Position.
+         */
+        if (
+            pro.position?.type
+        ) {
+            styles.push(
+                `position:${pro.position.type}`
+            );
+        }
+
+        if (
+            pro.position?.type === 'sticky'
+            && pro.position.sticky_top
+                !== null
+            && pro.position.sticky_top
+                !== undefined
+        ) {
+            styles.push(
+                `top:${Number(
+                    pro.position.sticky_top
+                )}px`
+            );
+        }
+
+        if (
+            pro.position?.z_index
+                !== null
+            && pro.position?.z_index
+                !== undefined
+            && pro.position?.z_index
+                !== ''
+        ) {
+            styles.push(
+                `z-index:${Number(
+                    pro.position.z_index
+                )}`
+            );
+        }
+
+
+        if (
+            pro.overflow
+        ) {
+            styles.push(
+                `overflow:${pro.overflow}`
+            );
+        }
+
+
+        return styles.join(
+            ';'
+        );
+    }
+
+
+    function proWidgetCanvasAnimationAttributes(
+        widget
+    ) {
+
+        const animation =
+            widget?.pro?.animation;
+
+        if (
+            !animation?.enabled
+        ) {
+            return '';
+        }
+
+        return [
+            `data-pro-animation="${escapeHtml(
+                animation.type
+                || 'fade-up'
+            )}"`,
+            `data-pro-animation-duration="${Number(
+                animation.duration
+                ?? 600
+            )}"`,
+            `data-pro-animation-delay="${Number(
+                animation.delay
+                ?? 0
+            )}"`
+        ].join(' ');
+    }
+
 
     function renderCanvas() {
 
@@ -2008,7 +3107,19 @@ section.columns.forEach(
 
                                             </div>
 
-                                            ${preview(widget)}
+                                            <div
+                                                class="eb-widget-pro-content"
+                                                style="${escapeHtml(
+                                                    proWidgetCanvasStyle(
+                                                        widget
+                                                    )
+                                                )}"
+                                                ${proWidgetCanvasAnimationAttributes(
+                                                    widget
+                                                )}
+                                            >
+                                                ${preview(widget)}
+                                            </div>
 
                                         </div>
                                     `
@@ -4015,15 +5126,222 @@ section.columns.forEach(
                 break;
 
 
-            default:
-                content += `
-                    <div
-                        class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-500"
-                    >
-                        This widget has no additional content fields.
-                    </div>
-                `;
+            default: {
+
+                const definition =
+                    widgetDefinitions?.[
+                        widget.type
+                    ];
+
+                /*
+                 * Pro widgets are schema-driven from their registered
+                 * defaults. Core's existing 22 widget editors above
+                 * remain completely untouched.
+                 */
+                if (
+                    definition?.source === 'pro'
+                ) {
+
+                    const fields =
+                        Object.entries(
+                            widget.data || {}
+                        );
+
+                    content += `
+                        <div class="space-y-4">
+
+                            <div
+                                class="rounded-xl border border-blue-100 bg-blue-50 p-3"
+                            >
+                                <div
+                                    class="text-xs font-black uppercase tracking-wide text-blue-700"
+                                >
+                                    Pro Widget
+                                </div>
+
+                                <div
+                                    class="mt-1 text-sm font-black text-slate-900"
+                                >
+                                    ${escapeHtml(
+                                        definition.label
+                                        || widget.type
+                                    )}
+                                </div>
+                            </div>
+                    `;
+
+                    if (!fields.length) {
+
+                        content += `
+                            <div
+                                class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-500"
+                            >
+                                This Pro widget has no content fields.
+                            </div>
+                        `;
+
+                    } else {
+
+                        fields.forEach(
+                            ([key, value]) => {
+
+                                const label =
+                                    String(key)
+                                        .replaceAll('_', ' ')
+                                        .replace(
+                                            /\b\w/g,
+                                            character =>
+                                                character.toUpperCase()
+                                        );
+
+                                if (
+                                    typeof value === 'boolean'
+                                ) {
+
+                                    content += `
+                                        <label
+                                            class="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3"
+                                        >
+                                            <span
+                                                class="text-sm font-bold text-slate-700"
+                                            >
+                                                ${escapeHtml(label)}
+                                            </span>
+
+                                            <input
+                                                type="checkbox"
+                                                data-data-key="${escapeHtml(key)}"
+                                                ${
+                                                    value
+                                                        ? 'checked'
+                                                        : ''
+                                                }
+                                            >
+                                        </label>
+                                    `;
+
+                                    return;
+                                }
+
+
+                                if (
+                                    typeof value === 'number'
+                                ) {
+
+                                    content +=
+                                        numberField(
+                                            label,
+                                            key,
+                                            value
+                                        );
+
+                                    return;
+                                }
+
+
+                                if (
+                                    Array.isArray(value)
+                                    || (
+                                        value
+                                        && typeof value === 'object'
+                                    )
+                                ) {
+
+                                    content += `
+                                        <div>
+                                            <label
+                                                class="text-xs font-black uppercase tracking-wide text-slate-500"
+                                            >
+                                                ${escapeHtml(label)}
+                                            </label>
+
+                                            <textarea
+                                                data-json-key="${escapeHtml(key)}"
+                                                rows="8"
+                                                class="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 font-mono text-xs"
+                                            >${escapeHtml(
+                                                JSON.stringify(
+                                                    value,
+                                                    null,
+                                                    2
+                                                )
+                                            )}</textarea>
+
+                                            <div
+                                                class="mt-1 text-[11px] text-slate-400"
+                                            >
+                                                Structured Pro widget data
+                                            </div>
+                                        </div>
+                                    `;
+
+                                    return;
+                                }
+
+
+                                const stringValue =
+                                    value == null
+                                        ? ''
+                                        : String(value);
+
+                                /*
+                                 * Longer textual fields receive a
+                                 * textarea automatically.
+                                 */
+                                if (
+                                    stringValue.length > 120
+                                    || [
+                                        'text',
+                                        'content',
+                                        'description',
+                                        'quote',
+                                        'code',
+                                        'html'
+                                    ].includes(key)
+                                ) {
+
+                                    content +=
+                                        textArea(
+                                            label,
+                                            key,
+                                            stringValue
+                                        );
+
+                                    return;
+                                }
+
+
+                                content +=
+                                    textField(
+                                        label,
+                                        key,
+                                        stringValue
+                                    );
+                            }
+                        );
+                    }
+
+                    content += `
+                        </div>
+                    `;
+
+                } else {
+
+                    /*
+                     * Preserve the existing fallback for unknown/module
+                     * widgets that do not yet provide their own editor.
+                     */
+                    content += `
+                        <div
+                            class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-500"
+                        >
+                            This widget has no additional content fields.
+                        </div>
+                    `;
+                }
+
                 break;
+            }
         }
 
 
@@ -4156,6 +5474,664 @@ section.columns.forEach(
                 </div>
 
             </div>
+        `;
+
+
+        /*
+         * ESUBIZ_PAGE_BUILDER_PRO_WIDGET_ENHANCEMENTS_V1
+         *
+         * Pro enhancements are optional presentation metadata.
+         *
+         * IMPORTANT:
+         * - widget.data remains owned by Core/Module/Pro widget source.
+         * - widget.settings remains the existing Basic Appearance layer.
+         * - widget.pro stores only optional Pro enhancement metadata.
+         */
+        widget.pro =
+            widget.pro
+            || JSON.parse(
+                JSON.stringify(
+                    pageBuilderProDefaultWidgetSettings
+                )
+            );
+
+        const pro =
+            widget.pro;
+
+
+        content += `
+            <details
+                class="mt-5 rounded-2xl border border-blue-100 bg-blue-50/40"
+            >
+
+                <summary
+                    class="cursor-pointer select-none px-4 py-3 text-sm font-black text-blue-800"
+                >
+                    Pro Enhancements
+                </summary>
+
+
+                <div
+                    class="space-y-6 border-t border-blue-100 bg-white p-4"
+                >
+
+
+                    <!-- Responsive Spacing -->
+                    <div>
+
+                        <div
+                            class="text-xs font-black uppercase tracking-wide text-slate-400"
+                        >
+                            Responsive Spacing
+                        </div>
+
+                        ${[
+                            ['desktop', 'Desktop'],
+                            ['tablet', 'Tablet'],
+                            ['mobile', 'Mobile']
+                        ].map(
+                            ([device, label]) => `
+                                <div class="mt-4">
+
+                                    <div
+                                        class="text-xs font-black text-slate-600"
+                                    >
+                                        ${label}
+                                    </div>
+
+                                    <div
+                                        class="mt-2 grid grid-cols-2 gap-2"
+                                    >
+
+                                        ${[
+                                            ['margin', 'Margin'],
+                                            ['padding', 'Padding']
+                                        ].map(
+                                            ([group, groupLabel]) => `
+                                                <div
+                                                    class="rounded-xl border border-slate-200 p-3"
+                                                >
+
+                                                    <div
+                                                        class="mb-2 text-[10px] font-black uppercase tracking-wide text-slate-400"
+                                                    >
+                                                        ${groupLabel}
+                                                    </div>
+
+                                                    <div
+                                                        class="grid grid-cols-2 gap-2"
+                                                    >
+
+                                                        ${[
+                                                            ['top', 'Top'],
+                                                            ['right', 'Right'],
+                                                            ['bottom', 'Bottom'],
+                                                            ['left', 'Left']
+                                                        ].map(
+                                                            ([side, sideLabel]) => `
+                                                                <label>
+
+                                                                    <span
+                                                                        class="text-[10px] font-bold text-slate-500"
+                                                                    >
+                                                                        ${sideLabel}
+                                                                    </span>
+
+                                                                    <input
+                                                                        type="number"
+                                                                        data-pro-setting="${group}.${device}.${side}"
+                                                                        value="${Number(
+                                                                            pro?.[group]?.[device]?.[side]
+                                                                            ?? 0
+                                                                        )}"
+                                                                        class="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2 text-xs"
+                                                                    >
+
+                                                                </label>
+                                                            `
+                                                        ).join('')}
+
+                                                    </div>
+
+                                                </div>
+                                            `
+                                        ).join('')}
+
+                                    </div>
+
+                                </div>
+                            `
+                        ).join('')}
+
+                        <div
+                            class="mt-2 text-[11px] text-slate-400"
+                        >
+                            Spacing values are stored in pixels.
+                        </div>
+
+                    </div>
+
+
+                    <!-- Background -->
+                    <div>
+
+                        <div
+                            class="text-xs font-black uppercase tracking-wide text-slate-400"
+                        >
+                            Background
+                        </div>
+
+                        <div class="mt-3 space-y-3">
+
+                            <label class="block">
+
+                                <span
+                                    class="text-xs font-bold text-slate-600"
+                                >
+                                    Type
+                                </span>
+
+                                <select
+                                    data-pro-setting="background.type"
+                                    class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                                >
+
+                                    ${[
+                                        ['none', 'None'],
+                                        ['color', 'Color'],
+                                        ['gradient', 'Gradient'],
+                                        ['image', 'Image']
+                                    ].map(
+                                        ([value, label]) => `
+                                            <option
+                                                value="${value}"
+                                                ${
+                                                    pro.background?.type === value
+                                                        ? 'selected'
+                                                        : ''
+                                                }
+                                            >
+                                                ${label}
+                                            </option>
+                                        `
+                                    ).join('')}
+
+                                </select>
+
+                            </label>
+
+
+                            <label class="block">
+
+                                <span
+                                    class="text-xs font-bold text-slate-600"
+                                >
+                                    Background Color
+                                </span>
+
+                                <input
+                                    type="text"
+                                    data-pro-setting="background.color"
+                                    value="${escapeHtml(
+                                        pro.background?.color || ''
+                                    )}"
+                                    placeholder="#ffffff"
+                                    class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                                >
+
+                            </label>
+
+
+                            <div class="grid grid-cols-2 gap-2">
+
+                                <label>
+
+                                    <span
+                                        class="text-xs font-bold text-slate-600"
+                                    >
+                                        Gradient From
+                                    </span>
+
+                                    <input
+                                        type="text"
+                                        data-pro-setting="background.gradient.from"
+                                        value="${escapeHtml(
+                                            pro.background?.gradient?.from
+                                            || ''
+                                        )}"
+                                        placeholder="#ffffff"
+                                        class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                                    >
+
+                                </label>
+
+
+                                <label>
+
+                                    <span
+                                        class="text-xs font-bold text-slate-600"
+                                    >
+                                        Gradient To
+                                    </span>
+
+                                    <input
+                                        type="text"
+                                        data-pro-setting="background.gradient.to"
+                                        value="${escapeHtml(
+                                            pro.background?.gradient?.to
+                                            || ''
+                                        )}"
+                                        placeholder="#000000"
+                                        class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                                    >
+
+                                </label>
+
+                            </div>
+
+
+                            <label class="block">
+
+                                <span
+                                    class="text-xs font-bold text-slate-600"
+                                >
+                                    Background Image URL
+                                </span>
+
+                                <input
+                                    type="text"
+                                    data-pro-setting="background.image"
+                                    value="${escapeHtml(
+                                        pro.background?.image || ''
+                                    )}"
+                                    class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                                >
+
+                            </label>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- Border / Radius -->
+                    <div>
+
+                        <div
+                            class="text-xs font-black uppercase tracking-wide text-slate-400"
+                        >
+                            Border & Shape
+                        </div>
+
+                        <div class="mt-3 grid grid-cols-2 gap-2">
+
+                            <label>
+
+                                <span
+                                    class="text-xs font-bold text-slate-600"
+                                >
+                                    Border Width
+                                </span>
+
+                                <input
+                                    type="number"
+                                    min="0"
+                                    data-pro-setting="border.width"
+                                    value="${Number(
+                                        pro.border?.width ?? 0
+                                    )}"
+                                    class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                                >
+
+                            </label>
+
+
+                            <label>
+
+                                <span
+                                    class="text-xs font-bold text-slate-600"
+                                >
+                                    Border Color
+                                </span>
+
+                                <input
+                                    type="text"
+                                    data-pro-setting="border.color"
+                                    value="${escapeHtml(
+                                        pro.border?.color || ''
+                                    )}"
+                                    class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                                >
+
+                            </label>
+
+                        </div>
+
+
+                        <div class="mt-3 grid grid-cols-4 gap-2">
+
+                            ${[
+                                ['top_left', 'TL'],
+                                ['top_right', 'TR'],
+                                ['bottom_right', 'BR'],
+                                ['bottom_left', 'BL']
+                            ].map(
+                                ([corner, label]) => `
+                                    <label>
+
+                                        <span
+                                            class="text-[10px] font-bold text-slate-500"
+                                        >
+                                            ${label}
+                                        </span>
+
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            data-pro-setting="radius.${corner}"
+                                            value="${Number(
+                                                pro.radius?.[corner]
+                                                ?? 0
+                                            )}"
+                                            class="mt-1 w-full rounded-lg border border-slate-300 px-2 py-2 text-xs"
+                                        >
+
+                                    </label>
+                                `
+                            ).join('')}
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- Shadow -->
+                    <div>
+
+                        <div
+                            class="text-xs font-black uppercase tracking-wide text-slate-400"
+                        >
+                            Shadow
+                        </div>
+
+                        <label
+                            class="mt-3 flex items-center justify-between rounded-xl border border-slate-200 p-3"
+                        >
+
+                            <span
+                                class="text-sm font-bold text-slate-700"
+                            >
+                                Enable Shadow
+                            </span>
+
+                            <input
+                                type="checkbox"
+                                data-pro-setting="shadow.enabled"
+                                ${
+                                    pro.shadow?.enabled
+                                        ? 'checked'
+                                        : ''
+                                }
+                            >
+
+                        </label>
+
+
+                        <div class="mt-3 grid grid-cols-2 gap-2">
+
+                            ${[
+                                ['x', 'X'],
+                                ['y', 'Y'],
+                                ['blur', 'Blur'],
+                                ['spread', 'Spread']
+                            ].map(
+                                ([key, label]) => `
+                                    <label>
+
+                                        <span
+                                            class="text-xs font-bold text-slate-600"
+                                        >
+                                            ${label}
+                                        </span>
+
+                                        <input
+                                            type="number"
+                                            data-pro-setting="shadow.${key}"
+                                            value="${Number(
+                                                pro.shadow?.[key]
+                                                ?? 0
+                                            )}"
+                                            class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                                        >
+
+                                    </label>
+                                `
+                            ).join('')}
+
+                        </div>
+
+
+                        <label class="mt-3 block">
+
+                            <span
+                                class="text-xs font-bold text-slate-600"
+                            >
+                                Shadow Color
+                            </span>
+
+                            <input
+                                type="text"
+                                data-pro-setting="shadow.color"
+                                value="${escapeHtml(
+                                    pro.shadow?.color
+                                    || 'rgba(15,23,42,.12)'
+                                )}"
+                                class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                            >
+
+                        </label>
+
+                    </div>
+
+
+                    <!-- Animation -->
+                    <div>
+
+                        <div
+                            class="text-xs font-black uppercase tracking-wide text-slate-400"
+                        >
+                            Animation
+                        </div>
+
+                        <label
+                            class="mt-3 flex items-center justify-between rounded-xl border border-slate-200 p-3"
+                        >
+
+                            <span
+                                class="text-sm font-bold text-slate-700"
+                            >
+                                Enable Animation
+                            </span>
+
+                            <input
+                                type="checkbox"
+                                data-pro-setting="animation.enabled"
+                                ${
+                                    pro.animation?.enabled
+                                        ? 'checked'
+                                        : ''
+                                }
+                            >
+
+                        </label>
+
+
+                        <div class="mt-3 grid grid-cols-2 gap-2">
+
+                            <label>
+
+                                <span
+                                    class="text-xs font-bold text-slate-600"
+                                >
+                                    Animation
+                                </span>
+
+                                <select
+                                    data-pro-setting="animation.type"
+                                    class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                                >
+
+                                    ${[
+                                        'fade-up',
+                                        'fade-down',
+                                        'fade-left',
+                                        'fade-right',
+                                        'zoom-in',
+                                        'zoom-out'
+                                    ].map(
+                                        value => `
+                                            <option
+                                                value="${value}"
+                                                ${
+                                                    pro.animation?.type === value
+                                                        ? 'selected'
+                                                        : ''
+                                                }
+                                            >
+                                                ${value}
+                                            </option>
+                                        `
+                                    ).join('')}
+
+                                </select>
+
+                            </label>
+
+
+                            <label>
+
+                                <span
+                                    class="text-xs font-bold text-slate-600"
+                                >
+                                    Duration (ms)
+                                </span>
+
+                                <input
+                                    type="number"
+                                    min="0"
+                                    data-pro-setting="animation.duration"
+                                    value="${Number(
+                                        pro.animation?.duration
+                                        ?? 600
+                                    )}"
+                                    class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                                >
+
+                            </label>
+
+
+                            <label>
+
+                                <span
+                                    class="text-xs font-bold text-slate-600"
+                                >
+                                    Delay (ms)
+                                </span>
+
+                                <input
+                                    type="number"
+                                    min="0"
+                                    data-pro-setting="animation.delay"
+                                    value="${Number(
+                                        pro.animation?.delay
+                                        ?? 0
+                                    )}"
+                                    class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                                >
+
+                            </label>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- Position -->
+                    <div>
+
+                        <div
+                            class="text-xs font-black uppercase tracking-wide text-slate-400"
+                        >
+                            Position
+                        </div>
+
+                        <div class="mt-3 grid grid-cols-2 gap-2">
+
+                            <label>
+
+                                <span
+                                    class="text-xs font-bold text-slate-600"
+                                >
+                                    Position
+                                </span>
+
+                                <select
+                                    data-pro-setting="position.type"
+                                    class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                                >
+
+                                    ${[
+                                        'relative',
+                                        'static',
+                                        'sticky'
+                                    ].map(
+                                        value => `
+                                            <option
+                                                value="${value}"
+                                                ${
+                                                    pro.position?.type === value
+                                                        ? 'selected'
+                                                        : ''
+                                                }
+                                            >
+                                                ${value}
+                                            </option>
+                                        `
+                                    ).join('')}
+
+                                </select>
+
+                            </label>
+
+
+                            <label>
+
+                                <span
+                                    class="text-xs font-bold text-slate-600"
+                                >
+                                    Z-Index
+                                </span>
+
+                                <input
+                                    type="number"
+                                    data-pro-setting="position.z_index"
+                                    value="${
+                                        pro.position?.z_index
+                                        ?? ''
+                                    }"
+                                    class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                                >
+
+                            </label>
+
+                        </div>
+
+                    </div>
+
+
+                </div>
+
+            </details>
         `;
 
 
@@ -8001,6 +9977,109 @@ section.columns.forEach(
 
 
         /*
+         * ESUBIZ_PAGE_BUILDER_PRO_WIDGET_ENHANCEMENT_BINDINGS_V1
+         *
+         * Save nested Pro metadata independently from:
+         * - widget.data
+         * - widget.settings
+         */
+        fields
+            .querySelectorAll(
+                '[data-pro-setting]'
+            )
+            .forEach(
+                input => {
+
+                    const update =
+                        () => {
+
+                            const path =
+                                input.dataset
+                                    .proSetting
+                                    .split('.');
+
+                            let target =
+                                widget.pro;
+
+
+                            path
+                                .slice(
+                                    0,
+                                    -1
+                                )
+                                .forEach(
+                                    key => {
+
+                                        if (
+                                            !target[key]
+                                            || typeof target[key]
+                                                !== 'object'
+                                        ) {
+                                            target[key] = {};
+                                        }
+
+                                        target =
+                                            target[key];
+                                    }
+                                );
+
+
+                            const finalKey =
+                                path[
+                                    path.length - 1
+                                ];
+
+
+                            let value;
+
+                            if (
+                                input.type === 'checkbox'
+                            ) {
+
+                                value =
+                                    input.checked;
+
+                            } else if (
+                                input.type === 'number'
+                            ) {
+
+                                value =
+                                    input.value === ''
+                                        ? null
+                                        : Number(
+                                            input.value
+                                        );
+
+                            } else {
+
+                                value =
+                                    input.value;
+                            }
+
+
+                            target[finalKey] =
+                                value;
+
+
+                            sync();
+                            renderCanvas();
+                        };
+
+
+                    input.addEventListener(
+                        'input',
+                        update
+                    );
+
+                    input.addEventListener(
+                        'change',
+                        update
+                    );
+                }
+            );
+
+
+        /*
          * Bind presentation settings.
          */
         fields
@@ -8465,7 +10544,2004 @@ section.columns.forEach(
         jsonInput.value = JSON.stringify(documentState);
     }
 
+
+    /*
+     * ESUBIZ_PAGE_BUILDER_PRO_CONTAINER_EDITOR_V1
+     *
+     * Section / Column Pro controls.
+     *
+     * Per-page values persist inside the individual website's
+     * page-builder document under section.pro / column.pro.
+     *
+     * Uploaded files use the website's existing tenant media
+     * image/video upload endpoints.
+     */
+
+    let proContainerEditorTarget = null;
+
+
+    function proContainerCloneDefaults() {
+
+        return JSON.parse(
+            JSON.stringify(
+                proContainerDefaults()
+            )
+        );
+    }
+
+
+    function proMergeContainerState(value) {
+
+        const defaults =
+            proContainerCloneDefaults();
+
+        value =
+            value || {};
+
+        return {
+            ...defaults,
+            ...value,
+
+            visibility: {
+                ...defaults.visibility,
+                ...(value.visibility || {})
+            },
+
+            background: {
+                ...defaults.background,
+                ...(value.background || {}),
+
+                video: {
+                    ...defaults.background.video,
+                    ...(value.background?.video || {})
+                },
+
+                overlay: {
+                    ...defaults.background.overlay,
+                    ...(value.background?.overlay || {})
+                }
+            }
+        };
+    }
+
+
+    function proCurrentCanvasDevice() {
+
+        return (
+            canvas?.dataset?.device
+            || 'desktop'
+        );
+    }
+
+
+    function proContainerTarget(
+        sectionId,
+        columnId = null
+    ) {
+
+        const section =
+            findSection(sectionId);
+
+        if (!section) {
+            return null;
+        }
+
+        if (!columnId) {
+            return {
+                kind: 'section',
+                section,
+                column: null,
+                value: section
+            };
+        }
+
+        const column =
+            findColumn(
+                sectionId,
+                columnId
+            );
+
+        if (!column) {
+            return null;
+        }
+
+        return {
+            kind: 'column',
+            section,
+            column,
+            value: column
+        };
+    }
+
+
+    function proVideoProvider(url) {
+
+        url =
+            String(
+                url || ''
+            ).trim();
+
+        if (!url) {
+            return {
+                type: 'none',
+                id: '',
+                url: ''
+            };
+        }
+
+
+        let match;
+
+
+        match =
+            url.match(
+                /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/i
+            );
+
+        if (match) {
+            return {
+                type: 'youtube',
+                id: match[1],
+                url
+            };
+        }
+
+
+        match =
+            url.match(
+                /vimeo\.com\/(?:video\/)?([0-9]+)/i
+            );
+
+        if (match) {
+            return {
+                type: 'vimeo',
+                id: match[1],
+                url
+            };
+        }
+
+
+        return {
+            type: 'direct',
+            id: '',
+            url
+        };
+    }
+
+
+    function proContainerMediaPreviewUrl(path) {
+
+        if (!path) {
+            return '';
+        }
+
+        try {
+            return builderMediaPreviewUrl(path);
+        } catch (error) {
+            return path;
+        }
+    }
+
+
+    function proContainerBackgroundStyle(
+        item
+    ) {
+
+        const pro =
+            proMergeContainerState(
+                item?.pro
+            );
+
+        const background =
+            pro.background || {};
+
+        const styles = [
+            'position:relative'
+        ];
+
+
+        if (
+            background.type === 'color'
+            && background.color
+        ) {
+            styles.push(
+                `background-color:${background.color}`
+            );
+        }
+
+
+        if (
+            background.type === 'image'
+            && background.image
+        ) {
+
+            const image =
+                proContainerMediaPreviewUrl(
+                    background.image
+                );
+
+            styles.push(
+                `background-image:url("${String(image).replace(/"/g, '%22')}")`
+            );
+
+            styles.push(
+                `background-position:${background.imagePosition || 'center center'}`
+            );
+
+            styles.push(
+                `background-size:${background.imageSize || 'cover'}`
+            );
+
+            styles.push(
+                `background-repeat:${background.imageRepeat || 'no-repeat'}`
+            );
+        }
+
+
+        return styles.join(';');
+    }
+
+
+    function proContainerVisible(
+        item
+    ) {
+
+        const pro =
+            proMergeContainerState(
+                item?.pro
+            );
+
+        const device =
+            proCurrentCanvasDevice();
+
+        return (
+            pro.visibility?.[device]
+            !== false
+        );
+    }
+
+
+    function proContainerVideoMarkup(
+        item
+    ) {
+
+        const pro =
+            proMergeContainerState(
+                item?.pro
+            );
+
+        const background =
+            pro.background || {};
+
+        const video =
+            background.video || {};
+
+        if (
+            background.type !== 'video'
+        ) {
+            return '';
+        }
+
+
+        let source =
+            video.upload
+            || video.url
+            || '';
+
+        if (!source) {
+            return '';
+        }
+
+
+        const provider =
+            video.upload
+                ? {
+                    type: 'direct',
+                    id: '',
+                    url:
+                        proContainerMediaPreviewUrl(
+                            video.upload
+                        )
+                }
+                : proVideoProvider(
+                    video.url
+                );
+
+
+        const sharedStyle =
+            [
+                'position:absolute',
+                'inset:0',
+                'width:100%',
+                'height:100%',
+                'border:0',
+                'pointer-events:none',
+                'object-fit:' + (video.fit || 'cover'),
+                'object-position:' + (video.position || 'center center')
+            ].join(';');
+
+
+        if (
+            provider.type === 'youtube'
+        ) {
+
+            return `
+                <iframe
+                    aria-hidden="true"
+                    tabindex="-1"
+                    src="https://www.youtube.com/embed/${encodeURIComponent(provider.id)}?autoplay=1&mute=1&controls=0&loop=1&playlist=${encodeURIComponent(provider.id)}&playsinline=1&rel=0"
+                    allow="autoplay; encrypted-media"
+                    style="${sharedStyle}"
+                ></iframe>
+            `;
+        }
+
+
+        if (
+            provider.type === 'vimeo'
+        ) {
+
+            return `
+                <iframe
+                    aria-hidden="true"
+                    tabindex="-1"
+                    src="https://player.vimeo.com/video/${encodeURIComponent(provider.id)}?background=1&autoplay=1&muted=1&loop=1&controls=0"
+                    allow="autoplay; fullscreen"
+                    style="${sharedStyle}"
+                ></iframe>
+            `;
+        }
+
+
+        return `
+            <video
+                aria-hidden="true"
+                autoplay
+                muted
+                loop
+                playsinline
+                preload="metadata"
+                ${
+                    video.poster
+                        ? `poster="${escapeHtml(
+                            proContainerMediaPreviewUrl(
+                                video.poster
+                            )
+                        )}"`
+                        : ''
+                }
+                style="${sharedStyle}"
+            >
+                <source
+                    src="${escapeHtml(
+                        provider.url
+                    )}"
+                >
+            </video>
+        `;
+    }
+
+
+    function proContainerOverlayMarkup(
+        item
+    ) {
+
+        const pro =
+            proMergeContainerState(
+                item?.pro
+            );
+
+        const overlay =
+            pro.background?.overlay
+            || {};
+
+        if (
+            !overlay.enabled
+            || Number(
+                overlay.opacity || 0
+            ) <= 0
+        ) {
+            return '';
+        }
+
+
+        const opacity =
+            Math.max(
+                0,
+                Math.min(
+                    1,
+                    Number(
+                        overlay.opacity || 0
+                    )
+                )
+            );
+
+
+        return `
+            <div
+                aria-hidden="true"
+                data-pro-container-overlay
+                style="
+                    position:absolute;
+                    inset:0;
+                    pointer-events:none;
+                    background:${escapeHtml(
+                        overlay.color
+                        || '#000000'
+                    )};
+                    opacity:${opacity};
+                "
+            ></div>
+        `;
+    }
+
+
+    function proDecorateCanvasContainers() {
+
+        const sections =
+            canvas
+                ?.querySelectorAll(
+                    '.eb-section'
+                )
+            || [];
+
+
+        sections.forEach(
+            (
+                sectionEl,
+                sectionIndex
+            ) => {
+
+                const section =
+                    documentState[
+                        sectionIndex
+                    ];
+
+                if (!section) {
+                    return;
+                }
+
+
+                section.pro =
+                    proMergeContainerState(
+                        section.pro
+                    );
+
+
+                sectionEl.dataset.sectionId =
+                    section.id;
+
+
+                sectionEl.style.display =
+                    proContainerVisible(section)
+                        ? ''
+                        : 'none';
+
+
+                const sectionContent =
+                    sectionEl.querySelector(
+                        ':scope > [data-pro-container-content]'
+                    );
+
+
+                if (!sectionContent) {
+
+                    const existingChildren =
+                        Array.from(
+                            sectionEl.children
+                        );
+
+
+                    const wrapper =
+                        document.createElement(
+                            'div'
+                        );
+
+                    wrapper.setAttribute(
+                        'data-pro-container-content',
+                        'section'
+                    );
+
+                    wrapper.style.position =
+                        'relative';
+
+                    wrapper.style.zIndex =
+                        '2';
+
+
+                    existingChildren.forEach(
+                        child => {
+
+                            if (
+                                child.matches?.(
+                                    '[data-pro-section-tools]'
+                                )
+                            ) {
+                                return;
+                            }
+
+                            wrapper.appendChild(
+                                child
+                            );
+                        }
+                    );
+
+
+                    sectionEl.appendChild(
+                        wrapper
+                    );
+                }
+
+
+                sectionEl.style.cssText +=
+                    ';'
+                    + proContainerBackgroundStyle(
+                        section
+                    );
+
+
+                sectionEl
+                    .querySelectorAll(
+                        ':scope > [data-pro-container-video], :scope > [data-pro-container-overlay]'
+                    )
+                    .forEach(
+                        el => el.remove()
+                    );
+
+
+                const mediaHolder =
+                    document.createElement(
+                        'div'
+                    );
+
+                mediaHolder.setAttribute(
+                    'data-pro-container-video',
+                    ''
+                );
+
+                mediaHolder.style.position =
+                    'absolute';
+
+                mediaHolder.style.inset =
+                    '0';
+
+                mediaHolder.style.overflow =
+                    'hidden';
+
+                mediaHolder.style.pointerEvents =
+                    'none';
+
+                mediaHolder.innerHTML =
+                    proContainerVideoMarkup(
+                        section
+                    );
+
+
+                if (
+                    mediaHolder.innerHTML.trim()
+                ) {
+                    sectionEl.prepend(
+                        mediaHolder
+                    );
+                }
+
+
+                const overlayMarkup =
+                    proContainerOverlayMarkup(
+                        section
+                    );
+
+                if (overlayMarkup) {
+
+                    const temp =
+                        document.createElement(
+                            'div'
+                        );
+
+                    temp.innerHTML =
+                        overlayMarkup;
+
+                    sectionEl.insertBefore(
+                        temp.firstElementChild,
+                        sectionEl.querySelector(
+                            '[data-pro-container-content]'
+                        )
+                    );
+                }
+
+
+                if (
+                    !sectionEl.querySelector(
+                        ':scope > [data-pro-section-tools]'
+                    )
+                ) {
+
+                    const tools =
+                        document.createElement(
+                            'div'
+                        );
+
+                    tools.setAttribute(
+                        'data-pro-section-tools',
+                        ''
+                    );
+
+                    tools.style.cssText =
+                        [
+                            'position:absolute',
+                            'top:8px',
+                            'right:8px',
+                            'z-index:50'
+                        ].join(';');
+
+
+                    const button =
+                        document.createElement(
+                            'button'
+                        );
+
+                    button.type =
+                        'button';
+
+                    button.textContent =
+                        'Section Pro';
+
+                    button.className =
+                        'rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-black text-slate-700 shadow-sm';
+
+                    button.addEventListener(
+                        'click',
+                        event => {
+
+                            event.preventDefault();
+                            event.stopPropagation();
+
+                            openProContainerEditor(
+                                section.id,
+                                null
+                            );
+                        }
+                    );
+
+
+                    tools.appendChild(
+                        button
+                    );
+
+                    sectionEl.appendChild(
+                        tools
+                    );
+                }
+
+
+                const columns =
+                    sectionEl
+                        .querySelectorAll(
+                            '.eb-column'
+                        );
+
+
+                columns.forEach(
+                    (
+                        columnEl,
+                        columnIndex
+                    ) => {
+
+                        const column =
+                            section.columns?.[
+                                columnIndex
+                            ];
+
+                        if (!column) {
+                            return;
+                        }
+
+
+                        column.pro =
+                            proMergeContainerState(
+                                column.pro
+                            );
+
+
+                        columnEl.dataset.columnId =
+                            column.id;
+
+
+                        columnEl.style.display =
+                            proContainerVisible(column)
+                                ? ''
+                                : 'none';
+
+
+                        columnEl.style.cssText +=
+                            ';'
+                            + proContainerBackgroundStyle(
+                                column
+                            );
+
+
+                        columnEl
+                            .querySelectorAll(
+                                ':scope > [data-pro-column-background-video], :scope > [data-pro-column-overlay]'
+                            )
+                            .forEach(
+                                el => el.remove()
+                            );
+
+
+                        const videoMarkup =
+                            proContainerVideoMarkup(
+                                column
+                            );
+
+
+                        if (videoMarkup) {
+
+                            const holder =
+                                document.createElement(
+                                    'div'
+                                );
+
+                            holder.setAttribute(
+                                'data-pro-column-background-video',
+                                ''
+                            );
+
+                            holder.style.cssText =
+                                'position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;';
+
+                            holder.innerHTML =
+                                videoMarkup;
+
+                            columnEl.prepend(
+                                holder
+                            );
+                        }
+
+
+                        const overlay =
+                            proContainerOverlayMarkup(
+                                column
+                            );
+
+
+                        if (overlay) {
+
+                            const holder =
+                                document.createElement(
+                                    'div'
+                                );
+
+                            holder.innerHTML =
+                                overlay;
+
+                            const element =
+                                holder.firstElementChild;
+
+                            element.setAttribute(
+                                'data-pro-column-overlay',
+                                ''
+                            );
+
+                            element.style.zIndex =
+                                '1';
+
+                            columnEl.prepend(
+                                element
+                            );
+                        }
+
+
+                        Array.from(
+                            columnEl.children
+                        ).forEach(
+                            child => {
+
+                                if (
+                                    child.hasAttribute?.(
+                                        'data-pro-column-background-video'
+                                    )
+                                    || child.hasAttribute?.(
+                                        'data-pro-column-overlay'
+                                    )
+                                    || child.hasAttribute?.(
+                                        'data-pro-column-tools'
+                                    )
+                                ) {
+                                    return;
+                                }
+
+                                child.style.position =
+                                    child.style.position
+                                    || 'relative';
+
+                                child.style.zIndex =
+                                    child.style.zIndex
+                                    || '2';
+                            }
+                        );
+
+
+                        if (
+                            !columnEl.querySelector(
+                                ':scope > [data-pro-column-tools]'
+                            )
+                        ) {
+
+                            const tools =
+                                document.createElement(
+                                    'div'
+                                );
+
+                            tools.setAttribute(
+                                'data-pro-column-tools',
+                                ''
+                            );
+
+                            tools.style.cssText =
+                                'position:absolute;top:8px;left:8px;z-index:50;';
+
+
+                            const button =
+                                document.createElement(
+                                    'button'
+                                );
+
+                            button.type =
+                                'button';
+
+                            button.textContent =
+                                'Column Pro';
+
+                            button.className =
+                                'rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-black text-slate-700 shadow-sm';
+
+                            button.addEventListener(
+                                'click',
+                                event => {
+
+                                    event.preventDefault();
+                                    event.stopPropagation();
+
+                                    openProContainerEditor(
+                                        section.id,
+                                        column.id
+                                    );
+                                }
+                            );
+
+
+                            tools.appendChild(
+                                button
+                            );
+
+                            columnEl.appendChild(
+                                tools
+                            );
+                        }
+                    }
+                );
+            }
+        );
+    }
+
+
+    function ensureProContainerEditor() {
+
+        let modal =
+            document.getElementById(
+                'proContainerEditorModal'
+            );
+
+        if (modal) {
+            return modal;
+        }
+
+
+        modal =
+            document.createElement(
+                'div'
+            );
+
+        modal.id =
+            'proContainerEditorModal';
+
+        modal.setAttribute(
+            'data-builder-hidden',
+            ''
+        );
+
+        modal.className =
+            'fixed inset-0 z-[100] flex items-center justify-end bg-slate-950/40';
+
+        modal.innerHTML = `
+            <div
+                class="h-full w-full max-w-xl overflow-y-auto bg-white shadow-2xl"
+            >
+                <div
+                    class="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4"
+                >
+                    <div>
+                        <div
+                            id="proContainerEditorTitle"
+                            class="text-lg font-black text-slate-900"
+                        >
+                            Pro Background
+                        </div>
+
+                        <div
+                            class="mt-1 text-xs text-slate-400"
+                        >
+                            Saved inside this website's page document.
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        data-pro-container-close
+                        class="rounded-xl border border-slate-200 px-3 py-2 text-sm font-black"
+                    >
+                        Close
+                    </button>
+                </div>
+
+                <div
+                    id="proContainerEditorBody"
+                    class="space-y-6 p-6"
+                ></div>
+            </div>
+        `;
+
+
+        document.body.appendChild(
+            modal
+        );
+
+
+        modal
+            .querySelector(
+                '[data-pro-container-close]'
+            )
+            .addEventListener(
+                'click',
+                closeProContainerEditor
+            );
+
+
+        modal.addEventListener(
+            'click',
+            event => {
+
+                if (
+                    event.target === modal
+                ) {
+                    closeProContainerEditor();
+                }
+            }
+        );
+
+
+        return modal;
+    }
+
+
+    function proEditorField(
+        label,
+        input
+    ) {
+
+        return `
+            <div>
+                <label
+                    class="text-xs font-black uppercase tracking-wide text-slate-500"
+                >
+                    ${label}
+                </label>
+
+                <div class="mt-2">
+                    ${input}
+                </div>
+            </div>
+        `;
+    }
+
+
+    function renderProContainerEditor() {
+
+        const modal =
+            ensureProContainerEditor();
+
+        const body =
+            modal.querySelector(
+                '#proContainerEditorBody'
+            );
+
+
+        const target =
+            proContainerEditorTarget;
+
+        if (!target) {
+            return;
+        }
+
+
+        const item =
+            target.value;
+
+        item.pro =
+            proMergeContainerState(
+                item.pro
+            );
+
+
+        const pro =
+            item.pro;
+
+        const background =
+            pro.background;
+
+        const video =
+            background.video;
+
+        const overlay =
+            background.overlay;
+
+
+        modal
+            .querySelector(
+                '#proContainerEditorTitle'
+            )
+            .textContent =
+                target.kind === 'section'
+                    ? 'Section Pro'
+                    : 'Column Pro';
+
+
+        body.innerHTML = `
+            <div
+                class="rounded-2xl border border-slate-200 p-4"
+            >
+                <div
+                    class="text-sm font-black text-slate-900"
+                >
+                    Responsive Visibility
+                </div>
+
+                <div
+                    class="mt-4 grid grid-cols-3 gap-3"
+                >
+                    ${[
+                        'desktop',
+                        'tablet',
+                        'mobile'
+                    ].map(
+                        device => `
+                            <label
+                                class="rounded-xl border border-slate-200 p-3 text-center"
+                            >
+                                <input
+                                    type="checkbox"
+                                    data-pro-container-visibility="${device}"
+                                    ${
+                                        pro.visibility?.[device] !== false
+                                            ? 'checked'
+                                            : ''
+                                    }
+                                >
+
+                                <div
+                                    class="mt-2 text-xs font-black capitalize text-slate-700"
+                                >
+                                    ${device}
+                                </div>
+                            </label>
+                        `
+                    ).join('')}
+                </div>
+            </div>
+
+
+            <div
+                class="rounded-2xl border border-slate-200 p-4"
+            >
+                <div
+                    class="text-sm font-black text-slate-900"
+                >
+                    Background
+                </div>
+
+                <div
+                    class="mt-4 space-y-4"
+                >
+                    ${proEditorField(
+                        'Background Type',
+                        `
+                            <select
+                                data-pro-background-type
+                                class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
+                            >
+                                ${[
+                                    ['color','Color'],
+                                    ['image','Photo'],
+                                    ['video','Video'],
+                                    ['none','None']
+                                ].map(
+                                    ([value,label]) => `
+                                        <option
+                                            value="${value}"
+                                            ${
+                                                background.type === value
+                                                    ? 'selected'
+                                                    : ''
+                                            }
+                                        >
+                                            ${label}
+                                        </option>
+                                    `
+                                ).join('')}
+                            </select>
+                        `
+                    )}
+
+
+                    <div
+                        data-pro-background-color-area
+                        ${
+                            background.type !== 'color'
+                                ? 'hidden'
+                                : ''
+                        }
+                    >
+                        ${proEditorField(
+                            'Background Color',
+                            `
+                                <input
+                                    type="color"
+                                    data-pro-background-color
+                                    value="${escapeHtml(
+                                        background.color
+                                        || '#ffffff'
+                                    )}"
+                                    class="h-12 w-full rounded-xl border border-slate-200 bg-white p-1"
+                                >
+                            `
+                        )}
+                    </div>
+
+
+                    <div
+                        data-pro-background-image-area
+                        ${
+                            background.type !== 'image'
+                                ? 'hidden'
+                                : ''
+                        }
+                        class="space-y-4"
+                    >
+                        ${
+                            background.image
+                                ? `
+                                    <div
+                                        class="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
+                                    >
+                                        <img
+                                            src="${escapeHtml(
+                                                proContainerMediaPreviewUrl(
+                                                    background.image
+                                                )
+                                            )}"
+                                            alt="Background preview"
+                                            class="max-h-[260px] w-full object-cover"
+                                        >
+                                    </div>
+                                `
+                                : `
+                                    <div
+                                        class="flex min-h-[150px] items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 text-xs font-bold text-slate-400"
+                                    >
+                                        No background photo uploaded
+                                    </div>
+                                `
+                        }
+
+                        <label
+                            class="block cursor-pointer rounded-xl bg-slate-950 px-4 py-3 text-center text-sm font-black text-white"
+                        >
+                            ${
+                                background.image
+                                    ? 'Change Photo'
+                                    : 'Upload Photo'
+                            }
+
+                            <input
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp,image/gif"
+                                data-pro-background-image-file
+                                class="hidden"
+                            >
+                        </label>
+
+                        ${
+                            background.image
+                                ? `
+                                    <button
+                                        type="button"
+                                        data-pro-background-image-remove
+                                        class="w-full rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-black text-red-600"
+                                    >
+                                        Remove Photo
+                                    </button>
+                                `
+                                : ''
+                        }
+
+                        ${proEditorField(
+                            'Image Position',
+                            `
+                                <select
+                                    data-pro-background-image-position
+                                    class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
+                                >
+                                    ${[
+                                        'center center',
+                                        'center top',
+                                        'center bottom',
+                                        'left center',
+                                        'right center'
+                                    ].map(
+                                        value => `
+                                            <option
+                                                value="${value}"
+                                                ${
+                                                    background.imagePosition === value
+                                                        ? 'selected'
+                                                        : ''
+                                                }
+                                            >
+                                                ${value}
+                                            </option>
+                                        `
+                                    ).join('')}
+                                </select>
+                            `
+                        )}
+                    </div>
+
+
+                    <div
+                        data-pro-background-video-area
+                        ${
+                            background.type !== 'video'
+                                ? 'hidden'
+                                : ''
+                        }
+                        class="space-y-4"
+                    >
+                        <div
+                            class="rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-500"
+                        >
+                            Upload a video from this website, or paste a YouTube,
+                            Vimeo, MP4/WebM, CDN, or other direct video URL.
+                            Background video is muted, autoplayed and looped.
+                        </div>
+
+                        <label
+                            class="block cursor-pointer rounded-xl bg-slate-950 px-4 py-3 text-center text-sm font-black text-white"
+                        >
+                            ${
+                                video.upload
+                                    ? 'Change Uploaded Video'
+                                    : 'Upload Video'
+                            }
+
+                            <input
+                                type="file"
+                                accept="video/mp4,video/webm,video/ogg,video/quicktime"
+                                data-pro-background-video-file
+                                class="hidden"
+                            >
+                        </label>
+
+                        ${
+                            video.upload
+                                ? `
+                                    <div
+                                        class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs font-bold text-slate-600"
+                                    >
+                                        Uploaded video:
+                                        ${escapeHtml(video.upload)}
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        data-pro-background-video-remove
+                                        class="w-full rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-black text-red-600"
+                                    >
+                                        Remove Uploaded Video
+                                    </button>
+                                `
+                                : ''
+                        }
+
+                        ${proEditorField(
+                            'Video URL',
+                            `
+                                <input
+                                    type="url"
+                                    data-pro-background-video-url
+                                    value="${escapeHtml(
+                                        video.url || ''
+                                    )}"
+                                    placeholder="https://youtube.com/... or https://example.com/video.mp4"
+                                    class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
+                                >
+                            `
+                        )}
+
+                        <div
+                            class="text-[11px] leading-5 text-slate-400"
+                        >
+                            If an uploaded video exists, it takes priority over the URL.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <div
+                class="rounded-2xl border border-slate-200 p-4"
+            >
+                <div
+                    class="text-sm font-black text-slate-900"
+                >
+                    Background Overlay
+                </div>
+
+                <div class="mt-4 space-y-4">
+                    <label
+                        class="flex items-center gap-3 text-sm font-bold text-slate-700"
+                    >
+                        <input
+                            type="checkbox"
+                            data-pro-overlay-enabled
+                            ${
+                                overlay.enabled
+                                    ? 'checked'
+                                    : ''
+                            }
+                        >
+                        Enable overlay
+                    </label>
+
+                    ${proEditorField(
+                        'Overlay Color',
+                        `
+                            <input
+                                type="color"
+                                data-pro-overlay-color
+                                value="${escapeHtml(
+                                    overlay.color
+                                    || '#000000'
+                                )}"
+                                class="h-12 w-full rounded-xl border border-slate-200 bg-white p-1"
+                            >
+                        `
+                    )}
+
+                    ${proEditorField(
+                        'Overlay Opacity',
+                        `
+                            <input
+                                type="range"
+                                min="0"
+                                max="1"
+                                step="0.05"
+                                data-pro-overlay-opacity
+                                value="${Number(
+                                    overlay.opacity || 0
+                                )}"
+                                class="w-full"
+                            >
+                        `
+                    )}
+                </div>
+            </div>
+
+
+            <div
+                data-pro-container-upload-status
+                class="text-xs font-bold text-slate-400"
+            ></div>
+        `;
+
+
+        bindProContainerEditor();
+    }
+
+
+    function proCommitContainerChange() {
+
+        sync();
+        renderCanvas();
+
+        requestAnimationFrame(
+            proDecorateCanvasContainers
+        );
+    }
+
+
+    async function proUploadContainerMedia(
+        file,
+        kind,
+        statusElement
+    ) {
+
+        if (!file) {
+            return null;
+        }
+
+
+        const form =
+            new FormData();
+
+        /*
+         * Existing Esubiz tenant media controllers use multipart
+         * upload. Send common field names so this reuses the same
+         * image/video media endpoint without creating another route.
+         */
+        form.append(
+            'file',
+            file
+        );
+
+        form.append(
+            kind === 'image'
+                ? 'image'
+                : 'video',
+            file
+        );
+
+
+        const token =
+            document
+                .querySelector(
+                    'meta[name="csrf-token"]'
+                )
+                ?.getAttribute(
+                    'content'
+                );
+
+
+        const endpoint =
+            kind === 'image'
+                ? '/admin/media/upload-image'
+                : '/admin/media/upload-video';
+
+
+        if (statusElement) {
+            statusElement.textContent =
+                'Uploading to this website’s media storage...';
+        }
+
+
+        const response =
+            await fetch(
+                endpoint,
+                {
+                    method: 'POST',
+
+                    headers: {
+                        'Accept':
+                            'application/json',
+
+                        ...(token
+                            ? {
+                                'X-CSRF-TOKEN':
+                                    token
+                            }
+                            : {})
+                    },
+
+                    body:
+                        form
+                }
+            );
+
+
+        let payload = {};
+
+        try {
+            payload =
+                await response.json();
+        } catch (error) {
+            payload = {};
+        }
+
+
+        if (!response.ok) {
+
+            const message =
+                payload.message
+                || payload.error
+                || `Upload failed (${response.status}).`;
+
+            throw new Error(
+                message
+            );
+        }
+
+
+        const path =
+            payload.path
+            || payload.url
+            || payload.file
+            || payload.file_path
+            || payload.image_path
+            || payload.video_path
+            || payload.data?.path
+            || payload.data?.url
+            || payload.data?.file_path
+            || payload.data?.image_path
+            || payload.data?.video_path
+            || '';
+
+
+        if (!path) {
+            throw new Error(
+                'Upload succeeded but no media path was returned.'
+            );
+        }
+
+
+        if (statusElement) {
+            statusElement.textContent =
+                'Upload complete.';
+        }
+
+
+        return path;
+    }
+
+
+    function bindProContainerEditor() {
+
+        const modal =
+            ensureProContainerEditor();
+
+        const body =
+            modal.querySelector(
+                '#proContainerEditorBody'
+            );
+
+        const target =
+            proContainerEditorTarget;
+
+        if (!target) {
+            return;
+        }
+
+
+        const item =
+            target.value;
+
+        item.pro =
+            proMergeContainerState(
+                item.pro
+            );
+
+
+        body
+            .querySelectorAll(
+                '[data-pro-container-visibility]'
+            )
+            .forEach(
+                input => {
+
+                    input.addEventListener(
+                        'change',
+                        () => {
+
+                            item.pro.visibility[
+                                input.dataset.proContainerVisibility
+                            ] =
+                                input.checked;
+
+                            proCommitContainerChange();
+                        }
+                    );
+                }
+            );
+
+
+        body
+            .querySelector(
+                '[data-pro-background-type]'
+            )
+            ?.addEventListener(
+                'change',
+                event => {
+
+                    item.pro.background.type =
+                        event.target.value;
+
+                    proCommitContainerChange();
+                    renderProContainerEditor();
+                }
+            );
+
+
+        body
+            .querySelector(
+                '[data-pro-background-color]'
+            )
+            ?.addEventListener(
+                'input',
+                event => {
+
+                    item.pro.background.color =
+                        event.target.value;
+
+                    proCommitContainerChange();
+                }
+            );
+
+
+        body
+            .querySelector(
+                '[data-pro-background-image-position]'
+            )
+            ?.addEventListener(
+                'change',
+                event => {
+
+                    item.pro.background.imagePosition =
+                        event.target.value;
+
+                    proCommitContainerChange();
+                }
+            );
+
+
+        body
+            .querySelector(
+                '[data-pro-background-video-url]'
+            )
+            ?.addEventListener(
+                'change',
+                event => {
+
+                    item.pro.background.video.url =
+                        event.target.value.trim();
+
+                    item.pro.background.video.source =
+                        item.pro.background.video.url
+                            ? proVideoProvider(
+                                item.pro.background.video.url
+                            ).type
+                            : 'none';
+
+                    proCommitContainerChange();
+                }
+            );
+
+
+        body
+            .querySelector(
+                '[data-pro-overlay-enabled]'
+            )
+            ?.addEventListener(
+                'change',
+                event => {
+
+                    item.pro.background.overlay.enabled =
+                        event.target.checked;
+
+                    proCommitContainerChange();
+                }
+            );
+
+
+        body
+            .querySelector(
+                '[data-pro-overlay-color]'
+            )
+            ?.addEventListener(
+                'input',
+                event => {
+
+                    item.pro.background.overlay.color =
+                        event.target.value;
+
+                    proCommitContainerChange();
+                }
+            );
+
+
+        body
+            .querySelector(
+                '[data-pro-overlay-opacity]'
+            )
+            ?.addEventListener(
+                'input',
+                event => {
+
+                    item.pro.background.overlay.opacity =
+                        Number(
+                            event.target.value
+                        );
+
+                    proCommitContainerChange();
+                }
+            );
+
+
+        body
+            .querySelector(
+                '[data-pro-background-image-remove]'
+            )
+            ?.addEventListener(
+                'click',
+                () => {
+
+                    item.pro.background.image =
+                        '';
+
+                    proCommitContainerChange();
+                    renderProContainerEditor();
+                }
+            );
+
+
+        body
+            .querySelector(
+                '[data-pro-background-video-remove]'
+            )
+            ?.addEventListener(
+                'click',
+                () => {
+
+                    item.pro.background.video.upload =
+                        '';
+
+                    proCommitContainerChange();
+                    renderProContainerEditor();
+                }
+            );
+
+
+        const status =
+            body.querySelector(
+                '[data-pro-container-upload-status]'
+            );
+
+
+        body
+            .querySelector(
+                '[data-pro-background-image-file]'
+            )
+            ?.addEventListener(
+                'change',
+                async event => {
+
+                    const file =
+                        event.target.files?.[0];
+
+                    if (!file) {
+                        return;
+                    }
+
+
+                    try {
+
+                        const path =
+                            await proUploadContainerMedia(
+                                file,
+                                'image',
+                                status
+                            );
+
+                        item.pro.background.image =
+                            path;
+
+                        item.pro.background.type =
+                            'image';
+
+                        proCommitContainerChange();
+                        renderProContainerEditor();
+
+                    } catch (error) {
+
+                        status.textContent =
+                            error.message
+                            || 'Image upload failed.';
+                    }
+                }
+            );
+
+
+        body
+            .querySelector(
+                '[data-pro-background-video-file]'
+            )
+            ?.addEventListener(
+                'change',
+                async event => {
+
+                    const file =
+                        event.target.files?.[0];
+
+                    if (!file) {
+                        return;
+                    }
+
+
+                    try {
+
+                        const path =
+                            await proUploadContainerMedia(
+                                file,
+                                'video',
+                                status
+                            );
+
+                        item.pro.background.video.upload =
+                            path;
+
+                        item.pro.background.video.source =
+                            'upload';
+
+                        item.pro.background.type =
+                            'video';
+
+                        proCommitContainerChange();
+                        renderProContainerEditor();
+
+                    } catch (error) {
+
+                        status.textContent =
+                            error.message
+                            || 'Video upload failed.';
+                    }
+                }
+            );
+    }
+
+
+    function openProContainerEditor(
+        sectionId,
+        columnId = null
+    ) {
+
+        const target =
+            proContainerTarget(
+                sectionId,
+                columnId
+            );
+
+        if (!target) {
+
+            alert(
+                'The selected section or column could not be found.'
+            );
+
+            return;
+        }
+
+
+        target.value.pro =
+            proMergeContainerState(
+                target.value.pro
+            );
+
+
+        proContainerEditorTarget =
+            target;
+
+
+        const modal =
+            ensureProContainerEditor();
+
+        modal.removeAttribute(
+            'data-builder-hidden'
+        );
+
+        document.body.style.overflow =
+            'hidden';
+
+
+        renderProContainerEditor();
+    }
+
+
+    function closeProContainerEditor() {
+
+        const modal =
+            document.getElementById(
+                'proContainerEditorModal'
+            );
+
+        modal?.setAttribute(
+            'data-builder-hidden',
+            ''
+        );
+
+        proContainerEditorTarget =
+            null;
+
+        document.body.style.overflow =
+            '';
+    }
+
+
+    /*
+     * Canvas renderer remains Core-owned.
+     *
+     * Observe its rebuilds and apply optional Pro decoration after
+     * Core has finished rendering. This keeps Basic rendering intact.
+     */
+    /*
+     * ESUBIZ_PAGE_BUILDER_PRO_CANVAS_REFRESH_V2
+     *
+     * Do NOT observe the canvas with MutationObserver here.
+     *
+     * Pro decoration itself adds/removes background media and overlay
+     * nodes. Observing those same child mutations can create a
+     * self-triggering render/decorate loop.
+     *
+     * Instead, decorate once after Core renderCanvas() completes.
+     */
+    const coreRenderCanvasForPro =
+        renderCanvas;
+
+
+    renderCanvas =
+        function (...args) {
+
+            const result =
+                coreRenderCanvasForPro.apply(
+                    this,
+                    args
+                );
+
+
+            requestAnimationFrame(
+                () => {
+
+                    proDecorateCanvasContainers();
+                }
+            );
+
+
+            return result;
+        };
+
+
+    /*
+     * Initial decoration for the canvas already rendered when this
+     * script first loads.
+     */
+    requestAnimationFrame(
+        () => {
+
+            proDecorateCanvasContainers();
+        }
+    );
+
+
     function setDevice(device) {
+
+        /*
+         * The Core device switch changes canvas.dataset.device.
+         * Refresh Pro section/column visibility immediately after
+         * Core finishes that synchronous update.
+         */
+        requestAnimationFrame(
+            () => {
+
+                proDecorateCanvasContainers();
+            }
+        );
+
         canvas.dataset.device =
             device;
 

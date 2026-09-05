@@ -1,0 +1,411 @@
+<?php
+
+namespace App\Services\PageBuilderPro;
+
+/**
+ * ESUBIZ_PAGE_BUILDER_PRO_WIDGET_REGISTRY_V1
+ *
+ * Universal widget catalogue.
+ *
+ * Widgets describe neutral content/data.
+ * Themes/renderers own visual presentation.
+ */
+class WidgetRegistry
+{
+    protected array $widgets;
+
+    public function __construct()
+    {
+        $this->widgets = $this->definitions();
+    }
+
+    public function all(): array
+    {
+        return $this->widgets;
+    }
+
+    public function has(string $type): bool
+    {
+        return array_key_exists($type, $this->widgets);
+    }
+
+    public function get(string $type): ?array
+    {
+        return $this->widgets[$type] ?? null;
+    }
+
+    public function defaults(string $type): array
+    {
+        return $this->widgets[$type]['defaults'] ?? [];
+    }
+
+    /**
+     * Register a Basic Page Builder widget supplied by a module.
+     *
+     * Module widgets are Basic widgets by default. The module owns the
+     * widget type and its content schema; Page Builder Pro may enhance
+     * the resulting widget instance but never owns or replaces its data.
+     *
+     * Core widget types cannot be silently overridden.
+     */
+    public function register(
+        string $type,
+        array $definition,
+        ?string $source = null
+    ): void {
+        $type = trim($type);
+
+        if ($type === '') {
+            throw new \InvalidArgumentException(
+                'Page Builder widget type cannot be empty.'
+            );
+        }
+
+        if (isset($this->widgets[$type])) {
+            throw new \InvalidArgumentException(
+                "Page Builder widget [{$type}] is already registered."
+            );
+        }
+
+        $definition['defaults'] = is_array($definition['defaults'] ?? null)
+            ? $definition['defaults']
+            : [];
+
+        $definition['source'] = $source ?: 'module';
+        $definition['tier'] = 'basic';
+
+        $this->widgets[$type] = $definition;
+    }
+
+    /**
+     * Register multiple module widgets.
+     */
+    public function registerMany(
+        array $widgets,
+        ?string $source = null
+    ): void {
+        foreach ($widgets as $type => $definition) {
+            if (!is_string($type) || !is_array($definition)) {
+                throw new \InvalidArgumentException(
+                    'Module widget registrations must use type => definition arrays.'
+                );
+            }
+
+            $this->register($type, $definition, $source);
+        }
+    }
+
+    protected function definitions(): array
+    {
+        return [
+
+            /*
+            |--------------------------------------------------------------------------
+            | Content
+            |--------------------------------------------------------------------------
+            */
+
+            'hero' => [
+                'label' => 'Hero',
+                'category' => 'Content',
+                'icon' => '▣',
+                'defaults' => [
+                    'eyebrow' => '',
+                    'heading' => 'Build something remarkable',
+                    'text' => '',
+                    'image' => '',
+                    'button_text' => '',
+                    'button_url' => '',
+                ],
+            ],
+
+            'heading' => [
+                'label' => 'Heading',
+                'category' => 'Content',
+                'icon' => 'H',
+                'defaults' => [
+                    'text' => 'Heading',
+                    'level' => 'h2',
+                ],
+            ],
+
+            'rich_text' => [
+                'label' => 'Rich Text',
+                'category' => 'Content',
+                'icon' => '¶',
+                'defaults' => [
+                    'content' => '',
+                ],
+            ],
+
+            'image' => [
+                'label' => 'Image',
+                'category' => 'Media',
+                'icon' => '▧',
+                'defaults' => [
+                    'src' => '',
+                    'alt' => '',
+                    'caption' => '',
+                ],
+            ],
+
+            'gallery' => [
+                'label' => 'Gallery',
+                'category' => 'Media',
+                'icon' => '▦',
+                'defaults' => [
+                    'heading' => '',
+                    'items' => [],
+                ],
+            ],
+
+            'video' => [
+                'label' => 'Video',
+                'category' => 'Media',
+                'icon' => '▶',
+                'defaults' => [
+                    'src' => '',
+                    'poster' => '',
+                    'caption' => '',
+                ],
+            ],
+
+            'button' => [
+                'label' => 'Button',
+                'category' => 'Content',
+                'icon' => '●',
+                'defaults' => [
+                    'text' => 'Learn More',
+                    'url' => '#',
+                ],
+            ],
+
+            'cta' => [
+                'label' => 'Call To Action',
+                'category' => 'Content',
+                'icon' => '→',
+                'defaults' => [
+                    'heading' => '',
+                    'text' => '',
+                    'button_text' => '',
+                    'button_url' => '',
+                ],
+            ],
+
+            /*
+            |--------------------------------------------------------------------------
+            | Structured Content
+            |--------------------------------------------------------------------------
+            */
+
+            'cards' => [
+                'label' => 'Cards',
+                'category' => 'Layout',
+                'icon' => '▤',
+                'defaults' => [
+                    'heading' => '',
+                    'items' => [],
+                ],
+            ],
+
+            'features' => [
+                'label' => 'Features',
+                'category' => 'Layout',
+                'icon' => '✦',
+                'defaults' => [
+                    'heading' => '',
+                    'items' => [],
+                ],
+            ],
+
+            'statistics' => [
+                'label' => 'Statistics',
+                'category' => 'Layout',
+                'icon' => '#',
+                'defaults' => [
+                    'items' => [],
+                ],
+            ],
+
+            'accordion' => [
+                'label' => 'Accordion',
+                'category' => 'Interactive',
+                'icon' => '≡',
+                'defaults' => [
+                    'heading' => '',
+                    'items' => [],
+                ],
+            ],
+
+            'tabs' => [
+                'label' => 'Tabs',
+                'category' => 'Interactive',
+                'icon' => '▰',
+                'defaults' => [
+                    'items' => [],
+                    'active' => 0,
+                ],
+            ],
+
+            'vertical_tabs' => [
+                'label' => 'Vertical Tabs',
+                'category' => 'Interactive',
+                'icon' => '▥',
+                'defaults' => [
+                    'items' => [],
+                    'active' => 0,
+                ],
+            ],
+
+            /*
+            |--------------------------------------------------------------------------
+            | Documentation / Technical
+            |--------------------------------------------------------------------------
+            */
+
+            'code' => [
+                'label' => 'Code / Command',
+                'category' => 'Documentation',
+                'icon' => '</>',
+                'defaults' => [
+                    'language' => 'text',
+                    'code' => '',
+                    'copy_button' => true,
+                ],
+            ],
+
+            'callout' => [
+                'label' => 'Notice / Callout',
+                'category' => 'Documentation',
+                'icon' => '!',
+                'defaults' => [
+                    'type' => 'info',
+                    'title' => '',
+                    'text' => '',
+                ],
+            ],
+
+            'checklist' => [
+                'label' => 'Checklist',
+                'category' => 'Documentation',
+                'icon' => '✓',
+                'defaults' => [
+                    'heading' => '',
+                    'items' => [],
+                ],
+            ],
+
+            'steps' => [
+                'label' => 'Steps / Timeline',
+                'category' => 'Documentation',
+                'icon' => '123',
+                'defaults' => [
+                    'heading' => '',
+                    'items' => [],
+                ],
+            ],
+
+            'screenshot' => [
+                'label' => 'Screenshot',
+                'category' => 'Documentation',
+                'icon' => '▧',
+                'defaults' => [
+                    'src' => '',
+                    'alt' => '',
+                    'caption' => '',
+                ],
+            ],
+
+            'table' => [
+                'label' => 'Table',
+                'category' => 'Documentation',
+                'icon' => '▦',
+                'defaults' => [
+                    'headers' => [],
+                    'rows' => [],
+                ],
+            ],
+
+            'resources' => [
+                'label' => 'Downloads / Resources',
+                'category' => 'Documentation',
+                'icon' => '↓',
+                'defaults' => [
+                    'heading' => '',
+                    'items' => [],
+                ],
+            ],
+
+            'page_navigation' => [
+                'label' => 'Previous / Next',
+                'category' => 'Documentation',
+                'icon' => '↔',
+                'defaults' => [
+                    'previous_label' => '',
+                    'previous_url' => '',
+                    'next_label' => '',
+                    'next_url' => '',
+                ],
+            ],
+
+            /*
+            |--------------------------------------------------------------------------
+            | Installer
+            |--------------------------------------------------------------------------
+            */
+
+            'installer' => [
+                'label' => 'Installer',
+                'category' => 'Documentation',
+                'icon' => '⚙',
+                'defaults' => [
+                    'title' => 'Esubiz Installation',
+                    'steps' => [
+                        [
+                            'key' => 'licence',
+                            'label' => 'Website & Licence',
+                        ],
+                        [
+                            'key' => 'requirements',
+                            'label' => 'System Check',
+                        ],
+                        [
+                            'key' => 'database',
+                            'label' => 'Database',
+                        ],
+                        [
+                            'key' => 'administrator',
+                            'label' => 'Administrator',
+                        ],
+                        [
+                            'key' => 'installation',
+                            'label' => 'Installation',
+                        ],
+                    ],
+                ],
+            ],
+
+            /*
+            |--------------------------------------------------------------------------
+            | Structural
+            |--------------------------------------------------------------------------
+            */
+
+            'divider' => [
+                'label' => 'Divider',
+                'category' => 'Layout',
+                'icon' => '―',
+                'defaults' => [],
+            ],
+
+            'spacer' => [
+                'label' => 'Spacer',
+                'category' => 'Layout',
+                'icon' => '↕',
+                'defaults' => [
+                    'height' => 40,
+                ],
+            ],
+        ];
+    }
+}

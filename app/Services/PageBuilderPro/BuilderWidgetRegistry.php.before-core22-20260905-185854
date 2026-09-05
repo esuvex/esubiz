@@ -1,0 +1,103 @@
+<?php
+
+namespace App\Services\PageBuilderPro;
+
+/**
+ * ESUBIZ_PAGE_BUILDER_COMPOSITE_WIDGET_REGISTRY_V1
+ *
+ * Central builder registry facade.
+ *
+ * OWNERSHIP:
+ * - WidgetRegistry owns Basic and module widgets.
+ * - ProWidgetRegistry owns Pro-only widgets.
+ * - This class only exposes them through one builder-facing interface.
+ *
+ * IMPORTANT:
+ * No widget data or defaults are rewritten here.
+ */
+class BuilderWidgetRegistry
+{
+    public function __construct(
+        protected WidgetRegistry $basic,
+        protected ProWidgetRegistry $pro
+    ) {
+        $this->assertNoCollisions();
+    }
+
+    public function basic(): WidgetRegistry
+    {
+        return $this->basic;
+    }
+
+    public function proRegistry(): ProWidgetRegistry
+    {
+        return $this->pro;
+    }
+
+    public function all(): array
+    {
+        return $this->basic->all() + $this->pro->all();
+    }
+
+    public function has(string $type): bool
+    {
+        return $this->basic->has($type)
+            || $this->pro->has($type);
+    }
+
+    public function get(string $type): ?array
+    {
+        if ($this->basic->has($type)) {
+            return $this->basic->get($type);
+        }
+
+        return $this->pro->get($type);
+    }
+
+    public function defaults(string $type): array
+    {
+        if ($this->basic->has($type)) {
+            return $this->basic->defaults($type);
+        }
+
+        return $this->pro->defaults($type);
+    }
+
+    public function source(string $type): ?string
+    {
+        if ($this->basic->has($type)) {
+            return 'basic';
+        }
+
+        if ($this->pro->has($type)) {
+            return 'pro';
+        }
+
+        return null;
+    }
+
+    public function basicWidgets(): array
+    {
+        return $this->basic->all();
+    }
+
+    public function proWidgets(): array
+    {
+        return $this->pro->all();
+    }
+
+    protected function assertNoCollisions(): void
+    {
+        $collisions = array_intersect_key(
+            $this->basic->all(),
+            $this->pro->all()
+        );
+
+        if ($collisions !== []) {
+            throw new \LogicException(
+                'Page Builder Basic/Pro widget collision: '
+                . implode(', ', array_keys($collisions))
+            );
+        }
+    }
+}
