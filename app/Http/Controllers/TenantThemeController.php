@@ -2595,30 +2595,80 @@ $this->tenantDatabaseService
                 $previewPath
             );
 
-        abort_unless(
-            is_file($preview),
+        /*
+         * ESUBIZ_CORE_INSTALLED_THEME_PREVIEW_FALLBACK_V2
+         *
+         * Installed Theme preview resolution is a Core capability.
+         *
+         * 1. Prefer the locally installed Theme preview.
+         * 2. If the local preview is unavailable and this installed
+         *    Theme originated from Marketplace, use the protected
+         *    Central Esubiz package preview endpoint.
+         *
+         * No Theme names are hardcoded here.
+         */
+        if (is_file($preview)) {
+            $mime =
+                mime_content_type(
+                    $preview
+                )
+                ?: 'application/octet-stream';
+
+            return response()->file(
+                $preview,
+                [
+                    'Content-Type' =>
+                        $mime,
+
+                    'Cache-Control' =>
+                        'public, max-age=3600',
+
+                    'X-Content-Type-Options' =>
+                        'nosniff',
+                ]
+            );
+        }
+
+        $marketplaceThemePackageId =
+            (int) (
+                $definition[
+                    'marketplace_theme_package_id'
+                ]
+                ?? 0
+            );
+
+        if ($marketplaceThemePackageId > 0) {
+            $centralMarketplaceUrl =
+                rtrim(
+                    (string) config(
+                        'services.esubiz.marketplace_url',
+                        config(
+                            'app.url'
+                        )
+                    ),
+                    '/'
+                );
+
+            abort_unless(
+                $centralMarketplaceUrl !== '',
+                404,
+                'Theme preview source is not configured.'
+            );
+
+            $centralPreviewUrl =
+                $centralMarketplaceUrl
+                . '/marketplace/themes/'
+                . $marketplaceThemePackageId
+                . '/preview';
+
+            return redirect()->away(
+                $centralPreviewUrl
+            );
+        }
+
+        abort(
             404,
             'Theme preview not found.'
-        );
-
-        $mime =
-            mime_content_type(
-                $preview
-            )
-            ?: 'application/octet-stream';
-
-        return response()->file(
-            $preview,
-            [
-                'Content-Type' =>
-                    $mime,
-
-                'Cache-Control' =>
-                    'public, max-age=3600',
-
-                'X-Content-Type-Options' =>
-                    'nosniff',
-            ]
         );
     }
 }
