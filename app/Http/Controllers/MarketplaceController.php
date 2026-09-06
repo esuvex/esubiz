@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Marketplace\Themes\ThemeMarketplaceResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 
@@ -4919,5 +4920,277 @@ class MarketplaceController extends Controller
             ]
         );
     }
+
+
+    /*
+     * ESUBIZ_CENTRAL_THEME_MARKETPLACE_RESOLVER_V1
+     *
+     * Central Theme Marketplace must use the same eligibility source
+     * as SaaS Core, off-server Core and the website wizards.
+     */
+    protected function marketplaceThemes(
+        ThemeMarketplaceResolver $resolver,
+        string $deployment = ThemeMarketplaceResolver::DEPLOYMENT_SAAS
+    ) {
+        return $resolver->forDeployment(
+            $deployment
+        );
+    }
+
+
+    /*
+     * ESUBIZ_THEME_MARKETPLACE_CATALOG_V1
+     *
+     * Universal public Theme Marketplace catalog.
+     *
+     * Central Esubiz is the commercial source of truth.
+     * SaaS and off-server Core installations must consume the same
+     * eligibility contract rather than maintaining local commerce rules.
+     */
+    public function themeCatalog(
+        \Illuminate\Http\Request $request,
+        ThemeMarketplaceResolver $resolver
+    ) {
+        $deployment = strtolower(
+            trim(
+                (string) $request->query(
+                    'deployment',
+                    ThemeMarketplaceResolver::DEPLOYMENT_SAAS
+                )
+            )
+        );
+
+        if (
+            !in_array(
+                $deployment,
+                [
+                    ThemeMarketplaceResolver::DEPLOYMENT_SAAS,
+                    ThemeMarketplaceResolver::DEPLOYMENT_OFF_SERVER,
+                ],
+                true
+            )
+        ) {
+            return response()->json(
+                [
+                    'ok' => false,
+                    'message' => 'Invalid theme deployment context.',
+                ],
+                422
+            );
+        }
+
+        $themes = $this->marketplaceThemes(
+            $resolver,
+            $deployment
+        );
+
+        $items = $themes
+            ->map(
+                function ($theme) use ($deployment) {
+                    $isSaas =
+                        $deployment
+                        === ThemeMarketplaceResolver::DEPLOYMENT_SAAS;
+
+                    return [
+                        'id' => (int) $theme->id,
+                        'uuid' => $theme->uuid,
+                        'name' => $theme->name,
+                        'slug' => $theme->slug,
+                        'version' => $theme->version,
+
+                        'publisher' => [
+                            'name' => $theme->publisher_name,
+                            'type' => $theme->publisher_type,
+                        ],
+
+                        'deployment' => $deployment,
+
+                        'price' => $isSaas
+                            ? $theme->saas_price
+                            : $theme->off_server_price,
+
+                        'currency' => $isSaas
+                            ? $theme->saas_currency
+                            : $theme->off_server_currency,
+
+                        'billing' => $isSaas
+                            ? [
+                                'period' => $theme->saas_billing_period,
+                                'interval' => $theme->saas_billing_interval,
+                            ]
+                            : null,
+
+                        'marketplace' => [
+                            'featured' => (bool) $theme->marketplace_featured,
+                            'category' => $theme->marketplace_category,
+                        ],
+
+                        'package' => [
+                            'checksum_sha256' => $theme->checksum_sha256,
+                            'bytes' => (int) $theme->package_bytes,
+                        ],
+                    ];
+                }
+            )
+            ->values();
+
+        return response()->json(
+            [
+                'ok' => true,
+                'deployment' => $deployment,
+                'count' => $items->count(),
+                'themes' => $items,
+            ]
+        );
+    }
+
+    /*
+     * ESUBIZ_THEME_MARKETPLACE_PREVIEW_V1
+     *
+     * Public Theme preview asset delivery.
+     *
+     * Theme packages remain protected in storage.
+     * Only the manifest-declared preview file may be exposed.
+     */
+    public function themePreview(
+        int $themePackageId
+    ) {
+        $theme =
+            \Illuminate\Support\Facades\DB::table(
+                'theme_packages'
+            )
+                ->whereNull('deleted_at')
+                ->where('id', $themePackageId)
+                ->where('is_active', true)
+                ->where('marketplace_ready', true)
+                ->first();
+
+        abort_unless(
+            $theme,
+            404,
+            'Theme not found.'
+        );
+
+        $packagePath =
+            app(
+                \App\Services\Marketplace\ThemePackageService::class
+            )->protectedRoot()
+            . DIRECTORY_SEPARATOR
+            . ltrim(
+                (string) $theme->package_path,
+                '/\\'
+            );
+
+        abort_unless(
+            is_file($packagePath),
+            404,
+            'Theme package not found.'
+        );
+
+        $previewPath =
+            ltrim(
+                (string) $theme->preview_path,
+                '/\\'
+            );
+
+        abort_unless(
+            $previewPath !== '',
+            404,
+            'Theme preview is not configured.'
+        );
+
+        if (
+            str_contains($previewPath, '..')
+            || str_starts_with($previewPath, '/')
+            || str_starts_with($previewPath, '\\')
+        ) {
+            abort(
+                404,
+                'Invalid Theme preview path.'
+            );
+        }
+
+        $zip =
+            new \ZipArchive();
+
+        abort_unless(
+            $zip->open($packagePath) === true,
+            404,
+            'Unable to open Theme package.'
+        );
+
+        $index =
+            $zip->locateName(
+                $previewPath,
+                \ZipArchive::FL_NOCASE
+            );
+
+        if ($index === false) {
+            $zip->close();
+
+            abort(
+                404,
+                'Theme preview not found.'
+            );
+        }
+
+        $contents =
+            $zip->getFromIndex(
+                $index
+            );
+
+        $entryName =
+            $zip->getNameIndex(
+                $index
+            );
+
+        $zip->close();
+
+        abort_unless(
+            is_string($contents),
+            404,
+            'Theme preview could not be read.'
+        );
+
+        $extension =
+            strtolower(
+                pathinfo(
+                    (string) $entryName,
+                    PATHINFO_EXTENSION
+                )
+            );
+
+        $mime =
+            match ($extension) {
+                'svg' => 'image/svg+xml',
+                'png' => 'image/png',
+                'jpg',
+                'jpeg' => 'image/jpeg',
+                'webp' => 'image/webp',
+                default => null,
+            };
+
+        abort_unless(
+            $mime !== null,
+            404,
+            'Unsupported Theme preview format.'
+        );
+
+        return response(
+            $contents,
+            200,
+            [
+                'Content-Type' =>
+                    $mime,
+
+                'Cache-Control' =>
+                    'public, max-age=3600',
+
+                'X-Content-Type-Options' =>
+                    'nosniff',
+            ]
+        );
+    }
+
 
 }

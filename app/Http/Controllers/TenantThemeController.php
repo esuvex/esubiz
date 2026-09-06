@@ -298,43 +298,22 @@ class TenantThemeController extends Controller
      * Future Marketplace/theme installers should populate
      * this information from package/database metadata.
      */
+    /*
+     * ESUBIZ_CORE_GENERIC_THEME_HUB_V1
+     *
+     * Installed Themes belong to Core.
+     *
+     * No Theme definitions are hardcoded in this controller.
+     * SaaS and off-server Core use the same installed-theme registry.
+     */
     protected function installedThemes(
         string $activeTheme = ''
     ): array {
-        return [
-            [
-                'slug' => 'business',
-                'name' => 'Business',
-                'version' => 'v1.0',
-
-                'description' =>
-                    'A clean and responsive business website theme with animations, homepage sections, testimonials, FAQs, contact and legal pages.',
-
-                /*
-                 * This preview belongs specifically to
-                 * the Business theme.
-                 */
-                'preview_path' =>
-                    'images/themes/business-preview.svg',
-
-                /*
-                 * Historical/internal alias.
-                 */
-                'aliases' => [
-                    'corporate-default',
-                ],
-
-                'active' =>
-                    in_array(
-                        $activeTheme,
-                        [
-                            'business',
-                            'corporate-default',
-                        ],
-                        true
-                    ),
-            ],
-        ];
+        return app(
+            \App\Services\Core\Themes\InstalledThemeRegistry::class
+        )->all(
+            $activeTheme
+        );
     }
 
 
@@ -343,22 +322,118 @@ class TenantThemeController extends Controller
         $website = $this->website();
 
         $activeTheme =
-            $this->activeTheme($website);
+            $this->activeTheme(
+                $website
+            );
 
+        /*
+         * Installed Themes are local Core state.
+         */
         $themes =
             $this->installedThemes(
                 $activeTheme
             );
+
+        /*
+         * Marketplace Themes are resolved through the universal
+         * Core catalog adapter:
+         *
+         * SaaS       -> authoritative Central Esubiz catalog locally.
+         * Off-server -> authoritative Central Esubiz catalog API.
+         *
+         * Installed state is automatically decorated from this
+         * Core website's InstalledThemeRegistry.
+         */
+        $marketplaceThemes =
+            app(
+                \App\Services\Core\Themes\ThemeMarketplaceCatalogService::class
+            )->themes();
 
         return view(
             'tenant.admin.themes.index',
             compact(
                 'website',
                 'themes',
-                'activeTheme'
+                'activeTheme',
+                'marketplaceThemes'
             )
         );
     }
+
+    /*
+     * ESUBIZ_CORE_THEME_MARKETPLACE_PAGE_V1
+     *
+     * Dedicated Theme Marketplace for Core.
+     *
+     * The URL, route and UI are Core features and remain identical
+     * regardless of where Core is deployed.
+     *
+     * ThemeMarketplaceCatalogService internally resolves the correct
+     * catalog/commerce source for the current Core installation.
+     *
+     * Installed state belongs to the current Core website.
+     */
+    public function marketplace(): View
+    {
+        $website =
+            $this->website();
+
+        $themes =
+            app(
+                \App\Services\Core\Themes\ThemeMarketplaceCatalogService::class
+            )->themes();
+
+        $categories =
+            $themes
+                ->pluck(
+                    'marketplace.category'
+                )
+                ->filter()
+                ->unique()
+                ->sort()
+                ->values();
+
+        $featuredThemes =
+            $themes
+                ->filter(
+                    fn ($theme) =>
+                        (bool) data_get(
+                            $theme,
+                            'marketplace.featured',
+                            false
+                        )
+                )
+                ->values();
+
+        /*
+         * Most Purchased will become authoritative when Theme
+         * purchase statistics are added to the Marketplace catalog.
+         *
+         * Do not invent purchase ranking.
+         */
+        $mostPurchasedThemes =
+            collect();
+
+        /*
+         * Explicit publication timestamps will later drive Newest.
+         * Until then the authoritative catalog order is preserved.
+         */
+        $newestThemes =
+            $themes->values();
+
+        return view(
+            'tenant.admin.themes.marketplace',
+            compact(
+                'website',
+                'themes',
+                'categories',
+                'featuredThemes',
+                'mostPurchasedThemes',
+                'newestThemes'
+            )
+        );
+    }
+
 
     public function configureBusiness(): View
     {

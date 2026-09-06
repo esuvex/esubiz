@@ -69,7 +69,7 @@
         ></div>
 
 <div
-            class="grid auto-rows-fr gap-6 lg:grid-cols-3"
+            class="grid auto-rows-fr gap-5 lg:grid-cols-3"
         >
 
             {{-- Installed Themes first --}}
@@ -95,7 +95,7 @@
                 @endphp
 
                 <article
-                    class="flex h-full flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
+                    class="flex h-full min-h-[360px] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
                 >
 
                     <a
@@ -106,7 +106,7 @@
                         aria-label="Preview {{ $installedTheme['name'] }} theme"
                     >
 
-                        <div class="relative h-56 overflow-hidden">
+                        <div class="relative h-40 overflow-hidden">
 
                             <x-media.image
     src="{{ $previewUrl }}"
@@ -129,7 +129,7 @@
                     </a>
 
 
-                    <div class="flex flex-1 flex-col p-6">
+                    <div class="flex flex-1 flex-col p-5">
 
                         <div class="flex items-start justify-between gap-4">
 
@@ -141,7 +141,7 @@
                                     Installed Theme
                                 </div>
 
-                                <h3 class="mt-2 text-xl font-black text-slate-900">
+                                <h3 class="mt-1.5 text-lg font-black text-slate-900">
                                     {{ $installedTheme['name'] }}
                                 </h3>
 
@@ -284,95 +284,135 @@
 
 
 
-            {{-- Theme Marketplace second --}}
+            {{-- =====================================================
+                 ESUBIZ_COMPACT_THEME_HUB_V2
+
+                 Theme Hub only provides a compact Marketplace gateway.
+
+                 The full Marketplace catalog belongs on its own Core page
+                 where search, categories, Featured, Most Purchased,
+                 Newest, filters, pagination, preview and purchase/install
+                 actions can scale properly.
+                 ===================================================== --}}
+
+            @php
+                $marketplaceThemeCount =
+                    $marketplaceThemes->count();
+
+                $featuredThemeCount =
+                    $marketplaceThemes
+                        ->filter(
+                            fn ($theme) =>
+                                (bool) data_get(
+                                    $theme,
+                                    'marketplace.featured',
+                                    false
+                                )
+                        )
+                        ->count();
+            @endphp
+
             <article
-                class="relative flex h-full flex-col overflow-hidden rounded-3xl border border-slate-800 bg-slate-950 p-7 text-white shadow-sm"
+                class="relative flex h-full min-h-[360px] flex-col overflow-hidden rounded-3xl border border-slate-800 bg-slate-950 p-5 text-white shadow-sm"
             >
 
                 <div
-                    class="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-blue-500/20 blur-3xl"
+                    class="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-blue-500/20 blur-3xl"
                 ></div>
 
 
                 <div class="relative flex h-full flex-col">
 
                     <div
-                        class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-2xl"
+                        class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-lg"
                     >
                         ◈
                     </div>
 
 
                     <div
-                        class="mt-6 text-xs font-black uppercase tracking-[.18em] text-blue-300"
+                        class="mt-5 text-[10px] font-black uppercase tracking-[.18em] text-blue-300"
                     >
                         Esubiz Marketplace
                     </div>
 
 
                     <h3
-                        class="mt-2 text-2xl font-black"
+                        class="mt-1.5 text-xl font-black"
                     >
                         Theme Marketplace
                     </h3>
 
 
                     <p
-                        class="mt-3 text-sm leading-6 text-slate-300"
+                        class="mt-2 text-xs leading-5 text-slate-300"
                     >
-                        Discover free and paid themes designed for the Esubiz
-                        website structure. Purchased themes will appear here
-                        with your installed themes.
+                        Browse, preview and install compatible Themes from the Esubiz Marketplace.
                     </p>
 
 
                     <div
-                        class="mt-5 flex flex-wrap gap-2"
+                        class="mt-5 grid grid-cols-2 gap-2"
                     >
-                        <span
-                            class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-bold text-slate-300"
-                        >
-                            Business
-                        </span>
 
-                        <span
-                            class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-bold text-slate-300"
+                        <div
+                            class="rounded-xl border border-white/10 bg-white/5 p-3"
                         >
-                            Ecommerce
-                        </span>
+                            <div
+                                class="text-lg font-black text-white"
+                            >
+                                {{ $marketplaceThemeCount }}
+                            </div>
 
-                        <span
-                            class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-bold text-slate-300"
-                        >
-                            Hotel
-                        </span>
+                            <div
+                                class="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-400"
+                            >
+                                Available
+                            </div>
+                        </div>
 
-                        <span
-                            class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-bold text-slate-300"
+
+                        <div
+                            class="rounded-xl border border-white/10 bg-white/5 p-3"
                         >
-                            More
-                        </span>
+                            <div
+                                class="text-lg font-black text-white"
+                            >
+                                {{ $featuredThemeCount }}
+                            </div>
+
+                            <div
+                                class="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-400"
+                            >
+                                Featured
+                            </div>
+                        </div>
+
                     </div>
 
 
-                    <div class="mt-auto pt-7">
+                    <div class="mt-auto pt-5">
 
                         <a
-                            href="https://marketplace.esubiz.com/themes"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white transition hover:bg-blue-500"
+                            href="{{ route(
+                                'tenant.cms.themes.marketplace',
+                                [
+                                    'subdomain' =>
+                                        $website->subdomain
+                                ]
+                            ) }}"
+                            id="openThemeMarketplace"
+                            class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-black text-white transition hover:bg-blue-500"
                         >
-                            Browse Themes
-                            <span aria-hidden="true">↗</span>
+                            Browse Theme Marketplace
+                            <span aria-hidden="true">→</span>
                         </a>
 
 
                         <p
-                            class="mt-4 text-[11px] leading-5 text-slate-400"
+                            class="mt-3 text-[10px] leading-4 text-slate-400"
                         >
-                            Theme pricing and installation will respect the
-                            website's SaaS or off-server deployment settings.
+                            Categories, Featured, Most Purchased, Newest and more will be available on the full Marketplace page.
                         </p>
 
                     </div>
@@ -385,7 +425,7 @@
 
             {{-- Build Theme with AI third --}}
             <article
-                class="relative flex h-full flex-col overflow-hidden rounded-3xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-blue-50 p-7 shadow-sm"
+                class="relative flex h-full min-h-[360px] flex-col overflow-hidden rounded-3xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-blue-50 p-5 shadow-sm"
             >
 
                 <div
@@ -396,7 +436,7 @@
                 <div class="relative flex h-full flex-col">
 
                     <div
-                        class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-600 text-xl font-black text-white shadow-sm"
+                        class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-violet-600 text-lg font-black text-white shadow-sm"
                     >
                         ✦
                     </div>
@@ -410,7 +450,7 @@
 
 
                     <h3
-                        class="mt-2 text-2xl font-black text-slate-950"
+                        class="mt-1.5 text-xl font-black text-slate-950"
                     >
                         Build Theme with AI
                     </h3>

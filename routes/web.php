@@ -753,6 +753,20 @@ Route::post(
             ]
         )->name('tenant.cms.themes.index');
 
+    /*
+     * ESUBIZ_CORE_THEME_MARKETPLACE_PAGE_ROUTE_V1
+     */
+    Route::get(
+        '/admin/themes/marketplace',
+        [
+            \App\Http\Controllers\TenantThemeController::class,
+            'marketplace'
+        ]
+    )->name(
+        'tenant.cms.themes.marketplace'
+    );
+
+
 
         /*
         |--------------------------------------------------------------------------
@@ -3247,4 +3261,36 @@ Route::post(
         );
     }
 );
+
+
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_THEME_MARKETPLACE_CATALOG_ROUTE_V1
+|--------------------------------------------------------------------------
+|
+| Universal Theme Marketplace catalog.
+| Central commerce remains authoritative for SaaS and off-server Core.
+|
+*/
+Route::get(
+    '/marketplace/themes/catalog',
+    [\App\Http\Controllers\MarketplaceController::class, 'themeCatalog']
+)->name('marketplace.themes.catalog');
+
+/*
+ * ESUBIZ_THEME_MARKETPLACE_PREVIEW_ROUTE_V1
+ */
+Route::get(
+    '/marketplace/themes/{themePackageId}/preview',
+    [
+        \App\Http\Controllers\MarketplaceController::class,
+        'themePreview'
+    ]
+)->whereNumber(
+    'themePackageId'
+)->name(
+    'marketplace.themes.preview'
+);
+
 
