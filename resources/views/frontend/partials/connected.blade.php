@@ -55,7 +55,7 @@
                     <div class="w-56 h-56 rounded-full bg-gradient-to-br from-amber-400 to-amber-500 shadow-[0_0_80px_rgba(251,191,36,.45)] flex flex-col items-center justify-center">
 
                         <x-media.image
-    src="{{ asset('images/esubiz-logo.png') }}"
+    src="{{ rtrim((string) config('services.esubiz.marketplace_url', config('app.url')), '/') . '/media/branding/esubiz-logo.png' }}"
     alt="Esubiz"
     class="h-14 w-auto"
 />

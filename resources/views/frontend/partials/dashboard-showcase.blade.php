@@ -71,7 +71,7 @@
                         <aside class="bg-slate-900 text-white p-6">
 
                             <x-media.image
-    src="{{ asset('images/esubiz-logo.png') }}"
+    src="{{ rtrim((string) config('services.esubiz.marketplace_url', config('app.url')), '/') . '/media/branding/esubiz-logo.png' }}"
     alt="Esubiz"
     class="h-10 mb-10"
 />

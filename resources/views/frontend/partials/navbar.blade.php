@@ -17,7 +17,7 @@ class="sticky top-0 z-50 bg-white/90 backdrop-blur-xl border-b border-slate-200"
 <a href="{{ route('home') }}" class="flex items-center">
 
     <x-media.image
-    src="{{ asset('images/esubiz-logo.png') }}"
+    src="{{ rtrim((string) config('services.esubiz.marketplace_url', config('app.url')), '/') . '/media/branding/esubiz-logo.png' }}"
     alt="Esubiz"
     class="h-14 lg:h-16 w-auto shrink-0"
 />

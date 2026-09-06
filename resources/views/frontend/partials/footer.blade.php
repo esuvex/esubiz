@@ -14,7 +14,7 @@
                 <a href="{{ route('home') }}" class="inline-flex">
 
                     <x-media.image
-    src="{{ asset('images/esubiz-logo.png') }}"
+    src="{{ rtrim((string) config('services.esubiz.marketplace_url', config('app.url')), '/') . '/media/branding/esubiz-logo.png' }}"
     alt="Esubiz"
     class="h-12 w-auto"
 />
