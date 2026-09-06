@@ -82,16 +82,55 @@
                      * Each installed theme resolves its own
                      * preview through its slug.
                      */
-                    $previewUrl = route(
-                        'tenant.cms.themes.preview',
-                        [
-                            'subdomain' =>
-                                $website->subdomain,
+                    /*
+                     * ESUBIZ_INSTALLED_THEME_DIRECT_PREVIEW_URL_V1
+                     *
+                     * Marketplace-installed Themes use the authoritative
+                     * Central Esubiz package preview directly.
+                     *
+                     * Themes installed locally/outside Marketplace continue
+                     * to use the Core-local preview resolver.
+                     *
+                     * No Theme names are hardcoded.
+                     */
+                    $marketplaceThemePackageId =
+                        (int) (
+                            $installedTheme[
+                                'marketplace_theme_package_id'
+                            ]
+                            ?? 0
+                        );
 
-                            'theme' =>
-                                $installedTheme['slug'],
-                        ]
-                    );
+                    if ($marketplaceThemePackageId > 0) {
+                        $centralMarketplaceUrl =
+                            rtrim(
+                                (string) config(
+                                    'services.esubiz.marketplace_url',
+                                    config(
+                                        'app.url'
+                                    )
+                                ),
+                                '/'
+                            );
+
+                        $previewUrl =
+                            $centralMarketplaceUrl
+                            . '/marketplace/themes/'
+                            . $marketplaceThemePackageId
+                            . '/preview';
+                    } else {
+                        $previewUrl =
+                            route(
+                                'tenant.cms.themes.preview',
+                                [
+                                    'subdomain' =>
+                                        $website->subdomain,
+
+                                    'theme' =>
+                                        $installedTheme['slug'],
+                                ]
+                            );
+                    }
                 @endphp
 
                 <article
