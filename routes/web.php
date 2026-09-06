@@ -3294,3 +3294,56 @@ Route::get(
 );
 
 
+
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_CENTRAL_MEDIA_ROUTE_V1
+|--------------------------------------------------------------------------
+|
+| Stable public delivery for Central Esubiz media stored under:
+| storage/app/public/media
+|
+| Admin-managed media can later replace files without changing URLs.
+| Path traversal is blocked and only real files inside the media root
+| are served.
+|
+*/
+
+Route::get('/media/{path}', function (string $path) {
+    $mediaRoot = realpath(storage_path('app/public/media'));
+
+    if ($mediaRoot === false) {
+        abort(404);
+    }
+
+    $requested = realpath(
+        storage_path('app/public/media/' . ltrim($path, '/'))
+    );
+
+    if (
+        $requested === false
+        || !is_file($requested)
+        || !str_starts_with(
+            $requested,
+            $mediaRoot . DIRECTORY_SEPARATOR
+        )
+    ) {
+        abort(404);
+    }
+
+    $mime = mime_content_type($requested)
+        ?: 'application/octet-stream';
+
+    return response()->file(
+        $requested,
+        [
+            'Content-Type' => $mime,
+            'Cache-Control' => 'public, max-age=3600',
+            'X-Content-Type-Options' => 'nosniff',
+        ]
+    );
+})
+    ->where('path', '.*')
+    ->name('central.media');
+

@@ -367,7 +367,7 @@
                         class="flex h-10 items-center"
                     >
                         <img
-                            src="{{ asset('images/esubiz-logo.png') }}"
+                            src="{{ route('central.media', ['path' => 'branding/esubiz-logo.png']) }}"
                             alt="Esubiz"
                             class="h-7 w-auto max-w-[110px] object-contain brightness-0 invert"
                         >
