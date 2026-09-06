@@ -80,6 +80,14 @@
         'wizard.developer.failure_text' =>
             'The website package could not be compiled.',
 
+        // ESUBIZ_USER_WIZARD_RESULT_BUTTON_LABELS_V1
+        'wizard.user.manage_website_label' =>
+            'Manage Website',
+        'wizard.user.dashboard_label' =>
+            'Esubiz Dashboard',
+        'wizard.user.redeploy_label' =>
+            'Redeploy',
+
         'wizard.developer.payment_label' =>
             'Proceed to Payment',
         'wizard.developer.recompile_label' =>
@@ -1071,6 +1079,76 @@
                                     ]
                                 ) }}</textarea>
                             </div>
+
+                            {{-- ESUBIZ_USER_WIZARD_BUTTON_FIELDS_V1 --}}
+                            <div class="mb-3 mt-3">
+                                <label class="form-label fw-semibold">
+                                    Manage Website Button
+                                </label>
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    name="user_manage_website_label"
+                                    maxlength="60"
+                                    required
+                                    value="{{ old(
+                                        'user_manage_website_label',
+                                        $wizardSettings[
+                                            'wizard.user.manage_website_label'
+                                        ] ?? 'Manage Website'
+                                    ) }}"
+                                >
+                                <div class="form-text">
+                                    Button shown after a successful User Mode website deployment.
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="form-label fw-semibold">
+                                    Esubiz Dashboard Button
+                                </label>
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    name="user_dashboard_label"
+                                    maxlength="60"
+                                    required
+                                    value="{{ old(
+                                        'user_dashboard_label',
+                                        $wizardSettings[
+                                            'wizard.user.dashboard_label'
+                                        ] ?? 'Esubiz Dashboard'
+                                    ) }}"
+                                >
+                                <div class="form-text">
+                                    Dashboard button shown after User Mode website deployment.
+                                </div>
+                            </div>
+
+                            {{-- ESUBIZ_USER_WIZARD_REDEPLOY_FIELD_V1 --}}
+                            <div class="mt-3">
+                                <label class="form-label fw-semibold">
+                                    Redeploy Button
+                                </label>
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    name="user_redeploy_label"
+                                    maxlength="60"
+                                    required
+                                    value="{{ old(
+                                        'user_redeploy_label',
+                                        $wizardSettings[
+                                            'wizard.user.redeploy_label'
+                                        ] ?? 'Redeploy'
+                                    ) }}"
+                                >
+                                <div class="form-text">
+                                    Button shown when User Mode website creation fails.
+                                </div>
+                            </div>
+
+
                         </div>
 
                         <div class="es-setting-card">
@@ -1312,7 +1390,8 @@
                                 ) }}</textarea>
                             </div>
 
-                            <div class="mb-3">
+                            
+                    <div class="mb-3">
                                 <label class="form-label fw-semibold">
                                     Proceed to Payment Button
                                 </label>

@@ -1252,7 +1252,19 @@
 >
 
     {{-- FLOATING LAUNCHER --}}
-    <button
+    {{-- ESUBIZ_AI_BUILTIN_LAUNCHER_DISABLED_V2
+The original Site AI launcher remains functional in the DOM
+for the component's existing open/init behavior.
+
+It is visually suppressed globally. Pages which support AI
+open it through [data-esubiz-ai-assist-open].
+--}}
+<div
+    data-esubiz-site-ai-launcher-host
+    style="display:none !important;"
+    aria-hidden="true"
+>
+<button
         type="button"
         data-site-ai-launcher
         aria-label="Open AI Assist"
@@ -1267,6 +1279,7 @@
             AI Assist
         </span>
     </button>
+</div>
 
 
     {{-- ASSISTANT PANEL --}}
@@ -1655,7 +1668,17 @@
 
                 </div>
 
-            @endif
+            
+{{-- ESUBIZ_EXTERNAL_AI_ASSIST_TRIGGER_V2_REMOVED
+External proxy removed.
+
+AI Assist page buttons are now handled directly inside the
+existing Site AI component closure, where openPanel() is
+available.
+--}}
+
+
+@endif
 
         </div>
 
@@ -2603,6 +2626,44 @@
                     } else {
                         openPanel();
                     }
+                }
+            );
+
+
+            /*
+             * ESUBIZ_AI_ASSIST_DIRECT_OPEN_V3
+             *
+             * AI Assist is page-driven, not a persistent
+             * floating launcher.
+             *
+             * Any supported internal page may expose:
+             *
+             *     data-esubiz-ai-assist-open
+             *
+             * and this component opens through its own
+             * authoritative openPanel() function.
+             */
+            document.addEventListener(
+                'click',
+                function (event) {
+
+                    const trigger =
+                        event.target.closest(
+                            '[data-esubiz-ai-assist-open]'
+                        );
+
+                    if (!trigger) {
+                        return;
+                    }
+
+                    event.preventDefault();
+
+                    /*
+                     * Always open. Do not toggle here.
+                     * The panel's own Close button remains
+                     * responsible for closing it.
+                     */
+                    openPanel();
                 }
             );
 

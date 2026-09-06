@@ -328,6 +328,48 @@
 </form>
 
 
+{{-- ESUBIZ_USER_WIZARD_RUNTIME_SETTINGS_V1 --}}
+@php
+    $userWizardDefaults = [
+        'wizard.user.progress_minimum_seconds' => '8',
+        'wizard.user.progress_title' => 'Creating Your Website',
+        'wizard.user.progress_text.0_19' => 'Preparing your website...',
+        'wizard.user.progress_text.20_39' => 'Preparing your website configuration...',
+        'wizard.user.progress_text.40_59' => 'Installing your website...',
+        'wizard.user.progress_text.60_79' => 'Configuring your website...',
+        'wizard.user.progress_text.80_99' => 'Finalizing your website...',
+        'wizard.user.progress_text.100' => 'Website deployment completed.',
+        'wizard.user.success_title' => 'Website Created Successfully',
+        'wizard.user.success_text' => 'Your website is ready.',
+        'wizard.user.failure_title' => 'Website Creation Failed',
+        'wizard.user.failure_text' => 'Your website could not be created. Please try again.',
+        'wizard.user.manage_website_label' => 'Manage Website',
+        'wizard.user.dashboard_label' => 'Esubiz Dashboard',
+        'wizard.user.redeploy_label' => 'Redeploy',
+    ];
+
+    $userWizardSettings = \Illuminate\Support\Facades\DB::table('site_settings')
+        ->whereNull('workspace_id')
+        ->whereIn('key', array_keys($userWizardDefaults))
+        ->pluck('value', 'key');
+
+    foreach ($userWizardDefaults as $key => $default) {
+        if (!isset($userWizardSettings[$key])) {
+            $userWizardSettings[$key] = $default;
+        }
+    }
+
+    $userWizardMinimumSeconds = max(
+        0,
+        min(
+            60,
+            (int) $userWizardSettings[
+                'wizard.user.progress_minimum_seconds'
+            ]
+        )
+    );
+@endphp
+
 {{-- ESUBIZ_DEPLOYMENT_MODAL_V2 --}}
 <div
     id="deploymentModal"
@@ -336,8 +378,11 @@
     <div class="w-full max-w-xl rounded-3xl bg-white p-8 shadow-2xl">
 
         <div id="deploymentRunning">
-            <h2 class="text-2xl font-bold text-slate-900">
-                Creating Your Website
+            <h2
+                id="deploymentProgressTitle"
+                class="text-2xl font-bold text-slate-900"
+            >
+                {{ $userWizardSettings['wizard.user.progress_title'] }}
             </h2>
 
             <p class="mt-2 text-slate-500">
@@ -362,7 +407,7 @@
                     id="deploymentStage"
                     class="mt-4 min-h-[24px] text-sm font-semibold text-blue-700"
                 >
-                    Starting website creation...
+                    {{ $userWizardSettings['wizard.user.progress_text.0_19'] }}
                 </div>
 
             </div>
@@ -396,12 +441,18 @@
                 ✓
             </div>
 
-            <h2 class="mt-5 text-2xl font-bold text-slate-900">
-                Website created successfully.
+            <h2
+                id="deploymentSuccessTitle"
+                class="mt-5 text-2xl font-bold text-slate-900"
+            >
+                {{ $userWizardSettings['wizard.user.success_title'] }}
             </h2>
 
-            <p class="mt-2 text-slate-500">
-                Your website is active and ready.
+            <p
+                id="deploymentSuccessText"
+                class="mt-2 text-slate-500"
+            >
+                {{ $userWizardSettings['wizard.user.success_text'] }}
             </p>
 
             <div class="mt-6 rounded-2xl border border-orange-100 bg-orange-50 px-5 py-4">
@@ -423,7 +474,7 @@
                     href="#"
                     class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700"
                 >
-                    Manage Website
+                    {{ $userWizardSettings['wizard.user.manage_website_label'] }}
                 </a>
 
                 <a
@@ -431,7 +482,7 @@
                     href="#"
                     class="inline-flex items-center justify-center rounded-xl border border-blue-600 bg-white px-6 py-3 font-semibold text-blue-700 hover:bg-blue-50"
                 >
-                    Esubiz Dashboard
+                    {{ $userWizardSettings['wizard.user.dashboard_label'] }}
                 </a>
             </div>
         </div>
@@ -441,8 +492,11 @@
                 !
             </div>
 
-            <h2 class="mt-5 text-2xl font-bold text-slate-900">
-                Website Creation Failed
+            <h2
+                id="deploymentFailureTitle"
+                class="mt-5 text-2xl font-bold text-slate-900"
+            >
+                {{ $userWizardSettings['wizard.user.failure_title'] }}
             </h2>
 
             <p id="deploymentFailureMessage" class="mt-2 text-slate-500">
@@ -467,7 +521,7 @@
                 id="redeployButton"
                 class="mt-8 inline-flex w-full items-center justify-center rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700"
             >
-                Redeploy
+                {{ $userWizardSettings['wizard.user.redeploy_label'] }}
             </button>
         </div>
 
@@ -495,6 +549,28 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const progressUrl =
         @json(route('websites.deployment-progress', $website));
+
+    // ESUBIZ_USER_WIZARD_PRESENTATION_CONFIG_V1
+    const userWizardMinimumMs =
+        @json($userWizardMinimumSeconds * 1000);
+
+    const userWizardProgressTexts = {
+        p0_19:
+            @json($userWizardSettings['wizard.user.progress_text.0_19']),
+        p20_39:
+            @json($userWizardSettings['wizard.user.progress_text.20_39']),
+        p40_59:
+            @json($userWizardSettings['wizard.user.progress_text.40_59']),
+        p60_79:
+            @json($userWizardSettings['wizard.user.progress_text.60_79']),
+        p80_99:
+            @json($userWizardSettings['wizard.user.progress_text.80_99']),
+        p100:
+            @json($userWizardSettings['wizard.user.progress_text.100'])
+    };
+
+    const userWizardFailureText =
+        @json($userWizardSettings['wizard.user.failure_text']);
 
     let poller = null;
     let timerInterval = null;
@@ -638,11 +714,46 @@ document.addEventListener('DOMContentLoaded', function () {
             )
         );
 
+        /*
+         * ESUBIZ_USER_GLOBAL_100_PERCENT_CLAMP_V1
+         *
+         * Backend 100 remains authoritative, but it must not be
+         * PRESENTED as complete before Admin's minimum display
+         * duration has expired.
+         */
+        if (
+            value >= 100
+            && deploymentStartedAt
+            && (
+                Date.now() - deploymentStartedAt
+            ) < userWizardMinimumMs
+        ) {
+            value = 99;
+        }
+
         bar.style.width =
             value + '%';
 
         percent.textContent =
             value + '%';
+
+        /*
+         * Admin text follows the REAL backend percentage.
+         * It never creates or simulates progress.
+         */
+        if (value >= 100) {
+            stageText(userWizardProgressTexts.p100);
+        } else if (value >= 80) {
+            stageText(userWizardProgressTexts.p80_99);
+        } else if (value >= 60) {
+            stageText(userWizardProgressTexts.p60_79);
+        } else if (value >= 40) {
+            stageText(userWizardProgressTexts.p40_59);
+        } else if (value >= 20) {
+            stageText(userWizardProgressTexts.p20_39);
+        } else {
+            stageText(userWizardProgressTexts.p0_19);
+        }
     }
 
     function stageText(value) {
@@ -685,9 +796,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 data.progress
             );
 
-            stageText(
-                data.stage
-            );
+            /*
+             * data.stage remains backend metadata.
+             * Visible copy is selected by progress(data.progress).
+             */
 
         } catch (e) {
             /*
@@ -716,7 +828,7 @@ document.addEventListener('DOMContentLoaded', function () {
         progress(1);
 
         stageText(
-            'Starting website creation...'
+            userWizardProgressTexts.p0_19
         );
 
         startTimer();
@@ -759,15 +871,32 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             /*
-             * The POST is authoritative.
-             * 100% is displayed only after successful response.
+             * ESUBIZ_USER_PROGRESS_100_REVEAL_SYNC_V1
+             *
+             * Backend completion remains authoritative.
+             * If Admin minimum presentation time remains,
+             * keep the visible UI at 99% until that time ends.
+             * 100% is reserved for the actual result reveal.
              */
-            progress(100);
-
-            stageText(
-                'Website created successfully.'
+            const successRemainingMs = Math.max(
+                0,
+                userWizardMinimumMs
+                - (
+                    deploymentStartedAt
+                        ? Date.now() - deploymentStartedAt
+                        : userWizardMinimumMs
+                )
             );
 
+            if (successRemainingMs > 0) {
+                progress(99);
+
+                await new Promise(function (resolve) {
+                    setTimeout(resolve, successRemainingMs);
+                });
+            }
+
+            progress(100);
             stopTimer('success');
 
             document.getElementById(
@@ -785,13 +914,39 @@ document.addEventListener('DOMContentLoaded', function () {
         } catch (error) {
             clearInterval(poller);
 
+            const failureRemainingMs = Math.max(
+                0,
+                userWizardMinimumMs
+                - (
+                    deploymentStartedAt
+                        ? Date.now() - deploymentStartedAt
+                        : userWizardMinimumMs
+                )
+            );
+
+            if (failureRemainingMs > 0) {
+                await new Promise(function (resolve) {
+                    setTimeout(resolve, failureRemainingMs);
+                });
+            }
+
             stopTimer('failed');
+
+            const backendFailureMessage =
+                error
+                && typeof error.message === 'string'
+                && error.message.trim() !== ''
+                    ? error.message.trim()
+                    : '';
 
             document.getElementById(
                 'deploymentFailureMessage'
             ).textContent =
-                error.message
-                || 'Website creation was not completed.';
+                backendFailureMessage
+                    ? userWizardFailureText
+                        + ' '
+                        + backendFailureMessage
+                    : userWizardFailureText;
 
             state('failed');
         }

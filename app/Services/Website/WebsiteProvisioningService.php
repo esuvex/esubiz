@@ -59,6 +59,16 @@ class WebsiteProvisioningService
             |--------------------------------------------------------------------------
             */
 
+            /*
+             * ESUBIZ_USER_REAL_PROGRESS_DATABASE_START_V1
+             *
+             * Genuine provisioning boundary:
+             * dedicated tenant database provisioning begins here.
+             */
+            $website->update([
+                'deployment_progress' => 30,
+            ]);
+
             $this->databaseProvisioningService->provision($website);
 
             $website->update([

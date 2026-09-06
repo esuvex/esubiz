@@ -30,6 +30,7 @@ class WebsiteWizardController extends Controller
     {
         $types = WebsiteType::query()
             ->where('is_active', true)
+            ->where('show_in_user_wizard', true)
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();

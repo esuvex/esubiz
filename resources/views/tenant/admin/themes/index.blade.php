@@ -76,11 +76,20 @@
             @foreach($themes as $installedTheme)
 
                 @php
+                    /*
+                     * ESUBIZ_GENERIC_INSTALLED_THEME_PREVIEW_V6C
+                     *
+                     * Each installed theme resolves its own
+                     * preview through its slug.
+                     */
                     $previewUrl = route(
-                        'tenant.cms.themes.business.preview',
+                        'tenant.cms.themes.preview',
                         [
                             'subdomain' =>
-                                $website->subdomain
+                                $website->subdomain,
+
+                            'theme' =>
+                                $installedTheme['slug'],
                         ]
                     );
                 @endphp
@@ -89,11 +98,12 @@
                     class="flex h-full flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
                 >
 
-                    <button
-                        type="button"
-                        class="theme-preview-trigger group block w-full overflow-hidden bg-slate-100 text-left"
+                    <a
+                        href="#themePreviewModal-{{ $installedTheme['slug'] }}"
+                        class="theme-preview-link group block w-full overflow-hidden bg-slate-100 text-left"
                         data-preview="{{ $previewUrl }}"
                         data-name="{{ $installedTheme['name'] }}"
+                        aria-label="Preview {{ $installedTheme['name'] }} theme"
                     >
 
                         <div class="relative h-56 overflow-hidden">
@@ -116,7 +126,7 @@
 
                         </div>
 
-                    </button>
+                    </a>
 
 
                     <div class="flex flex-1 flex-col p-6">
@@ -255,14 +265,14 @@
                             </a>
 
 
-                            <button
-                                type="button"
-                                class="theme-preview-trigger rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-black text-slate-700 hover:bg-slate-50"
+                            <a
+                                href="#themePreviewModal-{{ $installedTheme['slug'] }}"
+                                class="theme-preview-link rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-black text-slate-700 hover:bg-slate-50"
                                 data-preview="{{ $previewUrl }}"
                                 data-name="{{ $installedTheme['name'] }}"
                             >
                                 Preview
-                            </button>
+                            </a>
 
                         </div>
 
@@ -409,9 +419,7 @@
                     <p
                         class="mt-3 text-sm leading-6 text-slate-600"
                     >
-                        Describe the website you want and optionally attach
-                        visual references. Esubiz AI will build against the
-                        approved Esubiz theme structure.
+                        Describe the theme/template you want and optionally attach visual references.
                     </p>
 
 
@@ -427,7 +435,7 @@
                         <p
                             class="mt-1 text-[11px] leading-5 text-slate-500"
                         >
-                            Attach up to 5 images below 10 MB each.
+                            Describe the theme/template you want and optionally attach visual references.
                         </p>
                     </div>
 
@@ -438,7 +446,10 @@
                             type="button"
                             id="buildThemeWithAi"
                             class="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:bg-violet-700"
-                        >
+                        
+                        data-esubiz-ai-assist-open
+                        data-esubiz-theme-builder-ai-assist="1"
+                    >
                             ✦ Build with AI
                         </button>
 
@@ -644,73 +655,111 @@
     </div>
 
 
-<style>
-        #businessThemePreviewModal {
-            display: none;
-        }
+{{-- ESUBIZ_GENERIC_INSTALLED_THEME_PREVIEW_V6C --}}
 
-        #businessThemePreviewModal.is-open {
-            display: block;
-        }
+    @foreach($themes as $previewTheme)
 
-        body.business-preview-open {
-            overflow: hidden;
-        }
-    </style>
+        @php
+            $fullPreviewUrl = route(
+                'tenant.cms.themes.preview',
+                [
+                    'subdomain' =>
+                        $website->subdomain,
 
+                    'theme' =>
+                        $previewTheme['slug'],
+                ]
+            );
+        @endphp
 
-    <div
-        id="businessThemePreviewModal"
-        class="fixed inset-0 z-[3000] overflow-y-auto bg-slate-950/80 p-4 backdrop-blur-sm sm:p-8"
-        aria-hidden="true"
-    >
         <div
-            id="businessThemePreviewPanel"
-            class="mx-auto max-w-6xl"
+            id="themePreviewModal-{{ $previewTheme['slug'] }}"
+            class="theme-preview-modal fixed inset-0 z-[99999] overflow-y-auto bg-slate-950/80 p-4 backdrop-blur-sm sm:p-8"
+            aria-label="{{ $previewTheme['name'] }} theme preview"
         >
-
             <div
-                class="sticky top-3 z-20 mb-4 flex items-center justify-between rounded-2xl bg-white px-5 py-4 shadow-xl"
+                class="mx-auto max-w-6xl"
             >
 
-                <div>
-                    <div class="text-xs font-black uppercase tracking-wide text-blue-600">
-                        Theme Preview
+                <div
+                    class="sticky top-3 z-20 mb-4 flex items-center justify-between rounded-2xl bg-white px-5 py-4 shadow-xl"
+                >
+
+                    <div>
+
+                        <div
+                            class="text-xs font-black uppercase tracking-wide text-blue-600"
+                        >
+                            Theme Preview
+                        </div>
+
+                        <div
+                            class="text-lg font-black text-slate-900"
+                        >
+                            {{ $previewTheme['name'] }}
+                        </div>
+
                     </div>
 
-                    <div
-                        id="businessThemePreviewName"
-                        class="text-lg font-black text-slate-900"
+
+                    <a
+                        href="#"
+                        class="grid h-10 w-10 place-items-center rounded-xl bg-slate-100 text-xl font-black text-slate-700 hover:bg-slate-200"
+                        aria-label="Close {{ $previewTheme['name'] }} theme preview"
                     >
-                        Business
-                    </div>
+                        ×
+                    </a>
+
                 </div>
 
 
-                <button
-                    type="button"
-                    id="businessThemePreviewClose"
-                    class="grid h-10 w-10 place-items-center rounded-xl bg-slate-100 text-xl font-black text-slate-700 hover:bg-slate-200"
+                <div
+                    class="overflow-hidden rounded-2xl bg-white shadow-2xl"
                 >
-                    ×
-                </button>
+
+                    <img
+                        src="{{ $fullPreviewUrl }}"
+                        alt="{{ $previewTheme['name'] }} full theme preview"
+                        class="block h-auto w-full max-w-none"
+                        loading="eager"
+                        decoding="async"
+                    >
+
+                </div>
 
             </div>
-
-
-            <div
-                class="overflow-hidden rounded-2xl bg-white shadow-2xl"
-            >
-                <x-media.image
-    src=""
-    alt="Business full theme preview"
-    class="block h-auto w-full"
-    id="businessThemePreviewImage"
-/>
-            </div>
-
         </div>
-    </div>
+
+    @endforeach
+
+
+<style>
+
+        /*
+         * Universal installed-theme preview display.
+         */
+        .theme-preview-modal {
+            display: none;
+        }
+
+        .theme-preview-modal:target {
+            display: block;
+        }
+
+
+
+    </style>
+
+
+    {{-- ESUBIZ_REMOVE_OBSOLETE_BUSINESS_PREVIEW_V7 --}}
+    {{--
+        The former Business-only preview modal was removed.
+
+        Theme previews are now rendered exclusively by the
+        generic Core installed-theme preview system introduced
+        by ESUBIZ_GENERIC_INSTALLED_THEME_PREVIEW_V6C.
+    --}}
+
 
 
     <script>
@@ -1083,10 +1132,18 @@
                 }
 
 
-                buildThemeWithAi?.addEventListener(
-                    'click',
-                    openThemeAi
-                );
+                /*
+                 * ESUBIZ_THEME_BUILDER_AI_ASSIST_V2
+                 *
+                 * The existing Build Theme with AI button now opens
+                 * the standard Site AI Assist floater.
+                 *
+                 * Legacy openThemeAi() implementation remains in this
+                 * file for rollback/history, but is no longer bound
+                 * to this button.
+                 */
+                // Legacy binding disabled:
+                // buildThemeWithAi?.addEventListener('click', openThemeAi);
 
 
                 closeThemeAi?.addEventListener(
@@ -1474,6 +1531,254 @@
             }
         );
     </script>
+
+
+    {{-- ESUBIZ_THEME_PREVIEW_RUNTIME_V3
+         Hardened installed-theme preview runtime.
+
+         Uses capture-phase click handling so Theme Hub/AI handlers
+         cannot swallow installed-theme preview clicks.
+
+         Modal visibility is also applied directly so opening does
+         not depend only on CSS class resolution.
+    --}}
+    <script>
+        (function () {
+
+            function getPreviewElements() {
+                return {
+                    modal:
+                        document.getElementById(
+                            'businessThemePreviewModal'
+                        ),
+
+                    image:
+                        document.getElementById(
+                            'businessThemePreviewImage'
+                        ),
+
+                    name:
+                        document.getElementById(
+                            'businessThemePreviewName'
+                        )
+                };
+            }
+
+
+            function openThemePreview(
+                src,
+                themeName
+            ) {
+                const elements =
+                    getPreviewElements();
+
+                if (
+                    !elements.modal
+                    || !elements.image
+                ) {
+                    console.error(
+                        'Esubiz Theme Preview: modal elements not found.'
+                    );
+
+                    return;
+                }
+
+                if (!src) {
+                    console.error(
+                        'Esubiz Theme Preview: preview URL is empty.'
+                    );
+
+                    return;
+                }
+
+
+                elements.image.setAttribute(
+                    'src',
+                    src
+                );
+
+
+                if (elements.name) {
+                    elements.name.textContent =
+                        themeName || 'Theme';
+                }
+
+
+                /*
+                 * Force visibility directly.
+                 *
+                 * Keep is-open as the normal semantic state, but
+                 * display:block !important guarantees that another
+                 * stylesheet cannot leave the modal hidden.
+                 */
+                elements.modal.classList.add(
+                    'is-open'
+                );
+
+                elements.modal.style.setProperty(
+                    'display',
+                    'block',
+                    'important'
+                );
+
+                elements.modal.style.setProperty(
+                    'z-index',
+                    '99999',
+                    'important'
+                );
+
+                elements.modal.setAttribute(
+                    'aria-hidden',
+                    'false'
+                );
+
+                document.body.classList.add(
+                    'business-preview-open'
+                );
+            }
+
+
+            function closeThemePreview() {
+                const elements =
+                    getPreviewElements();
+
+                if (!elements.modal) {
+                    return;
+                }
+
+
+                elements.modal.classList.remove(
+                    'is-open'
+                );
+
+                elements.modal.style.setProperty(
+                    'display',
+                    'none',
+                    'important'
+                );
+
+                elements.modal.setAttribute(
+                    'aria-hidden',
+                    'true'
+                );
+
+                document.body.classList.remove(
+                    'business-preview-open'
+                );
+            }
+
+
+            /*
+             * CAPTURE PHASE.
+             *
+             * This listener receives the click before ordinary
+             * bubbling handlers on Theme Hub can consume it.
+             */
+            document.addEventListener(
+                'click',
+                function (event) {
+
+                    const target =
+                        event.target instanceof Element
+                            ? event.target
+                            : null;
+
+                    if (!target) {
+                        return;
+                    }
+
+
+                    const trigger =
+                        target.closest(
+                            '.theme-preview-trigger'
+                        );
+
+
+                    if (trigger) {
+                        event.preventDefault();
+
+                        event.stopPropagation();
+
+                        openThemePreview(
+                            trigger.getAttribute(
+                                'data-preview'
+                            ),
+                            trigger.getAttribute(
+                                'data-name'
+                            )
+                        );
+
+                        return;
+                    }
+
+
+                    const closeButton =
+                        target.closest(
+                            '#businessThemePreviewClose'
+                        );
+
+
+                    if (closeButton) {
+                        event.preventDefault();
+
+                        event.stopPropagation();
+
+                        closeThemePreview();
+
+                        return;
+                    }
+
+
+                    const elements =
+                        getPreviewElements();
+
+
+                    if (
+                        elements.modal
+                        && target === elements.modal
+                    ) {
+                        event.preventDefault();
+
+                        closeThemePreview();
+                    }
+                },
+                true
+            );
+
+
+            document.addEventListener(
+                'keydown',
+                function (event) {
+
+                    if (
+                        event.key
+                        !== 'Escape'
+                    ) {
+                        return;
+                    }
+
+
+                    const elements =
+                        getPreviewElements();
+
+
+                    if (
+                        elements.modal
+                        && (
+                            elements.modal.classList
+                                .contains('is-open')
+                            || elements.modal.style.display
+                                === 'block'
+                        )
+                    ) {
+                        closeThemePreview();
+                    }
+                }
+            );
+
+        })();
+    </script>
+
 
 </div>
 

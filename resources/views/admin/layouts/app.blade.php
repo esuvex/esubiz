@@ -607,6 +607,19 @@
 
             <div x-show="siteSettingsMenu" x-cloak class="ml-4 mt-1 space-y-1">
 
+                {{-- ESUBIZ_CENTRAL_SETTINGS_FIRST_SUBMENU_V2 --}}
+                <a
+                    href="{{ route('admin.site-settings.index') }}"
+                    class="block rounded-xl px-5 py-2 text-sm
+                        {{
+                            request()->routeIs('admin.site-settings.index')
+                                ? 'bg-blue-600 text-white'
+                                : 'hover:bg-slate-800'
+                        }}"
+                >
+                    Settings
+                </a>
+
                 {{-- ESUBIZ_AI_SITE_SETTINGS_FIRST --}}
                 <a
                     href="{{ route('admin.ai.index') }}"
@@ -632,6 +645,19 @@
                     class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800"
                 >
                     Payout Gateways
+                </a>
+
+                {{-- ESUBIZ_CENTRAL_SITE_PAGES_FIFTH_SUBMENU_V1 --}}
+                <a
+                    href="{{ route('admin.site-pages.index') }}"
+                    class="block rounded-xl px-5 py-2 text-sm
+                        {{
+                            request()->routeIs('admin.site-pages.*')
+                                ? 'bg-blue-600 text-white'
+                                : 'hover:bg-slate-800'
+                        }}"
+                >
+                    Site Pages
                 </a>
             </div>
         </div>

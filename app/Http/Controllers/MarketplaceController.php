@@ -442,58 +442,152 @@ class MarketplaceController extends Controller
             'payment_option' => ['required', 'string', 'max:255'],
         ]);
 
-        $listingProductType = match ($data['product_type']) {
-            'addon', 'core_addon', 'core-addon' => 'core_addon',
-            'bundle', 'core_bundle', 'core-bundle' => 'core_bundle',
-            default => $data['product_type'],
-        };
-
-        $listing = $this->resolveMarketplaceListing(
-            $listingProductType,
-            (int) $data['product_id']
-        );
-
-        $productTable = match ($data['product_type']) {
-            'addon', 'core_addon', 'core-addon' => 'core_addons',
-            'bundle', 'core_bundle', 'core-bundle' => 'core_addon_bundles',
-            default => null,
-        };
-
-        if (!$productTable) {
-            abort(422, 'Unsupported marketplace product type.');
-        }
-
-        $product = DB::table($productTable)
-            ->where('id', $data['product_id'])
-            ->where('is_active', true)
-            ->where('off_server_available', true)
-            ->whereNull('deleted_at')
-            ->first();
-
-        abort_unless($product, 404);
-
         /*
-         * The marketplace listing is the commercial representation of the
-         * product. If a developer-enabled Core product does not yet have
-         * its marketplace listing, resolve the published listing from the
-         * canonical product identity before continuing.
+         * ESUBIZ_DEVELOPER_BUILD_EXISTING_ORDER_PAYMENT_V1
+         *
+         * A compiled Developer Build is not a Marketplace listing.
+         * Builder compilation already created its canonical pending order
+         * and checkout session. Payment must reuse those records rather
+         * than manufacture a second Marketplace order/session.
          */
-        if (!$listing) {
+        $isDeveloperBuild =
+            $data['product_type'] === 'developer_build';
+
+        $developerBuild = null;
+        $existingDeveloperOrder = null;
+        $existingDeveloperCheckoutSession = null;
+        $listing = null;
+        $product = null;
+
+        if ($isDeveloperBuild) {
+            abort_unless(
+                (int) $data['quantity'] === 1,
+                422,
+                'Developer Build quantity must be 1.'
+            );
+
+            $developerBuild = \App\Models\DeveloperBuild::query()
+                ->where('id', (int) $data['product_id'])
+                ->where('developer_id', auth()->id())
+                ->first();
+
+            abort_unless($developerBuild, 404);
+
+            abort_unless(
+                $developerBuild->status === 'success'
+                && !empty($developerBuild->package_reference),
+                422,
+                'Developer Build must be successfully compiled before payment.'
+            );
+
+            $existingDeveloperOrder = DB::table('marketplace_orders')
+                ->where(
+                    'developer_build_id',
+                    $developerBuild->id
+                )
+                ->where('buyer_id', auth()->id())
+                ->where('payment_status', 'pending')
+                ->latest('id')
+                ->first();
+
+            abort_unless(
+                $existingDeveloperOrder,
+                404,
+                'Developer Build payment order was not found.'
+            );
+
+            $existingDeveloperCheckoutSession =
+                DB::table('marketplace_checkout_sessions')
+                    ->where(
+                        'marketplace_order_id',
+                        $existingDeveloperOrder->id
+                    )
+                    ->where('user_id', auth()->id())
+                    ->where('product_type', 'developer_build')
+                    ->where(
+                        'product_id',
+                        $developerBuild->id
+                    )
+                    ->where(
+                        'deployment_type',
+                        'off_server'
+                    )
+                    ->whereNull('deleted_at')
+                    ->latest('id')
+                    ->first();
+
+            abort_unless(
+                $existingDeveloperCheckoutSession,
+                404,
+                'Developer Build checkout session was not found.'
+            );
+
+            $unitPrice =
+                (float) $existingDeveloperOrder->amount;
+
+            $amount =
+                (float) $existingDeveloperOrder->amount;
+
+            $currency =
+                $existingDeveloperOrder->currency
+                ?: 'NGN';
+
+        } else {
+            $listingProductType = match ($data['product_type']) {
+                'addon', 'core_addon', 'core-addon' => 'core_addon',
+                'bundle', 'core_bundle', 'core-bundle' => 'core_bundle',
+                default => $data['product_type'],
+            };
+
             $listing = $this->resolveMarketplaceListing(
                 $listingProductType,
-                (int) $product->id
+                (int) $data['product_id']
             );
+
+            $productTable = match ($data['product_type']) {
+                'addon', 'core_addon', 'core-addon' => 'core_addons',
+                'bundle', 'core_bundle', 'core-bundle' => 'core_addon_bundles',
+                default => null,
+            };
+
+            if (!$productTable) {
+                abort(
+                    422,
+                    'Unsupported marketplace product type.'
+                );
+            }
+
+            $product = DB::table($productTable)
+                ->where('id', $data['product_id'])
+                ->where('is_active', true)
+                ->where('off_server_available', true)
+                ->whereNull('deleted_at')
+                ->first();
+
+            abort_unless($product, 404);
+
+            if (!$listing) {
+                $listing = $this->resolveMarketplaceListing(
+                    $listingProductType,
+                    (int) $product->id
+                );
+            }
+
+            abort_unless(
+                $listing,
+                422,
+                'This developer product is not yet available as a marketplace listing.'
+            );
+
+            $unitPrice =
+                (float) ($product->off_server_price ?? 0);
+
+            $amount =
+                $unitPrice * (int) $data['quantity'];
+
+            $currency =
+                $product->off_server_currency ?? 'NGN';
         }
-
-        abort_unless(
-            $listing,
-            422,
-            'This developer product is not yet available as a marketplace listing.'
-        );
-
-        $unitPrice = (float) ($product->off_server_price ?? 0);
-        $amount = $unitPrice * (int) $data['quantity'];
-        $currency = $product->off_server_currency ?? 'NGN';
 
         $optionParts = explode(':', $data['payment_option'], 2);
 
@@ -622,45 +716,75 @@ class MarketplaceController extends Controller
          *
          * This is intentionally separate from User/SaaS checkout.
          */
-        $developerWorkspaceId = $listing->workspace_id ?? null;
+        $developerWorkspaceId =
+            $isDeveloperBuild
+                ? ($existingDeveloperOrder->workspace_id ?? null)
+                : ($listing->workspace_id ?? null);
 
-        $pendingOrder = DB::table('marketplace_orders')->insertGetId([
-            'marketplace_listing_id' => $listing->id,
-            'vendor_id' => $listing->vendor_id,
-            'workspace_id' => $developerWorkspaceId,
-            'buyer_id' => auth()->id(),
-            'uuid' => (string) \Illuminate\Support\Str::uuid(),
-            'reference' => $orderReference,
-            'amount' => $amount,
-            'commission_amount' => 0,
-            'vendor_amount' => $amount,
-            'currency' => $currency,
-            'payment_status' => 'pending',
-            'status' => 'pending',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        if ($isDeveloperBuild) {
+            $pendingOrder =
+                (int) $existingDeveloperOrder->id;
 
-        $checkoutSessionId = DB::table('marketplace_checkout_sessions')
-            ->insertGetId([
-                'user_id' => auth()->id(),
-                'account_mode' => 'developer',
-                'product_type' => $data['product_type'],
-                'product_id' => $data['product_id'],
-                'quantity' => (int) $data['quantity'],
-                'unit_price' => $unitPrice,
-                'total_amount' => $amount,
-                'currency' => $currency,
-                'payment_method_id' => null,
-                'payment_provider_id' => $paymentProvider?->id,
-                'marketplace_order_id' => $pendingOrder,
-                'deployment_type' => 'off_server',
-                'status' => 'pending_payment',
-                'is_commissionable' => true,
-                'expires_at' => now()->addHours(24),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+            $orderReference =
+                $existingDeveloperOrder->reference;
+
+            $checkoutSessionId =
+                (int) $existingDeveloperCheckoutSession->id;
+
+            DB::table('marketplace_checkout_sessions')
+                ->where('id', $checkoutSessionId)
+                ->update([
+                    'payment_provider_id' =>
+                        $paymentProvider?->id,
+
+                    'payment_method_id' =>
+                        $paymentMethod?->id,
+
+                    'updated_at' => now(),
+                ]);
+
+        } else {
+            $pendingOrder =
+                DB::table('marketplace_orders')
+                    ->insertGetId([
+                        'marketplace_listing_id' => $listing->id,
+                        'vendor_id' => $listing->vendor_id,
+                        'workspace_id' => $developerWorkspaceId,
+                        'buyer_id' => auth()->id(),
+                        'uuid' => (string) \Illuminate\Support\Str::uuid(),
+                        'reference' => $orderReference,
+                        'amount' => $amount,
+                        'commission_amount' => 0,
+                        'vendor_amount' => $amount,
+                        'currency' => $currency,
+                        'payment_status' => 'pending',
+                        'status' => 'pending',
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+
+            $checkoutSessionId =
+                DB::table('marketplace_checkout_sessions')
+                    ->insertGetId([
+                        'user_id' => auth()->id(),
+                        'account_mode' => 'developer',
+                        'product_type' => $data['product_type'],
+                        'product_id' => $data['product_id'],
+                        'quantity' => (int) $data['quantity'],
+                        'unit_price' => $unitPrice,
+                        'total_amount' => $amount,
+                        'currency' => $currency,
+                        'payment_method_id' => null,
+                        'payment_provider_id' => $paymentProvider?->id,
+                        'marketplace_order_id' => $pendingOrder,
+                        'deployment_type' => 'off_server',
+                        'status' => 'pending_payment',
+                        'is_commissionable' => true,
+                        'expires_at' => now()->addHours(24),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+        }
 
         $transactionReference = 'DEV-TXN-' . strtoupper(
             \Illuminate\Support\Str::random(12)
@@ -2071,9 +2195,77 @@ class MarketplaceController extends Controller
             ->latest('orders.updated_at')
             ->get();
 
+        // ESUBIZ_DEVELOPER_BUILD_LIBRARY_V1
+        $developerBuilds = \App\Models\DeveloperBuild::query()
+            ->where('developer_id', auth()->id())
+            ->where('status', 'success')
+            ->where('payment_status', 'paid')
+            ->whereNotNull('package_reference')
+            ->latest('updated_at')
+            ->get();
+
         return view('marketplace.developer-library', [
             'orders' => $orders,
+            'developerBuilds' => $developerBuilds,
         ]);
+    }
+
+
+    // ESUBIZ_DEVELOPER_BUILD_PROTECTED_DOWNLOAD_V1
+    public function developerBuildDownload(int $build)
+    {
+        $developerBuild = \App\Models\DeveloperBuild::query()
+            ->where('id', $build)
+            ->where('developer_id', auth()->id())
+            ->where('status', 'success')
+            ->where('payment_status', 'paid')
+            ->firstOrFail();
+
+        $entitled = DB::table('product_entitlements')
+            ->where('user_id', auth()->id())
+            ->where('product_type', 'developer_build')
+            ->where('product_id', $developerBuild->id)
+            ->where('status', 'active')
+            ->where('fulfilment_type', 'license')
+            ->whereNull('deleted_at')
+            ->exists();
+
+        abort_unless(
+            $entitled,
+            403,
+            'This Developer Build is not entitled for download.'
+        );
+
+        $package = (string) $developerBuild->package_reference;
+
+        abort_unless(
+            $package !== '' && is_file($package),
+            404,
+            'Compiled package could not be found.'
+        );
+
+        $safeName = trim(
+            preg_replace(
+                '/[^A-Za-z0-9._-]+/',
+                '-',
+                (string) $developerBuild->project_name
+            ),
+            '-'
+        );
+
+        if ($safeName === '') {
+            $safeName = 'esubiz-developer-build';
+        }
+
+        return response()->download(
+            $package,
+            'esubiz.zip',
+            [
+                'Content-Type' => 'application/zip',
+                'X-Content-Type-Options' => 'nosniff',
+                'Cache-Control' => 'private, no-store, max-age=0',
+            ]
+        );
     }
 
 
@@ -3292,11 +3484,150 @@ class MarketplaceController extends Controller
             $record->payment_status === 'paid' &&
             $record->status !== 'fulfilled'
         ) {
-            $listing = DB::table('marketplace_listings')
-                ->where('id', $record->marketplace_listing_id)
-                ->first();
+            // ESUBIZ_DEVELOPER_BUILD_PAYMENT_FULFILMENT_V1
+            //
+            // Developer Builder orders are Esubiz-owned compiled products.
+            // They intentionally have no Marketplace listing/vendor, so
+            // fulfil them through the existing WebsiteCompilerService.
+            if ($record->developer_build_id) {
+                $developerBuild = \App\Models\DeveloperBuild::query()
+                    ->where('id', $record->developer_build_id)
+                    ->where('developer_id', auth()->id())
+                    ->first();
 
-            if ($listing) {
+                abort_unless($developerBuild, 404);
+
+                $checkoutSession = DB::table('marketplace_checkout_sessions')
+                    ->where('marketplace_order_id', $record->id)
+                    ->where('user_id', auth()->id())
+                    ->whereNull('deleted_at')
+                    ->latest('id')
+                    ->first();
+
+                abort_unless($checkoutSession, 404);
+
+                abort_unless(
+                    $checkoutSession->product_type === 'developer_build' &&
+                    (int) $checkoutSession->product_id === (int) $developerBuild->id &&
+                    $checkoutSession->deployment_type === 'off_server',
+                    422,
+                    'Invalid Developer Build checkout context.'
+                );
+
+                /*
+                 * ESUBIZ_DEVELOPER_BUILD_PAYMENT_RELEASE_V1
+                 *
+                 * Developer Builds must already be successfully compiled
+                 * before payment. Payment releases that existing package;
+                 * it must never trigger recompilation.
+                 */
+                abort_unless(
+                    $developerBuild->status === 'success' &&
+                    !empty($developerBuild->package_reference),
+                    422,
+                    'Developer Build must be successfully compiled before payment.'
+                );
+
+                /*
+                 * ESUBIZ_DEVELOPER_BUILD_PRIMARY_ENTITLEMENT_V1
+                 *
+                 * The compiled Developer Build is one off-server licensed
+                 * distribution. Its primary build licence/package is the
+                 * canonical Developer Library entitlement.
+                 *
+                 * Keep this idempotent so gateway returns, refreshes and
+                 * repeated payment-status checks cannot duplicate ownership.
+                 */
+                $buildEntitlement = DB::table('product_entitlements')
+                    ->where('user_id', auth()->id())
+                    ->where('product_type', 'developer_build')
+                    ->where('product_id', $developerBuild->id)
+                    ->first();
+
+                $buildEntitlementMetadata = [
+                    'item_type' => 'developer_build',
+                    'source_module' => 'developer_builder',
+                    'deployment_type' => 'off_server',
+                    'developer_build_id' => $developerBuild->id,
+                    'build_id' => $developerBuild->build_id,
+                    'package_reference' =>
+                        $developerBuild->package_reference,
+                    'license_registration_id' =>
+                        $developerBuild->license_registration_id,
+                    'license_key' =>
+                        $developerBuild->license_key,
+                    'marketplace_order_id' => $record->id,
+                    'marketplace_order_reference' =>
+                        $record->reference,
+                    'currency' =>
+                        strtoupper($record->currency ?: 'NGN'),
+                    'amount' => (float) $record->amount,
+                ];
+
+                if ($buildEntitlement) {
+                    DB::table('product_entitlements')
+                        ->where('id', $buildEntitlement->id)
+                        ->update([
+                            'product_name' =>
+                                $developerBuild->project_name,
+                            'status' => 'active',
+                            'fulfilment_type' => 'license',
+                            'metadata' => json_encode(
+                                $buildEntitlementMetadata
+                            ),
+                            'updated_at' => now(),
+                        ]);
+                } else {
+                    DB::table('product_entitlements')->insert([
+                        'user_id' => auth()->id(),
+                        'website_id' => null,
+                        'workspace_id' => null,
+                        'product_type' => 'developer_build',
+                        'product_id' => $developerBuild->id,
+                        'product_name' =>
+                            $developerBuild->project_name,
+                        'status' => 'active',
+                        'fulfilment_type' => 'license',
+                        'starts_at' => now(),
+                        'metadata' => json_encode(
+                            $buildEntitlementMetadata
+                        ),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+
+                if ($developerBuild->payment_status !== 'paid') {
+                    $developerBuild->update([
+                        'payment_status' => 'paid',
+                        'paid_at' => now(),
+                    ]);
+                }
+
+                DB::table('marketplace_orders')
+                    ->where('id', $record->id)
+                    ->update([
+                        'status' => 'completed',
+                        'updated_at' => now(),
+                    ]);
+
+                DB::table('marketplace_checkout_sessions')
+                    ->where('id', $checkoutSession->id)
+                    ->update([
+                        'status' => 'completed',
+                        'updated_at' => now(),
+                    ]);
+
+                $record->status = 'completed';
+                $record->deployment_type = 'off_server';
+                $record->website_id = null;
+
+            } else {
+                $listing = DB::table('marketplace_listings')
+                    ->where('id', $record->marketplace_listing_id)
+                    ->first();
+
+                if ($listing) {
 
                 /*
                  * The authoritative target website/deployment context
@@ -3431,6 +3762,7 @@ class MarketplaceController extends Controller
                 $record->website_id =
                     $orderForFulfilment
                         ->website_id;
+                }
             }
         }
 

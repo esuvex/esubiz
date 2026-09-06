@@ -266,7 +266,674 @@
                 1fr !important;
         }
     }
+
+
+    /*
+     * ESUBIZ_PAGE_BUILDER_PRO_PUBLIC_CONTAINERS_V1
+     *
+     * Responsive Visibility
+     * ---------------------
+     * Public page only.
+     */
+
+    @media (min-width: 1025px) {
+        .esubiz-pro-hide-desktop {
+            display: none !important;
+        }
+    }
+
+    @media (min-width: 768px) and (max-width: 1024px) {
+        .esubiz-pro-hide-tablet {
+            display: none !important;
+        }
+    }
+
+    @media (max-width: 767px) {
+        .esubiz-pro-hide-mobile {
+            display: none !important;
+        }
+    }
+
+
+    /*
+     * Background layers.
+     */
+
+    .esubiz-pro-container {
+        position: relative;
+        isolation: isolate;
+    }
+
+    .esubiz-pro-background-media,
+    .esubiz-pro-background-overlay {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+    }
+
+    .esubiz-pro-background-media {
+        z-index: 0;
+        overflow: hidden;
+    }
+
+    .esubiz-pro-background-overlay {
+        z-index: 1;
+    }
+
+    .esubiz-pro-background-media video,
+    .esubiz-pro-background-media iframe {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        border: 0;
+    }
+
+    .esubiz-pro-background-media video {
+        object-fit: cover;
+    }
+
+    .builder-section.esubiz-pro-container
+        > .builder-section-inner {
+        position: relative;
+        z-index: 2;
+    }
+
+    .builder-column.esubiz-pro-container
+        > *:not(.esubiz-pro-background-media)
+        :not(.esubiz-pro-background-overlay) {
+        position: relative;
+        z-index: 2;
+    }
+
+
+    /*
+     * Entrance animations.
+     *
+     * Elements remain visible when JavaScript is unavailable.
+     */
+
+    .esubiz-pro-animations-ready
+        [data-esubiz-pro-animation]:not(
+            [data-esubiz-pro-animation="none"]
+        ) {
+        opacity: 0;
+        transition-property:
+            opacity,
+            transform;
+        transition-timing-function:
+            cubic-bezier(.2,.8,.2,1);
+        will-change:
+            opacity,
+            transform;
+    }
+
+    .esubiz-pro-animations-ready
+        [data-esubiz-pro-animation="fade-in"] {
+        transform: none;
+    }
+
+    .esubiz-pro-animations-ready
+        [data-esubiz-pro-animation="fade-up"] {
+        transform: translateY(32px);
+    }
+
+    .esubiz-pro-animations-ready
+        [data-esubiz-pro-animation="fade-down"] {
+        transform: translateY(-32px);
+    }
+
+    .esubiz-pro-animations-ready
+        [data-esubiz-pro-animation="fade-left"] {
+        transform: translateX(32px);
+    }
+
+    .esubiz-pro-animations-ready
+        [data-esubiz-pro-animation="fade-right"] {
+        transform: translateX(-32px);
+    }
+
+    .esubiz-pro-animations-ready
+        [data-esubiz-pro-animation="zoom-in"] {
+        transform: scale(.94);
+    }
+
+    .esubiz-pro-animations-ready
+        [data-esubiz-pro-animation].esubiz-pro-animated {
+        opacity: 1;
+        transform:
+            translate(
+                var(--esubiz-pro-parallax-x, 0px),
+                var(--esubiz-pro-parallax-y, 0px)
+            )
+            var(--esubiz-pro-hover-transform, scale(1));
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .esubiz-pro-animations-ready
+            [data-esubiz-pro-animation] {
+            opacity: 1 !important;
+            transform: none !important;
+            transition: none !important;
+        }
+    }
+
+
+    /*
+     * ESUBIZ_PAGE_BUILDER_PRO_PUBLIC_PARALLAX_HOVER_STYLES_V1
+     */
+
+    [data-esubiz-pro-parallax],
+    [data-esubiz-pro-hover] {
+        --esubiz-pro-parallax-x: 0px;
+        --esubiz-pro-parallax-y: 0px;
+        --esubiz-pro-hover-transform: scale(1);
+
+        will-change:
+            transform;
+
+        transform:
+            translate(
+                var(--esubiz-pro-parallax-x),
+                var(--esubiz-pro-parallax-y)
+            )
+            var(--esubiz-pro-hover-transform);
+    }
+
+
+    [data-esubiz-pro-hover] {
+        transition-property:
+            transform,
+            opacity,
+            box-shadow,
+            filter;
+
+        transition-timing-function:
+            cubic-bezier(.2,.8,.2,1);
+    }
+
+
+    [data-esubiz-pro-hover="lift"]:hover {
+        --esubiz-pro-hover-transform:
+            translateY(-8px);
+    }
+
+    [data-esubiz-pro-hover="grow"]:hover {
+        --esubiz-pro-hover-transform:
+            scale(1.035);
+    }
+
+    [data-esubiz-pro-hover="shrink"]:hover {
+        --esubiz-pro-hover-transform:
+            scale(.97);
+    }
+
+    [data-esubiz-pro-hover="tilt-left"]:hover {
+        --esubiz-pro-hover-transform:
+            rotate(-2deg);
+    }
+
+    [data-esubiz-pro-hover="tilt-right"]:hover {
+        --esubiz-pro-hover-transform:
+            rotate(2deg);
+    }
+
+    [data-esubiz-pro-hover="fade"]:hover {
+        opacity:
+            .72;
+    }
+
+    [data-esubiz-pro-hover="glow"]:hover {
+        box-shadow:
+            0 16px 42px rgba(15, 23, 42, .22);
+    }
+
+
+    @media (prefers-reduced-motion: reduce) {
+        [data-esubiz-pro-parallax],
+        [data-esubiz-pro-hover] {
+            transform:
+                none !important;
+
+            transition:
+                none !important;
+        }
+    }
 </style>
+
+
+{{-- ESUBIZ_PAGE_BUILDER_PRO_PUBLIC_ANIMATION_RUNTIME_V1 --}}
+<script>
+    document.addEventListener(
+        'DOMContentLoaded',
+        () => {
+
+            const items =
+                Array.from(
+                    document.querySelectorAll(
+                        '[data-esubiz-pro-animation]'
+                    )
+                ).filter(
+                    element =>
+                        (
+                            element.dataset
+                                .esubizProAnimation
+                            || 'none'
+                        ) !== 'none'
+                );
+
+            if (!items.length) {
+                return;
+            }
+
+            document.documentElement
+                .classList.add(
+                    'esubiz-pro-animations-ready'
+                );
+
+            const activate =
+                element => {
+
+                    const duration =
+                        Math.max(
+                            0,
+                            Number(
+                                element.dataset
+                                    .esubizProDuration
+                            ) || 600
+                        );
+
+                    const delay =
+                        Math.max(
+                            0,
+                            Number(
+                                element.dataset
+                                    .esubizProDelay
+                            ) || 0
+                        );
+
+                    element.style
+                        .transitionDuration =
+                            duration + 'ms';
+
+                    element.style
+                        .transitionDelay =
+                            delay + 'ms';
+
+                    requestAnimationFrame(
+                        () => {
+                            element.classList
+                                .add(
+                                    'esubiz-pro-animated'
+                                );
+                        }
+                    );
+                };
+
+
+            if (
+                !(
+                    'IntersectionObserver'
+                    in window
+                )
+            ) {
+                items.forEach(
+                    activate
+                );
+
+                return;
+            }
+
+
+            const observer =
+                new IntersectionObserver(
+                    entries => {
+
+                        entries.forEach(
+                            entry => {
+
+                                if (
+                                    !entry.isIntersecting
+                                ) {
+                                    return;
+                                }
+
+                                activate(
+                                    entry.target
+                                );
+
+                                observer.unobserve(
+                                    entry.target
+                                );
+                            }
+                        );
+                    },
+                    {
+                        threshold: 0.12
+                    }
+                );
+
+
+            items.forEach(
+                element => {
+                    observer.observe(
+                        element
+                    );
+                }
+            );
+        }
+    );
+</script>
+
+
+{{-- ESUBIZ_PAGE_BUILDER_PRO_PUBLIC_PARALLAX_HOVER_RUNTIME_V2 --}}
+<script>
+    document.addEventListener(
+        'DOMContentLoaded',
+        () => {
+
+            const reducedMotion =
+                window.matchMedia
+                && window.matchMedia(
+                    '(prefers-reduced-motion: reduce)'
+                ).matches;
+
+
+            /*
+             * ESUBIZ_PAGE_BUILDER_PRO_PUBLIC_HOVER_RUNTIME_V2
+             *
+             * Apply each saved hover duration.
+             */
+            document
+                .querySelectorAll(
+                    '[data-esubiz-pro-hover]'
+                )
+                .forEach(
+                    element => {
+
+                        const duration =
+                            Math.max(
+                                0,
+                                Number(
+                                    element.dataset
+                                        .esubizProHoverDuration
+                                ) || 300
+                            );
+
+                        element.style
+                            .transitionDuration =
+                                duration + 'ms';
+                    }
+                );
+
+
+            if (reducedMotion) {
+                return;
+            }
+
+
+            /*
+             * ESUBIZ_PAGE_BUILDER_PRO_PUBLIC_PARALLAX_RUNTIME_V2
+             *
+             * IMPORTANT:
+             *
+             * We capture the natural document position only once.
+             * The calculation therefore does NOT use the element's
+             * already-transformed position on every frame.
+             *
+             * This removes the feedback loop from V1 and gives
+             * stable, visible parallax movement.
+             */
+            const items =
+                Array.from(
+                    document.querySelectorAll(
+                        '[data-esubiz-pro-parallax="1"]'
+                    )
+                );
+
+
+            if (!items.length) {
+                return;
+            }
+
+
+            const captureNaturalPositions =
+                () => {
+
+                    items.forEach(
+                        element => {
+
+                            /*
+                             * Temporarily neutralize only the
+                             * Parallax offset before measuring.
+                             */
+                            element.style.setProperty(
+                                '--esubiz-pro-parallax-x',
+                                '0px'
+                            );
+
+                            element.style.setProperty(
+                                '--esubiz-pro-parallax-y',
+                                '0px'
+                            );
+                        }
+                    );
+
+
+                    items.forEach(
+                        element => {
+
+                            const rect =
+                                element
+                                    .getBoundingClientRect();
+
+                            element.__esubizProNaturalCenter =
+                                window.scrollY
+                                + rect.top
+                                + (
+                                    rect.height / 2
+                                );
+                        }
+                    );
+                };
+
+
+            captureNaturalPositions();
+
+
+            let ticking =
+                false;
+
+
+            const updateParallax =
+                () => {
+
+                    const viewportCenter =
+                        window.scrollY
+                        + (
+                            window.innerHeight / 2
+                        );
+
+
+                    items.forEach(
+                        element => {
+
+                            const naturalCenter =
+                                Number(
+                                    element
+                                        .__esubizProNaturalCenter
+                                );
+
+                            if (
+                                !Number.isFinite(
+                                    naturalCenter
+                                )
+                            ) {
+                                return;
+                            }
+
+
+                            const speed =
+                                Math.min(
+                                    1,
+                                    Math.max(
+                                        0.10,
+                                        Number(
+                                            element.dataset
+                                                .esubizProParallaxSpeed
+                                        ) || 0.25
+                                    )
+                                );
+
+
+                            const distance =
+                                naturalCenter
+                                - viewportCenter;
+
+
+                            /*
+                             * Visible but controlled movement:
+                             *
+                             * speed 0.10 -> subtle
+                             * speed 0.25 -> clearly visible
+                             * speed 1.00 -> strongest
+                             *
+                             * Maximum travel is capped so a section
+                             * or column cannot drift excessively.
+                             */
+                            const maximumTravel =
+                                160
+                                * speed;
+
+                            const movement =
+                                Math.max(
+                                    -maximumTravel,
+                                    Math.min(
+                                        maximumTravel,
+                                        (
+                                            -distance
+                                            * 0.16
+                                            * speed
+                                        )
+                                    )
+                                );
+
+
+                            const direction =
+                                element.dataset
+                                    .esubizProParallaxDirection
+                                || 'vertical';
+
+
+                            if (
+                                direction
+                                === 'horizontal'
+                            ) {
+
+                                element.style
+                                    .setProperty(
+                                        '--esubiz-pro-parallax-x',
+                                        movement.toFixed(2)
+                                        + 'px'
+                                    );
+
+                                element.style
+                                    .setProperty(
+                                        '--esubiz-pro-parallax-y',
+                                        '0px'
+                                    );
+
+                            } else {
+
+                                element.style
+                                    .setProperty(
+                                        '--esubiz-pro-parallax-x',
+                                        '0px'
+                                    );
+
+                                element.style
+                                    .setProperty(
+                                        '--esubiz-pro-parallax-y',
+                                        movement.toFixed(2)
+                                        + 'px'
+                                    );
+                            }
+                        }
+                    );
+
+
+                    ticking =
+                        false;
+                };
+
+
+            const scheduleParallax =
+                () => {
+
+                    if (ticking) {
+                        return;
+                    }
+
+                    ticking =
+                        true;
+
+                    requestAnimationFrame(
+                        updateParallax
+                    );
+                };
+
+
+            /*
+             * Initial positioning.
+             */
+            updateParallax();
+
+
+            /*
+             * Public scrolling.
+             */
+            window.addEventListener(
+                'scroll',
+                scheduleParallax,
+                {
+                    passive: true
+                }
+            );
+
+
+            /*
+             * Re-measure natural centers after viewport/layout
+             * changes before calculating again.
+             */
+            let resizeTimer =
+                null;
+
+            window.addEventListener(
+                'resize',
+                () => {
+
+                    clearTimeout(
+                        resizeTimer
+                    );
+
+                    resizeTimer =
+                        setTimeout(
+                            () => {
+
+                                captureNaturalPositions();
+                                updateParallax();
+
+                            },
+                            120
+                        );
+                }
+            );
+        }
+    );
+</script>
+
 
 
 <div class="builder-page">
@@ -332,20 +999,594 @@
                         ]
                         ?? 24
                     );
+
+
+                /*
+                 * ESUBIZ_PAGE_BUILDER_PRO_PUBLIC_SECTION_STATE_V1
+                 */
+
+                $sectionPro =
+                    is_array($section['pro'] ?? null)
+                        ? $section['pro']
+                        : [];
+
+                $sectionVisibility =
+                    is_array(
+                        $sectionPro['visibility']
+                        ?? null
+                    )
+                        ? $sectionPro['visibility']
+                        : [];
+
+                $sectionProBackground =
+                    is_array(
+                        $sectionPro['background']
+                        ?? null
+                    )
+                        ? $sectionPro['background']
+                        : [];
+
+                $sectionProAnimation =
+                    is_array(
+                        $sectionPro['animation']
+                        ?? null
+                    )
+                        ? $sectionPro['animation']
+                        : [];
+
+
+                $sectionClasses = [
+                    'builder-section',
+                    'esubiz-pro-container',
+                ];
+
+                if (
+                    array_key_exists(
+                        'desktop',
+                        $sectionVisibility
+                    )
+                    && $sectionVisibility['desktop']
+                        === false
+                ) {
+                    $sectionClasses[] =
+                        'esubiz-pro-hide-desktop';
+                }
+
+                if (
+                    array_key_exists(
+                        'tablet',
+                        $sectionVisibility
+                    )
+                    && $sectionVisibility['tablet']
+                        === false
+                ) {
+                    $sectionClasses[] =
+                        'esubiz-pro-hide-tablet';
+                }
+
+                if (
+                    array_key_exists(
+                        'mobile',
+                        $sectionVisibility
+                    )
+                    && $sectionVisibility['mobile']
+                        === false
+                ) {
+                    $sectionClasses[] =
+                        'esubiz-pro-hide-mobile';
+                }
+
+
+                $sectionBackgroundType =
+                    $sectionProBackground['type']
+                    ?? 'none';
+
+                $sectionProColor =
+                    $sectionProBackground['color']
+                    ?? '';
+
+                $sectionProImage =
+                    $sectionProBackground['image']
+                    ?? '';
+
+                $sectionImagePosition =
+                    $sectionProBackground[
+                        'imagePosition'
+                    ]
+                    ?? 'center center';
+
+                $sectionImageSize =
+                    $sectionProBackground[
+                        'imageSize'
+                    ]
+                    ?? 'cover';
+
+                $sectionImageRepeat =
+                    $sectionProBackground[
+                        'imageRepeat'
+                    ]
+                    ?? 'no-repeat';
+
+
+                /*
+                 * ESUBIZ_PAGE_BUILDER_PRO_PUBLIC_MEDIA_URL_V3
+                 *
+                 * Universal Pro media resolver for:
+                 *
+                 * - Section background images
+                 * - Column background images
+                 * - Section uploaded background videos
+                 * - Column uploaded background videos
+                 *
+                 * Tenant-local uploaded media must use the same
+                 * public resolver already used by Core.
+                 *
+                 * External URLs remain untouched so YouTube,
+                 * Vimeo and direct remote video URLs continue
+                 * working normally.
+                 */
+                $publicMediaUrl =
+                    function ($value) use ($themeAsset) {
+
+                        $value =
+                            trim(
+                                (string) $value
+                            );
+
+                        if ($value === '') {
+                            return '';
+                        }
+
+
+                        /*
+                         * Keep external media URLs unchanged.
+                         */
+                        if (
+                            preg_match(
+                                '#^https?://#i',
+                                $value
+                            )
+                            || str_starts_with(
+                                $value,
+                                '//'
+                            )
+                            || str_starts_with(
+                                $value,
+                                'data:'
+                            )
+                            || str_starts_with(
+                                $value,
+                                'blob:'
+                            )
+                        ) {
+                            return $value;
+                        }
+
+
+                        /*
+                         * Normalize a value which was already saved
+                         * with the public theme-assets prefix.
+                         *
+                         * Core's resolver will add the correct public
+                         * URL again, including the correct website host.
+                         */
+                        $localPath =
+                            ltrim(
+                                $value,
+                                '/'
+                            );
+
+                        if (
+                            str_starts_with(
+                                $localPath,
+                                'theme-assets/'
+                            )
+                        ) {
+                            $localPath =
+                                substr(
+                                    $localPath,
+                                    strlen(
+                                        'theme-assets/'
+                                    )
+                                );
+                        }
+
+
+                        if ($localPath === '') {
+                            return '';
+                        }
+
+
+                        /*
+                         * IMPORTANT:
+                         *
+                         * Both uploaded images AND uploaded videos
+                         * pass through this exact Core resolver.
+                         */
+                        return
+                            $themeAsset(
+                                $localPath
+                            )
+                            ?? '';
+                    };
+
+
+                $sectionImageUrl =
+                    $publicMediaUrl(
+                        $sectionProImage
+                    );
+
+
+                $sectionVideo =
+                    is_array(
+                        $sectionProBackground[
+                            'video'
+                        ]
+                        ?? null
+                    )
+                        ? $sectionProBackground[
+                            'video'
+                        ]
+                        : [];
+
+                $sectionVideoUpload =
+                    $sectionVideo['upload']
+                    ?? '';
+
+                $sectionVideoUrl =
+                    $sectionVideoUpload
+                        ?: (
+                            $sectionVideo['url']
+                            ?? ''
+                        );
+
+                $sectionVideoUrl =
+                    $publicMediaUrl(
+                        $sectionVideoUrl
+                    );
+
+
+                $sectionVideoProvider =
+                    'direct';
+
+                if (
+                    preg_match(
+                        '#(?:youtube\.com|youtu\.be)#i',
+                        $sectionVideoUrl
+                    )
+                ) {
+                    $sectionVideoProvider =
+                        'youtube';
+                } elseif (
+                    preg_match(
+                        '#vimeo\.com#i',
+                        $sectionVideoUrl
+                    )
+                ) {
+                    $sectionVideoProvider =
+                        'vimeo';
+                }
+
+
+                $sectionOverlay =
+                    is_array(
+                        $sectionProBackground[
+                            'overlay'
+                        ]
+                        ?? null
+                    )
+                        ? $sectionProBackground[
+                            'overlay'
+                        ]
+                        : [];
+
+                $sectionOverlayEnabled =
+                    ($sectionOverlay['enabled']
+                        ?? false) === true;
+
+                $sectionOverlayColor =
+                    $sectionOverlay['color']
+                    ?? '#000000';
+
+                $sectionOverlayOpacity =
+                    max(
+                        0,
+                        min(
+                            1,
+                            (float) (
+                                $sectionOverlay[
+                                    'opacity'
+                                ]
+                                ?? 0
+                            )
+                        )
+                    );
+
+
+                $sectionAnimationType =
+                    $sectionProAnimation['type']
+                    ?? 'none';
+
+                $sectionAnimationDuration =
+                    max(
+                        0,
+                        (int) (
+                            $sectionProAnimation[
+                                'duration'
+                            ]
+                            ?? 600
+                        )
+                    );
+
+                $sectionAnimationDelay =
+                    max(
+                        0,
+                        (int) (
+                            $sectionProAnimation[
+                                'delay'
+                            ]
+                            ?? 0
+                        )
+                    );
+
+
+                /*
+                 * ESUBIZ_PAGE_BUILDER_PRO_PUBLIC_SECTION_PARALLAX_HOVER_V1
+                 */
+                $sectionParallax =
+                    is_array(
+                        $sectionProAnimation[
+                            'parallax'
+                        ]
+                        ?? null
+                    )
+                        ? $sectionProAnimation[
+                            'parallax'
+                        ]
+                        : [];
+
+                $sectionParallaxEnabled =
+                    (bool) (
+                        $sectionParallax[
+                            'enabled'
+                        ]
+                        ?? false
+                    );
+
+                $sectionParallaxDirection =
+                    in_array(
+                        (
+                            $sectionParallax[
+                                'direction'
+                            ]
+                            ?? 'vertical'
+                        ),
+                        [
+                            'vertical',
+                            'horizontal',
+                        ],
+                        true
+                    )
+                        ? (
+                            $sectionParallax[
+                                'direction'
+                            ]
+                            ?? 'vertical'
+                        )
+                        : 'vertical';
+
+                $sectionParallaxSpeed =
+                    max(
+                        0.10,
+                        min(
+                            1,
+                            (float) (
+                                $sectionParallax[
+                                    'speed'
+                                ]
+                                ?? 0.25
+                            )
+                        )
+                    );
+
+
+                $sectionHover =
+                    is_array(
+                        $sectionProAnimation[
+                            'hover'
+                        ]
+                        ?? null
+                    )
+                        ? $sectionProAnimation[
+                            'hover'
+                        ]
+                        : [];
+
+                $sectionHoverType =
+                    in_array(
+                        (
+                            $sectionHover[
+                                'type'
+                            ]
+                            ?? 'none'
+                        ),
+                        [
+                            'none',
+                            'lift',
+                            'grow',
+                            'shrink',
+                            'tilt-left',
+                            'tilt-right',
+                            'fade',
+                            'glow',
+                        ],
+                        true
+                    )
+                        ? (
+                            $sectionHover[
+                                'type'
+                            ]
+                            ?? 'none'
+                        )
+                        : 'none';
+
+                $sectionHoverDuration =
+                    max(
+                        0,
+                        (int) (
+                            $sectionHover[
+                                'duration'
+                            ]
+                            ?? 300
+                        )
+                    );
             @endphp
 
 
             <section
-                class="builder-section"
+                class="{{ implode(' ', $sectionClasses) }}"
+
+                data-esubiz-pro-animation="{{ $sectionAnimationType }}"
+                data-esubiz-pro-duration="{{ $sectionAnimationDuration }}"
+                data-esubiz-pro-delay="{{ $sectionAnimationDelay }}"
+
+
+                @if($sectionParallaxEnabled)
+                    data-esubiz-pro-parallax="1"
+                    data-esubiz-pro-parallax-direction="{{ $sectionParallaxDirection }}"
+                    data-esubiz-pro-parallax-speed="{{ $sectionParallaxSpeed }}"
+                @endif
+
+                @if($sectionHoverType !== 'none')
+                    data-esubiz-pro-hover="{{ $sectionHoverType }}"
+                    data-esubiz-pro-hover-duration="{{ $sectionHoverDuration }}"
+                @endif
+
                 style="
-                    background:
-                        {{ $background }};
+                    background-color:
+                        {{
+                            $sectionBackgroundType === 'color'
+                            && $sectionProColor !== ''
+                                ? $sectionProColor
+                                : $background
+                        }};
+
+                    @if(
+                        $sectionBackgroundType === 'image'
+                        && $sectionImageUrl !== ''
+                    )
+                        background-image:
+                            url('{{ $sectionImageUrl }}');
+                        background-position:
+                            {{ $sectionImagePosition }};
+                        background-size:
+                            {{ $sectionImageSize }};
+                        background-repeat:
+                            {{ $sectionImageRepeat }};
+                    @endif
+
                     padding-top:
                         {{ $paddingTop }}px;
                     padding-bottom:
                         {{ $paddingBottom }}px;
                 "
             >
+
+                @if(
+                    $sectionBackgroundType === 'video'
+                    && $sectionVideoUrl !== ''
+                )
+
+                    <div
+                        class="esubiz-pro-background-media"
+                        aria-hidden="true"
+                    >
+
+                        @if(
+                            $sectionVideoProvider === 'youtube'
+                        )
+
+                            @php
+                                preg_match(
+                                    '#(?:youtu\.be/|youtube\.com/(?:watch\?v=|embed/|shorts/))([^?&/]+)#i',
+                                    $sectionVideoUrl,
+                                    $sectionYoutubeMatch
+                                );
+
+                                $sectionYoutubeId =
+                                    $sectionYoutubeMatch[1]
+                                    ?? '';
+                            @endphp
+
+                            @if($sectionYoutubeId !== '')
+                                <iframe
+                                    src="https://www.youtube.com/embed/{{ $sectionYoutubeId }}?autoplay=1&mute=1&controls=0&loop=1&playlist={{ $sectionYoutubeId }}&playsinline=1&rel=0"
+                                    tabindex="-1"
+                                    allow="autoplay; encrypted-media"
+                                    title=""
+                                ></iframe>
+                            @endif
+
+                        @elseif(
+                            $sectionVideoProvider === 'vimeo'
+                        )
+
+                            @php
+                                preg_match(
+                                    '#vimeo\.com/(?:video/)?([0-9]+)#i',
+                                    $sectionVideoUrl,
+                                    $sectionVimeoMatch
+                                );
+
+                                $sectionVimeoId =
+                                    $sectionVimeoMatch[1]
+                                    ?? '';
+                            @endphp
+
+                            @if($sectionVimeoId !== '')
+                                <iframe
+                                    src="https://player.vimeo.com/video/{{ $sectionVimeoId }}?autoplay=1&muted=1&loop=1&background=1"
+                                    tabindex="-1"
+                                    allow="autoplay; fullscreen"
+                                    title=""
+                                ></iframe>
+                            @endif
+
+                        @else
+
+                            <video
+                                autoplay
+                                muted
+                                loop
+                                playsinline
+                                preload="metadata"
+                            >
+                                <source
+                                    src="{{ $sectionVideoUrl }}"
+                                >
+                            </video>
+
+                        @endif
+
+                    </div>
+
+                @endif
+
+
+                @if($sectionOverlayEnabled)
+
+                    <div
+                        class="esubiz-pro-background-overlay"
+                        aria-hidden="true"
+                        style="
+                            background-color:
+                                {{ $sectionOverlayColor }};
+                            opacity:
+                                {{ $sectionOverlayOpacity }};
+                        "
+                    ></div>
+
+                @endif
 
                 <div class="builder-section-inner">
 
@@ -361,7 +1602,518 @@
 
                         @foreach($columns as $column)
 
-                            <div class="builder-column">
+                            @php
+                                /*
+                                 * ESUBIZ_PAGE_BUILDER_PRO_PUBLIC_COLUMN_STATE_V1
+                                 */
+
+                                $columnPro =
+                                    is_array(
+                                        $column['pro']
+                                        ?? null
+                                    )
+                                        ? $column['pro']
+                                        : [];
+
+                                $columnVisibility =
+                                    is_array(
+                                        $columnPro[
+                                            'visibility'
+                                        ]
+                                        ?? null
+                                    )
+                                        ? $columnPro[
+                                            'visibility'
+                                        ]
+                                        : [];
+
+                                $columnProBackground =
+                                    is_array(
+                                        $columnPro[
+                                            'background'
+                                        ]
+                                        ?? null
+                                    )
+                                        ? $columnPro[
+                                            'background'
+                                        ]
+                                        : [];
+
+                                $columnProAnimation =
+                                    is_array(
+                                        $columnPro[
+                                            'animation'
+                                        ]
+                                        ?? null
+                                    )
+                                        ? $columnPro[
+                                            'animation'
+                                        ]
+                                        : [];
+
+
+                                $columnClasses = [
+                                    'builder-column',
+                                    'esubiz-pro-container',
+                                ];
+
+                                if (
+                                    array_key_exists(
+                                        'desktop',
+                                        $columnVisibility
+                                    )
+                                    && $columnVisibility[
+                                        'desktop'
+                                    ] === false
+                                ) {
+                                    $columnClasses[] =
+                                        'esubiz-pro-hide-desktop';
+                                }
+
+                                if (
+                                    array_key_exists(
+                                        'tablet',
+                                        $columnVisibility
+                                    )
+                                    && $columnVisibility[
+                                        'tablet'
+                                    ] === false
+                                ) {
+                                    $columnClasses[] =
+                                        'esubiz-pro-hide-tablet';
+                                }
+
+                                if (
+                                    array_key_exists(
+                                        'mobile',
+                                        $columnVisibility
+                                    )
+                                    && $columnVisibility[
+                                        'mobile'
+                                    ] === false
+                                ) {
+                                    $columnClasses[] =
+                                        'esubiz-pro-hide-mobile';
+                                }
+
+
+                                $columnBackgroundType =
+                                    $columnProBackground[
+                                        'type'
+                                    ]
+                                    ?? 'none';
+
+                                $columnProColor =
+                                    $columnProBackground[
+                                        'color'
+                                    ]
+                                    ?? '';
+
+                                $columnProImage =
+                                    $columnProBackground[
+                                        'image'
+                                    ]
+                                    ?? '';
+
+                                $columnImageUrl =
+                                    $publicMediaUrl(
+                                        $columnProImage
+                                    );
+
+                                $columnImagePosition =
+                                    $columnProBackground[
+                                        'imagePosition'
+                                    ]
+                                    ?? 'center center';
+
+                                $columnImageSize =
+                                    $columnProBackground[
+                                        'imageSize'
+                                    ]
+                                    ?? 'cover';
+
+                                $columnImageRepeat =
+                                    $columnProBackground[
+                                        'imageRepeat'
+                                    ]
+                                    ?? 'no-repeat';
+
+
+                                $columnVideo =
+                                    is_array(
+                                        $columnProBackground[
+                                            'video'
+                                        ]
+                                        ?? null
+                                    )
+                                        ? $columnProBackground[
+                                            'video'
+                                        ]
+                                        : [];
+
+                                $columnVideoUpload =
+                                    $columnVideo[
+                                        'upload'
+                                    ]
+                                    ?? '';
+
+                                $columnVideoUrl =
+                                    $columnVideoUpload
+                                        ?: (
+                                            $columnVideo[
+                                                'url'
+                                            ]
+                                            ?? ''
+                                        );
+
+                                $columnVideoUrl =
+                                    $publicMediaUrl(
+                                        $columnVideoUrl
+                                    );
+
+
+                                $columnVideoProvider =
+                                    'direct';
+
+                                if (
+                                    preg_match(
+                                        '#(?:youtube\.com|youtu\.be)#i',
+                                        $columnVideoUrl
+                                    )
+                                ) {
+                                    $columnVideoProvider =
+                                        'youtube';
+                                } elseif (
+                                    preg_match(
+                                        '#vimeo\.com#i',
+                                        $columnVideoUrl
+                                    )
+                                ) {
+                                    $columnVideoProvider =
+                                        'vimeo';
+                                }
+
+
+                                $columnOverlay =
+                                    is_array(
+                                        $columnProBackground[
+                                            'overlay'
+                                        ]
+                                        ?? null
+                                    )
+                                        ? $columnProBackground[
+                                            'overlay'
+                                        ]
+                                        : [];
+
+                                $columnOverlayEnabled =
+                                    ($columnOverlay[
+                                        'enabled'
+                                    ] ?? false) === true;
+
+                                $columnOverlayColor =
+                                    $columnOverlay[
+                                        'color'
+                                    ]
+                                    ?? '#000000';
+
+                                $columnOverlayOpacity =
+                                    max(
+                                        0,
+                                        min(
+                                            1,
+                                            (float) (
+                                                $columnOverlay[
+                                                    'opacity'
+                                                ]
+                                                ?? 0
+                                            )
+                                        )
+                                    );
+
+
+                                $columnAnimationType =
+                                    $columnProAnimation[
+                                        'type'
+                                    ]
+                                    ?? 'none';
+
+                                $columnAnimationDuration =
+                                    max(
+                                        0,
+                                        (int) (
+                                            $columnProAnimation[
+                                                'duration'
+                                            ]
+                                            ?? 600
+                                        )
+                                    );
+
+                                $columnAnimationDelay =
+                                    max(
+                                        0,
+                                        (int) (
+                                            $columnProAnimation[
+                                                'delay'
+                                            ]
+                                            ?? 0
+                                        )
+                                    );
+
+
+                                /*
+                                 * ESUBIZ_PAGE_BUILDER_PRO_PUBLIC_COLUMN_PARALLAX_HOVER_V1
+                                 */
+                                $columnParallax =
+                                    is_array(
+                                        $columnProAnimation[
+                                            'parallax'
+                                        ]
+                                        ?? null
+                                    )
+                                        ? $columnProAnimation[
+                                            'parallax'
+                                        ]
+                                        : [];
+
+                                $columnParallaxEnabled =
+                                    (bool) (
+                                        $columnParallax[
+                                            'enabled'
+                                        ]
+                                        ?? false
+                                    );
+
+                                $columnParallaxDirection =
+                                    in_array(
+                                        (
+                                            $columnParallax[
+                                                'direction'
+                                            ]
+                                            ?? 'vertical'
+                                        ),
+                                        [
+                                            'vertical',
+                                            'horizontal',
+                                        ],
+                                        true
+                                    )
+                                        ? (
+                                            $columnParallax[
+                                                'direction'
+                                            ]
+                                            ?? 'vertical'
+                                        )
+                                        : 'vertical';
+
+                                $columnParallaxSpeed =
+                                    max(
+                                        0.10,
+                                        min(
+                                            1,
+                                            (float) (
+                                                $columnParallax[
+                                                    'speed'
+                                                ]
+                                                ?? 0.25
+                                            )
+                                        )
+                                    );
+
+
+                                $columnHover =
+                                    is_array(
+                                        $columnProAnimation[
+                                            'hover'
+                                        ]
+                                        ?? null
+                                    )
+                                        ? $columnProAnimation[
+                                            'hover'
+                                        ]
+                                        : [];
+
+                                $columnHoverType =
+                                    in_array(
+                                        (
+                                            $columnHover[
+                                                'type'
+                                            ]
+                                            ?? 'none'
+                                        ),
+                                        [
+                                            'none',
+                                            'lift',
+                                            'grow',
+                                            'shrink',
+                                            'tilt-left',
+                                            'tilt-right',
+                                            'fade',
+                                            'glow',
+                                        ],
+                                        true
+                                    )
+                                        ? (
+                                            $columnHover[
+                                                'type'
+                                            ]
+                                            ?? 'none'
+                                        )
+                                        : 'none';
+
+                                $columnHoverDuration =
+                                    max(
+                                        0,
+                                        (int) (
+                                            $columnHover[
+                                                'duration'
+                                            ]
+                                            ?? 300
+                                        )
+                                    );
+                            @endphp
+
+
+                            <div
+                                class="{{ implode(' ', $columnClasses) }}"
+
+                                data-esubiz-pro-animation="{{ $columnAnimationType }}"
+                                data-esubiz-pro-duration="{{ $columnAnimationDuration }}"
+                                data-esubiz-pro-delay="{{ $columnAnimationDelay }}"
+
+
+                                @if($columnParallaxEnabled)
+                                    data-esubiz-pro-parallax="1"
+                                    data-esubiz-pro-parallax-direction="{{ $columnParallaxDirection }}"
+                                    data-esubiz-pro-parallax-speed="{{ $columnParallaxSpeed }}"
+                                @endif
+
+                                @if($columnHoverType !== 'none')
+                                    data-esubiz-pro-hover="{{ $columnHoverType }}"
+                                    data-esubiz-pro-hover-duration="{{ $columnHoverDuration }}"
+                                @endif
+
+                                style="
+                                    @if(
+                                        $columnBackgroundType === 'color'
+                                        && $columnProColor !== ''
+                                    )
+                                        background-color:
+                                            {{ $columnProColor }};
+                                    @endif
+
+                                    @if(
+                                        $columnBackgroundType === 'image'
+                                        && $columnImageUrl !== ''
+                                    )
+                                        background-image:
+                                            url('{{ $columnImageUrl }}');
+                                        background-position:
+                                            {{ $columnImagePosition }};
+                                        background-size:
+                                            {{ $columnImageSize }};
+                                        background-repeat:
+                                            {{ $columnImageRepeat }};
+                                    @endif
+                                "
+                            >
+
+                                @if(
+                                    $columnBackgroundType === 'video'
+                                    && $columnVideoUrl !== ''
+                                )
+
+                                    <div
+                                        class="esubiz-pro-background-media"
+                                        aria-hidden="true"
+                                    >
+
+                                        @if(
+                                            $columnVideoProvider === 'youtube'
+                                        )
+
+                                            @php
+                                                preg_match(
+                                                    '#(?:youtu\.be/|youtube\.com/(?:watch\?v=|embed/|shorts/))([^?&/]+)#i',
+                                                    $columnVideoUrl,
+                                                    $columnYoutubeMatch
+                                                );
+
+                                                $columnYoutubeId =
+                                                    $columnYoutubeMatch[1]
+                                                    ?? '';
+                                            @endphp
+
+                                            @if($columnYoutubeId !== '')
+                                                <iframe
+                                                    src="https://www.youtube.com/embed/{{ $columnYoutubeId }}?autoplay=1&mute=1&controls=0&loop=1&playlist={{ $columnYoutubeId }}&playsinline=1&rel=0"
+                                                    tabindex="-1"
+                                                    allow="autoplay; encrypted-media"
+                                                    title=""
+                                                ></iframe>
+                                            @endif
+
+                                        @elseif(
+                                            $columnVideoProvider === 'vimeo'
+                                        )
+
+                                            @php
+                                                preg_match(
+                                                    '#vimeo\.com/(?:video/)?([0-9]+)#i',
+                                                    $columnVideoUrl,
+                                                    $columnVimeoMatch
+                                                );
+
+                                                $columnVimeoId =
+                                                    $columnVimeoMatch[1]
+                                                    ?? '';
+                                            @endphp
+
+                                            @if($columnVimeoId !== '')
+                                                <iframe
+                                                    src="https://player.vimeo.com/video/{{ $columnVimeoId }}?autoplay=1&muted=1&loop=1&background=1"
+                                                    tabindex="-1"
+                                                    allow="autoplay; fullscreen"
+                                                    title=""
+                                                ></iframe>
+                                            @endif
+
+                                        @else
+
+                                            <video
+                                                autoplay
+                                                muted
+                                                loop
+                                                playsinline
+                                                preload="metadata"
+                                            >
+                                                <source
+                                                    src="{{ $columnVideoUrl }}"
+                                                >
+                                            </video>
+
+                                        @endif
+
+                                    </div>
+
+                                @endif
+
+
+                                @if($columnOverlayEnabled)
+
+                                    <div
+                                        class="esubiz-pro-background-overlay"
+                                        aria-hidden="true"
+                                        style="
+                                            background-color:
+                                                {{ $columnOverlayColor }};
+                                            opacity:
+                                                {{ $columnOverlayOpacity }};
+                                        "
+                                    ></div>
+
+                                @endif
+
 
                                 @foreach(
                                     ($column['widgets'] ?? [])

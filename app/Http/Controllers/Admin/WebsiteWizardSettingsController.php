@@ -81,6 +81,18 @@ class WebsiteWizardSettingsController extends Controller
             'developer_failure_text' =>
                 ['required', 'string', 'max:500'],
 
+            // ESUBIZ_USER_WIZARD_RESULT_BUTTON_LABELS_V1
+            'user_manage_website_label' =>
+                ['required', 'string', 'max:60'],
+            'user_dashboard_label' =>
+                ['required', 'string', 'max:60'],
+
+            /*
+             * ESUBIZ_USER_WIZARD_REDEPLOY_LABEL_V1
+             */
+            'user_redeploy_label' =>
+                ['required', 'string', 'max:60'],
+
             'developer_payment_label' =>
                 ['required', 'string', 'max:60'],
             'developer_recompile_label' =>
@@ -141,6 +153,13 @@ class WebsiteWizardSettingsController extends Controller
                 $validated['developer_failure_title'],
             'wizard.developer.failure_text' =>
                 $validated['developer_failure_text'],
+
+            'wizard.user.manage_website_label' =>
+                $validated['user_manage_website_label'],
+            'wizard.user.dashboard_label' =>
+                $validated['user_dashboard_label'],
+            'wizard.user.redeploy_label' =>
+                $validated['user_redeploy_label'],
 
             'wizard.developer.payment_label' =>
                 $validated['developer_payment_label'],

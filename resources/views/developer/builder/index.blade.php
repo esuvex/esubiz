@@ -1476,6 +1476,21 @@
     let elapsedTimer = null;
     let finalState = null;
 
+    /*
+     * ESUBIZ_DEVELOPER_REAL_PROGRESS_PRESENTATION_QUEUE_V1
+     *
+     * Backend progress remains authoritative.
+     *
+     * The queue may only contain percentages that were actually
+     * observed from the status endpoint. It never manufactures a
+     * compiler stage. When compilation is faster than Admin's
+     * minimum presentation duration, observed stages are allowed
+     * enough time to be visible before the final 99% hold.
+     */
+    let observedProgressQueue = [];
+    let presentedProgress = 0;
+    let progressPresentationTimer = null;
+
     const textForPercent = (percent) => {
         if (percent >= 100) {
             return progressTexts['100'] || '';
@@ -1501,10 +1516,27 @@
     };
 
     const renderProgress = (percent) => {
-        const safePercent = Math.max(
+        let safePercent = Math.max(
             0,
             Math.min(100, Number(percent || 0))
         );
+
+        /*
+         * ESUBIZ_DEVELOPER_GLOBAL_100_PERCENT_CLAMP_V1
+         *
+         * A real backend 100% must not visually complete the
+         * compilation modal before Admin's minimum presentation
+         * duration has expired.
+         */
+        if (
+            safePercent >= 100
+            && startedAt
+            && (
+                Date.now() - startedAt
+            ) < minimumMilliseconds
+        ) {
+            safePercent = 99;
+        }
 
         percentDisplay.textContent =
             Math.round(safePercent) + '%';
@@ -1514,6 +1546,90 @@
 
         progressText.textContent =
             textForPercent(safePercent);
+    };
+
+    const presentNextObservedProgress = () => {
+        window.clearTimeout(progressPresentationTimer);
+
+        if (!observedProgressQueue.length) {
+            return;
+        }
+
+        const nextPercent =
+            Number(observedProgressQueue.shift() || 0);
+
+        if (nextPercent <= presentedProgress) {
+            presentNextObservedProgress();
+            return;
+        }
+
+        presentedProgress = nextPercent;
+        renderProgress(nextPercent);
+
+        if (!observedProgressQueue.length) {
+            return;
+        }
+
+        const elapsed =
+            startedAt
+                ? Math.max(0, Date.now() - startedAt)
+                : 0;
+
+        const remaining =
+            Math.max(0, minimumMilliseconds - elapsed);
+
+        /*
+         * Share the remaining Admin presentation window across
+         * REAL backend stages still waiting to be displayed.
+         * 350ms keeps a stage readable when little time remains.
+         */
+        const delay =
+            minimumMilliseconds > 0
+                ? Math.max(
+                    350,
+                    Math.floor(
+                        remaining
+                        / (observedProgressQueue.length + 1)
+                    )
+                )
+                : 0;
+
+        progressPresentationTimer =
+            window.setTimeout(
+                presentNextObservedProgress,
+                delay
+            );
+    };
+
+    const observeBackendProgress = (percent) => {
+        const realPercent = Math.max(
+            0,
+            Math.min(100, Number(percent || 0))
+        );
+
+        /*
+         * 100% is reserved for the synchronized final reveal.
+         * A completed backend is represented by the existing
+         * real 99% hold until that reveal.
+         */
+        const presentablePercent =
+            realPercent >= 100
+                ? 99
+                : realPercent;
+
+        if (
+            presentablePercent <= presentedProgress
+            || observedProgressQueue.includes(presentablePercent)
+        ) {
+            return;
+        }
+
+        observedProgressQueue.push(presentablePercent);
+        observedProgressQueue.sort((a, b) => a - b);
+
+        if (!progressPresentationTimer) {
+            presentNextObservedProgress();
+        }
     };
 
     const formatElapsed = (milliseconds) => {
@@ -1527,6 +1643,11 @@
 
     const resetModal = () => {
         finalState = null;
+
+        window.clearTimeout(progressPresentationTimer);
+        progressPresentationTimer = null;
+        observedProgressQueue = [];
+        presentedProgress = 0;
 
         progressPhase.classList.remove('hidden');
         finalPhase.classList.add('hidden');
@@ -1573,6 +1694,21 @@
                 minimumMilliseconds - (Date.now() - startedAt)
             );
 
+        /*
+         * ESUBIZ_DEVELOPER_PROGRESS_100_REVEAL_SYNC_V1
+         *
+         * The backend may already be complete, but 100% should
+         * visually coincide with result reveal. If Admin has a
+         * remaining minimum presentation duration, hold at 99%.
+         */
+        const finalSucceeded =
+            finalState.status === 'success'
+            && Number(finalState.percent) === 100;
+
+        if (finalSucceeded && remaining > 0) {
+            renderProgress(99);
+        }
+
         window.setTimeout(() => {
             if (!finalState) {
                 return;
@@ -1580,13 +1716,20 @@
 
             window.clearInterval(elapsedTimer);
             window.clearTimeout(pollTimer);
-
-            progressPhase.classList.add('hidden');
-            finalPhase.classList.remove('hidden');
+            window.clearTimeout(progressPresentationTimer);
+            progressPresentationTimer = null;
+            observedProgressQueue = [];
 
             const succeeded =
                 finalState.status === 'success'
                 && Number(finalState.percent) === 100;
+
+            if (succeeded) {
+                renderProgress(100);
+            }
+
+            progressPhase.classList.add('hidden');
+            finalPhase.classList.remove('hidden');
 
             if (succeeded) {
                 finalTitle.textContent =
@@ -1651,11 +1794,9 @@
 
             const data = await response.json();
 
-            renderProgress(data.percent);
+            observeBackendProgress(data.percent);
 
             if (data.completed) {
-                renderProgress(100);
-
                 finalState = {
                     status: 'success',
                     percent: 100

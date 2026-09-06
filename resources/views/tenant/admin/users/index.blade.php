@@ -1,6 +1,22 @@
 @extends('tenant.admin.layouts.app')
 
 @section('content')
+
+{{-- ESUBIZ_CORE_PARTNER_ADMIN_CONFIG_LINK_V1 --}}
+@coreCan('partners.manage')
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        <div class="flex justify-end">
+            <a
+                href="/admin/users/partners"
+                class="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
+            >
+                Partners / Investors
+            </a>
+        </div>
+    </div>
+@endcoreCan
+
+
 <div class="mx-auto max-w-7xl space-y-6">
 
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

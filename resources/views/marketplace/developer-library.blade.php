@@ -44,7 +44,7 @@
             </p>
         </div>
 
-        @if($orders->isEmpty())
+        @if($orders->isEmpty() && $developerBuilds->isEmpty())
 
             <div class="rounded-3xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
                 <h2 class="text-lg font-black text-slate-900">
@@ -67,6 +67,82 @@
         @else
 
             <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+
+                {{-- ESUBIZ_DEVELOPER_BUILD_LIBRARY_CARD_V1 --}}
+                @foreach($developerBuilds as $build)
+
+                    <div class="developer-library-card flex flex-col rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <span class="inline-flex rounded-full bg-orange-50 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-orange-700">
+                                    Compiled Website
+                                </span>
+
+                                <h2 class="mt-4 text-lg font-black text-slate-900">
+                                    {{ $build->project_name }}
+                                </h2>
+                            </div>
+
+                            <span class="shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase text-emerald-700">
+                                Licensed
+                            </span>
+                        </div>
+
+                        <div class="mt-5 space-y-2 text-xs text-slate-500">
+                            <div class="flex justify-between gap-4">
+                                <span>Build ID</span>
+                                <span class="font-bold text-slate-700">
+                                    {{ $build->build_id }}
+                                </span>
+                            </div>
+
+                            <div class="flex justify-between gap-4">
+                                <span>Website Type</span>
+                                <span class="font-bold text-slate-700">
+                                    {{ ucwords(str_replace(['_', '-'], ' ', (string) $build->website_type)) }}
+                                </span>
+                            </div>
+
+                            <div class="flex justify-between gap-4">
+                                <span>Licence</span>
+                                <span class="max-w-[180px] truncate font-mono font-bold text-slate-700" title="{{ $build->license_key }}">
+                                    {{ $build->license_key }}
+                                </span>
+                            </div>
+
+                            <div class="flex justify-between gap-4">
+                                <span>Licence Scope</span>
+                                <span class="font-bold text-slate-700">
+                                    1 Domain
+                                </span>
+                            </div>
+
+                            <div class="flex justify-between gap-4">
+                                <span>Status</span>
+                                <span class="font-bold text-emerald-600">
+                                    Ready to Download
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="mt-6 border-t border-slate-100 pt-4">
+                            <a
+                                href="{{ route('marketplace.developer.library.build.download', ['build' => $build->id]) }}"
+                                class="flex w-full items-center justify-center rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white hover:bg-blue-700"
+                            >
+                                Download ZIP
+                            </a>
+
+                            <p class="mt-2 text-center text-[10px] font-semibold leading-5 text-slate-400">
+                                Includes the compiled website, browser documentation,
+                                Esubiz licence PDF/TXT and licence manifest.
+                            </p>
+                        </div>
+
+                    </div>
+
+                @endforeach
 
                 @foreach($orders as $order)
 

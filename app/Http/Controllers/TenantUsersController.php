@@ -762,6 +762,216 @@ class TenantUsersController extends Controller
     |--------------------------------------------------------------------------
     */
 
+
+    /*
+     * ESUBIZ_CORE_PARTNER_ADMIN_CONFIG_V1
+     *
+     * Dedicated Administrator management surface for
+     * Partner / Investor investment configuration.
+     *
+     * Uses the existing role and site_partner_investments
+     * architecture. No duplicate investment data.
+     */
+    public function partners(
+        string $subdomain
+    ) {
+        app(
+            \App\Services\Core\CorePermissionService::class
+        )->authorize('partners.manage');
+
+        $website = $this->currentWebsite();
+
+        $db = \Illuminate\Support\Facades\DB::connection(
+            'website_tenant'
+        );
+
+        $partners = collect();
+
+        if (
+            \Illuminate\Support\Facades\Schema::connection(
+                'website_tenant'
+            )->hasTable('site_users')
+            && \Illuminate\Support\Facades\Schema::connection(
+                'website_tenant'
+            )->hasTable('site_roles')
+            && \Illuminate\Support\Facades\Schema::connection(
+                'website_tenant'
+            )->hasTable('site_user_roles')
+        ) {
+            $partners = $db
+                ->table('site_users as users')
+                ->join(
+                    'site_user_roles as user_roles',
+                    'user_roles.user_id',
+                    '=',
+                    'users.id'
+                )
+                ->join(
+                    'site_roles as roles',
+                    'roles.id',
+                    '=',
+                    'user_roles.role_id'
+                )
+                ->leftJoin(
+                    'site_partner_investments as investments',
+                    'investments.user_id',
+                    '=',
+                    'users.id'
+                )
+                ->where(
+                    'roles.slug',
+                    'partners_investors'
+                )
+                ->select([
+                    'users.id',
+                    'users.name',
+                    'users.email',
+                    'users.is_active as user_is_active',
+
+                    'investments.investment_percentage',
+                    'investments.profit_basis',
+                    'investments.is_active as investment_is_active',
+                    'investments.notes',
+                    'investments.created_at as investment_created_at',
+                    'investments.updated_at as investment_updated_at',
+                ])
+                ->orderBy('users.name')
+                ->get();
+        }
+
+        return view(
+            'tenant.admin.users.partners',
+            compact(
+                'website',
+                'partners'
+            )
+        );
+    }
+
+
+    public function updatePartner(
+        \Illuminate\Http\Request $request,
+        string $subdomain,
+        int $user
+    ) {
+        app(
+            \App\Services\Core\CorePermissionService::class
+        )->authorize('partners.manage');
+
+        $validated = $request->validate([
+            'partner_investment_percentage' => [
+                'required',
+                'numeric',
+                'min:0',
+                'max:100',
+            ],
+
+            'partner_profit_basis' => [
+                'required',
+                'in:gross,net',
+            ],
+
+            'partner_is_active' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'partner_notes' => [
+                'nullable',
+                'string',
+                'max:2000',
+            ],
+        ]);
+
+        $db = \Illuminate\Support\Facades\DB::connection(
+            'website_tenant'
+        );
+
+        $isPartner = $db
+            ->table('site_user_roles as user_roles')
+            ->join(
+                'site_roles as roles',
+                'roles.id',
+                '=',
+                'user_roles.role_id'
+            )
+            ->where(
+                'user_roles.user_id',
+                $user
+            )
+            ->where(
+                'roles.slug',
+                'partners_investors'
+            )
+            ->exists();
+
+        if (!$isPartner) {
+            return redirect()
+                ->to('/admin/users/partners')
+                ->withErrors([
+                    'partner' =>
+                        'This user is not assigned the Partners / Investors role.',
+                ]);
+        }
+
+        $now = now();
+
+        $existing = $db
+            ->table('site_partner_investments')
+            ->where('user_id', $user)
+            ->first();
+
+        $values = [
+            'investment_percentage' =>
+                round(
+                    (float) $validated[
+                        'partner_investment_percentage'
+                    ],
+                    4
+                ),
+
+            'profit_basis' =>
+                $validated['partner_profit_basis'],
+
+            'is_active' =>
+                $request->boolean(
+                    'partner_is_active'
+                ),
+
+            'notes' =>
+                isset($validated['partner_notes'])
+                    ? trim(
+                        (string)
+                        $validated['partner_notes']
+                    )
+                    : null,
+
+            'updated_at' => $now,
+        ];
+
+        if ($existing) {
+            $db
+                ->table('site_partner_investments')
+                ->where('user_id', $user)
+                ->update($values);
+        } else {
+            $values['user_id'] = $user;
+            $values['created_at'] = $now;
+
+            $db
+                ->table('site_partner_investments')
+                ->insert($values);
+        }
+
+        return redirect()
+            ->to('/admin/users/partners')
+            ->with(
+                'success',
+                'Partner investment configuration updated successfully.'
+            );
+    }
+
+
     protected function partnerInvestmentForUser(
         int $userId
     ): ?object {

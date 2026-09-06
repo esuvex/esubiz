@@ -1,3 +1,4 @@
+{{-- ESUBIZ_CORE_AUTH_LEGACY_ADD_FIELD_REMOVED_V1 --}}
 @extends('tenant.admin.layouts.app')
 
 @section('title', 'Settings - Authentication')
@@ -1094,6 +1095,41 @@ main,
                             $config =
                                 $authConfig['providers'][$key]
                                 ?? [];
+
+                            /*
+                             * ESUBIZ_CORE_AUTH_PROVIDER_SELECTOR_ALL_V2
+                             */
+                            $providerUsesExternalCredentials =
+                                !empty(
+                                    $provider['credentials']
+                                    ?? false
+                                );
+
+                            $connectionMode =
+                                $key === 'esubiz'
+                                    ? 'esubiz'
+                                    : old(
+                                        'providers.'
+                                        . $key
+                                        . '.connection_mode',
+                                        $config[
+                                            'connection_mode'
+                                        ] ?? 'esubiz'
+                                    );
+
+                            if (
+                                !in_array(
+                                    $connectionMode,
+                                    [
+                                        'esubiz',
+                                        'custom',
+                                    ],
+                                    true
+                                )
+                            ) {
+                                $connectionMode =
+                                    'esubiz';
+                            }
                         @endphp
 
                         <div class="provider-card">
@@ -1139,9 +1175,112 @@ main,
 
                             </div>
 
+                            <div
+                                class="core-provider-mode"
+                                data-core-provider-mode
+                            >
+                                <div
+                                    class="core-provider-mode-label"
+                                >
+                                    Connection
+                                </div>
+
+                                @if($key === 'esubiz')
+
+                                    <div
+                                        class="core-provider-native-managed"
+                                    >
+                                        <span
+                                            class="core-provider-native-dot"
+                                            aria-hidden="true"
+                                        ></span>
+
+                                        <div>
+                                            <strong>
+                                                Esubiz Managed
+                                            </strong>
+
+                                            <small>
+                                                Native Esubiz authentication connection.
+                                            </small>
+                                        </div>
+                                    </div>
+
+                                @else
+
+                                    <div
+                                        class="core-provider-mode-options"
+                                    >
+                                        <label
+                                            class="core-provider-mode-choice"
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="providers[{{ $key }}][connection_mode]"
+                                                value="esubiz"
+                                                data-core-provider-mode-input
+                                                @checked(
+                                                    $connectionMode
+                                                    === 'esubiz'
+                                                )
+                                            >
+
+                                            <span>
+                                                Esubiz Managed
+                                            </span>
+                                        </label>
+
+                                        <label
+                                            class="core-provider-mode-choice"
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="providers[{{ $key }}][connection_mode]"
+                                                value="custom"
+                                                data-core-provider-mode-input
+                                                @checked(
+                                                    $connectionMode
+                                                    === 'custom'
+                                                )
+                                            >
+
+                                            <span>
+                                                Connect Your API
+                                            </span>
+                                        </label>
+                                    </div>
+
+                                    <p
+                                        class="core-provider-mode-help"
+                                        data-core-esubiz-help
+                                        @if(
+                                            $connectionMode
+                                            !== 'esubiz'
+                                        )
+                                            hidden
+                                        @endif
+                                    >
+                                        Esubiz will manage this provider
+                                        connection for your website.
+                                    </p>
+
+                                @endif
+                            </div>
+
+
+
                             @if($provider['credentials'])
 
-                                <div class="provider-credentials">
+                                <div
+                                    class="provider-credentials"
+                                    data-core-custom-credentials
+                                    @if(
+                                        $connectionMode
+                                        !== 'custom'
+                                    )
+                                        hidden
+                                    @endif
+                                >
 
                                     <div class="field">
 
@@ -2633,13 +2772,7 @@ document.addEventListener(
                         </p>
                     </div>
 
-                    <button
-                        type="button"
-                        class="auth-forms-v11-primary"
-                        data-auth-field-add-v11
-                    >
-                        + Add Field
-                    </button>
+                    
                 </div>
 
                 @php
@@ -4354,22 +4487,7 @@ document.addEventListener(
 </template>
 
 
-                <button
-                    type="button"
-                    id="add-registration-field"
-                    style="
-                        margin-top:14px;
-                        border:1px solid #d1d5db;
-                        background:#fff;
-                        color:#111827;
-                        border-radius:9px;
-                        padding:10px 14px;
-                        font-weight:600;
-                        cursor:pointer;
-                    "
-                >
-                    + Add Field
-                </button>
+                
 
                 <template id="registration-field-template">
 
@@ -4704,265 +4822,7 @@ document.addEventListener(
 </div>
 
 
-<script>
-/* ESUBIZ_TENANT_AUTH_SETTINGS_UI_JS_V1 */
-document.addEventListener('DOMContentLoaded', function () {
 
-    const tabs =
-        document.querySelectorAll('[data-auth-tab]');
-
-    const panels =
-        document.querySelectorAll('[data-auth-panel]');
-
-    tabs.forEach(function (tab) {
-
-        tab.addEventListener('click', function () {
-
-            const target =
-                tab.getAttribute('data-auth-tab');
-
-            tabs.forEach(function (item) {
-                item.classList.remove('active');
-            });
-
-            panels.forEach(function (panel) {
-                panel.classList.remove('active');
-            });
-
-            tab.classList.add('active');
-
-            const panel =
-                document.querySelector(
-                    '[data-auth-panel="' +
-                    target +
-                    '"]'
-                );
-
-            if (panel) {
-                panel.classList.add('active');
-            }
-        });
-    });
-
-
-    /*
-     * ESUBIZ_DYNAMIC_REGISTRATION_FIELD_BUILDER_JS_V1
-     */
-    const fieldBuilder =
-        document.getElementById(
-            'registration-fields-builder'
-        );
-
-    const addFieldButton =
-        document.getElementById(
-            'add-registration-field'
-        );
-
-    const fieldTemplate =
-        document.getElementById(
-            'registration-field-template'
-        );
-
-    function renumberRegistrationFields() {
-
-        if (!fieldBuilder) {
-            return;
-        }
-
-        const rows =
-            fieldBuilder.querySelectorAll(
-                '[data-registration-field]'
-            );
-
-        rows.forEach(function (row, index) {
-
-            row.querySelectorAll(
-                '[data-field-input]'
-            ).forEach(function (input) {
-
-                const key =
-                    input.getAttribute(
-                        'data-field-input'
-                    );
-
-                input.name =
-                    'legacy_registration_fields['
-                    + index
-                    + ']['
-                    + key
-                    + ']';
-            });
-
-            row.querySelectorAll(
-                '[data-field-required-hidden]'
-            ).forEach(function (input) {
-                input.name =
-                    'legacy_registration_fields['
-                    + index
-                    + '][required]';
-            });
-
-            row.querySelectorAll(
-                '[data-field-required-system]'
-            ).forEach(function (input) {
-                input.name =
-                    'legacy_registration_fields['
-                    + index
-                    + '][required]';
-            });
-        });
-    }
-
-    function updateFieldOptions(row) {
-
-        const type =
-            row.querySelector(
-                '[data-field-type]'
-            );
-
-        const options =
-            row.querySelector(
-                '[data-field-options-wrap]'
-            );
-
-        if (!type || !options) {
-            return;
-        }
-
-        options.style.display =
-            type.value === 'select'
-                ? ''
-                : 'none';
-    }
-
-    if (fieldBuilder) {
-
-        fieldBuilder.addEventListener(
-            'click',
-            function (event) {
-
-                const row =
-                    event.target.closest(
-                        '[data-registration-field]'
-                    );
-
-                if (!row) {
-                    return;
-                }
-
-                if (
-                    event.target.closest(
-                        '[data-field-remove]'
-                    )
-                ) {
-                    row.remove();
-                    renumberRegistrationFields();
-                    return;
-                }
-
-                if (
-                    event.target.closest(
-                        '[data-field-up]'
-                    )
-                ) {
-                    const previous =
-                        row.previousElementSibling;
-
-                    if (previous) {
-                        fieldBuilder.insertBefore(
-                            row,
-                            previous
-                        );
-
-                        renumberRegistrationFields();
-                    }
-
-                    return;
-                }
-
-                if (
-                    event.target.closest(
-                        '[data-field-down]'
-                    )
-                ) {
-                    const next =
-                        row.nextElementSibling;
-
-                    if (next) {
-                        fieldBuilder.insertBefore(
-                            next,
-                            row
-                        );
-
-                        renumberRegistrationFields();
-                    }
-                }
-            }
-        );
-
-        fieldBuilder.addEventListener(
-            'change',
-            function (event) {
-
-                if (
-                    event.target.matches(
-                        '[data-field-type]'
-                    )
-                ) {
-                    const row =
-                        event.target.closest(
-                            '[data-registration-field]'
-                        );
-
-                    if (row) {
-                        updateFieldOptions(row);
-                    }
-                }
-            }
-        );
-
-        fieldBuilder.querySelectorAll(
-            '[data-registration-field]'
-        ).forEach(updateFieldOptions);
-    }
-
-    if (
-        addFieldButton
-        && fieldTemplate
-        && fieldBuilder
-    ) {
-        addFieldButton.addEventListener(
-            'click',
-            function () {
-
-                const fragment =
-                    fieldTemplate.content.cloneNode(
-                        true
-                    );
-
-                fieldBuilder.appendChild(fragment);
-
-                const rows =
-                    fieldBuilder.querySelectorAll(
-                        '[data-registration-field]'
-                    );
-
-                const row =
-                    rows[rows.length - 1];
-
-                if (row) {
-                    updateFieldOptions(row);
-                }
-
-                renumberRegistrationFields();
-            }
-        );
-    }
-
-    renumberRegistrationFields();
-
-});
-</script>
 
 
 {{-- ESUBIZ_AUTH_COLOR_PICKER_HEX_JS_V1 --}}
@@ -7621,3 +7481,1087 @@ input[type="checkbox"]:focus-visible + span{
     }
 }
 </style>
+
+
+
+{{-- ESUBIZ_CORE_AUTH_REGISTRATION_UI_RUNTIME_V5 --}}
+
+<style>
+    /*
+     * Registration Auth Settings runtime UI.
+     *
+     * This does not replace the canonical Core Form Builder.
+     * It keeps Registration editing inside Authentication
+     * Settings while the existing form URL remains authoritative.
+     */
+
+    .esubiz-core-auth-add-form-blue {
+        background: #2563eb !important;
+        border-color: #2563eb !important;
+        color: #ffffff !important;
+    }
+
+    .esubiz-core-auth-add-form-blue:hover,
+    .esubiz-core-auth-add-form-blue:focus {
+        background: #1d4ed8 !important;
+        border-color: #1d4ed8 !important;
+        color: #ffffff !important;
+    }
+
+    #esubiz-core-registration-form-editor {
+        position: fixed;
+        inset: 0;
+        z-index: 100000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: rgba(15, 23, 42, 0.55);
+    }
+
+    #esubiz-core-registration-form-editor.is-open {
+        display: flex;
+    }
+
+    .esubiz-core-registration-form-editor-shell {
+        width: min(1180px, 100%);
+        height: min(860px, calc(100vh - 48px));
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: #ffffff;
+        border-radius: 18px;
+        box-shadow:
+            0 30px 80px
+            rgba(15, 23, 42, 0.28);
+    }
+
+    .esubiz-core-registration-form-editor-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        min-height: 70px;
+        padding: 14px 20px;
+        border-bottom: 1px solid #e5e7eb;
+        background: #ffffff;
+    }
+
+    .esubiz-core-registration-form-editor-heading {
+        min-width: 0;
+    }
+
+    .esubiz-core-registration-form-editor-heading strong {
+        display: block;
+        color: #0f172a;
+        font-size: 16px;
+        font-weight: 800;
+    }
+
+    .esubiz-core-registration-form-editor-heading span {
+        display: block;
+        margin-top: 3px;
+        color: #64748b;
+        font-size: 12px;
+    }
+
+    .esubiz-core-registration-form-editor-close {
+        flex: 0 0 auto;
+        border: 1px solid #dbe3ef;
+        border-radius: 9px;
+        padding: 8px 14px;
+        background: #ffffff;
+        color: #0f172a;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .esubiz-core-registration-form-editor-close:hover {
+        background: #f8fafc;
+    }
+
+    #esubiz-core-registration-form-editor-frame {
+        width: 100%;
+        flex: 1 1 auto;
+        border: 0;
+        background: #f8fafc;
+    }
+
+    .esubiz-core-auth-system-option-hidden {
+        display: none !important;
+    }
+
+    @media (max-width: 700px) {
+        #esubiz-core-registration-form-editor {
+            padding: 0;
+        }
+
+        .esubiz-core-registration-form-editor-shell {
+            width: 100%;
+            height: 100vh;
+            border-radius: 0;
+        }
+    }
+</style>
+
+
+<div
+    id="esubiz-core-registration-form-editor"
+    aria-hidden="true"
+>
+    <div
+        class="esubiz-core-registration-form-editor-shell"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="esubiz-core-registration-form-editor-title"
+    >
+        <div
+            class="esubiz-core-registration-form-editor-header"
+        >
+            <div
+                class="esubiz-core-registration-form-editor-heading"
+            >
+                <strong
+                    id="esubiz-core-registration-form-editor-title"
+                >
+                    Edit Registration Form
+                </strong>
+
+                <span>
+                    Core Registration Auth Form
+                </span>
+            </div>
+
+            <button
+                type="button"
+                class="esubiz-core-registration-form-editor-close"
+                data-esubiz-close-registration-editor
+            >
+                Close
+            </button>
+        </div>
+
+        <iframe
+            id="esubiz-core-registration-form-editor-frame"
+            title="Core Registration Auth Form Editor"
+        ></iframe>
+    </div>
+</div>
+
+
+<script>
+(function () {
+    'use strict';
+
+    /*
+     * Canonical data already supplied by Authentication
+     * Settings V2.
+     */
+    const authForms =
+        @json($authForms ?? []);
+
+    const authRoles =
+        @json($authRoles ?? []);
+
+
+    /*
+     * Normalize PHP arrays/collections safely.
+     */
+    function values(value) {
+        if (Array.isArray(value)) {
+            return value;
+        }
+
+        if (
+            value
+            && typeof value === 'object'
+        ) {
+            return Object.values(value);
+        }
+
+        return [];
+    }
+
+
+    const forms =
+        values(authForms);
+
+    const roles =
+        values(authRoles);
+
+
+    /*
+     * Registration forms that may be edited from the
+     * Registration Authentication tab.
+     */
+    const registrationForms =
+        forms.filter(function (form) {
+            return (
+                form
+                && (
+                    form.purpose === 'registration'
+                    || form.purpose ===
+                        'authentication.registration'
+                )
+            );
+        });
+
+
+    /*
+     * Protected system forms must NOT appear inside
+     * "Add Form".
+     */
+    const protectedForms =
+        forms.filter(function (form) {
+            return !!(
+                form
+                && form.is_system
+            );
+        });
+
+
+    function normalizeUrl(url) {
+        if (!url) {
+            return '';
+        }
+
+        try {
+            return new URL(
+                url,
+                window.location.origin
+            ).href;
+        } catch (error) {
+            return String(url);
+        }
+    }
+
+
+    const registrationEditUrls =
+        new Map();
+
+    registrationForms.forEach(
+        function (form) {
+            if (!form.edit_url) {
+                return;
+            }
+
+            registrationEditUrls.set(
+                normalizeUrl(
+                    form.edit_url
+                ),
+                form
+            );
+        }
+    );
+
+
+    const protectedEditUrls =
+        new Set();
+
+    const protectedNames =
+        new Set();
+
+    protectedForms.forEach(
+        function (form) {
+            if (form.edit_url) {
+                protectedEditUrls.add(
+                    normalizeUrl(
+                        form.edit_url
+                    )
+                );
+            }
+
+            if (form.name) {
+                protectedNames.add(
+                    String(form.name)
+                        .trim()
+                        .toLowerCase()
+                );
+            }
+        }
+    );
+
+
+    /*
+     * Modal editor.
+     */
+    const editor =
+        document.getElementById(
+            'esubiz-core-registration-form-editor'
+        );
+
+    const frame =
+        document.getElementById(
+            'esubiz-core-registration-form-editor-frame'
+        );
+
+    const editorTitle =
+        document.getElementById(
+            'esubiz-core-registration-form-editor-title'
+        );
+
+
+    function openRegistrationEditor(
+        form
+    ) {
+        if (
+            !editor
+            || !frame
+            || !form
+            || !form.edit_url
+        ) {
+            return;
+        }
+
+        if (editorTitle) {
+            editorTitle.textContent =
+                'Edit '
+                + (
+                    form.name
+                    || 'Registration Form'
+                );
+        }
+
+        frame.src =
+            form.edit_url;
+
+        editor.classList.add(
+            'is-open'
+        );
+
+        editor.setAttribute(
+            'aria-hidden',
+            'false'
+        );
+
+        document.documentElement.style.overflow =
+            'hidden';
+    }
+
+
+    function closeRegistrationEditor() {
+        if (
+            !editor
+            || !frame
+        ) {
+            return;
+        }
+
+        editor.classList.remove(
+            'is-open'
+        );
+
+        editor.setAttribute(
+            'aria-hidden',
+            'true'
+        );
+
+        frame.removeAttribute(
+            'src'
+        );
+
+        document.documentElement.style.overflow =
+            '';
+    }
+
+
+    /*
+     * Find every Add Form trigger without depending on
+     * classes or Blade markup.
+     */
+    function styleAddFormButtons() {
+        document
+            .querySelectorAll(
+                'button, a'
+            )
+            .forEach(
+                function (element) {
+                    const label =
+                        (
+                            element.textContent
+                            || ''
+                        )
+                        .replace(
+                            /\s+/g,
+                            ' '
+                        )
+                        .trim()
+                        .toLowerCase();
+
+                    if (
+                        label === 'add form'
+                        || label === '+ add form'
+                    ) {
+                        element.classList.add(
+                            'esubiz-core-auth-add-form-blue'
+                        );
+
+                        element.setAttribute(
+                            'data-esubiz-auth-add-form',
+                            '1'
+                        );
+                    }
+                }
+            );
+    }
+
+
+    /*
+     * Locate the nearest dropdown/menu related to a given
+     * Add Form button.
+     *
+     * No assumption is made about Bootstrap/Tailwind/custom
+     * dropdown classes.
+     */
+    function candidateMenus(
+        trigger
+    ) {
+        const found =
+            new Set();
+
+        const controls =
+            trigger.getAttribute(
+                'aria-controls'
+            );
+
+        if (controls) {
+            const controlled =
+                document.getElementById(
+                    controls
+                );
+
+            if (controlled) {
+                found.add(
+                    controlled
+                );
+            }
+        }
+
+        const target =
+            trigger.getAttribute(
+                'data-bs-target'
+            )
+            || trigger.getAttribute(
+                'data-target'
+            );
+
+        if (
+            target
+            && target.startsWith('#')
+        ) {
+            const targeted =
+                document.querySelector(
+                    target
+                );
+
+            if (targeted) {
+                found.add(
+                    targeted
+                );
+            }
+        }
+
+        let parent =
+            trigger.parentElement;
+
+        for (
+            let level = 0;
+            parent && level < 5;
+            level++,
+            parent = parent.parentElement
+        ) {
+            parent
+                .querySelectorAll(
+                    [
+                        '[role="menu"]',
+                        '.dropdown-menu',
+                        '[class*="dropdown"]',
+                        '[class*="popover"]',
+                        '[class*="menu"]'
+                    ].join(',')
+                )
+                .forEach(
+                    function (menu) {
+                        if (
+                            menu !== trigger
+                            && !menu.contains(
+                                trigger
+                            )
+                        ) {
+                            found.add(
+                                menu
+                            );
+                        }
+                    }
+                );
+        }
+
+        return Array.from(
+            found
+        );
+    }
+
+
+    function itemMatchesProtectedForm(
+        item
+    ) {
+        const href =
+            item.getAttribute
+                ? item.getAttribute(
+                    'href'
+                )
+                : null;
+
+        if (
+            href
+            && protectedEditUrls.has(
+                normalizeUrl(href)
+            )
+        ) {
+            return true;
+        }
+
+        const value =
+            item.value
+            ? String(item.value)
+            : '';
+
+        const text =
+            (
+                item.textContent
+                || ''
+            )
+            .replace(
+                /\s+/g,
+                ' '
+            )
+            .trim()
+            .toLowerCase();
+
+        for (
+            const form
+            of protectedForms
+        ) {
+            if (!form) {
+                continue;
+            }
+
+            if (
+                value
+                && form.id !== undefined
+                && String(form.id) === value
+            ) {
+                return true;
+            }
+
+            const name =
+                String(
+                    form.name
+                    || ''
+                )
+                .trim()
+                .toLowerCase();
+
+            if (
+                name
+                && (
+                    text === name
+                    || text.startsWith(
+                        name + ' '
+                    )
+                )
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+
+    /*
+     * Hide system Auth Forms ONLY inside the Add Form
+     * dropdown/menu.
+     */
+    function filterAddFormMenus() {
+        document
+            .querySelectorAll(
+                '[data-esubiz-auth-add-form="1"]'
+            )
+            .forEach(
+                function (trigger) {
+                    candidateMenus(
+                        trigger
+                    ).forEach(
+                        function (menu) {
+                            menu
+                                .querySelectorAll(
+                                    'a, button, option, [role="menuitem"]'
+                                )
+                                .forEach(
+                                    function (item) {
+                                        if (
+                                            itemMatchesProtectedForm(
+                                                item
+                                            )
+                                        ) {
+                                            item.classList.add(
+                                                'esubiz-core-auth-system-option-hidden'
+                                            );
+
+                                            if (
+                                                item.tagName ===
+                                                'OPTION'
+                                            ) {
+                                                item.disabled =
+                                                    true;
+
+                                                item.hidden =
+                                                    true;
+                                            }
+                                        }
+                                    }
+                                );
+                        }
+                    );
+                }
+            );
+    }
+
+
+    /*
+     * Default Role:
+     *
+     * Populate every Auth Form role_id select from the live
+     * Core roles provided by the controller/site_roles.
+     *
+     * This is rerun whenever the selected Auth Form config
+     * panel is dynamically rendered.
+     */
+    function populateRoleSelect(
+        select
+    ) {
+        if (
+            !select
+            || select.dataset
+                .esubizRolesLoaded === '1'
+        ) {
+            return;
+        }
+
+        const current =
+            String(
+                select.value
+                || ''
+            );
+
+        select.innerHTML =
+            '';
+
+        const placeholder =
+            document.createElement(
+                'option'
+            );
+
+        placeholder.value =
+            '';
+
+        placeholder.textContent =
+            'Select default role';
+
+        select.appendChild(
+            placeholder
+        );
+
+        roles.forEach(
+            function (role) {
+                if (
+                    !role
+                    || role.id === undefined
+                ) {
+                    return;
+                }
+
+                const option =
+                    document.createElement(
+                        'option'
+                    );
+
+                option.value =
+                    String(
+                        role.id
+                    );
+
+                option.textContent =
+                    role.name
+                    || role.slug
+                    || (
+                        'Role '
+                        + role.id
+                    );
+
+                if (
+                    String(role.id)
+                    === current
+                ) {
+                    option.selected =
+                        true;
+                }
+
+                select.appendChild(
+                    option
+                );
+            }
+        );
+
+        select.dataset
+            .esubizRolesLoaded =
+            '1';
+    }
+
+
+    function populateRoleSelectors() {
+        document
+            .querySelectorAll(
+                'select[name*="auth_form_config"][name$="[role_id]"]'
+            )
+            .forEach(
+                populateRoleSelect
+            );
+    }
+
+
+    /*
+     * Intercept canonical Registration "Edit Form" URLs.
+     *
+     * Existing Blade markup does not need to be changed.
+     */
+    document.addEventListener(
+        'click',
+        function (event) {
+            const closeButton =
+                event.target.closest(
+                    '[data-esubiz-close-registration-editor]'
+                );
+
+            if (closeButton) {
+                event.preventDefault();
+
+                closeRegistrationEditor();
+
+                return;
+            }
+
+            const clickedLink =
+                event.target.closest(
+                    'a[href]'
+                );
+
+            if (clickedLink) {
+                const url =
+                    normalizeUrl(
+                        clickedLink.href
+                    );
+
+                if (
+                    registrationEditUrls.has(
+                        url
+                    )
+                ) {
+                    event.preventDefault();
+
+                    openRegistrationEditor(
+                        registrationEditUrls.get(
+                            url
+                        )
+                    );
+
+                    return;
+                }
+            }
+
+            const addTrigger =
+                event.target.closest(
+                    '[data-esubiz-auth-add-form="1"]'
+                );
+
+            if (addTrigger) {
+                /*
+                 * Allow existing dropdown behaviour to run,
+                 * then filter its rendered menu.
+                 */
+                window.setTimeout(
+                    filterAddFormMenus,
+                    0
+                );
+
+                window.setTimeout(
+                    filterAddFormMenus,
+                    50
+                );
+            }
+
+            if (
+                editor
+                && event.target === editor
+            ) {
+                closeRegistrationEditor();
+            }
+        },
+        true
+    );
+
+
+    document.addEventListener(
+        'keydown',
+        function (event) {
+            if (
+                event.key === 'Escape'
+                && editor
+                && editor.classList.contains(
+                    'is-open'
+                )
+            ) {
+                closeRegistrationEditor();
+            }
+        }
+    );
+
+
+    /*
+     * Auth configuration sections are dynamically loaded,
+     * therefore observe DOM updates rather than depending
+     * on one initial render.
+     */
+    let refreshQueued =
+        false;
+
+    function refreshRuntimeUi() {
+        if (refreshQueued) {
+            return;
+        }
+
+        refreshQueued =
+            true;
+
+        window.requestAnimationFrame(
+            function () {
+                refreshQueued =
+                    false;
+
+                styleAddFormButtons();
+                populateRoleSelectors();
+                filterAddFormMenus();
+            }
+        );
+    }
+
+
+    const observer =
+        new MutationObserver(
+            refreshRuntimeUi
+        );
+
+    observer.observe(
+        document.documentElement,
+        {
+            childList: true,
+            subtree: true
+        }
+    );
+
+
+    /*
+     * Initial render.
+     */
+    refreshRuntimeUi();
+
+})();
+</script>
+
+
+{{-- ESUBIZ_CORE_AUTH_PROVIDER_CONNECTION_MODE_ASSETS_V1C --}}
+
+<style>
+
+/* ESUBIZ_CORE_AUTH_PROVIDER_SELECTOR_ALL_STYLE_V2 */
+
+.core-provider-native-managed {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 48px;
+    padding: 10px 12px;
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    background: #eff6ff;
+}
+
+.core-provider-native-dot {
+    width: 10px;
+    height: 10px;
+    flex: 0 0 10px;
+    border-radius: 999px;
+    background: #2563eb;
+}
+
+.core-provider-native-managed strong {
+    display: block;
+    color: #1d4ed8;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.core-provider-native-managed small {
+    display: block;
+    margin-top: 2px;
+    color: #64748b;
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+
+.core-provider-mode {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.core-provider-mode-label {
+    margin-bottom: 9px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.core-provider-mode-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.core-provider-mode-choice {
+    position: relative;
+    cursor: pointer;
+}
+
+.core-provider-mode-choice input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.core-provider-mode-choice span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    padding: 9px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #fff;
+    color: #475569;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+    transition:
+        border-color .15s ease,
+        background-color .15s ease,
+        color .15s ease;
+}
+
+.core-provider-mode-choice input:checked + span {
+    border-color: #2563eb;
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.core-provider-mode-help {
+    margin: 9px 0 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #64748b;
+}
+
+[data-core-custom-credentials][hidden],
+[data-core-esubiz-help][hidden] {
+    display: none !important;
+}
+
+@media (max-width: 640px) {
+    .core-provider-mode-options {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<script>
+document.addEventListener(
+    'DOMContentLoaded',
+    function () {
+
+        document
+            .querySelectorAll('.provider-card')
+            .forEach(function (card) {
+
+                const radios =
+                    card.querySelectorAll(
+                        '[data-core-provider-mode-input]'
+                    );
+
+                const credentials =
+                    card.querySelector(
+                        '[data-core-custom-credentials]'
+                    );
+
+                const esubizHelp =
+                    card.querySelector(
+                        '[data-core-esubiz-help]'
+                    );
+
+                if (
+                    !radios.length
+                    || !credentials
+                ) {
+                    return;
+                }
+
+                const refresh = function () {
+
+                    const selected =
+                        card.querySelector(
+                            '[data-core-provider-mode-input]:checked'
+                        );
+
+                    const mode =
+                        selected
+                            ? selected.value
+                            : 'esubiz';
+
+                    credentials.hidden =
+                        mode !== 'custom';
+
+                    if (esubizHelp) {
+                        esubizHelp.hidden =
+                            mode !== 'esubiz';
+                    }
+                };
+
+                radios.forEach(
+                    function (radio) {
+
+                        radio.addEventListener(
+                            'change',
+                            refresh
+                        );
+                    }
+                );
+
+                refresh();
+            });
+    }
+);
+</script>
+

@@ -195,6 +195,30 @@
                 Theme Configuration
             </h1>
 
+                {{-- ESUBIZ_THEME_CONFIG_AI_ASSIST_BUTTON_V2 --}}
+                <div class="mt-3">
+                    <button
+                        type="button"
+                        data-esubiz-ai-assist-open
+                        class="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-black text-white shadow-sm hover:bg-blue-700"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            class="h-4 w-4"
+                            aria-hidden="true"
+                        >
+                            <path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8L12 3Z"/>
+                            <path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15Z"/>
+                        </svg>
+
+                        AI Assist
+                    </button>
+                </div>
+
             <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
                 Every visible homepage section can be customized here.
             </p>

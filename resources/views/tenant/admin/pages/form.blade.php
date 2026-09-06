@@ -269,6 +269,28 @@
             + Add Section
         </button>
 
+        {{-- ESUBIZ_PAGE_BUILDER_AI_ASSIST_BUTTON_V2 --}}
+        <button
+            type="button"
+            data-esubiz-ai-assist-open
+            class="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-sm hover:bg-blue-700"
+        >
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                class="h-4 w-4"
+                aria-hidden="true"
+            >
+                <path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8L12 3Z"/>
+                <path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15Z"/>
+            </svg>
+
+            AI Assist
+        </button>
+
 
 
 
@@ -2948,6 +2970,16 @@
 
                             <button
                                 type="button"
+                                data-section-settings
+                                class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-black text-blue-600 hover:bg-blue-100"
+                                title="Section settings"
+                                aria-label="Section settings"
+                            >
+                                Settings
+                            </button>
+
+                            <button
+                                type="button"
                                 class="eb-toggle-section rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-black text-slate-600 hover:bg-slate-50"
                                 aria-expanded="${section.collapsed ? 'false' : 'true'}"
                                 title="${section.collapsed ? 'Expand section' : 'Collapse section'}"
@@ -2994,6 +3026,27 @@
                         sectionEl.querySelector(
                             '.eb-toggle-section'
                         );
+
+                    const sectionSettingsButton =
+                        sectionEl.querySelector(
+                            '[data-section-settings]'
+                        );
+
+                    sectionSettingsButton
+                        ?.addEventListener(
+                            'click',
+                            event => {
+
+                                event.preventDefault();
+                                event.stopPropagation();
+
+                                openProContainerEditor(
+                                    section.id,
+                                    null
+                                );
+                            }
+                        );
+
 
                     if (sectionToggle) {
                         sectionToggle.addEventListener(
@@ -3129,13 +3182,23 @@ section.columns.forEach(
 
                         columnEl.innerHTML = `
                             <div
-                                class="mb-3 flex items-center justify-between"
+                                class="mb-3 flex items-center justify-between gap-2"
                             >
                                 <span
                                     class="text-[10px] font-black uppercase tracking-wide text-slate-400"
                                 >
                                     Column ${columnIndex + 1}
                                 </span>
+
+                                <button
+                                    type="button"
+                                    data-column-settings
+                                    class="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-[10px] font-black text-blue-600 hover:bg-blue-100"
+                                    title="Column settings"
+                                    aria-label="Column settings"
+                                >
+                                    Settings
+                                </button>
                             </div>
 
                             <div
@@ -3151,6 +3214,27 @@ section.columns.forEach(
                                 + Add Widget
                             </button>
                         `;
+
+
+                        const columnSettingsButton =
+                            columnEl.querySelector(
+                                '[data-column-settings]'
+                            );
+
+                        columnSettingsButton
+                            ?.addEventListener(
+                                'click',
+                                event => {
+
+                                    event.preventDefault();
+                                    event.stopPropagation();
+
+                                    openProContainerEditor(
+                                        section.id,
+                                        column.id
+                                    );
+                                }
+                            );
 
 
                         /*
@@ -11012,10 +11096,12 @@ section.columns.forEach(
                     section.id;
 
 
-                sectionEl.style.display =
-                    proContainerVisible(section)
-                        ? ''
-                        : 'none';
+                /*
+                 * ESUBIZ_PRO_VISIBILITY_PUBLIC_ONLY_V2
+                 *
+                 * Do not apply responsive visibility
+                 * inside the editor.
+                 */
 
 
                 const sectionContent =
@@ -11151,7 +11237,8 @@ section.columns.forEach(
 
 
                 if (
-                    !sectionEl.querySelector(
+                    false
+                    && !sectionEl.querySelector(
                         ':scope > [data-pro-section-tools]'
                     )
                 ) {
@@ -11247,10 +11334,12 @@ section.columns.forEach(
                             column.id;
 
 
-                        columnEl.style.display =
-                            proContainerVisible(column)
-                                ? ''
-                                : 'none';
+                        /*
+                         * ESUBIZ_PRO_VISIBILITY_PUBLIC_ONLY_V2
+                         *
+                         * Do not apply responsive visibility
+                         * inside the editor.
+                         */
 
 
                         columnEl.style.cssText +=
@@ -11363,7 +11452,8 @@ section.columns.forEach(
 
 
                         if (
-                            !columnEl.querySelector(
+                            false
+                            && !columnEl.querySelector(
                                 ':scope > [data-pro-column-tools]'
                             )
                         ) {
@@ -11452,43 +11542,78 @@ section.columns.forEach(
         );
 
         modal.className =
-            'fixed inset-0 z-[100] flex items-center justify-end bg-slate-950/40';
+            'fixed inset-0 z-[100] flex items-stretch justify-end bg-slate-950/40 p-0 sm:p-3';
 
         modal.innerHTML = `
             <div
-                class="h-full w-full max-w-xl overflow-y-auto bg-white shadow-2xl"
+                class="flex h-full max-h-[100dvh] w-full max-w-xl flex-col overflow-hidden bg-white shadow-2xl sm:h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-1.5rem)] sm:rounded-2xl"
             >
+                {{-- ESUBIZ_PAGE_BUILDER_PRO_CONTAINER_MODAL_HEADER_V2 --}}
                 <div
-                    class="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4"
+                    class="shrink-0 border-b border-slate-200 bg-white px-4 py-4 sm:px-6"
                 >
-                    <div>
-                        <div
-                            id="proContainerEditorTitle"
-                            class="text-lg font-black text-slate-900"
-                        >
-                            Pro Background
-                        </div>
-
-                        <div
-                            class="mt-1 text-xs text-slate-400"
-                        >
-                            Saved inside this website's page document.
-                        </div>
-                    </div>
-
-                    <button
-                        type="button"
-                        data-pro-container-close
-                        class="rounded-xl border border-slate-200 px-3 py-2 text-sm font-black"
+                    <div
+                        class="flex items-start justify-between gap-4"
                     >
-                        Close
-                    </button>
+                        <div class="min-w-0">
+                            <div
+                                id="proContainerEditorTitle"
+                                class="text-lg font-black text-slate-900"
+                            >
+                                Pro Background
+                            </div>
+
+                            <div
+                                class="mt-1 text-xs leading-5 text-slate-400"
+                            >
+                                Saved inside this website's page document.
+                            </div>
+                        </div>
+
+                        <button
+                            type="button"
+                            data-pro-container-close
+                            aria-label="Close settings"
+                            class="shrink-0 rounded-xl border border-slate-200 px-3 py-2 text-sm font-black text-slate-700 hover:bg-slate-50"
+                        >
+                            Close
+                        </button>
+                    </div>
                 </div>
 
+
+                {{-- ESUBIZ_PAGE_BUILDER_PRO_CONTAINER_MODAL_SCROLL_BODY_V2 --}}
                 <div
                     id="proContainerEditorBody"
-                    class="space-y-6 p-6"
+                    class="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6 sm:py-6"
+                    style="-webkit-overflow-scrolling: touch;"
                 ></div>
+
+
+                {{-- ESUBIZ_PAGE_BUILDER_PRO_CONTAINER_MODAL_FOOTER_V2 --}}
+                <div
+                    class="shrink-0 border-t border-slate-200 bg-white px-4 py-4 sm:px-6"
+                >
+                    <div
+                        class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"
+                    >
+                        <button
+                            type="button"
+                            data-pro-container-close-footer
+                            class="w-full rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-black text-slate-700 hover:bg-slate-50 sm:w-auto"
+                        >
+                            Close
+                        </button>
+
+                        <button
+                            type="button"
+                            data-pro-container-okay
+                            class="w-full rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-black text-white hover:bg-slate-800 sm:w-auto"
+                        >
+                            Okay
+                        </button>
+                    </div>
+                </div>
             </div>
         `;
 
@@ -11505,6 +11630,36 @@ section.columns.forEach(
             .addEventListener(
                 'click',
                 closeProContainerEditor
+            );
+
+
+        modal
+            .querySelector(
+                '[data-pro-container-close-footer]'
+            )
+            .addEventListener(
+                'click',
+                closeProContainerEditor
+            );
+
+
+        modal
+            .querySelector(
+                '[data-pro-container-okay]'
+            )
+            .addEventListener(
+                'click',
+                () => {
+
+                    /*
+                     * Settings already persist immediately through
+                     * proCommitContainerChange().
+                     *
+                     * Okay therefore confirms the current settings
+                     * and closes the editor, matching widget-modal UX.
+                     */
+                    closeProContainerEditor();
+                }
             );
 
 
@@ -11587,14 +11742,163 @@ section.columns.forEach(
             background.overlay;
 
 
+        /*
+         * ESUBIZ_PAGE_BUILDER_PRO_CONTAINER_ANIMATION_STATE_V2
+         *
+         * Animation belongs only to section.pro / column.pro.
+         * Old documents without animation metadata remain valid.
+         */
+        if (
+            !pro.animation
+            || typeof pro.animation !== 'object'
+        ) {
+            pro.animation = {};
+        }
+
+        if (
+            ![
+                'none',
+                'fade-in',
+                'fade-up',
+                'fade-down',
+                'fade-left',
+                'fade-right',
+                'zoom-in'
+            ].includes(
+                pro.animation.type
+            )
+        ) {
+            pro.animation.type =
+                'none';
+        }
+
+        pro.animation.duration =
+            Number.isFinite(
+                Number(
+                    pro.animation.duration
+                )
+            )
+                ? Math.max(
+                    0,
+                    Number(
+                        pro.animation.duration
+                    )
+                )
+                : 600;
+
+        pro.animation.delay =
+            Number.isFinite(
+                Number(
+                    pro.animation.delay
+                )
+            )
+                ? Math.max(
+                    0,
+                    Number(
+                        pro.animation.delay
+                    )
+                )
+                : 0;
+
+
+        /*
+         * ESUBIZ_PAGE_BUILDER_PRO_CONTAINER_PARALLAX_HOVER_STATE_V1
+         *
+         * Stored only in section.pro.animation / column.pro.animation.
+         * Existing documents remain backward compatible.
+         */
+
+        if (
+            !pro.animation.parallax
+            || typeof pro.animation.parallax !== 'object'
+        ) {
+            pro.animation.parallax = {};
+        }
+
+        pro.animation.parallax.enabled =
+            pro.animation.parallax.enabled === true;
+
+        if (
+            ![
+                'vertical',
+                'horizontal'
+            ].includes(
+                pro.animation.parallax.direction
+            )
+        ) {
+            pro.animation.parallax.direction =
+                'vertical';
+        }
+
+        pro.animation.parallax.speed =
+            Number.isFinite(
+                Number(
+                    pro.animation.parallax.speed
+                )
+            )
+                ? Math.min(
+                    1,
+                    Math.max(
+                        0.10,
+                        Number(
+                            pro.animation.parallax.speed
+                        )
+                    )
+                )
+                : 0.25;
+
+
+        if (
+            !pro.animation.hover
+            || typeof pro.animation.hover !== 'object'
+        ) {
+            pro.animation.hover = {};
+        }
+
+        if (
+            ![
+                'none',
+                'lift',
+                'grow',
+                'shrink',
+                'tilt-left',
+                'tilt-right',
+                'fade',
+                'glow'
+            ].includes(
+                pro.animation.hover.type
+            )
+        ) {
+            pro.animation.hover.type =
+                'none';
+        }
+
+        pro.animation.hover.duration =
+            Number.isFinite(
+                Number(
+                    pro.animation.hover.duration
+                )
+            )
+                ? Math.max(
+                    0,
+                    Number(
+                        pro.animation.hover.duration
+                    )
+                )
+                : 300;
+
+        const animation =
+            pro.animation;
+
+
         modal
             .querySelector(
                 '#proContainerEditorTitle'
             )
             .textContent =
                 target.kind === 'section'
-                    ? 'Section Pro'
-                    : 'Column Pro';
+                    ? 'Section Settings'
+                    : 'Column Settings';
 
 
         body.innerHTML = `
@@ -11695,15 +11999,35 @@ section.columns.forEach(
                         ${proEditorField(
                             'Background Color',
                             `
-                                <input
-                                    type="color"
-                                    data-pro-background-color
-                                    value="${escapeHtml(
-                                        background.color
-                                        || '#ffffff'
-                                    )}"
-                                    class="h-12 w-full rounded-xl border border-slate-200 bg-white p-1"
+                                <div
+                                    class="grid grid-cols-[64px_minmax(0,1fr)] gap-3"
                                 >
+                                    <input
+                                        type="color"
+                                        data-pro-background-color
+                                        value="${escapeHtml(
+                                            background.color
+                                            || '#ffffff'
+                                        )}"
+                                        class="h-12 w-full cursor-pointer rounded-xl border border-slate-200 bg-white p-1"
+                                    >
+
+                                    <input
+                                        type="text"
+                                        data-pro-background-color-code
+                                        value="${escapeHtml(
+                                            (
+                                                background.color
+                                                || '#ffffff'
+                                            ).toUpperCase()
+                                        )}"
+                                        placeholder="#000000"
+                                        maxlength="7"
+                                        autocomplete="off"
+                                        spellcheck="false"
+                                        class="h-12 w-full rounded-xl border border-slate-300 px-3 font-mono text-sm font-bold uppercase text-slate-700"
+                                    >
+                                </div>
                             `
                         )}
                     </div>
@@ -11755,11 +12079,17 @@ section.columns.forEach(
 
                             <input
                                 type="file"
-                                accept="image/jpeg,image/png,image/webp,image/gif"
+                                accept="image/jpeg,image/png,image/webp"
                                 data-pro-background-image-file
                                 class="hidden"
                             >
                         </label>
+
+                        {{-- ESUBIZ_PAGE_BUILDER_PRO_IMAGE_UPLOAD_STATUS_V5 --}}
+                        <div
+                            data-pro-background-image-upload-status
+                            class="min-h-[18px] text-xs font-bold text-slate-500"
+                        ></div>
 
                         ${
                             background.image
@@ -11842,6 +12172,12 @@ section.columns.forEach(
                             >
                         </label>
 
+                        {{-- ESUBIZ_PAGE_BUILDER_PRO_VIDEO_UPLOAD_STATUS_V5 --}}
+                        <div
+                            data-pro-background-video-upload-status
+                            class="min-h-[18px] text-xs font-bold text-slate-500"
+                        ></div>
+
                         ${
                             video.upload
                                 ? `
@@ -11916,15 +12252,35 @@ section.columns.forEach(
                     ${proEditorField(
                         'Overlay Color',
                         `
-                            <input
-                                type="color"
-                                data-pro-overlay-color
-                                value="${escapeHtml(
-                                    overlay.color
-                                    || '#000000'
-                                )}"
-                                class="h-12 w-full rounded-xl border border-slate-200 bg-white p-1"
+                            <div
+                                class="grid grid-cols-[64px_minmax(0,1fr)] gap-3"
                             >
+                                <input
+                                    type="color"
+                                    data-pro-overlay-color
+                                    value="${escapeHtml(
+                                        overlay.color
+                                        || '#000000'
+                                    )}"
+                                    class="h-12 w-full cursor-pointer rounded-xl border border-slate-200 bg-white p-1"
+                                >
+
+                                <input
+                                    type="text"
+                                    data-pro-overlay-color-code
+                                    value="${escapeHtml(
+                                        (
+                                            overlay.color
+                                            || '#000000'
+                                        ).toUpperCase()
+                                    )}"
+                                    placeholder="#000000"
+                                    maxlength="7"
+                                    autocomplete="off"
+                                    spellcheck="false"
+                                    class="h-12 w-full rounded-xl border border-slate-300 px-3 font-mono text-sm font-bold uppercase text-slate-700"
+                                >
+                            </div>
                         `
                     )}
 
@@ -11948,10 +12304,298 @@ section.columns.forEach(
             </div>
 
 
+            {{-- ESUBIZ_PAGE_BUILDER_PRO_CONTAINER_ANIMATION_SETTINGS_V2 --}}
             <div
-                data-pro-container-upload-status
-                class="text-xs font-bold text-slate-400"
-            ></div>
+                class="rounded-2xl border border-slate-200 p-4"
+            >
+                <div
+                    class="text-sm font-black text-slate-900"
+                >
+                    Animation
+                </div>
+
+                <div class="mt-4 space-y-4">
+
+                    ${proEditorField(
+                        'Animation Type',
+                        `
+                            <select
+                                data-pro-container-animation-type
+                                class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
+                            >
+                                ${[
+                                    ['none', 'None'],
+                                    ['fade-in', 'Fade In'],
+                                    ['fade-up', 'Fade Up'],
+                                    ['fade-down', 'Fade Down'],
+                                    ['fade-left', 'Fade Left'],
+                                    ['fade-right', 'Fade Right'],
+                                    ['zoom-in', 'Zoom In']
+                                ].map(
+                                    ([value,label]) => `
+                                        <option
+                                            value="${value}"
+                                            ${
+                                                animation.type === value
+                                                    ? 'selected'
+                                                    : ''
+                                            }
+                                        >
+                                            ${label}
+                                        </option>
+                                    `
+                                ).join('')}
+                            </select>
+                        `
+                    )}
+
+                    <div class="grid grid-cols-2 gap-4">
+
+                        ${proEditorField(
+                            'Duration (ms)',
+                            `
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="50"
+                                    data-pro-container-animation-duration
+                                    value="${escapeHtml(
+                                        String(
+                                            animation.duration
+                                        )
+                                    )}"
+                                    class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
+                                >
+                            `
+                        )}
+
+                        ${proEditorField(
+                            'Delay (ms)',
+                            `
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="50"
+                                    data-pro-container-animation-delay
+                                    value="${escapeHtml(
+                                        String(
+                                            animation.delay
+                                        )
+                                    )}"
+                                    class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
+                                >
+                            `
+                        )}
+
+                    </div>
+
+                    <div
+                        class="rounded-xl bg-slate-50 p-3 text-[11px] leading-5 text-slate-500"
+                    >
+                        Animation is saved with this section or column.
+                        Public-page execution will be connected separately.
+                    </div>
+
+                </div>
+            </div>
+
+
+            {{-- ESUBIZ_PAGE_BUILDER_PRO_CONTAINER_PARALLAX_HOVER_SETTINGS_V1 --}}
+
+            <div
+                class="rounded-2xl border border-slate-200 p-4"
+            >
+                <div
+                    class="text-sm font-black text-slate-900"
+                >
+                    Parallax
+                </div>
+
+                <div
+                    class="mt-1 text-xs leading-5 text-slate-500"
+                >
+                    Apply scroll-based movement to this section or column
+                    on the public website.
+                </div>
+
+                <div class="mt-4 space-y-4">
+
+                    <label
+                        class="flex items-center justify-between gap-4 rounded-xl border border-slate-200 px-4 py-3"
+                    >
+                        <span>
+                            <span
+                                class="block text-sm font-bold text-slate-800"
+                            >
+                                Enable Parallax
+                            </span>
+
+                            <span
+                                class="block text-xs text-slate-500"
+                            >
+                                Public view only
+                            </span>
+                        </span>
+
+                        <input
+                            type="checkbox"
+                            data-pro-container-parallax-enabled
+                            ${
+                                animation.parallax.enabled
+                                    ? 'checked'
+                                    : ''
+                            }
+                            class="h-5 w-5 rounded border-slate-300"
+                        >
+                    </label>
+
+
+                    ${proEditorField(
+                        'Direction',
+                        `
+                            <select
+                                data-pro-container-parallax-direction
+                                class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
+                            >
+                                ${[
+                                    ['vertical', 'Vertical'],
+                                    ['horizontal', 'Horizontal']
+                                ].map(
+                                    ([value,label]) => `
+                                        <option
+                                            value="${value}"
+                                            ${
+                                                animation.parallax.direction === value
+                                                    ? 'selected'
+                                                    : ''
+                                            }
+                                        >
+                                            ${label}
+                                        </option>
+                                    `
+                                ).join('')}
+                            </select>
+                        `
+                    )}
+
+
+                    ${proEditorField(
+                        'Speed',
+                        `
+                            <div
+                                class="grid grid-cols-[minmax(0,1fr)_90px] items-center gap-3"
+                            >
+                                <input
+                                    type="range"
+                                    min="0.10"
+                                    max="1"
+                                    step="0.05"
+                                    data-pro-container-parallax-speed-range
+                                    value="${escapeHtml(
+                                        String(
+                                            animation.parallax.speed
+                                        )
+                                    )}"
+                                    class="w-full"
+                                >
+
+                                <input
+                                    type="number"
+                                    min="0.10"
+                                    max="1"
+                                    step="0.05"
+                                    data-pro-container-parallax-speed
+                                    value="${escapeHtml(
+                                        String(
+                                            animation.parallax.speed
+                                        )
+                                    )}"
+                                    class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
+                                >
+                            </div>
+                        `
+                    )}
+
+                </div>
+            </div>
+
+
+            <div
+                class="rounded-2xl border border-slate-200 p-4"
+            >
+                <div
+                    class="text-sm font-black text-slate-900"
+                >
+                    Hover Animation
+                </div>
+
+                <div
+                    class="mt-1 text-xs leading-5 text-slate-500"
+                >
+                    Apply an effect when a visitor hovers this
+                    section or column.
+                </div>
+
+                <div class="mt-4 space-y-4">
+
+                    ${proEditorField(
+                        'Hover Effect',
+                        `
+                            <select
+                                data-pro-container-hover-type
+                                class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
+                            >
+                                ${[
+                                    ['none', 'None'],
+                                    ['lift', 'Lift'],
+                                    ['grow', 'Grow'],
+                                    ['shrink', 'Shrink'],
+                                    ['tilt-left', 'Tilt Left'],
+                                    ['tilt-right', 'Tilt Right'],
+                                    ['fade', 'Fade'],
+                                    ['glow', 'Glow']
+                                ].map(
+                                    ([value,label]) => `
+                                        <option
+                                            value="${value}"
+                                            ${
+                                                animation.hover.type === value
+                                                    ? 'selected'
+                                                    : ''
+                                            }
+                                        >
+                                            ${label}
+                                        </option>
+                                    `
+                                ).join('')}
+                            </select>
+                        `
+                    )}
+
+
+                    ${proEditorField(
+                        'Hover Duration (ms)',
+                        `
+                            <input
+                                type="number"
+                                min="0"
+                                step="50"
+                                data-pro-container-hover-duration
+                                value="${escapeHtml(
+                                    String(
+                                        animation.hover.duration
+                                    )
+                                )}"
+                                class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm"
+                            >
+                        `
+                    )}
+
+                </div>
+            </div>
+
+
+
         `;
 
 
@@ -12020,7 +12664,9 @@ section.columns.forEach(
 
         if (statusElement) {
             statusElement.textContent =
-                'Uploading to this website’s media storage...';
+                kind === 'image'
+                    ? 'Uploading image to this website’s media storage...'
+                    : 'Uploading video to this website’s media storage...';
         }
 
 
@@ -12071,15 +12717,24 @@ section.columns.forEach(
         }
 
 
+        /*
+         * ESUBIZ_PAGE_BUILDER_PRO_MEDIA_RESPONSE_CONTRACT_V5
+         *
+         * Core TenantMediaController returns both an internal
+         * storage path and a public tenant media URL.
+         *
+         * Pro uses the public media URL for preview and public
+         * rendering while Core continues owning the stored file.
+         */
         const path =
-            payload.path
-            || payload.url
+            payload.url
+            || payload.data?.url
+            || payload.path
+            || payload.data?.path
             || payload.file
             || payload.file_path
             || payload.image_path
             || payload.video_path
-            || payload.data?.path
-            || payload.data?.url
             || payload.data?.file_path
             || payload.data?.image_path
             || payload.data?.video_path
@@ -12095,7 +12750,9 @@ section.columns.forEach(
 
         if (statusElement) {
             statusElement.textContent =
-                'Upload complete.';
+                kind === 'image'
+                    ? 'Image upload complete.'
+                    : 'Video upload complete.';
         }
 
 
@@ -12127,6 +12784,239 @@ section.columns.forEach(
         item.pro =
             proMergeContainerState(
                 item.pro
+            );
+
+
+        /*
+         * ESUBIZ_PAGE_BUILDER_PRO_CONTAINER_ANIMATION_BINDINGS_V2
+         */
+        body
+            .querySelector(
+                '[data-pro-container-animation-type]'
+            )
+            ?.addEventListener(
+                'change',
+                event => {
+
+                    item.pro.animation.type =
+                        event.target.value;
+
+                    proCommitContainerChange();
+                }
+            );
+
+
+        body
+            .querySelector(
+                '[data-pro-container-animation-duration]'
+            )
+            ?.addEventListener(
+                'change',
+                event => {
+
+                    item.pro.animation.duration =
+                        Math.max(
+                            0,
+                            Number(
+                                event.target.value
+                            ) || 0
+                        );
+
+                    proCommitContainerChange();
+                }
+            );
+
+
+        body
+            .querySelector(
+                '[data-pro-container-animation-delay]'
+            )
+            ?.addEventListener(
+                'change',
+                event => {
+
+                    item.pro.animation.delay =
+                        Math.max(
+                            0,
+                            Number(
+                                event.target.value
+                            ) || 0
+                        );
+
+                    proCommitContainerChange();
+                }
+            );
+
+
+        /*
+         * ESUBIZ_PAGE_BUILDER_PRO_CONTAINER_PARALLAX_HOVER_BINDINGS_V1
+         */
+
+        body
+            .querySelector(
+                '[data-pro-container-parallax-enabled]'
+            )
+            ?.addEventListener(
+                'change',
+                event => {
+
+                    item.pro.animation.parallax.enabled =
+                        event.target.checked;
+
+                    proCommitContainerChange();
+                }
+            );
+
+
+        body
+            .querySelector(
+                '[data-pro-container-parallax-direction]'
+            )
+            ?.addEventListener(
+                'change',
+                event => {
+
+                    item.pro.animation.parallax.direction =
+                        [
+                            'vertical',
+                            'horizontal'
+                        ].includes(
+                            event.target.value
+                        )
+                            ? event.target.value
+                            : 'vertical';
+
+                    proCommitContainerChange();
+                }
+            );
+
+
+        const proParallaxSpeedRange =
+            body.querySelector(
+                '[data-pro-container-parallax-speed-range]'
+            );
+
+        const proParallaxSpeedInput =
+            body.querySelector(
+                '[data-pro-container-parallax-speed]'
+            );
+
+
+        const proSetContainerParallaxSpeed =
+            value => {
+
+                const speed =
+                    Math.min(
+                        1,
+                        Math.max(
+                            0.10,
+                            Number(value)
+                            || 0.25
+                        )
+                    );
+
+                item.pro.animation.parallax.speed =
+                    speed;
+
+                if (proParallaxSpeedRange) {
+                    proParallaxSpeedRange.value =
+                        String(speed);
+                }
+
+                if (proParallaxSpeedInput) {
+                    proParallaxSpeedInput.value =
+                        String(speed);
+                }
+
+                proCommitContainerChange();
+            };
+
+
+        proParallaxSpeedRange
+            ?.addEventListener(
+                'input',
+                event => {
+
+                    if (proParallaxSpeedInput) {
+                        proParallaxSpeedInput.value =
+                            event.target.value;
+                    }
+                }
+            );
+
+
+        proParallaxSpeedRange
+            ?.addEventListener(
+                'change',
+                event => {
+
+                    proSetContainerParallaxSpeed(
+                        event.target.value
+                    );
+                }
+            );
+
+
+        proParallaxSpeedInput
+            ?.addEventListener(
+                'change',
+                event => {
+
+                    proSetContainerParallaxSpeed(
+                        event.target.value
+                    );
+                }
+            );
+
+
+        body
+            .querySelector(
+                '[data-pro-container-hover-type]'
+            )
+            ?.addEventListener(
+                'change',
+                event => {
+
+                    const value =
+                        event.target.value;
+
+                    item.pro.animation.hover.type =
+                        [
+                            'none',
+                            'lift',
+                            'grow',
+                            'shrink',
+                            'tilt-left',
+                            'tilt-right',
+                            'fade',
+                            'glow'
+                        ].includes(value)
+                            ? value
+                            : 'none';
+
+                    proCommitContainerChange();
+                }
+            );
+
+
+        body
+            .querySelector(
+                '[data-pro-container-hover-duration]'
+            )
+            ?.addEventListener(
+                'change',
+                event => {
+
+                    item.pro.animation.hover.duration =
+                        Math.max(
+                            0,
+                            Number(
+                                event.target.value
+                            ) || 0
+                        );
+
+                    proCommitContainerChange();
+                }
             );
 
 
@@ -12178,8 +13068,78 @@ section.columns.forEach(
                 'input',
                 event => {
 
+                    const value =
+                        event.target.value
+                            .toUpperCase();
+
                     item.pro.background.color =
-                        event.target.value;
+                        value;
+
+                    const codeInput =
+                        body.querySelector(
+                            '[data-pro-background-color-code]'
+                        );
+
+                    if (codeInput) {
+                        codeInput.value =
+                            value;
+                    }
+
+                    proCommitContainerChange();
+                }
+            );
+
+
+        body
+            .querySelector(
+                '[data-pro-background-color-code]'
+            )
+            ?.addEventListener(
+                'change',
+                event => {
+
+                    let value =
+                        event.target.value
+                            .trim()
+                            .toUpperCase();
+
+                    if (
+                        value
+                        && !value.startsWith('#')
+                    ) {
+                        value =
+                            '#' + value;
+                    }
+
+                    if (
+                        !/^#[0-9A-F]{6}$/.test(
+                            value
+                        )
+                    ) {
+                        event.target.value =
+                            (
+                                item.pro.background.color
+                                || '#FFFFFF'
+                            ).toUpperCase();
+
+                        return;
+                    }
+
+                    item.pro.background.color =
+                        value;
+
+                    event.target.value =
+                        value;
+
+                    const picker =
+                        body.querySelector(
+                            '[data-pro-background-color]'
+                        );
+
+                    if (picker) {
+                        picker.value =
+                            value;
+                    }
 
                     proCommitContainerChange();
                 }
@@ -12249,8 +13209,78 @@ section.columns.forEach(
                 'input',
                 event => {
 
+                    const value =
+                        event.target.value
+                            .toUpperCase();
+
                     item.pro.background.overlay.color =
-                        event.target.value;
+                        value;
+
+                    const codeInput =
+                        body.querySelector(
+                            '[data-pro-overlay-color-code]'
+                        );
+
+                    if (codeInput) {
+                        codeInput.value =
+                            value;
+                    }
+
+                    proCommitContainerChange();
+                }
+            );
+
+
+        body
+            .querySelector(
+                '[data-pro-overlay-color-code]'
+            )
+            ?.addEventListener(
+                'change',
+                event => {
+
+                    let value =
+                        event.target.value
+                            .trim()
+                            .toUpperCase();
+
+                    if (
+                        value
+                        && !value.startsWith('#')
+                    ) {
+                        value =
+                            '#' + value;
+                    }
+
+                    if (
+                        !/^#[0-9A-F]{6}$/.test(
+                            value
+                        )
+                    ) {
+                        event.target.value =
+                            (
+                                item.pro.background.overlay.color
+                                || '#000000'
+                            ).toUpperCase();
+
+                        return;
+                    }
+
+                    item.pro.background.overlay.color =
+                        value;
+
+                    event.target.value =
+                        value;
+
+                    const picker =
+                        body.querySelector(
+                            '[data-pro-overlay-color]'
+                        );
+
+                    if (picker) {
+                        picker.value =
+                            value;
+                    }
 
                     proCommitContainerChange();
                 }
@@ -12309,9 +13339,17 @@ section.columns.forEach(
             );
 
 
-        const status =
+        /*
+         * ESUBIZ_PAGE_BUILDER_PRO_MEDIA_UPLOAD_STATUS_SPLIT_V5
+         */
+        const imageUploadStatus =
             body.querySelector(
-                '[data-pro-container-upload-status]'
+                '[data-pro-background-image-upload-status]'
+            );
+
+        const videoUploadStatus =
+            body.querySelector(
+                '[data-pro-background-video-upload-status]'
             );
 
 
@@ -12337,7 +13375,7 @@ section.columns.forEach(
                             await proUploadContainerMedia(
                                 file,
                                 'image',
-                                status
+                                imageUploadStatus
                             );
 
                         item.pro.background.image =
@@ -12381,7 +13419,7 @@ section.columns.forEach(
                             await proUploadContainerMedia(
                                 file,
                                 'video',
-                                status
+                                videoUploadStatus
                             );
 
                         item.pro.background.video.upload =

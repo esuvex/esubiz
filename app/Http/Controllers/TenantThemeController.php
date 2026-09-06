@@ -287,6 +287,57 @@ class TenantThemeController extends Controller
         }
     }
 
+    /*
+     * ESUBIZ_GENERIC_INSTALLED_THEME_PREVIEW_V6C
+     *
+     * Installed Theme Registry.
+     *
+     * Preview metadata belongs to each theme rather than
+     * to the Theme Hub or a Business-specific controller.
+     *
+     * Future Marketplace/theme installers should populate
+     * this information from package/database metadata.
+     */
+    protected function installedThemes(
+        string $activeTheme = ''
+    ): array {
+        return [
+            [
+                'slug' => 'business',
+                'name' => 'Business',
+                'version' => 'v1.0',
+
+                'description' =>
+                    'A clean and responsive business website theme with animations, homepage sections, testimonials, FAQs, contact and legal pages.',
+
+                /*
+                 * This preview belongs specifically to
+                 * the Business theme.
+                 */
+                'preview_path' =>
+                    'images/themes/business-preview.svg',
+
+                /*
+                 * Historical/internal alias.
+                 */
+                'aliases' => [
+                    'corporate-default',
+                ],
+
+                'active' =>
+                    in_array(
+                        $activeTheme,
+                        [
+                            'business',
+                            'corporate-default',
+                        ],
+                        true
+                    ),
+            ],
+        ];
+    }
+
+
     public function index(): View
     {
         $website = $this->website();
@@ -294,21 +345,10 @@ class TenantThemeController extends Controller
         $activeTheme =
             $this->activeTheme($website);
 
-        $themes = [
-            [
-                'slug' => 'business',
-                'name' => 'Business',
-                'version' => 'v1.0',
-                'description' =>
-                    'A clean and responsive business website theme with animations, homepage sections, testimonials, FAQs, contact and legal pages.',
-                'active' =>
-                    in_array(
-                        $activeTheme,
-                        ['business', 'corporate-default'],
-                        true
-                    ),
-            ],
-        ];
+        $themes =
+            $this->installedThemes(
+                $activeTheme
+            );
 
         return view(
             'tenant.admin.themes.index',
@@ -2411,26 +2451,92 @@ $this->tenantDatabaseService
 
 
 
-    public function businessPreview()
-    {
+    /*
+     * Universal installed-theme preview delivery.
+     */
+    public function themePreview(
+        string $theme
+    ) {
         $this->website();
+
+        $definition = null;
+
+        foreach (
+            $this->installedThemes()
+            as $installedTheme
+        ) {
+            $slug =
+                (string) (
+                    $installedTheme['slug']
+                    ?? ''
+                );
+
+            $aliases =
+                $installedTheme['aliases']
+                ?? [];
+
+            if (!is_array($aliases)) {
+                $aliases = [];
+            }
+
+            if (
+                $theme === $slug
+                || in_array(
+                    $theme,
+                    $aliases,
+                    true
+                )
+            ) {
+                $definition =
+                    $installedTheme;
+
+                break;
+            }
+        }
+
+        abort_unless(
+            is_array($definition),
+            404,
+            'Theme not found.'
+        );
+
+        $previewPath =
+            ltrim(
+                (string) (
+                    $definition['preview_path']
+                    ?? ''
+                ),
+                '/'
+            );
+
+        abort_unless(
+            $previewPath !== '',
+            404,
+            'Theme preview is not configured.'
+        );
 
         $preview =
             public_path(
-                'images/themes/business-preview.svg'
+                $previewPath
             );
 
         abort_unless(
             is_file($preview),
             404,
-            'Business theme preview not found.'
+            'Theme preview not found.'
         );
+
+        $mime =
+            mime_content_type(
+                $preview
+            )
+            ?: 'application/octet-stream';
 
         return response()->file(
             $preview,
             [
                 'Content-Type' =>
-                    'image/svg+xml; charset=UTF-8',
+                    $mime,
 
                 'Cache-Control' =>
                     'public, max-age=3600',

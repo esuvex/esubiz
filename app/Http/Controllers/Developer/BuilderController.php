@@ -480,6 +480,25 @@ class BuilderController extends Controller
             ]);
         }
 
+        /*
+         * ESUBIZ_DEVELOPER_COMPILE_SESSION_RELEASE_V1
+         *
+         * Authentication and build ownership have already been
+         * verified above. Release PHP's session write lock before
+         * the long synchronous compilation begins so the browser's
+         * authenticated read-only status requests can run
+         * concurrently and display REAL compiler checkpoints.
+         *
+         * This does not alter compilation, licensing, packaging,
+         * payment or build progress.
+         */
+        if (
+            $request->hasSession()
+            && $request->session()->isStarted()
+        ) {
+            $request->session()->save();
+        }
+
         try {
             $compiler->compile($developerBuild->build_id);
             $developerBuild->refresh();
