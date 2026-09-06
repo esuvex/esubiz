@@ -941,13 +941,18 @@ Route::post(
 
 
 
+        /*
+         * ESUBIZ_GENERIC_INSTALLED_THEME_PREVIEW_V6C
+         *
+         * Universal installed-theme preview endpoint.
+         */
         Route::get(
-            '/admin/themes/business/preview-image',
+            '/admin/themes/{theme}/preview-image',
             [
                 \App\Http\Controllers\TenantThemeController::class,
-                'businessPreview',
+                'themePreview',
             ]
-        )->name('tenant.cms.themes.business.preview');
+        )->name('tenant.cms.themes.preview');
 
 
         /*
@@ -1506,6 +1511,58 @@ Route::middleware(['auth'])->group(function () {
         ]
     )->name('admin.themes.index');
 
+        /* ESUBIZ_THEME_MANAGEMENT_ROUTES_V2 */
+
+        Route::get(
+            '/admin/marketplace/themes/create',
+            [
+                \App\Http\Controllers\Admin\ThemeController::class,
+                'create'
+            ]
+        )->name('admin.themes.create');
+
+
+        Route::get(
+            '/admin/marketplace/themes/{theme}',
+            [
+                \App\Http\Controllers\Admin\ThemeController::class,
+                'show'
+            ]
+        )->whereNumber('theme')
+         ->name('admin.themes.show');
+
+
+        Route::get(
+            '/admin/marketplace/themes/{theme}/edit',
+            [
+                \App\Http\Controllers\Admin\ThemeController::class,
+                'edit'
+            ]
+        )->whereNumber('theme')
+         ->name('admin.themes.edit');
+
+
+        Route::delete(
+            '/admin/marketplace/themes/{theme}',
+            [
+                \App\Http\Controllers\Admin\ThemeController::class,
+                'destroy'
+            ]
+        )->whereNumber('theme')
+         ->name('admin.themes.destroy');
+
+
+
+        /* ESUBIZ_ADMIN_THEME_PACKAGE_INGESTION_ROUTE_V1 */
+        Route::post(
+            '/admin/themes/packages',
+            [
+                \App\Http\Controllers\Admin\ThemeController::class,
+                'storePackage'
+            ]
+        )->name('admin.themes.packages.store');
+
+
     /*
     |--------------------------------------------------------------------------
     | Central Admin - Esubiz AI
@@ -1765,6 +1822,19 @@ Route::middleware(['auth'])->group(function () {
 Route::get('/admin/site-settings', function () {
     return view('admin.site-settings.index');
 })->middleware(['auth'])->name('admin.site-settings.index');
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_CENTRAL_SITE_PAGES_V1
+|--------------------------------------------------------------------------
+| Central Esubiz public-site page management only.
+| This does not use or modify tenant/Core page routes.
+*/
+Route::get(
+    '/admin/site-pages',
+    [\App\Http\Controllers\Admin\SitePageController::class, 'index']
+)->middleware(['auth'])->name('admin.site-pages.index');
+
 
 /*
  * ESUBIZ_WEBSITE_WIZARD_SETTINGS_ROUTE_V1
@@ -2574,6 +2644,14 @@ Route::get('/marketplace/developer/pending-checkouts/{order}/continue', [Marketp
     ->name('marketplace.developer.pending-checkouts.continue');
 Route::get('/marketplace/developer/library', [MarketplaceController::class, 'developerLibrary'])
     ->name('marketplace.developer.library')
+    ->middleware('auth');
+
+// ESUBIZ_DEVELOPER_BUILD_PROTECTED_DOWNLOAD_ROUTE_V1
+Route::get(
+    '/marketplace/developer/library/builds/{build}/download',
+    [MarketplaceController::class, 'developerBuildDownload']
+)
+    ->name('marketplace.developer.library.build.download')
     ->middleware('auth');
 
 Route::get('/marketplace/developer/pending-checkouts', [MarketplaceController::class, 'developerPendingCheckouts'])

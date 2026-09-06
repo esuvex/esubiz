@@ -1,742 +1,493 @@
-@extends('admin.layouts.app')
 
-@section('title', 'Themes')
+@extends('admin.layouts.app')
 
 @section('content')
 
-<div class="min-h-screen bg-slate-100 px-5 py-8 sm:px-6">
+<style>
+    .esubiz-theme-page {
+        padding: 28px 30px 40px;
+    }
 
-    <div class="mx-auto max-w-7xl">
+    .esubiz-theme-page-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        margin-bottom: 24px;
+    }
 
-        <div
-            class="mb-8 flex flex-wrap items-end justify-between gap-4"
+    .esubiz-theme-page-head h1 {
+        margin: 0;
+        color: #101828;
+        font-size: 26px;
+        font-weight: 800;
+    }
+
+    .esubiz-theme-page-head p {
+        margin: 6px 0 0;
+        color: #667085;
+        font-size: 13px;
+    }
+
+    .esubiz-theme-add-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        padding: 0 17px;
+        border-radius: 10px;
+        background: #2563eb;
+        color: #fff !important;
+        text-decoration: none !important;
+        font-size: 12px;
+        font-weight: 800;
+        box-shadow: 0 8px 18px rgba(37, 99, 235, .17);
+    }
+
+    .esubiz-theme-table-shell {
+        overflow: visible;
+        border: 1px solid #e5eaf1;
+        border-radius: 16px;
+        background: #fff;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, .04);
+    }
+
+    .esubiz-theme-table-scroll {
+        overflow-x: auto;
+    }
+
+    .esubiz-theme-table {
+        width: 100%;
+        margin: 0;
+        border-collapse: collapse;
+        min-width: 1080px;
+    }
+
+    .esubiz-theme-table thead th {
+        padding: 13px 16px;
+        border-bottom: 1px solid #e7ebf1;
+        background: #f8fafc;
+        color: #667085;
+        font-size: 10.5px;
+        font-weight: 800;
+        letter-spacing: .045em;
+        text-align: left;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    .esubiz-theme-table tbody td {
+        padding: 16px;
+        border-bottom: 1px solid #eef1f5;
+        color: #344054;
+        font-size: 12px;
+        vertical-align: middle;
+    }
+
+    .esubiz-theme-table tbody tr:last-child td {
+        border-bottom: 0;
+    }
+
+    .esubiz-theme-name {
+        color: #101828;
+        font-size: 13px;
+        font-weight: 800;
+    }
+
+    .esubiz-theme-slug {
+        margin-top: 3px;
+        color: #98a2b3;
+        font-size: 10.5px;
+    }
+
+    .esubiz-theme-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 5px 9px;
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 800;
+        white-space: nowrap;
+    }
+
+    .esubiz-theme-badge-success {
+        background: #ecfdf3;
+        color: #027a48;
+    }
+
+    .esubiz-theme-badge-muted {
+        background: #f2f4f7;
+        color: #667085;
+    }
+
+    .esubiz-theme-badge-blue {
+        background: #eff6ff;
+        color: #1d4ed8;
+    }
+
+    .esubiz-theme-badge-warning {
+        background: #fff7ed;
+        color: #c2410c;
+    }
+
+    .esubiz-theme-stack {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+
+    .esubiz-theme-actions {
+        position: relative;
+        text-align: right;
+    }
+
+    .esubiz-theme-menu {
+        position: relative;
+        display: inline-block;
+    }
+
+    .esubiz-theme-menu > summary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border: 1px solid #e1e6ee;
+        border-radius: 9px;
+        background: #fff;
+        color: #475467;
+        font-size: 18px;
+        font-weight: 800;
+        cursor: pointer;
+        list-style: none;
+        line-height: 1;
+    }
+
+    .esubiz-theme-menu > summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .esubiz-theme-menu-list {
+        position: absolute;
+        top: 40px;
+        right: 0;
+        z-index: 100;
+        width: 180px;
+        padding: 6px;
+        border: 1px solid #e4e7ec;
+        border-radius: 11px;
+        background: #fff;
+        box-shadow: 0 16px 35px rgba(15, 23, 42, .13);
+        text-align: left;
+    }
+
+    .esubiz-theme-menu-list a,
+    .esubiz-theme-menu-list button {
+        display: block;
+        width: 100%;
+        padding: 9px 10px;
+        border: 0;
+        border-radius: 7px;
+        background: transparent;
+        color: #344054;
+        text-align: left;
+        text-decoration: none;
+        font-size: 11.5px;
+        cursor: pointer;
+    }
+
+    .esubiz-theme-menu-list a:hover,
+    .esubiz-theme-menu-list button:hover {
+        background: #f5f7fa;
+    }
+
+    .esubiz-theme-menu-list .danger {
+        color: #b42318;
+    }
+
+    .esubiz-theme-empty {
+        padding: 64px 20px !important;
+        color: #667085 !important;
+        text-align: center;
+    }
+
+    .esubiz-theme-pagination {
+        padding: 16px;
+        border-top: 1px solid #eef1f5;
+    }
+
+    @media (max-width: 767px) {
+        .esubiz-theme-page {
+            padding: 20px 15px 30px;
+        }
+
+        .esubiz-theme-page-head {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .esubiz-theme-add-btn {
+            width: 100%;
+        }
+    }
+</style>
+
+
+<div class="esubiz-theme-page">
+
+    <div class="esubiz-theme-page-head">
+
+        <div>
+            <h1>Themes</h1>
+
+            <p>
+                Manage Theme packages, availability,
+                Marketplace publishing and wizard visibility.
+            </p>
+        </div>
+
+        <a
+            href="{{ route('admin.themes.create') }}"
+            class="esubiz-theme-add-btn"
         >
+            + Add Theme
+        </a>
 
-            <div>
+    </div>
 
-                <div
-                    class="text-xs font-black uppercase tracking-widest text-blue-600"
-                >
-                    Marketplace Products
-                </div>
 
-                <h1
-                    class="mt-2 text-3xl font-black text-slate-900"
-                >
-                    Themes
-                </h1>
-
-                <p
-                    class="mt-2 max-w-3xl text-sm leading-6 text-slate-500"
-                >
-                    Manage theme packages, releases, pricing,
-                    deployment availability and Marketplace settings.
-                </p>
-
-            </div>
-
+    @if(session('success'))
+        <div class="alert alert-success mb-4">
+            {{ session('success') }}
         </div>
+    @endif
 
 
-        @if(session('success'))
+    <div class="esubiz-theme-table-shell">
 
-            <div
-                class="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-bold text-emerald-700"
-            >
-                {{ session('success') }}
-            </div>
+        <div class="esubiz-theme-table-scroll">
 
-        @endif
+            <table class="esubiz-theme-table">
+
+                <thead>
+                    <tr>
+                        <th>Theme</th>
+                        <th>Version</th>
+                        <th>Publisher</th>
+                        <th>Availability</th>
+                        <th>Marketplace</th>
+                        <th>Wizard</th>
+                        <th>Status</th>
+                        <th>Updated</th>
+                        <th style="width: 60px;"></th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    @forelse($themes as $theme)
+
+                        <tr>
+
+                            <td>
+                                <div class="esubiz-theme-name">
+                                    {{ $theme->name }}
+                                </div>
+
+                                <div class="esubiz-theme-slug">
+                                    {{ $theme->slug }}
+                                </div>
+                            </td>
 
 
-        @if($errors->any())
-
-            <div
-                class="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700"
-            >
-
-                <ul class="list-disc pl-5">
-
-                    @foreach($errors->all() as $error)
-
-                        <li>{{ $error }}</li>
-
-                    @endforeach
-
-                </ul>
-
-            </div>
-
-        @endif
+                            <td>
+                                v{{ $theme->version }}
+                            </td>
 
 
-        <div class="space-y-6">
-
-            @forelse($themes as $theme)
-
-                <article
-                    class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
-                >
-
-                    <div
-                        class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-slate-50 px-6 py-5"
-                    >
-
-                        <div>
-
-                            <div
-                                class="text-xs font-black uppercase tracking-wide text-blue-600"
-                            >
+                            <td>
                                 {{ $theme->publisher_name }}
-                            </div>
-
-                            <h2
-                                class="mt-1 text-xl font-black text-slate-900"
-                            >
-                                {{ $theme->name }}
-                                <span
-                                    class="ml-2 text-sm text-slate-400"
-                                >
-                                    v{{ $theme->version }}
-                                </span>
-                            </h2>
-
-                        </div>
+                            </td>
 
 
-                        <div
-                            class="flex flex-wrap items-center gap-2"
-                        >
+                            <td>
+                                <div class="esubiz-theme-stack">
 
-                            @if($theme->is_current)
-                                <span
-                                    class="rounded-full bg-blue-100 px-3 py-1 text-[11px] font-black text-blue-700"
-                                >
-                                    Current Version
-                                </span>
-                            @endif
+                                    @if($theme->saas_available)
+                                        <span class="esubiz-theme-badge esubiz-theme-badge-blue">
+                                            SaaS
+                                        </span>
+                                    @endif
 
-                            <span
-                                class="rounded-full px-3 py-1 text-[11px] font-black {{
-                                    $theme->release_status === 'published'
-                                        ? 'bg-emerald-100 text-emerald-700'
-                                        : 'bg-amber-100 text-amber-700'
-                                }}"
-                            >
-                                {{ ucfirst($theme->release_status) }}
-                            </span>
+                                    @if($theme->off_server_available)
+                                        <span class="esubiz-theme-badge esubiz-theme-badge-blue">
+                                            Off-server
+                                        </span>
+                                    @endif
 
-                        </div>
-
-                    </div>
-
-
-                    <div class="grid gap-6 p-6 xl:grid-cols-2">
-
-                        {{-- Commercial configuration --}}
-                        <form
-                            method="POST"
-                            action="{{ route(
-                                'admin.themes.update',
-                                $theme->id
-                            ) }}"
-                            class="space-y-5"
-                        >
-
-                            @csrf
-                            @method('PUT')
-
-
-                            <div
-                                class="rounded-2xl border border-slate-200 p-5"
-                            >
-
-                                <h3 class="font-black text-slate-900">
-                                    Theme Details
-                                </h3>
-
-
-                                <div class="mt-5 grid gap-4 sm:grid-cols-2">
-
-                                    <div class="sm:col-span-2">
-
-                                        <label class="text-sm font-bold">
-                                            Theme Name
-                                        </label>
-
-                                        <input
-                                            type="text"
-                                            name="name"
-                                            required
-                                            value="{{ $theme->name }}"
-                                            class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
-                                        >
-
-                                    </div>
-
-
-                                    <div>
-
-                                        <label class="text-sm font-bold">
-                                            Publisher
-                                        </label>
-
-                                        <input
-                                            type="text"
-                                            name="publisher_name"
-                                            required
-                                            value="{{ $theme->publisher_name }}"
-                                            class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
-                                        >
-
-                                    </div>
-
-
-                                    <div>
-
-                                        <label class="text-sm font-bold">
-                                            Publisher Type
-                                        </label>
-
-                                        <select
-                                            name="publisher_type"
-                                            class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
-                                        >
-                                            <option
-                                                value="company"
-                                                @selected($theme->publisher_type === 'company')
-                                            >
-                                                Company
-                                            </option>
-
-                                            <option
-                                                value="developer"
-                                                @selected($theme->publisher_type === 'developer')
-                                            >
-                                                Developer
-                                            </option>
-                                        </select>
-
-                                    </div>
+                                    @if(
+                                        !$theme->saas_available
+                                        && !$theme->off_server_available
+                                    )
+                                        <span class="esubiz-theme-badge esubiz-theme-badge-muted">
+                                            Not for sale
+                                        </span>
+                                    @endif
 
                                 </div>
-
-                            </div>
-
-
-                            <div
-                                class="rounded-2xl border border-slate-200 p-5"
-                            >
-
-                                <h3 class="font-black text-slate-900">
-                                    SaaS
-                                </h3>
+                            </td>
 
 
-                                <label
-                                    class="mt-4 flex items-center gap-3"
-                                >
-                                    <input
-                                        type="hidden"
-                                        name="saas_available"
-                                        value="0"
-                                    >
+                            <td>
 
-                                    <input
-                                        type="checkbox"
-                                        name="saas_available"
-                                        value="1"
-                                        @checked($theme->saas_available)
-                                    >
+                                @if($theme->marketplace_enabled)
 
-                                    <span class="text-sm font-bold">
-                                        Available for SaaS websites
+                                    <span class="esubiz-theme-badge esubiz-theme-badge-success">
+                                        Enabled
                                     </span>
-                                </label>
 
+                                @else
 
-                                <div class="mt-4 grid gap-4 sm:grid-cols-3">
-
-                                    <div>
-
-                                        <label class="text-sm font-bold">
-                                            Price
-                                        </label>
-
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            name="saas_price"
-                                            value="{{ $theme->saas_price }}"
-                                            class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
-                                        >
-
-                                    </div>
-
-
-                                    <div>
-
-                                        <label class="text-sm font-bold">
-                                            Currency
-                                        </label>
-
-                                        <input
-                                            type="text"
-                                            maxlength="3"
-                                            name="saas_currency"
-                                            value="{{ $theme->saas_currency ?? 'NGN' }}"
-                                            class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
-                                        >
-
-                                    </div>
-
-
-                                    <div>
-
-                                        <label class="text-sm font-bold">
-                                            Billing
-                                        </label>
-
-                                        <select
-                                            name="saas_billing_interval"
-                                            class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
-                                        >
-                                            <option value="">
-                                                One-time
-                                            </option>
-
-                                            <option
-                                                value="monthly"
-                                                @selected($theme->saas_billing_interval === 'monthly')
-                                            >
-                                                Monthly
-                                            </option>
-
-                                            <option
-                                                value="yearly"
-                                                @selected($theme->saas_billing_interval === 'yearly')
-                                            >
-                                                Yearly
-                                            </option>
-                                        </select>
-
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-
-                            <div
-                                class="rounded-2xl border border-slate-200 p-5"
-                            >
-
-                                <h3 class="font-black text-slate-900">
-                                    Off-server
-                                </h3>
-
-
-                                <label
-                                    class="mt-4 flex items-center gap-3"
-                                >
-                                    <input
-                                        type="hidden"
-                                        name="off_server_available"
-                                        value="0"
-                                    >
-
-                                    <input
-                                        type="checkbox"
-                                        name="off_server_available"
-                                        value="1"
-                                        @checked($theme->off_server_available)
-                                    >
-
-                                    <span class="text-sm font-bold">
-                                        Available for off-server websites
+                                    <span class="esubiz-theme-badge esubiz-theme-badge-muted">
+                                        Hidden
                                     </span>
-                                </label>
+
+                                @endif
+
+                            </td>
 
 
-                                <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                            <td>
+                                <div class="esubiz-theme-stack">
 
-                                    <div>
-
-                                        <label class="text-sm font-bold">
-                                            License Price
-                                        </label>
-
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            name="off_server_price"
-                                            value="{{ $theme->off_server_price }}"
-                                            class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
-                                        >
-
-                                    </div>
-
-
-                                    <div>
-
-                                        <label class="text-sm font-bold">
-                                            Currency
-                                        </label>
-
-                                        <input
-                                            type="text"
-                                            maxlength="3"
-                                            name="off_server_currency"
-                                            value="{{ $theme->off_server_currency ?? 'NGN' }}"
-                                            class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
-                                        >
-
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-
-                            <div
-                                class="rounded-2xl border border-slate-200 p-5"
-                            >
-
-                                <h3 class="font-black text-slate-900">
-                                    Marketplace
-                                </h3>
-
-
-                                <div class="mt-4 grid gap-4 sm:grid-cols-2">
-
-                                    <label class="flex items-center gap-3">
-                                        <input
-                                            type="hidden"
-                                            name="marketplace_enabled"
-                                            value="0"
-                                        >
-
-                                        <input
-                                            type="checkbox"
-                                            name="marketplace_enabled"
-                                            value="1"
-                                            @checked($theme->marketplace_enabled)
-                                        >
-
-                                        <span class="text-sm font-bold">
-                                            Marketplace enabled
+                                    @if($theme->show_in_user_wizard)
+                                        <span class="esubiz-theme-badge esubiz-theme-badge-blue">
+                                            User
                                         </span>
-                                    </label>
+                                    @endif
 
-
-                                    <label class="flex items-center gap-3">
-                                        <input
-                                            type="hidden"
-                                            name="marketplace_featured"
-                                            value="0"
-                                        >
-
-                                        <input
-                                            type="checkbox"
-                                            name="marketplace_featured"
-                                            value="1"
-                                            @checked($theme->marketplace_featured)
-                                        >
-
-                                        <span class="text-sm font-bold">
-                                            Featured
+                                    @if($theme->show_in_developer_wizard)
+                                        <span class="esubiz-theme-badge esubiz-theme-badge-blue">
+                                            Developer
                                         </span>
-                                    </label>
+                                    @endif
 
-
-                                    <div>
-
-                                        <label class="text-sm font-bold">
-                                            Category
-                                        </label>
-
-                                        <input
-                                            type="text"
-                                            name="marketplace_category"
-                                            value="{{ $theme->marketplace_category }}"
-                                            placeholder="Business"
-                                            class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
-                                        >
-
-                                    </div>
-
-
-                                    <div>
-
-                                        <label class="text-sm font-bold">
-                                            Platform Share %
-                                        </label>
-
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            max="100"
-                                            name="commission_rate"
-                                            value="{{ $theme->commission_rate }}"
-                                            class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
-                                        >
-
-                                    </div>
-
-
-                                    <div class="sm:col-span-2">
-
-                                        <label class="text-sm font-bold">
-                                            Release Notes
-                                        </label>
-
-                                        <textarea
-                                            name="release_notes"
-                                            rows="4"
-                                            class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
-                                        >{{ $theme->release_notes }}</textarea>
-
-                                    </div>
-
-
-                                    <label
-                                        class="sm:col-span-2 flex items-center gap-3 rounded-xl bg-slate-50 p-4"
-                                    >
-                                        <input
-                                            type="hidden"
-                                            name="is_active"
-                                            value="0"
-                                        >
-
-                                        <input
-                                            type="checkbox"
-                                            name="is_active"
-                                            value="1"
-                                            @checked($theme->is_active)
-                                        >
-
-                                        <span class="text-sm font-bold">
-                                            Theme package active
+                                    @if(
+                                        !$theme->show_in_user_wizard
+                                        && !$theme->show_in_developer_wizard
+                                    )
+                                        <span class="esubiz-theme-badge esubiz-theme-badge-muted">
+                                            Hidden
                                         </span>
-                                    </label>
+                                    @endif
 
                                 </div>
-
-                            </div>
-
-
-                            <button
-                                type="submit"
-                                class="rounded-xl bg-blue-600 px-6 py-3 text-sm font-black text-white"
-                            >
-                                Save Theme Settings
-                            </button>
-
-                        </form>
+                            </td>
 
 
+                            <td>
 
-                        {{-- Package / releases --}}
-                        <div class="space-y-5">
+                                @if(!$theme->is_active)
 
-                            <div
-                                class="rounded-2xl border border-slate-200 p-5"
-                            >
+                                    <span class="esubiz-theme-badge esubiz-theme-badge-warning">
+                                        Disabled
+                                    </span>
 
-                                <h3 class="font-black text-slate-900">
-                                    Package
-                                </h3>
+                                @elseif($theme->release_status === 'published')
+
+                                    <span class="esubiz-theme-badge esubiz-theme-badge-success">
+                                        Published
+                                    </span>
+
+                                @else
+
+                                    <span class="esubiz-theme-badge esubiz-theme-badge-muted">
+                                        {{ ucfirst($theme->release_status ?? 'Draft') }}
+                                    </span>
+
+                                @endif
+
+                            </td>
 
 
-                                <dl class="mt-4 space-y-3 text-sm">
+                            <td>
+                                {{ \Illuminate\Support\Carbon::parse($theme->updated_at)->format('d M Y') }}
+                            </td>
 
-                                    <div>
-                                        <dt class="font-bold text-slate-500">
-                                            Stored File
-                                        </dt>
 
-                                        <dd class="mt-1 break-all font-mono text-xs text-slate-700">
-                                            {{ $theme->package_path }}
-                                        </dd>
+                            <td class="esubiz-theme-actions">
+
+                                <details class="esubiz-theme-menu">
+
+                                    <summary title="Theme actions">
+                                        ⋮
+                                    </summary>
+
+                                    <div class="esubiz-theme-menu-list">
+
+                                        <a
+                                            href="{{ route('admin.themes.show', $theme->id) }}"
+                                        >
+                                            View
+                                        </a>
+
+                                        <a
+                                            href="{{ route('admin.themes.edit', $theme->id) }}"
+                                        >
+                                            Edit
+                                        </a>
+
+                                        <form
+                                            method="POST"
+                                            action="{{ route('admin.themes.destroy', $theme->id) }}"
+                                            onsubmit="return confirm('Delete this Theme package?');"
+                                        >
+                                            @csrf
+                                            @method('DELETE')
+
+                                            <button
+                                                type="submit"
+                                                class="danger"
+                                            >
+                                                Delete
+                                            </button>
+                                        </form>
+
                                     </div>
 
+                                </details>
 
-                                    <div>
-                                        <dt class="font-bold text-slate-500">
-                                            SHA-256
-                                        </dt>
+                            </td>
 
-                                        <dd class="mt-1 break-all font-mono text-xs text-slate-700">
-                                            {{ $theme->checksum_sha256 ?: 'Not recorded' }}
-                                        </dd>
-                                    </div>
+                        </tr>
 
+                    @empty
 
-                                    <div>
-                                        <dt class="font-bold text-slate-500">
-                                            Size
-                                        </dt>
-
-                                        <dd class="mt-1">
-                                            {{ number_format(($theme->package_bytes ?? 0) / 1024, 1) }} KB
-                                        </dd>
-                                    </div>
-
-                                </dl>
-
-                            </div>
-
-
-                            <form
-                                method="POST"
-                                enctype="multipart/form-data"
-                                action="{{ route(
-                                    'admin.themes.versions.store',
-                                    $theme->id
-                                ) }}"
-                                class="rounded-2xl border border-slate-200 p-5"
+                        <tr>
+                            <td
+                                colspan="9"
+                                class="esubiz-theme-empty"
                             >
+                                No Theme packages registered yet.
+                            </td>
+                        </tr>
 
-                                @csrf
+                    @endforelse
 
+                </tbody>
 
-                                <h3 class="font-black text-slate-900">
-                                    Create New Version
-                                </h3>
-
-                                <p
-                                    class="mt-2 text-xs leading-5 text-slate-500"
-                                >
-                                    Published packages are never overwritten.
-                                    Upload an updated package as a new version.
-                                </p>
-
-
-                                <div class="mt-5">
-
-                                    <label class="text-sm font-bold">
-                                        New Version
-                                    </label>
-
-                                    <input
-                                        type="text"
-                                        name="version"
-                                        required
-                                        placeholder="1.1.0"
-                                        class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
-                                    >
-
-                                </div>
-
-
-                                <div class="mt-4">
-
-                                    <label class="text-sm font-bold">
-                                        Theme Package (.zip)
-                                    </label>
-
-                                    <input
-                                        type="file"
-                                        name="package"
-                                        required
-                                        accept=".zip,application/zip"
-                                        class="mt-2 block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm"
-                                    >
-
-                                </div>
-
-
-                                <div class="mt-4">
-
-                                    <label class="text-sm font-bold">
-                                        Release Notes
-                                    </label>
-
-                                    <textarea
-                                        name="release_notes"
-                                        rows="4"
-                                        class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
-                                    ></textarea>
-
-                                </div>
-
-
-                                <button
-                                    type="submit"
-                                    class="mt-5 rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white"
-                                >
-                                    Validate & Create Version
-                                </button>
-
-                            </form>
-
-
-                            @if(
-                                $theme->release_status !== 'published'
-                                && $theme->marketplace_ready
-                            )
-
-                                <form
-                                    method="POST"
-                                    action="{{ route(
-                                        'admin.themes.publish',
-                                        $theme->id
-                                    ) }}"
-                                    class="rounded-2xl border border-emerald-200 bg-emerald-50 p-5"
-                                >
-
-                                    @csrf
-
-                                    <h3
-                                        class="font-black text-emerald-900"
-                                    >
-                                        Publish Release
-                                    </h3>
-
-                                    <p
-                                        class="mt-2 text-xs leading-5 text-emerald-700"
-                                    >
-                                        This package has passed the Esubiz
-                                        theme validator and can be published.
-                                    </p>
-
-                                    <button
-                                        type="submit"
-                                        class="mt-4 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-black text-white"
-                                    >
-                                        Publish v{{ $theme->version }}
-                                    </button>
-
-                                </form>
-
-                            @endif
-
-                        </div>
-
-                    </div>
-
-                </article>
-
-            @empty
-
-                <div
-                    class="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center"
-                >
-                    <div class="font-black text-slate-900">
-                        No theme packages registered yet.
-                    </div>
-
-                    <p class="mt-2 text-sm text-slate-500">
-                        Business v1.0 will be registered in the next setup step.
-                    </p>
-                </div>
-
-            @endforelse
+            </table>
 
         </div>
+
+
+        @if(method_exists($themes, 'links'))
+
+            <div class="esubiz-theme-pagination">
+                {{ $themes->links() }}
+            </div>
+
+        @endif
 
     </div>
 
