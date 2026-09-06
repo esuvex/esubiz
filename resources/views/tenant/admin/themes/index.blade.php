@@ -362,10 +362,15 @@
 
                 <div class="relative flex h-full flex-col">
 
+                    {{-- ESUBIZ_THEME_MARKETPLACE_BRAND_LOGO_V1 --}}
                     <div
-                        class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-lg"
+                        class="flex h-10 items-center"
                     >
-                        ◈
+                        <img
+                            src="{{ asset('images/esubiz-logo.png') }}"
+                            alt="Esubiz"
+                            class="h-7 w-auto max-w-[110px] object-contain brightness-0 invert"
+                        >
                     </div>
 
 
