@@ -3,8 +3,8 @@
 namespace App\Services\Website;
 
 use App\Models\Website;
-use RuntimeException;
 use App\Services\Website\Recipes\RecipeService;
+use RuntimeException;
 
 class WebsiteProvisioningService
 {
@@ -16,31 +16,53 @@ class WebsiteProvisioningService
 
     protected WebsiteDatabaseCleanupService $databaseCleanupService;
 
+    protected WebsiteTypeCompositionService $websiteTypeCompositionService;
+
     public function __construct(
         RecipeService $recipeService,
         WebsiteDatabaseProvisioningService $databaseProvisioningService,
         TenantCoreInstallationService $tenantCoreInstallationService,
-        WebsiteDatabaseCleanupService $databaseCleanupService
+        WebsiteDatabaseCleanupService $databaseCleanupService,
+        WebsiteTypeCompositionService $websiteTypeCompositionService
     ) {
         $this->recipeService = $recipeService;
         $this->databaseProvisioningService = $databaseProvisioningService;
         $this->tenantCoreInstallationService = $tenantCoreInstallationService;
         $this->databaseCleanupService = $databaseCleanupService;
+        $this->websiteTypeCompositionService = $websiteTypeCompositionService;
     }
 
     /**
-     * Provision a newly created website.
+     * Provision a newly created SaaS website.
      */
     public function provision(Website $website): void
     {
         /*
-        |--------------------------------------------------------------------------
-        | Website Recipe
-        |--------------------------------------------------------------------------
-        */
+         * ESUBIZ_SAAS_WEBSITE_TYPE_COMPOSITION_PIPELINE_V3
+         *
+         * Website Type is resolved generically.
+         *
+         * No Business/Ecommerce/Hotel/School-specific provisioning
+         * logic belongs in this service.
+         */
+        $websiteType = trim((string) ($website->type ?? ''));
 
-        $recipe = $this->recipeService->get(
-            $website->type ?? 'business'
+        if ($websiteType === '') {
+            throw new RuntimeException(
+                'Website Type is required before SaaS provisioning can begin.'
+            );
+        }
+
+        $wizardData = is_array($website->wizard_data)
+            ? $website->wizard_data
+            : [];
+
+        $selectedTheme = $this->resolveSelectedTheme($wizardData);
+
+        $profile = $this->recipeService->deploymentProfile(
+            $websiteType,
+            'saas',
+            $selectedTheme
         );
 
         try {
@@ -54,17 +76,11 @@ class WebsiteProvisioningService
             ]);
 
             /*
-            |--------------------------------------------------------------------------
+            |----------------------------------------------------------------------
             | Dedicated Tenant Database
-            |--------------------------------------------------------------------------
+            |----------------------------------------------------------------------
             */
 
-            /*
-             * ESUBIZ_USER_REAL_PROGRESS_DATABASE_START_V1
-             *
-             * Genuine provisioning boundary:
-             * dedicated tenant database provisioning begins here.
-             */
             $website->update([
                 'deployment_progress' => 30,
             ]);
@@ -76,9 +92,9 @@ class WebsiteProvisioningService
             ]);
 
             /*
-            |--------------------------------------------------------------------------
-            | Install Esubiz Core
-            |--------------------------------------------------------------------------
+            |----------------------------------------------------------------------
+            | Install Native Esubiz Core
+            |----------------------------------------------------------------------
             */
 
             $website->update([
@@ -88,29 +104,52 @@ class WebsiteProvisioningService
             $this->tenantCoreInstallationService->install($website);
 
             $website->update([
+                'deployment_progress' => 75,
+            ]);
+
+            /*
+            |----------------------------------------------------------------------
+            | Apply Website Type Composition
+            |----------------------------------------------------------------------
+            |
+            | Native Core is now initialized.
+            |
+            | The Website Type specialization is applied here:
+            |
+            | - Modules
+            | - Add-ons
+            | - Add-on bundles
+            | - Selected/default Theme
+            |
+            | The current legacy config recipes contain slugs only.
+            | They intentionally remain non-deployable until the
+            | Admin-managed deployment-profile resolver supplies
+            | genuine package/staging information.
+            |
+            | Once that resolver is wired, this pipeline automatically
+            | applies every future Website Type without type-specific code.
+            |
+            */
+
+            if ($this->profileIsDeployable($profile)) {
+                $this->websiteTypeCompositionService->apply(
+                    $website,
+                    $profile,
+                    [
+                        'deployment' => 'saas',
+                        'provisioning_source' => 'website_type',
+                    ]
+                );
+            }
+
+            $website->update([
                 'deployment_progress' => 90,
             ]);
 
             /*
-            |--------------------------------------------------------------------------
-            | Future Provisioning Pipeline
-            |--------------------------------------------------------------------------
-            |
-            | ✓ Prepared website type
-            | ✓ Dedicated tenant database
-            | ✓ Install selected theme
-            | ✓ Generate default pages
-            | ✓ Install default modules
-            | ✓ Configure CRM
-            | ✓ Configure HR
-            | ✓ Configure Finance
-            | ✓ Configure AI
-            | ✓ Configure Wallet
-            | ✓ Configure Email
-            | ✓ Configure Storage
-            | ✓ Configure Payment Gateway
-            | ✓ Queue deployment jobs
-            |
+            |----------------------------------------------------------------------
+            | Website Ready
+            |----------------------------------------------------------------------
             */
 
             $website->update([
@@ -121,9 +160,9 @@ class WebsiteProvisioningService
         } catch (\Throwable $e) {
 
             /*
-            |--------------------------------------------------------------------------
+            |----------------------------------------------------------------------
             | Provisioning Failure Cleanup
-            |--------------------------------------------------------------------------
+            |----------------------------------------------------------------------
             */
 
             try {
@@ -139,5 +178,107 @@ class WebsiteProvisioningService
 
             throw $e;
         }
+    }
+
+    /**
+     * Resolve whichever theme field the current/future wizard uses.
+     *
+     * This remains generic and does not know any Website Type names.
+     */
+    protected function resolveSelectedTheme(array $wizardData): ?string
+    {
+        foreach ([
+            'theme_slug',
+            'selected_theme',
+            'theme',
+        ] as $key) {
+            if (!array_key_exists($key, $wizardData)) {
+                continue;
+            }
+
+            $value = $wizardData[$key];
+
+            if (is_array($value)) {
+                $value = $value['slug']
+                    ?? $value['product_slug']
+                    ?? null;
+            }
+
+            $value = trim((string) ($value ?? ''));
+
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * A profile becomes deployable only after its product resolver has
+     * attached genuine prepared package/staging paths.
+     *
+     * This prevents the transitional legacy slug-only recipes from
+     * breaking live SaaS website creation.
+     */
+    protected function profileIsDeployable(array $profile): bool
+    {
+        $components = [];
+
+        foreach (['modules', 'addons', 'bundles'] as $key) {
+            foreach (($profile[$key] ?? []) as $item) {
+                if (is_array($item)) {
+                    $components[] = $item;
+                }
+            }
+        }
+
+        $themeSlug = trim((string) (
+            $profile['selected_theme']
+            ?? $profile['default_theme']
+            ?? ''
+        ));
+
+        if ($themeSlug !== '') {
+            foreach (($profile['themes'] ?? []) as $theme) {
+                if (!is_array($theme)) {
+                    continue;
+                }
+
+                $slug = trim((string) (
+                    $theme['slug']
+                    ?? $theme['product_slug']
+                    ?? ''
+                ));
+
+                if ($slug === $themeSlug) {
+                    $components[] = $theme;
+                    break;
+                }
+            }
+        }
+
+        /*
+         * A Website Type with genuinely no components is valid.
+         * A Website Type containing components is deployable only
+         * when every required component has a prepared staging path.
+         */
+        if ($components === []) {
+            return true;
+        }
+
+        foreach ($components as $component) {
+            $path = trim((string) (
+                $component['extracted_path']
+                ?? $component['staging_path']
+                ?? ''
+            ));
+
+            if ($path === '') {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

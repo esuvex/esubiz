@@ -28,7 +28,7 @@ return [
         ],
     ],
 
-    'ecommerce' => [
+    'online-store' => [
         'themes' => ['classic', 'modern', 'premium'],
         'pages' => [
             'Home',
