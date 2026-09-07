@@ -100,217 +100,63 @@
 
         </div>
 
+        
+        {{-- ESUBIZ_WEBSITE_TYPE_CORE_CONFIGURATION_V1 --}}
         <div class="rounded-3xl bg-white p-8 shadow-sm">
 
             <h2 class="text-xl font-bold text-slate-900">
-                Package Configuration
+                Core Configuration
             </h2>
 
             <p class="mt-2 text-sm text-slate-500">
-                Connect this website type to its prepared website package.
+                Every Website Type is built on the universal Esubiz Core engine.
+                Themes, modules, add-ons and bundles are configured separately
+                for SaaS and off-server deployment.
             </p>
+
+            {{-- Transitional persistence only. Not a selectable Core package. --}}
+            <input type="hidden" name="package_key" value="{{ old('package_key') }}">
+            <input type="hidden" name="package_version" value="{{ old('package_version') }}">
 
             <div class="mt-6 grid gap-6 md:grid-cols-2">
 
-                <div class="md:col-span-2">
-
+                <div>
                     <label class="block text-sm font-semibold text-slate-700">
-                        Website Package
+                        Core Engine
                     </label>
 
-                    <p class="mt-1 text-xs text-slate-500">
-                        Search and select a prepared website package from Esubiz product storage.
-                    </p>
-
-                    <input
-                        type="hidden"
-                        name="package_key"
-                        id="package-key"
-                        value="{{ old('package_key') }}"
-                    >
-
-                    <input
-                        type="hidden"
-                        name="package_version"
-                        id="package-version"
-                        value="{{ old('package_version') }}"
-                    >
-
-                    <div class="relative mt-4">
-                        <input
-                            type="text"
-                            id="package-search"
-                            placeholder="Search website packages..."
-                            autocomplete="off"
-                            class="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                        >
-
-                        <div
-                            id="package-picker"
-                            class="absolute z-40 mt-2 hidden max-h-72 w-full overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-xl"
-                        >
-                            @forelse($packages as $package)
-                                <button
-                                    type="button"
-                                    data-key="{{ $package['key'] }}"
-                                    data-version="{{ $package['version'] }}"
-                                    data-label="{{ strtolower($package['key'] . ' ' . $package['version']) }}"
-                                    class="package-option flex w-full items-center justify-between rounded-xl px-4 py-3 text-left hover:bg-blue-50"
-                                >
-                                    <span class="font-semibold text-slate-700">
-                                        {{ $package['key'] }}
-                                    </span>
-
-                                    <span class="rounded-lg bg-slate-100 px-2 py-1 text-xs font-mono text-slate-500">
-                                        {{ $package['version'] }}
-                                    </span>
-                                </button>
-                            @empty
-                                <div class="px-4 py-6 text-center text-sm text-slate-500">
-                                    No prepared website packages were found.
-                                </div>
-                            @endforelse
+                    <div class="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <div class="font-semibold text-slate-900">
+                            Esubiz Core
+                        </div>
+                        <div class="mt-1 text-xs text-slate-500">
+                            Universal website engine
                         </div>
                     </div>
-
-                    <div
-                        id="selected-package"
-                        class="mt-3 hidden items-center justify-between rounded-xl border border-blue-100 bg-blue-50 px-4 py-3"
-                    >
-                        <span id="selected-package-name" class="text-sm font-semibold text-slate-700"></span>
-
-                        <span id="selected-package-version" class="rounded-lg bg-white px-2 py-1 text-xs font-mono text-slate-500"></span>
-                    </div>
-
                 </div>
-
-            </div>
-
-        </div>
-
-        <div class="rounded-3xl bg-white p-8 shadow-sm">
-
-            <h2 class="text-xl font-bold text-slate-900">
-                Display Settings
-            </h2>
-
-            <div class="mt-6">
-
-                <label class="block text-sm font-semibold text-slate-700">
-                    Website Type Icon
-                </label>
-
-                <p class="mt-1 text-xs text-slate-500">
-                    Search and select an icon for this website type.
-                </p>
-
-                @php
-                    $icons = config('website_type_icons');
-                @endphp
-
-                <input
-                    type="hidden"
-                    name="icon"
-                    id="website-type-icon"
-                    value="{{ old('icon') }}"
-                >
-
-                <div class="relative mt-4">
-                    <input
-                        type="text"
-                        id="icon-search"
-                        placeholder="Search icons..."
-                        autocomplete="off"
-                        class="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    >
-
-                    <div
-                        id="icon-picker"
-                        class="absolute z-50 mt-2 hidden max-h-80 w-full overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-xl"
-                    >
-                        @foreach($icons as $key => $emoji)
-                            <button
-                                type="button"
-                                data-icon="{{ $key }}"
-                                data-label="{{ strtolower(str_replace('-', ' ', $key)) }}"
-                                class="icon-option flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left hover:bg-blue-50"
-                            >
-                                <span class="flex h-9 w-9 items-center justify-center text-2xl">
-                                    {{ $emoji }}
-                                </span>
-
-                                <span class="text-sm font-semibold text-slate-700">
-                                    {{ ucwords(str_replace('-', ' ', $key)) }}
-                                </span>
-                            </button>
-                        @endforeach
-                    </div>
-                </div>
-
-                <div
-                    id="selected-icon"
-                    class="mt-3 hidden items-center gap-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3"
-                >
-                    <span id="selected-icon-symbol" class="text-2xl"></span>
-                    <span id="selected-icon-name" class="text-sm font-semibold text-slate-700"></span>
-                </div>
-
-            </div>
-
-            <div class="mt-8 border-t border-slate-100 pt-8">
-
-                <label class="block text-sm font-semibold text-slate-700">
-                    Website Type Image
-                </label>
-
-                <p class="mt-1 text-xs text-slate-500">
-                    Upload an image to represent this website type.
-                </p>
-
-                <input
-                    type="file"
-                    name="image"
-                    accept="image/jpeg,image/png,image/webp,image/svg+xml"
-                    class="mt-4 block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-600"
-                >
-
-            </div>
-
-            <div class="mt-8 grid gap-6 md:grid-cols-2">
 
                 <div>
                     <label class="block text-sm font-semibold text-slate-700">
-                        Sort Order
+                        Core Architecture
                     </label>
 
-                    <input
-                        type="number"
-                        name="sort_order"
-                        value="{{ old('sort_order', 0) }}"
-                        min="0"
-                        class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    >
-                </div>
-
-                <div class="flex items-center">
-                    <label class="flex cursor-pointer items-center gap-3">
-                        <input
-                            type="checkbox"
-                            name="is_active"
-                            value="1"
-                            @checked(old("is_active"))
-                            class="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                        >
-
-                        <span class="text-sm font-semibold text-slate-700">
-                            Active
-                        </span>
-                    </label>
+                    <div class="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <div class="font-semibold text-slate-900">
+                            Native Core
+                        </div>
+                        <div class="mt-1 text-xs text-slate-500">
+                            Website Type composition is applied during deployment.
+                        </div>
+                    </div>
                 </div>
 
             </div>
-
         </div>
+
+
+
+        {{-- ESUBIZ_WEBSITE_TYPE_DEPLOYMENT_COMPOSITION_INCLUDE_V1 --}}
+        @include('admin.website-types._deployment-composition')
 
 
         {{-- ESUBIZ_WEBSITE_TYPE_WIZARD_AVAILABILITY_V2 --}}

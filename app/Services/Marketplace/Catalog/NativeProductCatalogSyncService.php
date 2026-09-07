@@ -1,0 +1,378 @@
+<?php
+
+namespace App\Services\Marketplace\Catalog;
+
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use RuntimeException;
+
+class NativeProductCatalogSyncService
+{
+    /*
+     * ESUBIZ_NATIVE_PRODUCT_CATALOG_SYNC_V1
+     *
+     * Synchronizes native Esubiz products into the canonical
+     * catalog_products registry.
+     *
+     * Native authorities:
+     * - theme_packages
+     * - addon_products
+     * - core_addon_bundles
+     * - modules
+     *
+     * No product names or slugs are hardcoded.
+     */
+
+    public function syncAll(): array
+    {
+        return DB::transaction(function (): array {
+            return [
+                'themes' => $this->syncThemes(),
+                'addons' => $this->syncAddons(),
+                'bundles' => $this->syncBundles(),
+                'modules' => $this->syncModules(),
+            ];
+        });
+    }
+
+    protected function syncThemes(): int
+    {
+        $count = 0;
+
+        $rows = DB::table('theme_packages')
+            ->whereNull('deleted_at')
+            ->where('is_current', true)
+            ->get();
+
+        foreach ($rows as $row) {
+            $catalogId = $this->syncCatalogProduct([
+                'catalog_product_id' => $row->catalog_product_id,
+                'uuid' => $row->uuid,
+                'name' => $row->name,
+                'slug' => $row->slug,
+                'description' => null,
+                'product_type' => 'theme',
+                'audience' => $this->audience(
+                    (bool) $row->saas_available,
+                    (bool) $row->off_server_available
+                ),
+                'is_featured' => (bool) $row->marketplace_featured,
+                'is_active' => (bool) $row->is_active,
+                'is_public' => (bool) $row->marketplace_enabled,
+            ]);
+
+            if ((int) $row->catalog_product_id !== $catalogId) {
+                DB::table('theme_packages')
+                    ->where('id', $row->id)
+                    ->update([
+                        'catalog_product_id' => $catalogId,
+                        'updated_at' => now(),
+                    ]);
+            }
+
+            $count++;
+        }
+
+        return $count;
+    }
+
+    protected function syncAddons(): int
+    {
+        /*
+         * ESUBIZ_CORE_ADDON_CATALOG_SYNC_V3
+         *
+         * core_addons is the native authority for Esubiz Add-ons.
+         * Website Type composition and Marketplace use catalog_products
+         * only as the canonical shared identity layer.
+         */
+        $rows = DB::table('core_addons')
+            ->whereNull('deleted_at')
+            ->get();
+
+        $count = 0;
+
+        foreach ($rows as $row) {
+            $saas = (bool) $row->saas_available;
+            $offServer = (bool) $row->off_server_available;
+
+            $catalogId = $this->syncCatalogProduct([
+                'catalog_product_id' => $row->catalog_product_id,
+                'uuid' => $row->uuid,
+                'name' => $row->name,
+                'slug' => $row->key,
+                'description' => $row->description,
+                'product_type' => 'addon',
+                'audience' => $this->deploymentAudience(
+                    $saas,
+                    $offServer
+                ),
+                'is_featured' => false,
+                'is_active' => (bool) $row->is_active,
+                'is_public' => (bool) $row->is_active,
+            ]);
+
+            DB::table('core_addons')
+                ->where('id', $row->id)
+                ->update([
+                    'catalog_product_id' => $catalogId,
+                ]);
+
+            $count++;
+        }
+
+        return $count;
+    }
+
+    protected function syncBundles(): int
+    {
+        $count = 0;
+
+        $rows = DB::table('core_addon_bundles')
+            ->whereNull('deleted_at')
+            ->get();
+
+        foreach ($rows as $row) {
+            $catalogId = $this->syncCatalogProduct([
+                'catalog_product_id' => $row->catalog_product_id,
+                'uuid' => $row->uuid,
+                'name' => $row->name,
+                'slug' => $row->key,
+                'description' => $row->description,
+                'product_type' => 'bundle',
+                'audience' => $this->audience(
+                    (bool) $row->saas_available,
+                    (bool) $row->off_server_available
+                ),
+                'is_featured' => false,
+                'is_active' => (bool) $row->is_active,
+                'is_public' => true,
+            ]);
+
+            if ((int) $row->catalog_product_id !== $catalogId) {
+                DB::table('core_addon_bundles')
+                    ->where('id', $row->id)
+                    ->update([
+                        'catalog_product_id' => $catalogId,
+                        'updated_at' => now(),
+                    ]);
+            }
+
+            $count++;
+        }
+
+        return $count;
+    }
+
+    protected function syncModules(): int
+    {
+        $count = 0;
+
+        $rows = DB::table('modules')
+            ->whereNull('deleted_at')
+            ->get();
+
+        foreach ($rows as $row) {
+            $catalogId = $this->syncCatalogProduct([
+                'catalog_product_id' => $row->catalog_product_id,
+                'uuid' => $row->uuid,
+                'name' => $row->name,
+                'slug' => $row->slug,
+                'description' => $row->description,
+                'product_type' => 'module',
+                'audience' => 'both',
+                'is_featured' => false,
+                'is_active' => (bool) $row->is_active,
+                'is_public' => (bool) $row->is_verified,
+            ]);
+
+            if ((int) $row->catalog_product_id !== $catalogId) {
+                DB::table('modules')
+                    ->where('id', $row->id)
+                    ->update([
+                        'catalog_product_id' => $catalogId,
+                        'updated_at' => now(),
+                    ]);
+            }
+
+            $count++;
+        }
+
+        return $count;
+    }
+
+    protected function syncCatalogProduct(array $data): int
+    {
+        $existing = null;
+
+        if (!empty($data['catalog_product_id'])) {
+            $existing = DB::table('catalog_products')
+                ->where('id', $data['catalog_product_id'])
+                ->first();
+        }
+
+        if (!$existing) {
+            $existing = DB::table('catalog_products')
+                ->where('product_type', $data['product_type'])
+                ->where('slug', $data['slug'])
+                ->whereNull('deleted_at')
+                ->first();
+        }
+
+        /*
+         * ESUBIZ_CANONICAL_GLOBAL_SLUG_V2
+         *
+         * catalog_products.slug is globally unique.
+         * Native products may legitimately share a slug with another
+         * product family, e.g. Website Type "business" and Theme
+         * "business".
+         *
+         * Preserve the native slug in its native table and derive a
+         * deterministic canonical catalog slug only when required.
+         */
+        $catalogSlug = $data['slug'];
+
+        $slugOwner = DB::table('catalog_products')
+            ->where('slug', $catalogSlug)
+            ->whereNull('deleted_at')
+            ->when(
+                $existing,
+                fn ($query) => $query->where(
+                    'id',
+                    '!=',
+                    $existing->id
+                )
+            )
+            ->first();
+
+        if ($slugOwner) {
+            $catalogSlug =
+                $data['product_type']
+                . '-'
+                . $data['slug'];
+
+            $suffix = 2;
+            $candidate = $catalogSlug;
+
+            while (
+                DB::table('catalog_products')
+                    ->where('slug', $candidate)
+                    ->whereNull('deleted_at')
+                    ->when(
+                        $existing,
+                        fn ($query) => $query->where(
+                            'id',
+                            '!=',
+                            $existing->id
+                        )
+                    )
+                    ->exists()
+            ) {
+                $candidate =
+                    $catalogSlug
+                    . '-'
+                    . $suffix;
+
+                $suffix++;
+            }
+
+            $catalogSlug = $candidate;
+        }
+
+        $payload = [
+            'uuid' => $existing->uuid
+                ?? $data['uuid']
+                ?? (string) Str::uuid(),
+
+            'name' => $data['name'],
+            'slug' => $catalogSlug,
+            'description' => $data['description'],
+            'product_type' => $data['product_type'],
+            'audience' => $this->normalizeAudience($data['audience']),
+            'fulfilment_type' => 'instant',
+            'is_featured' => (bool) $data['is_featured'],
+            'is_active' => (bool) $data['is_active'],
+            'is_public' => (bool) $data['is_public'],
+            'updated_at' => now(),
+        ];
+
+        if ($existing) {
+            if ($existing->product_type !== $data['product_type']) {
+                throw new RuntimeException(
+                    "Catalog product {$existing->id} type mismatch."
+                );
+            }
+
+            DB::table('catalog_products')
+                ->where('id', $existing->id)
+                ->update($payload);
+
+            return (int) $existing->id;
+        }
+
+        $payload['created_at'] = now();
+
+        return (int) DB::table('catalog_products')
+            ->insertGetId($payload);
+    }
+
+    protected function audience(
+        bool $saas,
+        bool $offServer
+    ): string {
+        if ($saas && $offServer) {
+            return 'both';
+        }
+
+        if ($saas) {
+            return 'saas';
+        }
+
+        if ($offServer) {
+            return 'developer';
+        }
+
+        return 'both';
+    }
+
+    protected function normalizeAudience(?string $audience): string
+    {
+        return in_array(
+            $audience,
+            ['saas', 'developer', 'both'],
+            true
+        )
+            ? $audience
+            : 'both';
+    }
+
+    /*
+     * ESUBIZ_DEPLOYMENT_AUDIENCE_V4
+     *
+     * Convert native SaaS/off-server availability flags into the
+     * canonical catalog audience value.
+     */
+    protected function deploymentAudience(
+        bool $saas,
+        bool $offServer
+    ): string {
+        if ($saas && $offServer) {
+            return 'both';
+        }
+
+        if ($saas) {
+            return 'saas';
+        }
+
+        if ($offServer) {
+            return 'developer';
+        }
+
+        /*
+         * Product can remain catalogued even when currently unavailable
+         * for deployment. "both" avoids inventing a non-existent enum
+         * value; is_active/is_public still control availability.
+         */
+        return 'both';
+    }
+
+}
