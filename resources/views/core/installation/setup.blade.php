@@ -1,0 +1,2100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+>
+<title>Esubiz Website/Core Setup</title>
+
+<style>
+:root{
+    --navy:#0b1f3a;
+    --navy2:#102d52;
+    --gold:#c89b3c;
+    --bg:#f5f7fb;
+    --text:#132238;
+    --muted:#6b7a90;
+    --line:#e4e9f0;
+    --ok:#15803d;
+    --okbg:#ecfdf3;
+    --bad:#b42318;
+    --badbg:#fff1f0;
+    --blue:#2563eb;
+}
+
+*{box-sizing:border-box}
+
+body{
+    margin:0;
+    font-family:Inter,ui-sans-serif,system-ui,-apple-system,
+        BlinkMacSystemFont,"Segoe UI",sans-serif;
+    color:var(--text);
+    background:
+        radial-gradient(
+            circle at 100% 0%,
+            rgba(200,155,60,.10),
+            transparent 28%
+        ),
+        linear-gradient(180deg,#f8fafc,#f3f6fa);
+}
+
+.shell{
+    min-height:100vh;
+    display:grid;
+    grid-template-columns:320px minmax(0,1fr);
+}
+
+.sidebar{
+    background:linear-gradient(
+        180deg,
+        var(--navy),
+        #07172c
+    );
+    color:#fff;
+    padding:34px 26px;
+    position:relative;
+    overflow:hidden;
+}
+
+.sidebar:after{
+    content:"";
+    position:absolute;
+    width:240px;
+    height:240px;
+    border-radius:50%;
+    border:1px solid rgba(255,255,255,.08);
+    right:-110px;
+    bottom:-80px;
+}
+
+.brand{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin-bottom:34px;
+}
+
+.brandmark{
+    width:44px;
+    height:44px;
+    border-radius:14px;
+    background:var(--gold);
+    display:grid;
+    place-items:center;
+    color:var(--navy);
+    font-weight:900;
+    font-size:20px;
+}
+
+.brand h1{
+    font-size:19px;
+    margin:0;
+    letter-spacing:.01em;
+}
+
+.brand p{
+    margin:3px 0 0;
+    color:#aebbd0;
+    font-size:12px;
+}
+
+.steps{
+    display:grid;
+    gap:10px;
+}
+
+.step-link{
+    border:0;
+    background:transparent;
+    color:#bdc8d8;
+    display:grid;
+    grid-template-columns:38px 1fr;
+    gap:12px;
+    text-align:left;
+    padding:12px;
+    border-radius:14px;
+    cursor:default;
+    transition:.2s;
+}
+
+.step-link .num{
+    width:34px;
+    height:34px;
+    border-radius:50%;
+    display:grid;
+    place-items:center;
+    border:1px solid rgba(255,255,255,.18);
+    font-size:12px;
+    font-weight:800;
+}
+
+.step-link strong{
+    display:block;
+    color:inherit;
+    font-size:14px;
+}
+
+.step-link small{
+    display:block;
+    color:#8798b0;
+    margin-top:3px;
+    font-size:11px;
+    line-height:1.35;
+}
+
+.step-link.active{
+    background:rgba(255,255,255,.08);
+    color:#fff;
+}
+
+.step-link.active .num{
+    background:var(--gold);
+    color:var(--navy);
+    border-color:var(--gold);
+}
+
+.step-link.done .num{
+    background:#1f9d55;
+    color:white;
+    border-color:#1f9d55;
+}
+
+.side-note{
+    margin-top:30px;
+    padding:15px;
+    border-radius:14px;
+    border:1px solid rgba(255,255,255,.08);
+    color:#9fb0c7;
+    font-size:11px;
+    line-height:1.55;
+    background:rgba(255,255,255,.04);
+}
+
+.main{
+    padding:34px 42px 50px;
+}
+
+.topbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:28px;
+}
+
+.topbar h2{
+    margin:0;
+    font-size:24px;
+}
+
+.secure{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:9px 12px;
+    border-radius:999px;
+    background:#fff;
+    border:1px solid var(--line);
+    color:var(--muted);
+    font-size:12px;
+    font-weight:700;
+}
+
+.card{
+    max-width:940px;
+    margin:0 auto;
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:24px;
+    box-shadow:0 18px 60px rgba(11,31,58,.08);
+    overflow:hidden;
+}
+
+.card-head{
+    padding:28px 30px 18px;
+    border-bottom:1px solid var(--line);
+}
+
+.eyebrow{
+    font-size:11px;
+    font-weight:900;
+    letter-spacing:.14em;
+    color:var(--gold);
+    text-transform:uppercase;
+}
+
+.card-head h3{
+    font-size:26px;
+    margin:7px 0 8px;
+}
+
+.card-head p{
+    margin:0;
+    color:var(--muted);
+    line-height:1.65;
+    font-size:14px;
+}
+
+.card-body{
+    padding:28px 30px;
+}
+
+.panel{
+    display:none;
+}
+
+.panel.active{
+    display:block;
+}
+
+.grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:18px;
+}
+
+.field{
+    display:grid;
+    gap:7px;
+}
+
+.field.full{
+    grid-column:1/-1;
+}
+
+label{
+    font-size:12px;
+    font-weight:800;
+    color:#314158;
+}
+
+input{
+    width:100%;
+    height:48px;
+    border:1px solid #d8dee8;
+    border-radius:12px;
+    padding:0 14px;
+    font:inherit;
+    background:white;
+    color:var(--text);
+    outline:none;
+}
+
+input:focus{
+    border-color:#8aa7d0;
+    box-shadow:0 0 0 3px rgba(37,99,235,.08);
+}
+
+.hint{
+    font-size:11px;
+    color:#8290a5;
+}
+
+.info{
+    margin-top:18px;
+    border:1px solid #dce7f7;
+    background:#f7fbff;
+    padding:15px 16px;
+    border-radius:14px;
+    color:#4c5d74;
+    font-size:12px;
+    line-height:1.6;
+}
+
+.message{
+    display:none;
+    margin-top:18px;
+    padding:14px 16px;
+    border-radius:14px;
+    font-size:12px;
+    line-height:1.55;
+}
+
+.message.show{
+    display:block;
+}
+
+.message.ok{
+    background:var(--okbg);
+    border:1px solid #b7e4c7;
+    color:var(--ok);
+}
+
+.message.bad{
+    background:var(--badbg);
+    border:1px solid #fecaca;
+    color:var(--bad);
+}
+
+.checks{
+    display:grid;
+    gap:11px;
+}
+
+.check{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:15px;
+    padding:14px 15px;
+    border:1px solid var(--line);
+    border-radius:14px;
+    background:#fff;
+}
+
+.check .left{
+    display:flex;
+    align-items:center;
+    gap:11px;
+}
+
+.icon{
+    width:30px;
+    height:30px;
+    border-radius:50%;
+    display:grid;
+    place-items:center;
+    background:#eef2f7;
+    color:#728199;
+    font-weight:900;
+    flex:0 0 auto;
+}
+
+.check.pass{
+    border-color:#b7e4c7;
+    background:var(--okbg);
+}
+
+.check.pass .icon{
+    background:#d6f5df;
+    color:var(--ok);
+}
+
+.check.fail{
+    border-color:#fecaca;
+    background:var(--badbg);
+}
+
+.check.fail .icon{
+    background:#fee2e2;
+    color:var(--bad);
+}
+
+.check strong{
+    font-size:13px;
+}
+
+.check span{
+    font-size:11px;
+    color:var(--muted);
+}
+
+.status-pill{
+    font-size:10px;
+    font-weight:900;
+    padding:6px 9px;
+    border-radius:999px;
+    background:#eef2f7;
+    color:#65758a;
+    white-space:nowrap;
+}
+
+.pass .status-pill{
+    background:#dff7e7;
+    color:var(--ok);
+}
+
+.fail .status-pill{
+    background:#ffe3e0;
+    color:var(--bad);
+}
+
+.runbox{
+    margin-bottom:18px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:15px;
+    padding:14px 16px;
+    border:1px dashed #c7d1df;
+    border-radius:14px;
+    background:#fafcff;
+}
+
+.btn{
+    border:0;
+    border-radius:12px;
+    height:44px;
+    padding:0 18px;
+    font-weight:800;
+    cursor:pointer;
+    font-size:13px;
+}
+
+.btn-primary{
+    background:var(--navy);
+    color:#fff;
+}
+
+.btn-gold{
+    background:var(--gold);
+    color:var(--navy);
+}
+
+.btn-light{
+    background:#eef2f7;
+    color:#34445a;
+}
+
+.btn:disabled{
+    opacity:.45;
+    cursor:not-allowed;
+}
+
+.actions{
+    display:flex;
+    justify-content:space-between;
+    gap:14px;
+    margin-top:26px;
+    padding-top:22px;
+    border-top:1px solid var(--line);
+}
+
+.review{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    margin-bottom:20px;
+}
+
+.review div{
+    padding:14px;
+    border:1px solid var(--line);
+    border-radius:13px;
+    background:#fbfcfe;
+}
+
+.review small{
+    display:block;
+    color:#8a98aa;
+    font-size:10px;
+    text-transform:uppercase;
+    font-weight:900;
+    letter-spacing:.08em;
+}
+
+.review strong{
+    display:block;
+    margin-top:5px;
+    font-size:13px;
+}
+
+.progress-wrap{
+    padding:24px;
+    border:1px solid var(--line);
+    border-radius:18px;
+    background:#fbfcff;
+    text-align:center;
+}
+
+.timer{
+    font-size:12px;
+    color:#d97706;
+    font-weight:900;
+    margin-bottom:10px;
+}
+
+.progress-title{
+    font-size:18px;
+    font-weight:900;
+    margin-bottom:8px;
+}
+
+.progress-text{
+    color:var(--muted);
+    font-size:12px;
+    min-height:18px;
+}
+
+.progressbar{
+    height:12px;
+    background:#e8edf3;
+    border-radius:999px;
+    overflow:hidden;
+    margin:18px 0 10px;
+}
+
+.progressbar > div{
+    height:100%;
+    width:0;
+    background:linear-gradient(
+        90deg,
+        var(--navy2),
+        var(--gold)
+    );
+    transition:width .35s ease;
+}
+
+.percent{
+    font-size:28px;
+    font-weight:900;
+    color:var(--navy);
+}
+
+@media(max-width:900px){
+    .shell{
+        grid-template-columns:1fr;
+    }
+
+    .steps{
+        grid-template-columns:1fr 1fr;
+    }
+
+    .main{
+        padding:22px;
+    }
+}
+
+@media(max-width:620px){
+    .grid,
+    .review{
+        grid-template-columns:1fr;
+    }
+
+    .steps{
+        grid-template-columns:1fr;
+    }
+
+    .topbar{
+        align-items:flex-start;
+        gap:12px;
+        flex-direction:column;
+    }
+
+    .card-head,
+    .card-body{
+        padding-left:20px;
+        padding-right:20px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="shell">
+
+<aside class="sidebar">
+
+    <div class="brand">
+        <div class="brandmark">E</div>
+
+        <div>
+            <h1>Esubiz Installer</h1>
+            <p>Off-server Website/Core setup</p>
+        </div>
+    </div>
+
+    <div class="steps">
+
+        <div
+            class="step-link active"
+            data-step="1"
+        >
+            <span class="num">1</span>
+
+            <span>
+                <strong>Website & Licence</strong>
+                <small>
+                    Website identity, domain and Esubiz licence validation.
+                </small>
+            </span>
+        </div>
+
+        <div
+            class="step-link"
+            data-step="2"
+        >
+            <span class="num">2</span>
+
+            <span>
+                <strong>System Check</strong>
+                <small>
+                    PHP, server extensions, permissions and environment.
+                </small>
+            </span>
+        </div>
+
+        <div
+            class="step-link"
+            data-step="3"
+        >
+            <span class="num">3</span>
+
+            <span>
+                <strong>Database</strong>
+                <small>
+                    Connect a dedicated MySQL/MariaDB database.
+                </small>
+            </span>
+        </div>
+
+        <div
+            class="step-link"
+            data-step="4"
+        >
+            <span class="num">4</span>
+
+            <span>
+                <strong>Administrator</strong>
+                <small>
+                    Create the first local Core administrator.
+                </small>
+            </span>
+        </div>
+
+        <div
+            class="step-link"
+            data-step="5"
+        >
+            <span class="num">5</span>
+
+            <span>
+                <strong>Install Esubiz</strong>
+                <small>
+                    Review configuration and complete installation.
+                </small>
+            </span>
+        </div>
+
+    </div>
+
+    <div class="side-note">
+        Esubiz validates each installation stage before allowing
+        the website setup to continue.
+    </div>
+
+</aside>
+
+<main class="main">
+
+    <div class="topbar">
+
+        <h2>Install Esubiz Website/Core</h2>
+
+        <div class="secure">
+            ● Secure installation wizard
+        </div>
+
+    </div>
+
+    <div class="card">
+
+        <div class="card-head">
+
+            <div class="eyebrow">
+                Esubiz Off-Server Installer
+            </div>
+
+            <h3 id="panelTitle">
+                Website & Licence
+            </h3>
+
+            <p id="panelSubtitle">
+                Tell Esubiz what this website is called, which domain
+                it will use, and validate the licence supplied with
+                your purchase.
+            </p>
+
+        </div>
+
+        <div class="card-body">
+
+            {{-- ================================================= --}}
+            {{-- STEP 1: WEBSITE + LICENCE --}}
+            {{-- ================================================= --}}
+
+            <section
+                class="panel active"
+                data-panel="1"
+            >
+
+                <div class="grid">
+
+                    <div class="field full">
+
+                        <label for="siteName">
+                            Website Name
+                        </label>
+
+                        <input
+                            id="siteName"
+                            type="text"
+                            placeholder="e.g. Emma Stores"
+                        >
+
+                        <div class="hint">
+                            This becomes the initial website identity
+                            inside Core.
+                        </div>
+
+                    </div>
+
+                    <div class="field">
+
+                        <label for="domain">
+                            Primary Domain
+                        </label>
+
+                        <input
+                            id="domain"
+                            type="text"
+                            value="{{ $detectedDomain }}"
+                        >
+
+                    </div>
+
+                    <div class="field">
+
+                        <label for="license">
+                            Esubiz Licence Key
+                        </label>
+
+                        <input
+                            id="license"
+                            type="text"
+                            placeholder="ESB-CORE-XXXX-XXXX-XXXX-XXXX"
+                        >
+
+                    </div>
+
+                </div>
+
+                <input
+                    id="coreInstanceUuid"
+                    type="hidden"
+                    value="{{ $generatedInstanceUuid }}"
+                >
+
+                <div class="info">
+                    <strong>Domain licence:</strong>
+                    Esubiz Central will validate this licence before
+                    installation can continue and bind it according
+                    to its licence terms.
+                </div>
+
+                <div
+                    id="licenseMessage"
+                    class="message"
+                ></div>
+
+                
+                <div
+                    id="finalInstallationMessage"
+                    class="message"
+                ></div>
+
+                <div
+                    id="realInstallProgress"
+                    style="display:none; margin-top:18px;"
+                >
+                    <div
+                        style="
+                            height:8px;
+                            border-radius:999px;
+                            overflow:hidden;
+                            background:#e8edf3;
+                        "
+                    >
+                        <div
+                            id="realInstallProgressBar"
+                            style="
+                                width:0%;
+                                height:100%;
+                                background:currentColor;
+                                transition:width .35s ease;
+                            "
+                        ></div>
+                    </div>
+
+                    <div
+                        id="realInstallProgressText"
+                        style="
+                            margin-top:9px;
+                            font-size:13px;
+                            opacity:.75;
+                        "
+                    >
+                        Preparing installation…
+                    </div>
+                </div>
+
+<div class="actions">
+                    <span></span>
+
+                    <button
+                        type="button"
+                        class="btn btn-primary"
+                     id="installEsubizButton">
+                        Validate & Continue
+                    </button>
+                </div>
+
+            </section>
+
+
+            {{-- ================================================= --}}
+            {{-- STEP 2: SYSTEM CHECK --}}
+            {{-- ================================================= --}}
+
+            <section
+                class="panel"
+                data-panel="2"
+            >
+
+                <div class="runbox">
+
+                    <div>
+                        <strong style="font-size:13px">
+                            Automatic system check
+                        </strong>
+
+                        <div class="hint">
+                            Esubiz reads the real server environment
+                            before enabling Continue.
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="btn btn-gold"
+                        id="runCheck"
+                    >
+                        Run System Check
+                    </button>
+
+                </div>
+
+                <div
+                    class="checks"
+                    id="systemChecks"
+                >
+
+                    @foreach ([
+                        ['php', 'PHP Version'],
+                        ['pdo_mysql', 'PDO / MySQL'],
+                        ['extensions', 'OpenSSL, Mbstring, XML, cURL, ZIP'],
+                        ['permissions', 'Storage Permissions'],
+                        ['https', 'HTTPS / Domain'],
+                    ] as [$key, $label])
+
+                        <div
+                            class="check"
+                            data-check="{{ $key }}"
+                        >
+
+                            <div class="left">
+
+                                <div class="icon">
+                                    •
+                                </div>
+
+                                <div>
+                                    <strong>
+                                        {{ $label }}
+                                    </strong>
+
+                                    <br>
+
+                                    <span class="check-detail">
+                                        Waiting for server check
+                                    </span>
+                                </div>
+
+                            </div>
+
+                            <div class="status-pill">
+                                Waiting
+                            </div>
+
+                        </div>
+
+                    @endforeach
+
+                </div>
+
+                <div
+                    id="systemMessage"
+                    class="message"
+                ></div>
+
+                <div class="actions">
+
+                    <button
+                        type="button"
+                        class="btn btn-light prev"
+                    >
+                        Back
+                    </button>
+
+                    <button
+                        type="button"
+                        class="btn btn-primary next"
+                        id="systemNext"
+                        disabled
+                    >
+                        Continue
+                    </button>
+
+                </div>
+
+            </section>
+
+
+            {{-- ================================================= --}}
+            {{-- STEP 3: DATABASE --}}
+            {{-- ================================================= --}}
+
+            <section
+                class="panel"
+                data-panel="3"
+            >
+
+                <div class="grid">
+
+                    <div class="field">
+                        <label for="dbHost">
+                            Database Host
+                        </label>
+
+                        <input
+                            id="dbHost"
+                            value="127.0.0.1"
+                        >
+                    </div>
+
+                    <div class="field">
+                        <label for="dbPort">
+                            Database Port
+                        </label>
+
+                        <input
+                            id="dbPort"
+                            value="3306"
+                        >
+                    </div>
+
+                    <div class="field">
+                        <label for="dbName">
+                            Database Name
+                        </label>
+
+                        <input id="dbName">
+                    </div>
+
+                    <div class="field">
+                        <label for="dbUser">
+                            Database Username
+                        </label>
+
+                        <input id="dbUser">
+                    </div>
+
+                    <div class="field full">
+                        <label for="dbPassword">
+                            Database Password
+                        </label>
+
+                        <input
+                            id="dbPassword"
+                            type="password"
+                        >
+                    </div>
+
+                </div>
+
+                <div class="info">
+                    Esubiz will test these credentials using an isolated
+                    connection. Your website will not continue until the
+                    supplied MySQL/MariaDB database accepts the connection.
+                </div>
+
+                <div
+                    id="databaseMessage"
+                    class="message"
+                ></div>
+
+                <div class="actions">
+
+                    <button
+                        type="button"
+                        class="btn btn-light prev"
+                    >
+                        Back
+                    </button>
+
+                    <button
+                        type="button"
+                        class="btn btn-primary"
+                        id="databaseNext"
+                    >
+                        Test Connection & Continue
+                    </button>
+
+                </div>
+
+            </section>
+
+
+            {{-- ================================================= --}}
+            {{-- STEP 4: ADMIN --}}
+            {{-- ================================================= --}}
+
+            <section
+                class="panel"
+                data-panel="4"
+            >
+
+                <div class="grid">
+
+                    <div class="field">
+                        <label for="adminName">
+                            Administrator Name
+                        </label>
+
+                        <input id="adminName">
+                    </div>
+
+                    <div class="field">
+                        <label for="adminEmail">
+                            Email Address
+                        </label>
+
+                        <input
+                            id="adminEmail"
+                            type="email"
+                        >
+                    </div>
+
+                    <div class="field">
+                        <label for="adminPhone">
+                            Phone Number
+                        </label>
+
+                        <input
+                            id="adminPhone"
+                            value="+234"
+                        >
+                    </div>
+
+                    <div class="field">
+                        <label for="adminPassword">
+                            Password
+                        </label>
+
+                        <input
+                            id="adminPassword"
+                            type="password"
+                        >
+                    </div>
+
+                    <div class="field full">
+                        <label for="adminPasswordConfirmation">
+                            Confirm Password
+                        </label>
+
+                        <input
+                            id="adminPasswordConfirmation"
+                            type="password"
+                        >
+                    </div>
+
+                </div>
+
+                <div class="info">
+                    These details will create the first local
+                    Administrator account during final installation.
+                </div>
+
+                <div
+                    id="administratorMessage"
+                    class="message"
+                ></div>
+
+                <div class="actions">
+
+                    <button
+                        type="button"
+                        class="btn btn-light prev"
+                    >
+                        Back
+                    </button>
+
+                    <button
+                        type="button"
+                        class="btn btn-primary"
+                        id="adminNext"
+                    >
+                        Review Installation
+                    </button>
+
+                </div>
+
+            </section>
+
+
+            {{-- ================================================= --}}
+            {{-- STEP 5: INSTALL --}}
+            {{-- ================================================= --}}
+
+            <section
+                class="panel"
+                data-panel="5"
+            >
+
+                <div class="review">
+
+                    <div>
+                        <small>Website</small>
+                        <strong id="reviewName">—</strong>
+                    </div>
+
+                    <div>
+                        <small>Domain</small>
+                        <strong id="reviewDomain">—</strong>
+                    </div>
+
+                    <div>
+                        <small>Licence</small>
+                        <strong>Validated Esubiz Core Licence</strong>
+                    </div>
+
+                    <div>
+                        <small>System</small>
+                        <strong>Requirements Passed</strong>
+                    </div>
+
+                    <div>
+                        <small>Database</small>
+                        <strong id="reviewDatabase">
+                            Connection Ready
+                        </strong>
+                    </div>
+
+                    <div>
+                        <small>Administrator</small>
+                        <strong id="reviewAdministrator">
+                            Ready to Create
+                        </strong>
+                    </div>
+
+                </div>
+
+                <div class="progress-wrap">
+
+                    <div class="timer">
+                        Installation has not started.
+                    </div>
+
+                    <div class="progress-title">
+                        Installation engine pending
+                    </div>
+
+                    <div class="progress-text">
+                        Final installation remains disabled until
+                        database and administrator stages are wired.
+                    </div>
+
+                    <div class="progressbar">
+                        <div></div>
+                    </div>
+
+                    <div class="percent">
+                        0%
+                    </div>
+
+                    <button
+                        type="button"
+                        class="btn btn-gold"
+                        style="margin-top:16px"
+                        disabled
+                    >
+                        Install Esubiz
+                    </button>
+
+                </div>
+
+                <div class="actions">
+
+                    <button
+                        type="button"
+                        class="btn btn-light prev"
+                    >
+                        Back
+                    </button>
+
+                    <span></span>
+
+                </div>
+
+            </section>
+
+        </div>
+
+    </div>
+
+</main>
+
+</div>
+
+<script>
+const csrfToken = @json(csrf_token());
+
+const titles = {
+    1: [
+        "Website & Licence",
+        "Tell Esubiz what this website is called, which domain it will use, and validate the licence supplied with your purchase."
+    ],
+    2: [
+        "System Check",
+        "Esubiz checks the real server environment before installation can continue."
+    ],
+    3: [
+        "Database Configuration",
+        "Connect the website to its dedicated MySQL or MariaDB database."
+    ],
+    4: [
+        "Administrator Setup",
+        "Create the first local Core Administrator account."
+    ],
+    5: [
+        "Install Esubiz",
+        "Review the validated configuration and complete the installation."
+    ]
+};
+
+let current = 1;
+
+const panels =
+    [...document.querySelectorAll(".panel")];
+
+const links =
+    [...document.querySelectorAll(".step-link")];
+
+function show(step) {
+    current = step;
+
+    panels.forEach(panel => {
+        panel.classList.toggle(
+            "active",
+            Number(panel.dataset.panel) === step
+        );
+    });
+
+    links.forEach(link => {
+        const linkStep =
+            Number(link.dataset.step);
+
+        link.classList.toggle(
+            "active",
+            linkStep === step
+        );
+
+        link.classList.toggle(
+            "done",
+            linkStep < step
+        );
+    });
+
+    document.getElementById(
+        "panelTitle"
+    ).textContent =
+        titles[step][0];
+
+    document.getElementById(
+        "panelSubtitle"
+    ).textContent =
+        titles[step][1];
+
+    if (step === 5) {
+        document.getElementById(
+            "reviewName"
+        ).textContent =
+            document.getElementById(
+                "siteName"
+            ).value || "Untitled Website";
+
+        document.getElementById(
+            "reviewDomain"
+        ).textContent =
+            document.getElementById(
+                "domain"
+            ).value || "No domain";
+    }
+}
+
+document.querySelectorAll(
+    ".prev"
+).forEach(button => {
+    button.addEventListener(
+        "click",
+        () => {
+            if (current > 1) {
+                show(current - 1);
+            }
+        }
+    );
+});
+
+document.querySelectorAll(
+    ".next"
+).forEach(button => {
+    button.addEventListener(
+        "click",
+        () => {
+            if (current < 5) {
+                show(current + 1);
+            }
+        }
+    );
+});
+
+function setMessage(
+    element,
+    type,
+    text
+) {
+    element.className =
+        "message show " + type;
+
+    element.textContent =
+        text;
+}
+
+/*
+|--------------------------------------------------------------------------
+| STEP 1 — REAL CENTRAL LICENCE VALIDATION
+|--------------------------------------------------------------------------
+*/
+
+document.getElementById(
+    "validateLicenseBtn"
+).addEventListener(
+    "click",
+    async function () {
+        const button = this;
+
+        const message =
+            document.getElementById(
+                "licenseMessage"
+            );
+
+        button.disabled = true;
+        button.textContent =
+            "Validating...";
+
+        message.className =
+            "message";
+
+        try {
+            const response = await fetch(
+                @json(route('core.setup.validate-license')),
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+                        "Accept":
+                            "application/json",
+                        "X-CSRF-TOKEN":
+                            csrfToken
+                    },
+                    body: JSON.stringify({
+                        site_name:
+                            document.getElementById(
+                                "siteName"
+                            ).value,
+
+                        domain:
+                            document.getElementById(
+                                "domain"
+                            ).value,
+
+                        license_key:
+                            document.getElementById(
+                                "license"
+                            ).value,
+
+                        core_instance_uuid:
+                            document.getElementById(
+                                "coreInstanceUuid"
+                            ).value
+                    })
+                }
+            );
+
+            const data =
+                await response.json();
+
+            if (
+                !response.ok
+                || !data.ok
+            ) {
+                throw new Error(
+                    data.message
+                    || "Licence validation failed."
+                );
+            }
+
+            setMessage(
+                message,
+                "ok",
+                data.message
+            );
+
+            setTimeout(
+                () => show(2),
+                350
+            );
+        } catch (error) {
+            setMessage(
+                message,
+                "bad",
+                error.message
+                    || "Licence validation failed."
+            );
+        } finally {
+            button.disabled = false;
+            button.textContent =
+                "Validate & Continue";
+        }
+    }
+);
+
+/*
+|--------------------------------------------------------------------------
+| STEP 2 — REAL SYSTEM CHECK
+|--------------------------------------------------------------------------
+*/
+
+document.getElementById(
+    "runCheck"
+).addEventListener(
+    "click",
+    async function () {
+        const button = this;
+
+        const message =
+            document.getElementById(
+                "systemMessage"
+            );
+
+        const next =
+            document.getElementById(
+                "systemNext"
+            );
+
+        button.disabled = true;
+        button.textContent =
+            "Checking...";
+
+        next.disabled = true;
+
+        message.className =
+            "message";
+
+        try {
+            const response = await fetch(
+                @json(route('core.setup.system-check')),
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+                        "Accept":
+                            "application/json",
+                        "X-CSRF-TOKEN":
+                            csrfToken
+                    },
+                    body: JSON.stringify({})
+                }
+            );
+
+            const data =
+                await response.json();
+
+            if (
+                !response.ok
+                || !data.ok
+            ) {
+                throw new Error(
+                    data.message
+                    || "System check failed."
+                );
+            }
+
+            data.checks.forEach(check => {
+                const row =
+                    document.querySelector(
+                        '[data-check="'
+                        + check.key
+                        + '"]'
+                    );
+
+                if (!row) {
+                    return;
+                }
+
+                row.classList.remove(
+                    "pass",
+                    "fail"
+                );
+
+                row.classList.add(
+                    check.pass
+                        ? "pass"
+                        : "fail"
+                );
+
+                row.querySelector(
+                    ".icon"
+                ).textContent =
+                    check.pass
+                        ? "✓"
+                        : "×";
+
+                row.querySelector(
+                    ".status-pill"
+                ).textContent =
+                    check.pass
+                        ? "Passed"
+                        : "Failed";
+
+                row.querySelector(
+                    ".check-detail"
+                ).textContent =
+                    check.detail;
+            });
+
+            if (data.passed) {
+                next.disabled = false;
+
+                setMessage(
+                    message,
+                    "ok",
+                    "All system requirements passed."
+                );
+
+                button.textContent =
+                    "All Checks Passed";
+            } else {
+                setMessage(
+                    message,
+                    "bad",
+                    "One or more requirements failed. Resolve them before continuing."
+                );
+
+                button.textContent =
+                    "Run System Check Again";
+            }
+        } catch (error) {
+            setMessage(
+                message,
+                "bad",
+                error.message
+                    || "System check failed."
+            );
+
+            button.textContent =
+                "Run System Check Again";
+        } finally {
+            button.disabled = false;
+        }
+    }
+);
+
+/*
+|--------------------------------------------------------------------------
+| STEP 3 — REAL DATABASE CONNECTION TEST
+|--------------------------------------------------------------------------
+*/
+
+document.getElementById(
+    "databaseNext"
+).addEventListener(
+    "click",
+    async function () {
+        const button = this;
+
+        const message =
+            document.getElementById(
+                "databaseMessage"
+            );
+
+        button.disabled = true;
+        button.textContent =
+            "Testing Connection...";
+
+        message.className =
+            "message";
+
+        try {
+            const response = await fetch(
+                @json(route('core.setup.database-test')),
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+                        "Accept":
+                            "application/json",
+                        "X-CSRF-TOKEN":
+                            csrfToken
+                    },
+                    body: JSON.stringify({
+                        db_host:
+                            document.getElementById(
+                                "dbHost"
+                            ).value,
+
+                        db_port:
+                            document.getElementById(
+                                "dbPort"
+                            ).value,
+
+                        db_database:
+                            document.getElementById(
+                                "dbName"
+                            ).value,
+
+                        db_username:
+                            document.getElementById(
+                                "dbUser"
+                            ).value,
+
+                        db_password:
+                            document.getElementById(
+                                "dbPassword"
+                            ).value
+                    })
+                }
+            );
+
+            const data =
+                await response.json();
+
+            if (
+                !response.ok
+                || !data.ok
+            ) {
+                throw new Error(
+                    data.message
+                    || "Database connection failed."
+                );
+            }
+
+            setMessage(
+                message,
+                "ok",
+                data.message
+            );
+
+            setTimeout(
+                () => show(4),
+                350
+            );
+        } catch (error) {
+            setMessage(
+                message,
+                "bad",
+                error.message
+                    || "Database connection failed."
+            );
+        } finally {
+            button.disabled = false;
+            button.textContent =
+                "Test Connection & Continue";
+        }
+    }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| STEP 4 — REAL ADMINISTRATOR VALIDATION
+|--------------------------------------------------------------------------
+*/
+
+document.getElementById(
+    "adminNext"
+).addEventListener(
+    "click",
+    async function () {
+        const button = this;
+
+        const message =
+            document.getElementById(
+                "administratorMessage"
+            );
+
+        button.disabled = true;
+        button.textContent =
+            "Validating...";
+
+        message.className =
+            "message";
+
+        try {
+            const response = await fetch(
+                @json(route('core.setup.administrator')),
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+                        "Accept":
+                            "application/json",
+                        "X-CSRF-TOKEN":
+                            csrfToken
+                    },
+                    body: JSON.stringify({
+                        admin_name:
+                            document.getElementById(
+                                "adminName"
+                            ).value,
+
+                        admin_email:
+                            document.getElementById(
+                                "adminEmail"
+                            ).value,
+
+                        admin_phone:
+                            document.getElementById(
+                                "adminPhone"
+                            ).value,
+
+                        admin_password:
+                            document.getElementById(
+                                "adminPassword"
+                            ).value,
+
+                        admin_password_confirmation:
+                            document.getElementById(
+                                "adminPasswordConfirmation"
+                            ).value
+                    })
+                }
+            );
+
+            const data =
+                await response.json();
+
+            if (
+                !response.ok
+                || !data.ok
+            ) {
+                let messageText =
+                    data.message
+                    || "Administrator validation failed.";
+
+                /*
+                 * Laravel validation responses contain field
+                 * errors. Surface the first useful one.
+                 */
+                if (
+                    data.errors
+                    && typeof data.errors === "object"
+                ) {
+                    const first =
+                        Object.values(
+                            data.errors
+                        ).flat()[0];
+
+                    if (first) {
+                        messageText =
+                            first;
+                    }
+                }
+
+                throw new Error(
+                    messageText
+                );
+            }
+
+            setMessage(
+                message,
+                "ok",
+                data.message
+            );
+
+            document.getElementById(
+                "reviewAdministrator"
+            ).textContent =
+                data.administrator.name
+                + " — "
+                + data.administrator.email;
+
+            document.getElementById(
+                "reviewDatabase"
+            ).textContent =
+                document.getElementById(
+                    "dbName"
+                ).value
+                + " — Connection Ready";
+
+            setTimeout(
+                () => show(5),
+                350
+            );
+        } catch (error) {
+            setMessage(
+                message,
+                "bad",
+                error.message
+                    || "Administrator validation failed."
+            );
+        } finally {
+            button.disabled = false;
+            button.textContent =
+                "Review Installation";
+        }
+    }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| STEP 5 — REAL ESUBIZ CORE INSTALLATION
+|--------------------------------------------------------------------------
+|
+| No simulated installation result is used here.
+| The progress states indicate real request lifecycle stages only.
+|
+*/
+
+(function () {
+    const originalButton =
+        document.getElementById(
+            "installEsubizButton"
+        );
+
+    if (!originalButton) {
+        return;
+    }
+
+    /*
+     * Replace the element so any prototype/simulated listeners
+     * previously attached directly to it are discarded.
+     */
+    const installButton =
+        originalButton.cloneNode(
+            true
+        );
+
+    originalButton.replaceWith(
+        installButton
+    );
+
+    const message =
+        document.getElementById(
+            "finalInstallationMessage"
+        );
+
+    const progress =
+        document.getElementById(
+            "realInstallProgress"
+        );
+
+    const progressBar =
+        document.getElementById(
+            "realInstallProgressBar"
+        );
+
+    const progressText =
+        document.getElementById(
+            "realInstallProgressText"
+        );
+
+    function setInstallProgress(
+        percentage,
+        text
+    ) {
+        if (progress) {
+            progress.style.display =
+                "block";
+        }
+
+        if (progressBar) {
+            progressBar.style.width =
+                percentage + "%";
+        }
+
+        if (progressText) {
+            progressText.textContent =
+                text;
+        }
+    }
+
+    installButton.disabled =
+        false;
+
+    installButton.addEventListener(
+        "click",
+        async function () {
+            installButton.disabled =
+                true;
+
+            installButton.textContent =
+                "Installing Esubiz...";
+
+            if (message) {
+                message.className =
+                    "message";
+
+                message.textContent =
+                    "";
+            }
+
+            setInstallProgress(
+                15,
+                "Starting secure installation…"
+            );
+
+            try {
+                /*
+                 * The backend performs the real sequence:
+                 *
+                 * .env
+                 * database connection
+                 * Core migrations
+                 * site settings
+                 * Administrator
+                 * licence
+                 * persistent identity
+                 * final installation lock
+                 */
+                const response =
+                    await fetch(
+                        @json(route('core.setup.store')),
+                        {
+                            method:
+                                "POST",
+
+                            headers: {
+                                "Accept":
+                                    "application/json",
+
+                                "Content-Type":
+                                    "application/json",
+
+                                "X-CSRF-TOKEN":
+                                    csrfToken
+                            },
+
+                            body:
+                                JSON.stringify({})
+                        }
+                    );
+
+                setInstallProgress(
+                    85,
+                    "Finalizing Esubiz Core…"
+                );
+
+                let data = {};
+
+                try {
+                    data =
+                        await response.json();
+                } catch (jsonError) {
+                    throw new Error(
+                        "The installer returned an invalid server response."
+                    );
+                }
+
+                if (
+                    !response.ok
+                    || !data.ok
+                ) {
+                    throw new Error(
+                        data.message
+                        || "Esubiz installation failed."
+                    );
+                }
+
+                setInstallProgress(
+                    100,
+                    "Installation complete."
+                );
+
+                if (message) {
+                    setMessage(
+                        message,
+                        "ok",
+                        data.message
+                        || "Esubiz was installed successfully."
+                    );
+                }
+
+                installButton.textContent =
+                    "Installation Complete";
+
+                /*
+                 * The installation lock now exists.
+                 * Continuing to the root domain enters the normal
+                 * installed website instead of first-run setup.
+                 */
+                const redirectUrl =
+                    data.redirect_url
+                    || "/";
+
+                const continueButton =
+                    document.createElement(
+                        "a"
+                    );
+
+                continueButton.href =
+                    redirectUrl;
+
+                continueButton.className =
+                    "btn btn-primary";
+
+                continueButton.textContent =
+                    "Continue to Website";
+
+                continueButton.style.marginLeft =
+                    "10px";
+
+                installButton.insertAdjacentElement(
+                    "afterend",
+                    continueButton
+                );
+            } catch (error) {
+                setInstallProgress(
+                    0,
+                    "Installation did not complete."
+                );
+
+                if (message) {
+                    setMessage(
+                        message,
+                        "bad",
+                        error.message
+                        || "Esubiz installation failed."
+                    );
+                }
+
+                installButton.disabled =
+                    false;
+
+                installButton.textContent =
+                    "Install Esubiz";
+            }
+        }
+    );
+})();
+</script>
+
+</body>
+</html>

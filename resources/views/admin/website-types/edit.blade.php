@@ -49,7 +49,11 @@
                 Basic Information
             </h2>
 
-            <div class="mt-6 grid gap-6 md:grid-cols-2">
+            <div class="mt-6 space-y-6">
+
+                {{-- ESUBIZ_WEBSITE_TYPE_BASIC_INFO_LAYOUT_V17 --}}
+                <div class="grid gap-6 md:grid-cols-2">
+
 
                 <div>
                     <label class="block text-sm font-semibold text-slate-700">
@@ -64,6 +68,7 @@
                         class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                     >
                 </div>
+
 
                 <div>
                     <label class="block text-sm font-semibold text-slate-700">
@@ -81,9 +86,114 @@
                         The public identifier for this website type.
                     </p>
                 </div>
+                </div>
 
-            </div>
+                <div class="grid gap-6 lg:grid-cols-3">
 
+                    <div class="min-w-0">
+                        <label class="block text-sm font-semibold text-slate-700">
+                            Sort Order
+                        </label>
+
+                        <input
+                            type="number"
+                            name="sort_order"
+                            value="{{ old('sort_order', $websiteType->sort_order ?? 0) }}"
+                            min="0"
+                            step="1"
+                            class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                            placeholder="0"
+                        >
+
+                        <p class="mt-2 text-xs text-slate-500">
+                            Lower numbers appear first.
+                        </p>
+                    </div>
+
+                    <div class="min-w-0">
+                        <label class="block text-sm font-semibold text-slate-700">
+                            Website Type Icon
+                        </label>
+
+                        <div class="relative mt-2">
+                            <input
+                                type="hidden"
+                                id="website-type-icon"
+                                name="icon"
+                                value="{{ old('icon', $websiteType->icon) }}"
+                            >
+
+                            <input
+                                type="text"
+                                id="icon-search"
+                                autocomplete="off"
+                                class="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                placeholder="Search and select an icon"
+                            >
+
+                            <div
+                                id="icon-picker"
+                                class="absolute left-0 right-0 z-40 mt-2 hidden max-h-72 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-xl"
+                            >
+                                @foreach(config('website_type_icons', []) as $iconKey => $iconSymbol)
+                                    <button
+                                        type="button"
+                                        class="icon-option flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left hover:bg-slate-50"
+                                        data-icon="{{ $iconKey }}"
+                                        data-label="{{ strtolower(str_replace(['_', '-'], ' ', $iconKey)) }}"
+                                    >
+                                        <span class="text-xl">{{ $iconSymbol }}</span>
+                                        <span class="text-sm font-semibold text-slate-700">
+                                            {{ ucwords(str_replace(['_', '-'], ' ', $iconKey)) }}
+                                        </span>
+                                    </button>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        <div
+                            id="selected-icon"
+                            class="mt-3 hidden items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
+                        >
+                            <span id="selected-icon-symbol" class="text-2xl"></span>
+
+                            <div>
+                                <div class="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                    Selected Icon
+                                </div>
+                                <div id="selected-icon-name" class="text-sm font-bold text-slate-900"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="min-w-0">
+                        <label class="block text-sm font-semibold text-slate-700">
+                            Status
+                        </label>
+
+                        <input type="hidden" name="is_active" value="0">
+
+                        <label class="mt-2 flex min-h-[50px] cursor-pointer items-center justify-between gap-4 rounded-xl border border-slate-300 bg-white px-4 py-3">
+                            <div class="min-w-0">
+                                <div class="text-sm font-bold text-slate-900">
+                                    Active
+                                </div>
+                                <div class="mt-1 text-xs leading-5 text-slate-500">
+                                    Enable this Website Type for configured availability.
+                                </div>
+                            </div>
+
+                            <input
+                                type="checkbox"
+                                name="is_active"
+                                value="1"
+                                {{ old('is_active', (bool) $websiteType->is_active) ? 'checked' : '' }}
+                                class="h-5 w-5 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            >
+                        </label>
+                    </div>
+
+                </div>
             <div class="mt-6">
                 <label class="block text-sm font-semibold text-slate-700">
                     Description
@@ -112,17 +222,6 @@
                 for SaaS and off-server deployment.
             </p>
 
-            {{-- Transitional persistence only. Not a selectable Core package. --}}
-            <input
-                type="hidden"
-                name="package_key"
-                value="{{ old('package_key', $websiteType->package_key) }}"
-            >
-            <input
-                type="hidden"
-                name="package_version"
-                value="{{ old('package_version', $websiteType->package_version) }}"
-            >
 
             <div class="mt-6 grid gap-6 md:grid-cols-2">
 

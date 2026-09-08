@@ -7,6 +7,7 @@ use App\Models\Website;
 use App\Models\WebsiteType;
 use App\Services\WebsiteDraftService;
 use App\Services\WebsiteService;
+use App\Services\Website\Deployment\WebsiteTypeDeploymentProfileService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -45,7 +46,7 @@ class WebsiteWizardController extends Controller
      */
     public function store(
         StoreWebsiteDraftRequest $request
-    ): RedirectResponse {
+    ): RedirectResponse|\Illuminate\Http\JsonResponse {
 
         $website = $this->draftService->create();
 
@@ -56,6 +57,23 @@ class WebsiteWizardController extends Controller
             ],
             1
         );
+
+        /*
+         * ESUBIZ_FAST_WEBSITE_TYPE_AJAX_V24
+         *
+         * AJAX selection must not follow/render Step 2 inside fetch().
+         * Return only the authoritative next URL so the browser performs
+         * a single navigation to Website Information.
+         */
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'next_url' => route(
+                    'websites.information',
+                    $website
+                ),
+            ]);
+        }
 
         return redirect()->route(
             'websites.information',
@@ -95,32 +113,303 @@ class WebsiteWizardController extends Controller
      */
     public function theme(
         Request $request,
-        Website $website
-    ): View {
+        Website $website,
+        WebsiteTypeDeploymentProfileService $deploymentProfiles
+    ): View|RedirectResponse|\Illuminate\Http\JsonResponse {
 
-        if ($request->filled('theme')) {
+        /*
+         * ESUBIZ_DETERMINISTIC_THEME_STEP_V34
+         *
+         * Website Type SaaS deployment configuration is the authority.
+         *
+         * GET:
+         * - visible Theme selection => always render Theme Step 3
+         * - hidden Theme selection  => silently save default => Plan
+         *
+         * POST:
+         * - validate selected Theme against assigned Website Type Themes
+         * - save Theme
+         * - continue to Plan
+         *
+         * Generic for every current and future Website Type / Theme.
+         */
+
+        $wizard = $website->wizard_data ?? [];
+
+        $websiteTypeSlug = trim(
+            (string) data_get(
+                $wizard,
+                'type',
+                ''
+            )
+        );
+
+        $websiteType = WebsiteType::query()
+            ->where(
+                'slug',
+                $websiteTypeSlug
+            )
+            ->where(
+                'is_active',
+                true
+            )
+            ->where(
+                'show_in_user_wizard',
+                true
+            )
+            ->firstOrFail();
+
+        $profile = $deploymentProfiles->resolve(
+            $websiteType,
+            'saas'
+        );
+
+        $assignedThemes = collect(
+            $profile['themes'] ?? []
+        );
+
+        $rawThemeVisibility = data_get(
+            $profile,
+            'configuration.show_theme_selection'
+        );
+
+        /*
+         * Backward compatibility:
+         * missing/null means visible.
+         * Only an explicit false-like Admin setting hides the step.
+         */
+        $showThemeSelection = filter_var(
+            (
+                $rawThemeVisibility
+                ?? true
+            ),
+            FILTER_VALIDATE_BOOLEAN
+        );
+
+        $defaultTheme = trim(
+            (string) data_get(
+                $profile,
+                'default_theme',
+                ''
+            )
+        );
+
+        /*
+         * --------------------------------------------------------------
+         * POST - user selected a visible Theme
+         * --------------------------------------------------------------
+         */
+        if ($request->isMethod('post')) {
+
+            abort_unless(
+                $showThemeSelection,
+                422,
+                'Theme selection is disabled for this Website Type.'
+            );
+
+            $selectedTheme = trim(
+                (string) $request->input(
+                    'theme',
+                    ''
+                )
+            );
+
+            abort_if(
+                $selectedTheme === '',
+                422,
+                'Please select a Theme.'
+            );
+
+            $allowed = $assignedThemes->contains(
+                fn (array $theme) =>
+                    (string) data_get(
+                        $theme,
+                        'slug'
+                    )
+                    === $selectedTheme
+            );
+
+            abort_unless(
+                $allowed,
+                422,
+                'The selected Theme is not available for this Website Type.'
+            );
+
+            /*
+             * Visible Theme is logical Step 3.
+             */
             $this->draftService->save(
                 $website,
-                $request->except('_token'),
-                2
+                [
+                    'theme' => $selectedTheme,
+                ],
+                3
             );
 
             $website = $website->fresh();
+
+            if (
+                $request->expectsJson()
+                || $request->ajax()
+            ) {
+                return response()->json([
+                    'success' => true,
+                    'next_url' => route(
+                        'websites.plan',
+                        $website
+                    ),
+                ]);
+            }
+
+            return redirect()->route(
+                'websites.plan',
+                $website
+            );
         }
 
-        $themes = \App\Models\CatalogProduct::query()
-        ->where('product_type', 'theme')
-        ->where('is_active', true)
-        ->whereIn('audience', ['saas', 'both'])
-        ->orderBy('name')
-        ->get();
+        /*
+         * --------------------------------------------------------------
+         * GET - hidden Theme selection
+         * --------------------------------------------------------------
+         */
+        if (!$showThemeSelection) {
 
-    return view(
+            abort_if(
+                $defaultTheme === '',
+                422,
+                'This Website Type requires a default Theme before Theme selection can be hidden.'
+            );
+
+            $defaultAllowed = $assignedThemes->contains(
+                fn (array $theme) =>
+                    (string) data_get(
+                        $theme,
+                        'slug'
+                    )
+                    === $defaultTheme
+            );
+
+            abort_unless(
+                $defaultAllowed,
+                422,
+                'The configured default Theme is not assigned to this Website Type.'
+            );
+
+            /*
+             * No visible logical Theme step exists when hidden,
+             * so keep the draft at logical Step 2.
+             */
+            $this->draftService->save(
+                $website,
+                [
+                    'theme' => $defaultTheme,
+                ],
+                2
+            );
+
+            return redirect()->route(
+                'websites.plan',
+                $website
+            );
+        }
+
+        /*
+         * --------------------------------------------------------------
+         * GET - visible Theme selection
+         *
+         * IMPORTANT:
+         * A visible profile ALWAYS renders Step 3 here.
+         * Existing saved Theme data must never cause this page to skip.
+         * --------------------------------------------------------------
+         */
+        $themeIds = $assignedThemes
+            ->pluck('catalog_product_id')
+            ->filter()
+            ->map(
+                fn ($id) => (int) $id
+            )
+            ->values();
+
+        $themes = \App\Models\CatalogProduct::query()
+            ->whereIn(
+                'id',
+                $themeIds
+            )
+            ->where(
+                'product_type',
+                'theme'
+            )
+            ->where(
+                'is_active',
+                true
+            )
+            ->whereIn(
+                'audience',
+                [
+                    'saas',
+                    'both',
+                ]
+            )
+            ->orderBy('name')
+            ->get();
+
+        abort_if(
+            $themes->isEmpty(),
+            422,
+            'No active SaaS Theme is assigned to this Website Type.'
+        );
+
+        /*
+         * ESUBIZ_WIZARD_THEME_PREVIEW_DATA_V39
+         *
+         * CatalogProduct remains the wizard Theme identity.
+         * Native ThemePackage supplies the existing safe Marketplace
+         * preview endpoint.
+         *
+         * No package filesystem path is exposed to the browser.
+         */
+        $nativeThemePackages = \Illuminate\Support\Facades\DB::table(
+                'theme_packages'
+            )
+            ->whereIn(
+                'catalog_product_id',
+                $themes->pluck('id')
+            )
+            ->get()
+            ->keyBy(
+                fn ($package) =>
+                    (int) $package->catalog_product_id
+            );
+
+        $themes = $themes->map(
+            function ($theme) use ($nativeThemePackages) {
+
+                $package = $nativeThemePackages->get(
+                    (int) $theme->id
+                );
+
+                $theme->wizard_preview_url =
+                    $package
+                        ? route(
+                            'marketplace.themes.preview',
+                            [
+                                'themePackageId' =>
+                                    $package->id,
+                            ]
+                        )
+                        : null;
+
+                return $theme;
+            }
+        );
+
+        return view(
             'websites.theme',
             [
                 'website' => $website,
-                'wizard' => $website->wizard_data ?? [],
+                'wizard' => $wizard,
                 'themes' => $themes,
+                'defaultTheme' => $defaultTheme,
             ]
         );
     }
@@ -477,8 +766,21 @@ class WebsiteWizardController extends Controller
                 2
             );
 
+            /*
+             * ESUBIZ_LIVE_STEP2_THEME_HANDOFF_V38
+             *
+             * The live Website Information page contains the complete
+             * logical Step 2:
+             * Website Information + Domain + Address + Administrator.
+             *
+             * After Step 2, always hand control to the Theme route.
+             *
+             * theme() is the single authority:
+             * - visible Theme selection => render Step 3
+             * - hidden Theme selection  => apply Admin default => Plan
+             */
             return redirect()->route(
-                'websites.plan',
+                'websites.theme',
                 $website
             );
         }
@@ -579,16 +881,25 @@ class WebsiteWizardController extends Controller
     public function domain(
         Request $request,
         Website $website
-    ): View {
+    ): View|RedirectResponse {
 
         if ($request->all()) {
+            /*
+             * ESUBIZ_USER_WIZARD_STEP2_DOMAIN_V26
+             *
+             * Domain remains an internal screen of Step 2.
+             * Save here, then continue to Address.
+             */
             $this->draftService->save(
                 $website,
                 $request->except('_token'),
-                5
+                2
             );
 
-            $website = $website->fresh();
+            return redirect()->route(
+                'websites.address',
+                $website
+            );
         }
 
         return view(
@@ -608,16 +919,25 @@ class WebsiteWizardController extends Controller
     public function address(
         Request $request,
         Website $website
-    ): View {
+    ): View|RedirectResponse {
 
         if ($request->all()) {
+            /*
+             * ESUBIZ_USER_WIZARD_STEP2_ADDRESS_V26
+             *
+             * Address remains an internal screen of Step 2.
+             * Save here, then continue to Administrator.
+             */
             $this->draftService->save(
                 $website,
                 $request->except('_token'),
-                6
+                2
             );
 
-            $website = $website->fresh();
+            return redirect()->route(
+                'websites.administrator',
+                $website
+            );
         }
 
         return view(
@@ -637,16 +957,35 @@ class WebsiteWizardController extends Controller
     public function administrator(
         Request $request,
         Website $website
-    ): View {
+    ): View|RedirectResponse {
 
-        if ($request->all()) {
+        /*
+         * ESUBIZ_ADMINISTRATOR_THEME_HANDOFF_V33
+         *
+         * Administrator is the final screen inside logical Step 2.
+         *
+         * POST always saves Administrator data and hands control to
+         * the Theme route.
+         *
+         * The Theme controller is the single authority for deciding:
+         *
+         * - visible Theme selection -> render logical Step 3
+         * - hidden Theme selection  -> apply Admin default -> Plan
+         *
+         * This keeps the behavior generic for every current and future
+         * Website Type and removes duplicate Theme visibility logic.
+         */
+        if ($request->isMethod('post')) {
             $this->draftService->save(
                 $website,
                 $request->except('_token'),
-                7
+                2
             );
 
-            $website = $website->fresh();
+            return redirect()->route(
+                'websites.theme',
+                $website
+            );
         }
 
         return view(

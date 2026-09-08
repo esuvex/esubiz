@@ -1,0 +1,490 @@
+<?php
+
+namespace App\Services\Marketplace\Handlers;
+
+use App\Services\Marketplace\Licensing\MarketplaceLicenseService;
+use App\Services\Marketplace\MarketplaceProductDeploymentService;
+use App\Services\Marketplace\MarketplaceDeploymentAccessTokenService;
+use Illuminate\Support\Facades\DB;
+use RuntimeException;
+
+/**
+ * ESUBIZ_GENERIC_MARKETPLACE_PRODUCT_FULFILMENT_V1
+ *
+ * Canonical paid-order fulfilment for ordinary Marketplace products.
+ *
+ * Supported product families:
+ *
+ * - website_type
+ * - addon
+ * - bundle
+ * - theme
+ * - module
+ * - app
+ *
+ * PAYMENT METHOD IS IRRELEVANT HERE.
+ *
+ * Online, wallet, gift card and approved offline payments must all arrive
+ * through MarketplaceFulfilmentManager after the Marketplace order becomes
+ * commercially paid.
+ *
+ * This handler owns only the common commercial entitlement/licensing layer.
+ * Product installation, activation, package download and bundle expansion
+ * can consume the entitlement created here without duplicating payment logic.
+ */
+class GenericMarketplaceProductFulfilmentHandler
+{
+    protected const SUPPORTED_PRODUCT_TYPES = [
+        'website_type',
+        'addon',
+        'bundle',
+        'theme',
+        'module',
+        'app',
+    ];
+
+    public function __construct(
+        protected MarketplaceLicenseService $licenses,
+        protected MarketplaceProductDeploymentService $deployments,
+        protected MarketplaceDeploymentAccessTokenService $deploymentAccessTokens
+    ) {
+    }
+
+    public function fulfil(object $order, object $listing): array
+    {
+        $productType = strtolower(
+            trim((string) ($listing->product_type ?? ''))
+        );
+
+        if (!in_array($productType, self::SUPPORTED_PRODUCT_TYPES, true)) {
+            throw new RuntimeException(
+                "Generic Marketplace fulfilment does not support product type [{$productType}]."
+            );
+        }
+
+        $orderId = (int) ($order->id ?? 0);
+
+        if ($orderId <= 0) {
+            throw new RuntimeException(
+                'A valid Marketplace order is required for fulfilment.'
+            );
+        }
+
+        /*
+         * Marketplace listings may point at a canonical catalog/product
+         * record, while older listings may only expose their own ID.
+         *
+         * Prefer the canonical product identity whenever available and keep
+         * the listing ID in metadata for traceability.
+         */
+        $productId = (int) (
+            $listing->product_id
+            ?? $listing->catalog_product_id
+            ?? $listing->catalog_id
+            ?? $listing->id
+            ?? 0
+        );
+
+        if ($productId <= 0) {
+            throw new RuntimeException(
+                "Marketplace product identity could not be resolved for [{$productType}]."
+            );
+        }
+
+        $productSlug = $this->nullableString(
+            $listing->product_slug
+            ?? $listing->slug
+            ?? null
+        );
+
+        $productVersion = $this->nullableString(
+            $listing->product_version
+            ?? $listing->version
+            ?? null
+        );
+
+        $deployment = strtolower(
+            trim(
+                (string) (
+                    $order->deployment_type
+                    ?? $order->deployment
+                    ?? 'saas'
+                )
+            )
+        );
+
+        if (!in_array($deployment, ['saas', 'off_server'], true)) {
+            throw new RuntimeException(
+                "Unsupported Marketplace deployment type [{$deployment}]."
+            );
+        }
+
+        $userId = (int) (
+            $order->buyer_id
+            ?? $order->user_id
+            ?? 0
+        );
+
+        if ($userId <= 0) {
+            throw new RuntimeException(
+                'Marketplace fulfilment requires a valid purchasing user.'
+            );
+        }
+
+        $websiteId = $this->nullablePositiveInt(
+            $order->website_id ?? null
+        );
+
+        $workspaceId = $this->nullablePositiveInt(
+            $order->workspace_id ?? null
+        );
+
+        /*
+         * SaaS products are installed/enabled against a website context
+         * when the checkout supplied one.
+         *
+         * Off-server products deliberately do not bind to a central Website
+         * model at purchase time. Their issued license is bound later by the
+         * central activation/validation flow.
+         */
+        if ($deployment === 'off_server') {
+            $websiteId = null;
+        }
+
+        return DB::transaction(function () use (
+            $order,
+            $listing,
+            $orderId,
+            $productType,
+            $productId,
+            $productSlug,
+            $productVersion,
+            $deployment,
+            $userId,
+            $websiteId,
+            $workspaceId
+        ) {
+            /*
+             * Idempotency:
+             *
+             * A paid Marketplace order must never create duplicate
+             * entitlements when payment callbacks, redirects, offline
+             * approval pages or payment-status checks execute repeatedly.
+             */
+            $entitlement = DB::table('marketplace_entitlements')
+                ->where('order_id', $orderId)
+                ->where('product_type', $productType)
+                ->where('product_id', $productId)
+                ->where('user_id', $userId)
+                ->where('deployment', $deployment)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$entitlement) {
+                $created = $this->licenses->createEntitlement([
+                    'order_id' => $orderId,
+
+                    'order_item_id' =>
+                        $this->nullablePositiveInt(
+                            $listing->order_item_id
+                            ?? $order->order_item_id
+                            ?? null
+                        ),
+
+                    'product_type' => $productType,
+                    'product_id' => $productId,
+                    'product_slug' => $productSlug,
+                    'product_version' => $productVersion,
+
+                    'user_id' => $userId,
+                    'website_id' => $websiteId,
+
+                    'deployment' => $deployment,
+
+                    'quantity' => max(
+                        1,
+                        (int) (
+                            $listing->quantity
+                            ?? $order->quantity
+                            ?? 1
+                        )
+                    ),
+
+                    'activation_limit' => max(
+                        1,
+                        (int) (
+                            $listing->activation_limit
+                            ?? 1
+                        )
+                    ),
+
+                    'metadata' => [
+                        'source' => 'marketplace',
+
+                        'marketplace_listing_id' =>
+                            $this->nullablePositiveInt(
+                                $listing->id ?? null
+                            ),
+
+                        'catalog_product_id' =>
+                            $this->nullablePositiveInt(
+                                $listing->catalog_product_id
+                                ?? $listing->product_id
+                                ?? null
+                            ),
+
+                        'workspace_id' => $workspaceId,
+
+                        'checkout_origin' =>
+                            $this->nullableString(
+                                $order->checkout_origin
+                                ?? null
+                            ),
+
+                        'return_area' =>
+                            $this->nullableString(
+                                $order->return_area
+                                ?? null
+                            ),
+
+                        'currency' =>
+                            $this->nullableString(
+                                $order->currency
+                                ?? null
+                            ),
+
+                        'amount' =>
+                            isset($order->amount)
+                                ? (float) $order->amount
+                                : null,
+                    ],
+                ]);
+
+                $entitlementId = (int) (
+                    $created->id
+                    ?? $created['id']
+                    ?? 0
+                );
+
+                if ($entitlementId <= 0) {
+                    throw new RuntimeException(
+                        'Marketplace entitlement could not be created.'
+                    );
+                }
+
+                $entitlement = DB::table('marketplace_entitlements')
+                    ->where('id', $entitlementId)
+                    ->lockForUpdate()
+                    ->first();
+            }
+
+            if (!$entitlement) {
+                throw new RuntimeException(
+                    'Marketplace entitlement could not be resolved after creation.'
+                );
+            }
+
+            $licenseId = null;
+
+            /*
+             * Off-server products require a centrally authoritative license.
+             *
+             * SaaS installations are authorized by their Marketplace
+             * entitlement and website context and therefore do not expose or
+             * issue an unnecessary manual off-server license.
+             */
+            if ($deployment === 'off_server') {
+                $license = DB::table('marketplace_licenses')
+                    ->where(
+                        'marketplace_entitlement_id',
+                        (int) $entitlement->id
+                    )
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$license) {
+                    $issued = $this->licenses->issueLicense(
+                        (int) $entitlement->id
+                    );
+
+                    $licenseId = (int) (
+                        $issued['license_id']
+                        ?? $issued['id']
+                        ?? (
+                            isset($issued['license'])
+                                ? (
+                                    is_object($issued['license'])
+                                        ? ($issued['license']->id ?? 0)
+                                        : ($issued['license']['id'] ?? 0)
+                                )
+                                : 0
+                        )
+                    );
+
+                    if ($licenseId <= 0) {
+                        $license = DB::table('marketplace_licenses')
+                            ->where(
+                                'marketplace_entitlement_id',
+                                (int) $entitlement->id
+                            )
+                            ->latest('id')
+                            ->first();
+
+                        $licenseId = (int) ($license->id ?? 0);
+                    }
+                } else {
+                    $licenseId = (int) $license->id;
+                }
+
+                if ($licenseId <= 0) {
+                    throw new RuntimeException(
+                        "Off-server Marketplace license could not be issued for [{$productType}]."
+                    );
+                }
+            }
+
+            /*
+             * ESUBIZ_GENERIC_MARKETPLACE_CORE_DEPLOYMENT_HANDOFF_V2
+             *
+             * Theme, Module, Add-on and Bundle require installation inside
+             * a target Esubiz Core after commercial fulfilment.
+             *
+             * Website Type uses its dedicated initial website/Core
+             * provisioning flow.
+             *
+             * App uses the App Builder/compiler/release pipeline.
+             */
+            $deploymentInstruction = null;
+            $deploymentAccessToken = null;
+
+            if (in_array(
+                $productType,
+                ['theme', 'module', 'addon', 'bundle'],
+                true
+            )) {
+                $deploymentInstruction =
+                    $this->deployments->createPending([
+                        'user_id' => $userId,
+                        'website_id' => $websiteId,
+                        'marketplace_order_id' => $orderId,
+
+                        'marketplace_listing_id' =>
+                            $this->nullablePositiveInt(
+                                $listing->id ?? null
+                            ),
+
+                        'catalog_product_id' =>
+                            $this->nullablePositiveInt(
+                                $listing->catalog_product_id
+                                ?? $listing->product_id
+                                ?? null
+                            ),
+
+                        'entitlement_id' =>
+                            (int) $entitlement->id,
+
+                        'license_id' => $licenseId,
+
+                        'product_type' => $productType,
+                        'product_slug' => $productSlug,
+                        'product_version' => $productVersion,
+                        'deployment_type' => $deployment,
+                        'action' => 'install',
+
+                        'package_reference' =>
+                            $this->nullableString(
+                                $listing->package_reference
+                                ?? $listing->package_path
+                                ?? $listing->file_path
+                                ?? null
+                            ),
+
+                        'checksum_sha256' =>
+                            $this->nullableString(
+                                $listing->checksum_sha256
+                                ?? null
+                            ),
+
+                        'context' => [
+                            'workspace_id' => $workspaceId,
+
+                            'checkout_origin' =>
+                                $this->nullableString(
+                                    $order->checkout_origin
+                                    ?? null
+                                ),
+
+                            'return_area' =>
+                                $this->nullableString(
+                                    $order->return_area
+                                    ?? null
+                                ),
+
+                            'source' =>
+                                'marketplace_fulfilment',
+                        ],
+                    ]);
+
+                $deploymentInstructionId = (int) (
+                    is_array($deploymentInstruction)
+                        ? ($deploymentInstruction['id'] ?? 0)
+                        : ($deploymentInstruction->id ?? 0)
+                );
+
+                if ($deploymentInstructionId <= 0) {
+                    throw new RuntimeException(
+                        'Marketplace deployment instruction ID could not be resolved.'
+                    );
+                }
+
+                /*
+                 * ESUBIZ_MARKETPLACE_DEPLOYMENT_TOKEN_ISSUANCE_V3
+                 *
+                 * Plaintext exists only in this immediate fulfilment result.
+                 * Central persistence retains only its SHA-256 hash.
+                 */
+                $deploymentAccessToken =
+                    $this->deploymentAccessTokens->issue(
+                        $deploymentInstructionId
+                    );
+            }
+
+            return [
+                'fulfilled' => true,
+                'product_type' => $productType,
+                'product_id' => $productId,
+                'product_slug' => $productSlug,
+                'product_version' => $productVersion,
+                'deployment' => $deployment,
+                'entitlement_id' => (int) $entitlement->id,
+                'license_id' => $licenseId,
+                'website_id' => $websiteId,
+                'workspace_id' => $workspaceId,
+
+                'deployment_instruction' =>
+                    $deploymentInstruction,
+
+                'deployment_access_token' =>
+                    $deploymentAccessToken,
+            ];
+        });
+    }
+
+    protected function nullableString(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value !== '' ? $value : null;
+    }
+
+    protected function nullablePositiveInt(mixed $value): ?int
+    {
+        $value = (int) ($value ?? 0);
+
+        return $value > 0 ? $value : null;
+    }
+}

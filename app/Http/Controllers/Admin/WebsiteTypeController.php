@@ -32,12 +32,29 @@ class WebsiteTypeController extends Controller
      * No Website Type names are hardcoded.
      */
 
-    public function index(): View
+    /*
+     * ESUBIZ_WEBSITE_TYPE_AJAX_TABLE_V8
+     *
+     * Admin Website Types are rendered 10 per page.
+     * AJAX pagination requests return only the table fragment so
+     * Previous / Next navigation does not reload the Admin page.
+     */
+    public function index(Request $request): View
     {
         $websiteTypes = WebsiteType::query()
             ->orderBy('sort_order')
             ->orderBy('name')
-            ->get();
+            ->paginate(10)
+            ->withQueryString();
+
+        if ($request->ajax()) {
+            return view(
+                'admin.website-types._table',
+                [
+                    'websiteTypes' => $websiteTypes,
+                ]
+            );
+        }
 
         return view('admin.website-types.index', [
             'websiteTypes' => $websiteTypes,
@@ -165,6 +182,52 @@ class WebsiteTypeController extends Controller
             ->with('success', 'Website type updated successfully.');
     }
 
+    /*
+     * ESUBIZ_WEBSITE_TYPE_MANAGEMENT_ACTIONS_V10
+     */
+
+    public function show(WebsiteType $websiteType): View
+    {
+        return view('admin.website-types.show', [
+            'websiteType' => $websiteType,
+        ]);
+    }
+
+    public function toggleStatus(
+        Request $request,
+        WebsiteType $websiteType
+    ): RedirectResponse {
+        $websiteType->update([
+            'is_active' => ! (bool) $websiteType->is_active,
+        ]);
+
+        return redirect()
+            ->route('admin.website-types.index')
+            ->with(
+                'success',
+                $websiteType->is_active
+                    ? 'Website type activated successfully.'
+                    : 'Website type disabled successfully.'
+            );
+    }
+
+    public function destroy(
+        WebsiteType $websiteType
+    ): RedirectResponse {
+        if ($websiteType->image) {
+            Storage::disk('public')->delete(
+                $websiteType->image
+            );
+        }
+
+        $websiteType->delete();
+
+        return redirect()
+            ->route('admin.website-types.index')
+            ->with('success', 'Website type deleted successfully.');
+    }
+
+
     private function validateWebsiteType(
         Request $request,
         ?WebsiteType $websiteType = null
@@ -212,6 +275,11 @@ class WebsiteTypeController extends Controller
 
             'deployment.saas' => ['nullable', 'array'],
             'deployment.saas.enabled' => ['nullable', 'boolean'],
+            'deployment.saas.configuration' => ['nullable', 'array'],
+            'deployment.saas.configuration.show_theme_selection' => [
+                'nullable',
+                'boolean',
+            ],
             'deployment.saas.themes' => ['nullable', 'array'],
             'deployment.saas.themes.*' => ['integer', 'exists:catalog_products,id'],
             'deployment.saas.default_theme' => [
@@ -228,6 +296,11 @@ class WebsiteTypeController extends Controller
 
             'deployment.off_server' => ['nullable', 'array'],
             'deployment.off_server.enabled' => ['nullable', 'boolean'],
+            'deployment.off_server.configuration' => ['nullable', 'array'],
+            'deployment.off_server.configuration.show_theme_selection' => [
+                'nullable',
+                'boolean',
+            ],
             'deployment.off_server.themes' => ['nullable', 'array'],
             'deployment.off_server.themes.*' => [
                 'integer',
@@ -292,15 +365,55 @@ class WebsiteTypeController extends Controller
                         'enabled',
                         true
                     ),
-                    'configuration' => [],
+                    /*
+                     * ESUBIZ_WEBSITE_TYPE_DEPLOYMENT_CONFIGURATION_V19
+                     *
+                     * Deployment-specific wizard behaviour belongs to the
+                     * Website Type profile. SaaS and off-server therefore
+                     * remain independently configurable.
+                     */
+                    'configuration' => [
+                        'show_theme_selection' => filter_var(
+                            data_get(
+                                $input,
+                                'configuration.show_theme_selection',
+                                true
+                            ),
+                            FILTER_VALIDATE_BOOLEAN
+                        ),
+                    ],
                 ]
             );
 
             $components = [];
 
+            /*
+             * ESUBIZ_WEBSITE_TYPE_DEFAULT_THEME_SAVE_V7
+             *
+             * A selected default Theme is necessarily part of the
+             * Website Type Theme assignment. This keeps the default
+             * selector and Theme checkboxes from producing conflicting
+             * deployment state.
+             */
+            $defaultTheme = (int) data_get(
+                $input,
+                'default_theme',
+                0
+            );
+
+            $themeIds = (array) data_get(
+                $input,
+                'themes',
+                []
+            );
+
+            if ($defaultTheme > 0) {
+                $themeIds[] = $defaultTheme;
+            }
+
             $this->appendComponents(
                 $components,
-                (array) data_get($input, 'themes', []),
+                $themeIds,
                 'theme'
             );
 
@@ -327,16 +440,18 @@ class WebsiteTypeController extends Controller
                 $components
             );
 
-            $defaultTheme = data_get(
-                $input,
-                'default_theme'
-            );
-
-            if ($defaultTheme) {
+            if ($defaultTheme > 0) {
                 $service->setDefaultTheme(
                     $profileId,
-                    (int) $defaultTheme
+                    $defaultTheme
                 );
+            } else {
+                DB::table('website_type_deployment_profiles')
+                    ->where('id', $profileId)
+                    ->update([
+                        'default_theme_catalog_product_id' => null,
+                        'updated_at' => now(),
+                    ]);
             }
         }
     }

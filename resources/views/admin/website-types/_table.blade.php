@@ -1,0 +1,211 @@
+{{-- ESUBIZ_WEBSITE_TYPE_TABLE_V11 --}}
+
+@if($websiteTypes->count())
+
+    <div class="overflow-x-auto">
+        <table class="w-full min-w-[850px] text-left">
+            <thead class="border-b border-slate-200 bg-slate-50/80">
+                <tr class="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    <th class="px-6 py-4">Website Type</th>
+                    <th class="px-6 py-4">Slug</th>
+                    <th class="px-6 py-4">User Wizard</th>
+                    <th class="px-6 py-4">Developer Wizard</th>
+                    <th class="px-6 py-4">Status</th>
+                    <th class="px-6 py-4 text-right">Actions</th>
+                </tr>
+            </thead>
+
+            <tbody class="divide-y divide-slate-100">
+                @foreach($websiteTypes as $websiteType)
+                    <tr class="transition hover:bg-slate-50/70">
+
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-slate-100">
+                                    @if($websiteType->image)
+                                        <img
+                                            decoding="async"
+                                            loading="lazy"
+                                            src="{{ asset('storage/' . $websiteType->image) }}"
+                                            alt="{{ $websiteType->name }}"
+                                            class="h-full w-full object-cover">
+                                    @elseif($websiteType->icon)
+                                        <span class="text-lg">
+                                            {{ config('website_type_icons.' . $websiteType->icon, '🌐') }}
+                                        </span>
+                                    @else
+                                        <span class="text-sm font-bold text-slate-400">
+                                            {{ strtoupper(substr($websiteType->name, 0, 1)) }}
+                                        </span>
+                                    @endif
+                                </div>
+
+                                <div class="min-w-0">
+                                    <div class="font-bold text-slate-900">
+                                        {{ $websiteType->name }}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+
+                        <td class="px-6 py-4">
+                            <span class="text-sm font-medium text-slate-600">
+                                {{ $websiteType->slug }}
+                            </span>
+                        </td>
+
+                        <td class="px-6 py-4">
+                            @if($websiteType->show_in_user_wizard)
+                                <span class="text-sm font-semibold text-emerald-700">Yes</span>
+                            @else
+                                <span class="text-sm font-semibold text-slate-400">No</span>
+                            @endif
+                        </td>
+
+                        <td class="px-6 py-4">
+                            @if($websiteType->show_in_developer_wizard)
+                                <span class="text-sm font-semibold text-emerald-700">Yes</span>
+                            @else
+                                <span class="text-sm font-semibold text-slate-400">No</span>
+                            @endif
+                        </td>
+
+                        <td class="px-6 py-4">
+                            @if($websiteType->is_active)
+                                <span class="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+                                    Active
+                                </span>
+                            @else
+                                <span class="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">
+                                    Disabled
+                                </span>
+                            @endif
+                        </td>
+
+                        <td class="relative px-6 py-4 text-right">
+                            <details class="relative inline-block text-left">
+                                <summary
+                                    class="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-xl border border-slate-200 bg-white text-xl font-bold leading-none text-slate-600 transition hover:bg-slate-50"
+                                    title="Website Type actions">
+                                    ⋮
+                                </summary>
+
+                                <div class="absolute right-0 z-50 mt-2 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 text-left shadow-xl">
+
+                                    <a
+                                        href="{{ route('admin.website-types.show', $websiteType) }}"
+                                        class="block px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                                        View
+                                    </a>
+
+                                    <a
+                                        href="{{ route('admin.website-types.edit', $websiteType) }}"
+                                        class="block px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                                        Edit
+                                    </a>
+
+                                    <form
+                                        method="POST"
+                                        action="{{ route('admin.website-types.status', $websiteType) }}">
+                                        @csrf
+                                        @method('PATCH')
+
+                                        <button
+                                            type="submit"
+                                            class="block w-full px-4 py-2.5 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                                            {{ $websiteType->is_active ? 'Disable' : 'Activate' }}
+                                        </button>
+                                    </form>
+
+                                    <div class="my-1 border-t border-slate-100"></div>
+
+                                    <form
+                                        method="POST"
+                                        action="{{ route('admin.website-types.destroy', $websiteType) }}"
+                                        onsubmit="return confirm('Delete this Website Type? This action cannot be undone.');">
+                                        @csrf
+                                        @method('DELETE')
+
+                                        <button
+                                            type="submit"
+                                            class="block w-full px-4 py-2.5 text-left text-sm font-semibold text-red-600 hover:bg-red-50">
+                                            Delete
+                                        </button>
+                                    </form>
+
+                                </div>
+                            </details>
+                        </td>
+
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+
+    <div class="flex items-center justify-between border-t border-slate-200 px-6 py-4">
+        <div class="text-sm text-slate-500">
+            Showing
+            <span class="font-semibold text-slate-700">{{ $websiteTypes->firstItem() }}</span>
+            –
+            <span class="font-semibold text-slate-700">{{ $websiteTypes->lastItem() }}</span>
+            of
+            <span class="font-semibold text-slate-700">{{ $websiteTypes->total() }}</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+            @if($websiteTypes->previousPageUrl())
+                <a
+                    href="{{ $websiteTypes->previousPageUrl() }}"
+                    data-website-type-page
+                    class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50">
+                    Previous
+                </a>
+            @else
+                <span class="cursor-not-allowed rounded-xl border border-slate-100 bg-slate-50 px-4 py-2 text-sm font-bold text-slate-300">
+                    Previous
+                </span>
+            @endif
+
+            <span class="px-2 text-sm font-semibold text-slate-500">
+                {{ $websiteTypes->currentPage() }} / {{ $websiteTypes->lastPage() }}
+            </span>
+
+            @if($websiteTypes->nextPageUrl())
+                <a
+                    href="{{ $websiteTypes->nextPageUrl() }}"
+                    data-website-type-page
+                    class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50">
+                    Next
+                </a>
+            @else
+                <span class="cursor-not-allowed rounded-xl border border-slate-100 bg-slate-50 px-4 py-2 text-sm font-bold text-slate-300">
+                    Next
+                </span>
+            @endif
+        </div>
+    </div>
+
+@else
+
+    <div class="px-6 py-16 text-center">
+        <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-2xl text-slate-400">
+            +
+        </div>
+
+        <h3 class="mt-4 text-lg font-bold text-slate-900">
+            No website types yet
+        </h3>
+
+        <p class="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
+            Create your first Website Type and configure its Core deployment composition.
+        </p>
+
+        <a
+            href="{{ route('admin.website-types.create') }}"
+            class="mt-6 inline-flex items-center justify-center rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white hover:bg-slate-800">
+            Add Website Type
+        </a>
+    </div>
+
+@endif

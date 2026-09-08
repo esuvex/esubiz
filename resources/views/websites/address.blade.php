@@ -5,11 +5,48 @@
 @section('content')
 
 @php
-$step = 6;
-$steps = 5;
+    /*
+     * ESUBIZ_DYNAMIC_USER_WIZARD_PROGRESS_V27
+     *
+     * Website Information, Domain, Address and Administrator
+     * are internal screens of Step 2.
+     */
+    $step = 2;
+
+    $wizardProgressTypeSlug = trim(
+        (string) (
+            ($wizard['type'] ?? null)
+            ?? ($website->wizard_data['type'] ?? null)
+            ?? ''
+        )
+    );
+
+    $wizardProgressType = $wizardProgressTypeSlug !== ''
+        ? \App\Models\WebsiteType::query()
+            ->where('slug', $wizardProgressTypeSlug)
+            ->first()
+        : null;
+
+    $wizardProgressProfile = $wizardProgressType
+        ? app(
+            \App\Services\Website\Deployment\WebsiteTypeDeploymentProfileService::class
+        )->resolve($wizardProgressType, 'saas')
+        : [];
+
+    $wizardThemeVisible = filter_var(
+        (
+            data_get(
+                $wizardProgressProfile,
+                'configuration.show_theme_selection'
+            ) ?? true
+        ),
+        FILTER_VALIDATE_BOOLEAN
+    );
+
+    $steps = $wizardThemeVisible ? 6 : 5;
 @endphp
 
-<form method="GET" action="{{ route('websites.administrator', $website) }}">
+<form method="GET" action="{{ route('websites.address', $website) }}">
 
     @foreach(request()->except([
         'country',
@@ -131,7 +168,7 @@ $steps = 5;
         <div class="mt-10 flex flex-col gap-4 border-t border-slate-200 pt-8 sm:flex-row sm:items-center sm:justify-between">
 
             <a
-                href="{{ route('websites.plan', $website) }}"
+                href="{{ route('websites.domain', $website) }}"
                 class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-6 py-3 font-medium">
 
                 ← Back

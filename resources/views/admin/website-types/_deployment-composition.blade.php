@@ -56,31 +56,50 @@
                     $profile['is_enabled'] ?? true
                 );
 
+                $profileProductIds = function (array $items): array {
+                    return collect($items)
+                        ->map(function ($item) {
+                            if (is_object($item)) {
+                                return $item->catalog_product_id
+                                    ?? $item->id
+                                    ?? null;
+                            }
+
+                            return $item['catalog_product_id']
+                                ?? $item['id']
+                                ?? null;
+                        })
+                        ->filter()
+                        ->map(fn ($id) => (int) $id)
+                        ->values()
+                        ->all();
+                };
+
                 $selectedThemes = collect(
                     old(
                         "deployment.{$deployment}.themes",
-                        collect($profile['themes'] ?? [])->pluck('id')->all()
+                        $profileProductIds($profile['themes'] ?? [])
                     )
                 )->map(fn ($id) => (int) $id)->all();
 
                 $selectedModules = collect(
                     old(
                         "deployment.{$deployment}.modules",
-                        collect($profile['modules'] ?? [])->pluck('id')->all()
+                        $profileProductIds($profile['modules'] ?? [])
                     )
                 )->map(fn ($id) => (int) $id)->all();
 
                 $selectedAddons = collect(
                     old(
                         "deployment.{$deployment}.addons",
-                        collect($profile['addons'] ?? [])->pluck('id')->all()
+                        $profileProductIds($profile['addons'] ?? [])
                     )
                 )->map(fn ($id) => (int) $id)->all();
 
                 $selectedBundles = collect(
                     old(
                         "deployment.{$deployment}.bundles",
-                        collect($profile['bundles'] ?? [])->pluck('id')->all()
+                        $profileProductIds($profile['bundles'] ?? [])
                     )
                 )->map(fn ($id) => (int) $id)->all();
 
@@ -91,10 +110,71 @@
                     'bundles' => $selectedBundles,
                 ];
 
+                /*
+                 * ESUBIZ_DEFAULT_THEME_PERSISTENCE_V16
+                 *
+                 * Resolve the saved canonical catalog product ID regardless
+                 * of whether the profile exposes the Theme as an object,
+                 * array, scalar ID, or explicit catalog product field.
+                 */
                 $profileDefaultTheme = data_get(
                     $profile,
-                    'default_theme.id'
+                    'default_theme.catalog_product_id'
                 );
+
+                if (!$profileDefaultTheme) {
+                    $profileDefaultTheme = data_get(
+                        $profile,
+                        'default_theme.id'
+                    );
+                }
+
+                if (!$profileDefaultTheme) {
+                    $profileDefaultTheme = data_get(
+                        $profile,
+                        'default_theme_catalog_product_id'
+                    );
+                }
+
+                if (!$profileDefaultTheme) {
+                    $rawDefaultTheme = data_get(
+                        $profile,
+                        'default_theme'
+                    );
+
+                    if (is_numeric($rawDefaultTheme)) {
+                        $profileDefaultTheme = (int) $rawDefaultTheme;
+                    } elseif (
+                        is_string($rawDefaultTheme)
+                        && trim($rawDefaultTheme) !== ''
+                    ) {
+                        /*
+                         * WebsiteTypeDeploymentProfileService::resolve()
+                         * exposes default_theme as the canonical Theme slug.
+                         * Convert that slug back to the assigned catalog
+                         * product ID required by the Admin select field.
+                         */
+                        $matchedDefaultTheme = collect(
+                            data_get($profile, 'themes', [])
+                        )->first(
+                            fn ($theme) =>
+                                (string) data_get($theme, 'slug')
+                                === (string) $rawDefaultTheme
+                        );
+
+                        $profileDefaultTheme = data_get(
+                            $matchedDefaultTheme,
+                            'catalog_product_id'
+                        );
+
+                        if (!$profileDefaultTheme) {
+                            $profileDefaultTheme = data_get(
+                                $matchedDefaultTheme,
+                                'id'
+                            );
+                        }
+                    }
+                }
 
                 $defaultTheme = old(
                     "deployment.{$deployment}.default_theme",
@@ -136,6 +216,51 @@
                         </span>
                     </label>
 
+                </div>
+
+                {{-- ESUBIZ_WEBSITE_TYPE_THEME_WIZARD_VISIBILITY_V18 --}}
+                @php
+                    $showThemeSelection = old(
+                        "deployment.{$deployment}.configuration.show_theme_selection",
+                        data_get(
+                            $profile,
+                            'configuration.show_theme_selection',
+                            true
+                        )
+                    );
+
+                    $showThemeSelection = filter_var(
+                        $showThemeSelection,
+                        FILTER_VALIDATE_BOOLEAN
+                    );
+                @endphp
+
+                <div class="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+                    <input
+                        type="hidden"
+                        name="deployment[{{ $deployment }}][configuration][show_theme_selection]"
+                        value="0"
+                    >
+
+                    <label class="flex cursor-pointer items-start justify-between gap-4">
+                        <div class="min-w-0">
+                            <div class="text-sm font-bold text-slate-900">
+                                Show Theme Selection in Wizard
+                            </div>
+
+                            <p class="mt-1 text-xs leading-5 text-slate-500">
+                                When disabled, the configured default Theme is applied automatically without showing Theme choices in this wizard.
+                            </p>
+                        </div>
+
+                        <input
+                            type="checkbox"
+                            name="deployment[{{ $deployment }}][configuration][show_theme_selection]"
+                            value="1"
+                            @checked($showThemeSelection)
+                            class="mt-1 h-5 w-5 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        >
+                    </label>
                 </div>
 
                 <div class="mt-6 grid w-full min-w-0 grid-cols-1 gap-6 md:grid-cols-2">

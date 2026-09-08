@@ -2222,19 +2222,55 @@ class MarketplaceController extends Controller
             ->where('payment_status', 'paid')
             ->firstOrFail();
 
-        $entitled = DB::table('product_entitlements')
+        /*
+         * ESUBIZ_DEVELOPER_BUILD_DOWNLOAD_CANONICAL_ENTITLEMENT_V2
+         *
+         * Developer Build is only the compiled transaction artifact.
+         * Download authority comes from the purchased Website Type's
+         * canonical Marketplace entitlement + off-server license.
+         */
+        $websiteType = \App\Models\WebsiteType::query()
+            ->where('slug', $developerBuild->website_type)
+            ->first();
+
+        abort_unless(
+            $websiteType,
+            403,
+            'The Website Type for this Developer Build could not be resolved.'
+        );
+
+        $catalogProduct = app(
+            \App\Services\Marketplace\WebsiteTypeCatalogService::class
+        )->resolve($websiteType);
+
+        $entitlement = DB::table('marketplace_entitlements')
             ->where('user_id', auth()->id())
-            ->where('product_type', 'developer_build')
-            ->where('product_id', $developerBuild->id)
+            ->where('product_type', 'website_type')
+            ->where('product_id', (int) $catalogProduct->id)
+            ->where('deployment', 'off_server')
             ->where('status', 'active')
-            ->where('fulfilment_type', 'license')
-            ->whereNull('deleted_at')
+            ->whereJsonContains(
+                'metadata->developer_build_id',
+                (int) $developerBuild->id
+            )
+            ->orderByDesc('id')
+            ->first();
+
+        abort_unless(
+            $entitlement,
+            403,
+            'This Website Type purchase is not entitled for download.'
+        );
+
+        $licensed = DB::table('marketplace_licenses')
+            ->where('entitlement_id', (int) $entitlement->id)
+            ->where('status', 'active')
             ->exists();
 
         abort_unless(
-            $entitled,
+            $licensed,
             403,
-            'This Developer Build is not entitled for download.'
+            'A valid Website Type license is required before download.'
         );
 
         $package = (string) $developerBuild->package_reference;
@@ -3530,73 +3566,24 @@ class MarketplaceController extends Controller
                 );
 
                 /*
-                 * ESUBIZ_DEVELOPER_BUILD_PRIMARY_ENTITLEMENT_V1
+                 * ESUBIZ_DEVELOPER_BUILD_CANONICAL_WEBSITE_TYPE_FULFILMENT_V2
                  *
-                 * The compiled Developer Build is one off-server licensed
-                 * distribution. Its primary build licence/package is the
-                 * canonical Developer Library entitlement.
+                 * Developer Build is the checkout/build artifact only.
+                 * The purchased commercial product is the Website Type.
                  *
-                 * Keep this idempotent so gateway returns, refreshes and
-                 * repeated payment-status checks cannot duplicate ownership.
+                 * This service creates/reuses the canonical Website Type
+                 * Marketplace entitlement and off-server license.
+                 *
+                 * No legacy product_entitlements developer_build record and
+                 * no plaintext license data is stored on DeveloperBuild.
                  */
-                $buildEntitlement = DB::table('product_entitlements')
-                    ->where('user_id', auth()->id())
-                    ->where('product_type', 'developer_build')
-                    ->where('product_id', $developerBuild->id)
-                    ->first();
-
-                $buildEntitlementMetadata = [
-                    'item_type' => 'developer_build',
-                    'source_module' => 'developer_builder',
-                    'deployment_type' => 'off_server',
-                    'developer_build_id' => $developerBuild->id,
-                    'build_id' => $developerBuild->build_id,
-                    'package_reference' =>
-                        $developerBuild->package_reference,
-                    'license_registration_id' =>
-                        $developerBuild->license_registration_id,
-                    'license_key' =>
-                        $developerBuild->license_key,
-                    'marketplace_order_id' => $record->id,
-                    'marketplace_order_reference' =>
-                        $record->reference,
-                    'currency' =>
-                        strtoupper($record->currency ?: 'NGN'),
-                    'amount' => (float) $record->amount,
-                ];
-
-                if ($buildEntitlement) {
-                    DB::table('product_entitlements')
-                        ->where('id', $buildEntitlement->id)
-                        ->update([
-                            'product_name' =>
-                                $developerBuild->project_name,
-                            'status' => 'active',
-                            'fulfilment_type' => 'license',
-                            'metadata' => json_encode(
-                                $buildEntitlementMetadata
-                            ),
-                            'updated_at' => now(),
-                        ]);
-                } else {
-                    DB::table('product_entitlements')->insert([
-                        'user_id' => auth()->id(),
-                        'website_id' => null,
-                        'workspace_id' => null,
-                        'product_type' => 'developer_build',
-                        'product_id' => $developerBuild->id,
-                        'product_name' =>
-                            $developerBuild->project_name,
-                        'status' => 'active',
-                        'fulfilment_type' => 'license',
-                        'starts_at' => now(),
-                        'metadata' => json_encode(
-                            $buildEntitlementMetadata
-                        ),
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-                }
+                app(
+                    \App\Services\Marketplace\DeveloperBuildPaymentFulfilmentService::class
+                )->fulfil(
+                    $record,
+                    $developerBuild,
+                    (int) auth()->id()
+                );
 
                 if ($developerBuild->payment_status !== 'paid') {
                     $developerBuild->update([

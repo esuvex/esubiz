@@ -1,0 +1,20 @@
+{
+    "schema": "esubiz-core-package",
+    "schema_version": "1.0",
+    "product": {
+        "type": "core",
+        "slug": "core",
+        "name": "Esubiz Core",
+        "version": "1.0.0"
+    },
+    "publisher": {
+        "slug": "esuvex-limited",
+        "display_name": "Esuvex Limited"
+    },
+    "compatibility": {
+        "deployment": [
+            "saas",
+            "off_server"
+        ]
+    }
+}

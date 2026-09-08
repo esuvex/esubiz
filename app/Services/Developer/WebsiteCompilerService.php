@@ -147,148 +147,22 @@ class WebsiteCompilerService
 
         $build = DeveloperBuild::where('build_id', $buildId)->first();
 
-        // ESUBIZ_DEVELOPER_BUILD_PRIMARY_LICENSE_V1
+        // ESUBIZ_DEVELOPER_BUILD_POST_PAYMENT_LICENSE_V2
         //
-        // A compiled Website/Core has ONE primary Central licence.
-        // The Website Type and all genuine products compiled into it
-        // are covered by this licence and remain tied to its domain.
+        // Developer compilation is intentionally licence-free.
         //
-        // Recompilation must reuse the same licence identity.
-        if (!$build) {
-            throw new RuntimeException(
-                'Developer build was not found.'
-            );
-        }
-
-        if (!$build->license_registration_id) {
-            DB::transaction(function () use ($build) {
-                $lockedBuild = DeveloperBuild::query()
-                    ->where('id', $build->id)
-                    ->lockForUpdate()
-                    ->firstOrFail();
-
-                if ($lockedBuild->license_registration_id) {
-                    return;
-                }
-
-                do {
-                    $licenseKey =
-                        'CORE-' . strtoupper(Str::random(32));
-
-                    $exists = DB::table(
-                        'off_server_license_registrations'
-                    )
-                        ->where('license_key', $licenseKey)
-                        ->exists();
-                } while ($exists);
-
-                $configuration =
-                    is_array($lockedBuild->configuration)
-                        ? $lockedBuild->configuration
-                        : [];
-
-                $selections =
-                    is_array($configuration['selections'] ?? null)
-                        ? $configuration['selections']
-                        : [];
-
-                $coveredProducts = [
-                    'website_type' =>
-                        $selections['website_type']
-                        ?? $lockedBuild->website_type,
-
-                    'addon_bundle' =>
-                        $selections['addon_bundle']
-                        ?? $lockedBuild->addon_bundle,
-
-                    'theme' =>
-                        $selections['theme']
-                        ?? $lockedBuild->theme,
-
-                    'modules' =>
-                        $selections['modules']
-                        ?? (
-                            is_array($lockedBuild->modules)
-                                ? $lockedBuild->modules
-                                : []
-                        ),
-                ];
-
-                $registrationId = DB::table(
-                    'off_server_license_registrations'
-                )->insertGetId([
-                    'uuid' => (string) Str::uuid(),
-                    'user_id' => $lockedBuild->developer_id,
-
-                    /*
-                     * The compiled Website/Core itself is the
-                     * primary licensed product. Attached products
-                     * inherit this licence rather than receiving
-                     * separate keys.
-                     */
-                    'license_product_id' => null,
-                    'marketplace_order_id' => null,
-                    'license_type' => 'developer_build',
-
-                    'website_id' => null,
-                    'license_key' => $licenseKey,
-                    'registered_domain' => null,
-                    'domain_hash' => null,
-                    'installation_uuid' => null,
-                    'api_application_id' => null,
-
-                    /*
-                     * Domain is assigned only on first legitimate
-                     * installation/activation.
-                     */
-                    'status' => 'pending',
-                    'activated_at' => null,
-                    'last_verified_at' => null,
-                    'revoked_at' => null,
-
-                    'metadata' => json_encode([
-                        'issued_by' =>
-                            'developer_build_compilation',
-
-                        'developer_build_id' =>
-                            $lockedBuild->id,
-
-                        'build_id' =>
-                            $lockedBuild->build_id,
-
-                        'project_name' =>
-                            $lockedBuild->project_name,
-
-                        'license_scope' =>
-                            'compiled_website',
-
-                        'domains_per_license' => 1,
-
-                        /*
-                         * These products are covered by the primary
-                         * Core/build licence and cannot independently
-                         * transfer its entitlement to another domain.
-                         */
-                        'covered_products' =>
-                            $coveredProducts,
-                    ], JSON_UNESCAPED_SLASHES),
-
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-
-                $lockedBuild->update([
-                    'license_registration_id' =>
-                        $registrationId,
-
-                    'license_key' =>
-                        $licenseKey,
-                ]);
-            });
-
-            $build->refresh();
-        }
-
+        // A Website Type is compiled into its private distributable package
+        // before checkout so the buyer can proceed to payment only after a
+        // successful build.
+        //
+        // The authoritative Marketplace entitlement and licence are created
+        // only after successful payment. The compiled ZIP therefore does not
+        // create, bind or reserve a licence merely because a Developer Build
+        // exists.
+        //
+        // The Website Type is the commercial product identity. Its prepared
+        // distribution contains Core plus its configured theme/modules and
+        // any genuine optional products assembled into this build.
 
         if ($build) {
             $build->update([
@@ -956,35 +830,20 @@ class WebsiteCompilerService
             'configuration_ready'
         );
 
-        // ESUBIZ_DEVELOPER_BUILD_LICENSE_PACKAGE_V1
+        // ESUBIZ_DEVELOPER_BUILD_PACKAGE_IDENTITY_V3
         //
-        // The compiled Website/Core package carries ONE primary Central
-        // licence. Genuine products attached during compilation inherit
-        // this licence and remain tied to the same eventual domain.
+        // Compilation produces a private, licence-free Website Type
+        // distribution. No licence is created, reserved or embedded here.
         //
-        // The package is still private at this stage. Payment releases
-        // the already-compiled package; it does not generate the licence.
+        // Website Type is the commercial identity selected in Developer
+        // Mode. Its prepared distribution contains Core and its configured
+        // components. Genuine optional products selected for this build are
+        // recorded as coverage metadata.
+        //
+        // After successful Marketplace payment, Central creates the
+        // authoritative entitlement and human-readable licence separately.
+        // The customer enters that licence during first-run installation.
         $build->refresh();
-
-        if (!$build->license_registration_id || !$build->license_key) {
-            throw new RuntimeException(
-                'Developer Build primary licence is unavailable.'
-            );
-        }
-
-        $licenseRegistration = DB::table(
-            'off_server_license_registrations'
-        )
-            ->where('id', $build->license_registration_id)
-            ->where('user_id', $build->developer_id)
-            ->where('license_key', $build->license_key)
-            ->first();
-
-        if (!$licenseRegistration) {
-            throw new RuntimeException(
-                'Developer Build primary licence registration could not be verified.'
-            );
-        }
 
         $configuration =
             is_array($build->configuration)
@@ -1018,15 +877,41 @@ class WebsiteCompilerService
                 ),
         ];
 
-        $licenseDirectory = $dist . '/license';
-        $documentationDirectory = $dist . '/documentation';
+        $packageIdentity = [
+            'schema' => '1.0',
+            'type' => 'esubiz-developer-website',
+            'build_id' => $build->build_id,
+            'project_name' => $build->project_name,
+            'website_type' => $build->website_type,
+            'deployment' => 'off_server',
+            'covered_products' => $coveredProducts,
+            'licensing' => [
+                'authority' => 'Esubiz Central',
+                'mode' => 'post_payment',
+                'requires_license_at_install' => true,
+                'license_embedded' => false,
+            ],
+        ];
 
-        File::makeDirectory(
-            $licenseDirectory,
-            0755,
-            true,
-            true
+        File::put(
+            $dist . DIRECTORY_SEPARATOR . 'esubiz-package.json',
+            json_encode(
+                $packageIdentity,
+                JSON_PRETTY_PRINT
+                | JSON_UNESCAPED_SLASHES
+                | JSON_UNESCAPED_UNICODE
+            )
         );
+
+        $configuration['package_identity'] = $packageIdentity;
+
+        $build->update([
+            'configuration' => $configuration,
+        ]);
+
+        $build->refresh();
+
+        $documentationDirectory = $dist . '/documentation';
 
         File::makeDirectory(
             $documentationDirectory,
@@ -1035,136 +920,36 @@ class WebsiteCompilerService
             true
         );
 
-        $licenseManifest = [
-            'platform' => 'Esubiz',
-            'license_scope' => 'compiled_website',
-            'license_type' => 'developer_build',
-            'license_key' => $build->license_key,
-            'registration_uuid' => $licenseRegistration->uuid,
-            'developer_build_id' => $build->id,
-            'build_id' => $build->build_id,
-            'project_name' => $build->project_name,
-            'website_type' => $build->website_type,
-            'status' => $licenseRegistration->status,
-            'domains_per_license' => 1,
-            'registered_domain' =>
-                $licenseRegistration->registered_domain,
-            'covered_products' => $coveredProducts,
-            'issued_at' =>
-                $licenseRegistration->created_at,
-        ];
-
-        File::put(
-            $licenseDirectory . '/license.json',
-            json_encode(
-                $licenseManifest,
-                JSON_PRETTY_PRINT
-                | JSON_UNESCAPED_SLASHES
-                | JSON_UNESCAPED_UNICODE
-            )
-        );
-
-        $licenseText = implode(PHP_EOL, [
-            'ESUBIZ CENTRAL LICENSE',
-            '======================',
-            '',
-            'Project: ' . $build->project_name,
-            'Build ID: ' . $build->build_id,
-            'License Key: ' . $build->license_key,
-            'License Type: Developer Build',
-            'License Scope: Compiled Website/Core',
-            'Domains Per License: 1',
-            'Status: ' . $licenseRegistration->status,
-            '',
-            'COVERAGE',
-            '--------',
-            'This single Central license covers the Website/Core and',
-            'all genuine Esubiz products attached during compilation.',
-            '',
-            'Website Type: ' .
-                (
-                    is_scalar($coveredProducts['website_type'])
-                        ? (string) $coveredProducts['website_type']
-                        : json_encode($coveredProducts['website_type'])
-                ),
-            'Addon Bundle: ' .
-                (
-                    empty($coveredProducts['addon_bundle'])
-                        ? 'None'
-                        : (
-                            is_scalar($coveredProducts['addon_bundle'])
-                                ? (string) $coveredProducts['addon_bundle']
-                                : json_encode($coveredProducts['addon_bundle'])
-                        )
-                ),
-            'Theme: ' .
-                (
-                    empty($coveredProducts['theme'])
-                        ? 'None'
-                        : (
-                            is_scalar($coveredProducts['theme'])
-                                ? (string) $coveredProducts['theme']
-                                : json_encode($coveredProducts['theme'])
-                        )
-                ),
-            'Modules: ' .
-                (
-                    empty($coveredProducts['modules'])
-                        ? 'None'
-                        : json_encode(
-                            $coveredProducts['modules'],
-                            JSON_UNESCAPED_SLASHES
-                        )
-                ),
-            '',
-            'DOMAIN LOCK',
-            '-----------',
-            'The license is pending until first legitimate activation.',
-            'First activation permanently binds it to one domain.',
-            'Attached products inherit the same domain entitlement.',
-            '',
-            'PRODUCT AUTHENTICITY AND UPDATES',
-            '--------------------------------',
-            'Every genuine Esubiz product validates through the licensed Core.',
-            'A modified or nulled product does not invalidate the Core.',
-            'However, that specific product loses Esubiz-managed lifetime',
-            'update entitlement until the genuine Esubiz package is restored',
-            'and validated using the applicable genuine license entitlement.',
-            '',
-            'Generated by Esubiz Developer Builder.',
-        ]);
-
-        File::put(
-            $licenseDirectory . '/Esubiz-License.txt',
-            $licenseText . PHP_EOL
-        );
-
         $documentation = implode(PHP_EOL, [
             'ESUBIZ COMPILED WEBSITE PACKAGE',
             '===============================',
             '',
             'Project: ' . $build->project_name,
             'Build ID: ' . $build->build_id,
+            'Website Type: ' . $build->website_type,
             '',
             'INSTALLATION',
             '------------',
-            '1. Upload and install this compiled Website/Core package.',
-            '2. During first activation, use the license supplied in',
-            '   license/Esubiz-License.txt.',
-            '3. The Central license will bind permanently to the first',
-            '   successfully activated domain.',
-            '4. Genuine products compiled into this package use the same',
-            '   primary Core/domain license entitlement.',
+            '1. Complete payment for this Developer Build in Esubiz.',
+            '2. Obtain the Website Type licence issued after payment.',
+            '3. Download this package from your Developer Library.',
+            '4. Upload and unzip the package on the target server.',
+            '5. Visit the website root domain to start first-run setup.',
+            '6. Enter the issued licence when requested by the installer.',
+            '7. Central validates the entitlement and binds the successful',
+            '   installation to the permitted off-server Core instance.',
             '',
             'LICENSING',
             '---------',
-            'Do not reuse the compiled package license on another domain.',
-            'Standalone Esubiz products purchased separately require their',
-            'own applicable valid product license.',
-            'Official bundles use one bundle license covering their included',
-            'products.',
+            'No licence key is embedded in this ZIP.',
+            'The authoritative licence is issued separately by Esubiz',
+            'after successful payment.',
             '',
-            'See the /license directory for the complete package license.',
+            'The Website Type is the primary commercial entitlement for',
+            'this initial installation. Genuine products compiled into the',
+            'Website Type/build remain recorded in package coverage metadata.',
+            '',
+            'See esubiz-package.json for non-secret package identity.',
         ]);
 
         File::put(
@@ -1172,7 +957,7 @@ class WebsiteCompilerService
             $documentation . PHP_EOL
         );
 
-        // ESUBIZ_DEVELOPER_BROWSER_DOCUMENTATION_V1
+        // ESUBIZ_DEVELOPER_BROWSER_DOCUMENTATION_V2
         $documentationProject = htmlspecialchars(
             (string) $build->project_name,
             ENT_QUOTES,
@@ -1185,11 +970,12 @@ class WebsiteCompilerService
             'UTF-8'
         );
 
-        $documentationLicenseKey = htmlspecialchars(
-            (string) $build->license_key,
-            ENT_QUOTES,
-            'UTF-8'
-        );
+        /*
+         * Browser documentation must never expose a licence secret.
+         * The real licence is issued separately after payment.
+         */
+        $documentationLicenseKey =
+            'Issued separately by Esubiz after successful payment';
 
         // ESUBIZ_DEVELOPER_REAL_INSTALLATION_REQUIREMENTS_V1
         $phpRequirement = 'Defined by the packaged Core composer.json';
@@ -1482,7 +1268,7 @@ the equivalent panel operations may be used instead.
 <p>Your build licence key is:</p>
 <p><code>{{LICENSE}}</code></p>
 <p>The licence starts in a pending state and is intended for one legitimate domain. On first valid activation, Central licensing associates the installation with that domain.</p>
-<p>See <code>license/Esubiz-License.pdf</code>, <code>license/Esubiz-License.txt</code> and <code>license/license.json</code> for the supplied licence records.</p>
+<p>Your licence is issued separately by Esubiz after successful payment and is not embedded in this package. See <code>esubiz-package.json</code> for non-secret package identity.</p>
 </section>
 
 <section class="panel" id="admin">
@@ -1662,7 +1448,7 @@ HTML;
             'Project: ' . $build->project_name,
             'Build ID: ' . $build->build_id,
             'Registration: ' . $licenseRegistration->uuid,
-            'License Key: ' . $build->license_key,
+            'License: Issued separately by Esubiz after successful payment',
             'License Type: Developer Build',
             'License Scope: Compiled Website/Core',
             'Website Type: ' . (

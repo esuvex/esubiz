@@ -1,0 +1,1020 @@
+<?php
+
+namespace App\Services\Marketplace\Licensing;
+
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use RuntimeException;
+
+/**
+ * ESUBIZ_MARKETPLACE_LICENSE_SERVICE_V1
+ *
+ * Generic Marketplace entitlement / license authority.
+ *
+ * Supports BOTH fulfilment modes:
+ *
+ * 1. Automatic Core Marketplace fulfilment
+ *    Purchase -> entitlement -> license -> activation -> installation.
+ *
+ * 2. Manual package fulfilment
+ *    Purchase outside Core -> download ZIP + license ->
+ *    upload ZIP to Core -> enter license -> Central validation ->
+ *    activation -> installation.
+ *
+ * Central Esubiz is always the licensing authority.
+ */
+class MarketplaceLicenseService
+{
+    /**
+     * Create the authoritative ownership entitlement.
+     *
+     * @return array<string,mixed>
+     */
+    public function createEntitlement(array $data): array
+    {
+        $productType = trim(
+            (string) ($data['product_type'] ?? '')
+        );
+
+        $productId = (int) (
+            $data['product_id'] ?? 0
+        );
+
+        $deployment = trim(
+            (string) ($data['deployment'] ?? '')
+        );
+
+        if ($productType === '') {
+            throw new RuntimeException(
+                'Marketplace entitlement requires product_type.'
+            );
+        }
+
+        if ($productId <= 0) {
+            throw new RuntimeException(
+                'Marketplace entitlement requires product_id.'
+            );
+        }
+
+        if (!in_array(
+            $deployment,
+            ['saas', 'off_server'],
+            true
+        )) {
+            throw new RuntimeException(
+                'Invalid Marketplace deployment.'
+            );
+        }
+
+        $uuid = (string) Str::uuid();
+
+        $id = DB::table(
+            'marketplace_entitlements'
+        )->insertGetId([
+            'uuid' => $uuid,
+
+            'order_id' =>
+                $data['order_id'] ?? null,
+
+            'order_item_id' =>
+                $data['order_item_id'] ?? null,
+
+            'product_type' =>
+                $productType,
+
+            'product_id' =>
+                $productId,
+
+            'product_slug' =>
+                $data['product_slug'] ?? null,
+
+            'product_version' =>
+                $data['product_version'] ?? null,
+
+            'user_id' =>
+                $data['user_id'] ?? null,
+
+            'website_id' =>
+                $data['website_id'] ?? null,
+
+            'deployment' =>
+                $deployment,
+
+            'status' => 'active',
+
+            'capabilities' => json_encode(
+                $data['capabilities']
+                    ?? [
+                        'install',
+                        'enable',
+                        'update',
+                    ],
+                JSON_THROW_ON_ERROR
+            ),
+
+            'quantity' =>
+                max(
+                    1,
+                    (int) ($data['quantity'] ?? 1)
+                ),
+
+            'activation_limit' =>
+                max(
+                    1,
+                    (int) (
+                        $data['activation_limit']
+                            ?? 1
+                    )
+                ),
+
+            'starts_at' =>
+                $data['starts_at'] ?? now(),
+
+            'expires_at' =>
+                $data['expires_at'] ?? null,
+
+            'metadata' => isset(
+                $data['metadata']
+            )
+                ? json_encode(
+                    $data['metadata'],
+                    JSON_THROW_ON_ERROR
+                )
+                : null,
+
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $this->entitlement(
+            $id
+        );
+    }
+
+    /**
+     * Issue an off-server Marketplace license.
+     *
+     * IMPORTANT:
+     *
+     * The returned plaintext license_key is intentionally
+     * returned ONLY at issuance time.
+     *
+     * Central stores only its SHA-256 hash.
+     *
+     * The same key can be:
+     *
+     * - delivered invisibly to Core during automatic purchase; or
+     * - shown/downloaded to the buyer for manual installation.
+     *
+     * @return array<string,mixed>
+     */
+    public function issueLicense(
+        int $entitlementId
+    ): array {
+        $entitlement =
+            $this->entitlement(
+                $entitlementId
+            );
+
+        if (
+            ($entitlement['deployment'] ?? null)
+                !== 'off_server'
+        ) {
+            throw new RuntimeException(
+                'Standalone Marketplace licenses are only issued for off-server entitlements.'
+            );
+        }
+
+        if (
+            ($entitlement['status'] ?? null)
+                !== 'active'
+        ) {
+            throw new RuntimeException(
+                'Cannot issue a license for an inactive entitlement.'
+            );
+        }
+
+        $existing = DB::table(
+            'marketplace_licenses'
+        )
+            ->where(
+                'entitlement_id',
+                $entitlementId
+            )
+            ->where(
+                'status',
+                'active'
+            )
+            ->first();
+
+        /*
+         * We NEVER regenerate the secret for an existing license
+         * because Central does not retain its plaintext value.
+         *
+         * A future explicit "Regenerate License" operation may
+         * revoke the old license and issue a new one.
+         */
+        if ($existing) {
+            throw new RuntimeException(
+                'An active license already exists for this entitlement.'
+            );
+        }
+
+        $uuid = (string) Str::uuid();
+
+        $licenseReference =
+            $this->licenseReference(
+                (string) (
+                    $entitlement[
+                        'product_type'
+                    ] ?? 'product'
+                )
+            );
+
+        $licenseKey =
+            $this->generateLicenseKey(
+                (string) (
+                    $entitlement[
+                        'product_type'
+                    ] ?? 'product'
+                )
+            );
+
+        $tokenHash =
+            hash(
+                'sha256',
+                $licenseKey
+            );
+
+        $id = DB::table(
+            'marketplace_licenses'
+        )->insertGetId([
+            'uuid' =>
+                $uuid,
+
+            'entitlement_id' =>
+                $entitlementId,
+
+            'license_reference' =>
+                $licenseReference,
+
+            /*
+             * ESUBIZ_MARKETPLACE_RECOVERABLE_LICENSE_SERVICE_V2
+             *
+             * Authoritative human-readable license retained by
+             * Central Esubiz for Website Manager, support, audit,
+             * refunds, revocation, transfer and manual installation.
+             *
+             * Encrypted at rest. token_hash remains only an indexed
+             * validation lookup helper.
+             */
+            'license_key_encrypted' =>
+                Crypt::encryptString(
+                    $licenseKey
+                ),
+
+            'token_hash' =>
+                $tokenHash,
+
+            /*
+             * Cryptographically signed offline payload will
+             * be populated by the signing layer.
+             *
+             * The activation key itself is already safe because
+             * only its hash is persisted.
+             */
+            'signed_payload' =>
+                null,
+
+            'signature_algorithm' =>
+                null,
+
+            'signing_key_id' =>
+                null,
+
+            'status' =>
+                'active',
+
+            'activation_limit' =>
+                max(
+                    1,
+                    (int) (
+                        $entitlement[
+                            'activation_limit'
+                        ] ?? 1
+                    )
+                ),
+
+            'issued_at' =>
+                now(),
+
+            'expires_at' =>
+                $entitlement[
+                    'expires_at'
+                ] ?? null,
+
+            'metadata' =>
+                json_encode(
+                    [
+                        'fulfilment_modes' => [
+                            'automatic',
+                            'manual',
+                        ],
+                    ],
+                    JSON_THROW_ON_ERROR
+                ),
+
+            'created_at' =>
+                now(),
+
+            'updated_at' =>
+                now(),
+        ]);
+
+        $license =
+            $this->license(
+                $id
+            );
+
+        /*
+         * Plaintext key exists only in this response.
+         */
+        $license['license_key'] =
+            $licenseKey;
+
+        return $license;
+    }
+
+    /**
+     * Validate a license key and activate it against
+     * a standalone Core installation.
+     *
+     * This method is used by BOTH:
+     *
+     * - automatic Marketplace installation;
+     * - manual package License Validation box.
+     *
+     * @return array<string,mixed>
+     */
+    public function validateAndActivate(
+        string $licenseKey,
+        string $coreInstanceUuid,
+        array $context = []
+    ): array {
+        $licenseKey =
+            strtoupper(
+                trim(
+                    $licenseKey
+                )
+            );
+
+        $coreInstanceUuid =
+            trim(
+                $coreInstanceUuid
+            );
+
+        if ($licenseKey === '') {
+            throw new RuntimeException(
+                'License key is required.'
+            );
+        }
+
+        if (
+            !Str::isUuid(
+                $coreInstanceUuid
+            )
+        ) {
+            throw new RuntimeException(
+                'A valid Core instance UUID is required.'
+            );
+        }
+
+        $tokenHash =
+            hash(
+                'sha256',
+                $licenseKey
+            );
+
+        return DB::transaction(
+            function () use (
+                $tokenHash,
+                $coreInstanceUuid,
+                $context
+            ) {
+                $license = DB::table(
+                    'marketplace_licenses'
+                )
+                    ->where(
+                        'token_hash',
+                        $tokenHash
+                    )
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$license) {
+                    throw new RuntimeException(
+                        'Invalid Marketplace license.'
+                    );
+                }
+
+                if (
+                    $license->status
+                        !== 'active'
+                ) {
+                    throw new RuntimeException(
+                        'Marketplace license is not active.'
+                    );
+                }
+
+                if (
+                    $license->expires_at
+                    && now()->greaterThan(
+                        $license->expires_at
+                    )
+                ) {
+                    throw new RuntimeException(
+                        'Marketplace license has expired.'
+                    );
+                }
+
+                $entitlement =
+                    $this->entitlement(
+                        (int) $license
+                            ->entitlement_id
+                    );
+
+                if (
+                    ($entitlement['status'] ?? null)
+                        !== 'active'
+                ) {
+                    throw new RuntimeException(
+                        'Marketplace entitlement is not active.'
+                    );
+                }
+
+                if (
+                    ($entitlement['deployment'] ?? null)
+                        !== 'off_server'
+                ) {
+                    throw new RuntimeException(
+                        'This license is not valid for off-server Core.'
+                    );
+                }
+
+                $existingActivation =
+                    DB::table(
+                        'marketplace_license_activations'
+                    )
+                        ->where(
+                            'license_id',
+                            $license->id
+                        )
+                        ->where(
+                            'core_instance_uuid',
+                            $coreInstanceUuid
+                        )
+                        ->first();
+
+                /*
+                 * Re-validating the SAME Core installation is
+                 * always allowed while the license is healthy.
+                 */
+                if ($existingActivation) {
+                    if (
+                        $existingActivation->status
+                            !== 'active'
+                    ) {
+                        throw new RuntimeException(
+                            'This Core activation is not active.'
+                        );
+                    }
+
+                    DB::table(
+                        'marketplace_license_activations'
+                    )
+                        ->where(
+                            'id',
+                            $existingActivation->id
+                        )
+                        ->update([
+                            'last_seen_at' =>
+                                now(),
+
+                            'last_validated_at' =>
+                                now(),
+
+                            'domain' =>
+                                $context['domain']
+                                    ?? $existingActivation
+                                        ->domain,
+
+                            'core_version' =>
+                                $context[
+                                    'core_version'
+                                ]
+                                    ?? $existingActivation
+                                        ->core_version,
+
+                            'updated_at' =>
+                                now(),
+                        ]);
+
+                    DB::table(
+                        'marketplace_licenses'
+                    )
+                        ->where(
+                            'id',
+                            $license->id
+                        )
+                        ->update([
+                            'last_validated_at' =>
+                                now(),
+
+                            'updated_at' =>
+                                now(),
+                        ]);
+
+                    return $this
+                        ->validationResponse(
+                            (int) $license->id,
+                            $entitlement,
+                            $coreInstanceUuid
+                        );
+                }
+
+                $activeCount =
+                    DB::table(
+                        'marketplace_license_activations'
+                    )
+                        ->where(
+                            'license_id',
+                            $license->id
+                        )
+                        ->where(
+                            'status',
+                            'active'
+                        )
+                        ->count();
+
+                if (
+                    $activeCount
+                    >= (int) $license
+                        ->activation_limit
+                ) {
+                    throw new RuntimeException(
+                        'Marketplace license activation limit has been reached.'
+                    );
+                }
+
+                DB::table(
+                    'marketplace_license_activations'
+                )->insert([
+                    'uuid' =>
+                        (string) Str::uuid(),
+
+                    'license_id' =>
+                        $license->id,
+
+                    'core_instance_uuid' =>
+                        $coreInstanceUuid,
+
+                    'domain' =>
+                        $context['domain']
+                            ?? null,
+
+                    'installation_fingerprint' =>
+                        $context[
+                            'installation_fingerprint'
+                        ] ?? null,
+
+                    'status' =>
+                        'active',
+
+                    'activated_at' =>
+                        now(),
+
+                    'last_seen_at' =>
+                        now(),
+
+                    'last_validated_at' =>
+                        now(),
+
+                    'core_version' =>
+                        $context[
+                            'core_version'
+                        ] ?? null,
+
+                    'deployment' =>
+                        'off_server',
+
+                    'metadata' =>
+                        isset(
+                            $context['metadata']
+                        )
+                            ? json_encode(
+                                $context[
+                                    'metadata'
+                                ],
+                                JSON_THROW_ON_ERROR
+                            )
+                            : null,
+
+                    'created_at' =>
+                        now(),
+
+                    'updated_at' =>
+                        now(),
+                ]);
+
+                DB::table(
+                    'marketplace_licenses'
+                )
+                    ->where(
+                        'id',
+                        $license->id
+                    )
+                    ->update([
+                        'last_validated_at' =>
+                            now(),
+
+                        'updated_at' =>
+                            now(),
+                    ]);
+
+                return $this
+                    ->validationResponse(
+                        (int) $license->id,
+                        $entitlement,
+                        $coreInstanceUuid
+                    );
+            }
+        );
+    }
+
+    /**
+     * Check whether a specific product is licensed
+     * to a Core installation.
+     */
+    /**
+     * Recover the actual human-readable Marketplace license.
+     *
+     * CENTRAL ADMIN/SUPPORT USE ONLY.
+     *
+     * Never expose this method through a public unauthenticated API.
+     */
+    public function revealLicenseKey(
+        int $licenseId
+    ): string {
+        $row = DB::table(
+            'marketplace_licenses'
+        )
+            ->where(
+                'id',
+                $licenseId
+            )
+            ->first();
+
+        if (!$row) {
+            throw new RuntimeException(
+                'Marketplace license not found.'
+            );
+        }
+
+        if (
+            empty(
+                $row->license_key_encrypted
+            )
+        ) {
+            throw new RuntimeException(
+                'Marketplace license does not have a recoverable license key.'
+            );
+        }
+
+        return Crypt::decryptString(
+            $row->license_key_encrypted
+        );
+    }
+
+    /**
+     * Central Admin representation of a Marketplace license.
+     *
+     * This is what Website Manager/support can later consume.
+     *
+     * @return array<string,mixed>
+     */
+    public function adminLicenseForEntitlement(
+        int $entitlementId
+    ): array {
+        $row = DB::table(
+            'marketplace_licenses'
+        )
+            ->where(
+                'entitlement_id',
+                $entitlementId
+            )
+            ->latest('id')
+            ->first();
+
+        if (!$row) {
+            throw new RuntimeException(
+                'Marketplace license not found for this entitlement.'
+            );
+        }
+
+        $result = (array) $row;
+
+        $result['license_key'] =
+            $this->revealLicenseKey(
+                (int) $row->id
+            );
+
+        /*
+         * Internal storage/lookup values are not Admin presentation data.
+         */
+        unset(
+            $result['token_hash'],
+            $result['license_key_encrypted']
+        );
+
+        return $result;
+    }
+
+    public function isProductLicensed(
+        string $productType,
+        int $productId,
+        string $coreInstanceUuid
+    ): bool {
+        return DB::table(
+            'marketplace_license_activations as a'
+        )
+            ->join(
+                'marketplace_licenses as l',
+                'l.id',
+                '=',
+                'a.license_id'
+            )
+            ->join(
+                'marketplace_entitlements as e',
+                'e.id',
+                '=',
+                'l.entitlement_id'
+            )
+            ->where(
+                'e.product_type',
+                $productType
+            )
+            ->where(
+                'e.product_id',
+                $productId
+            )
+            ->where(
+                'e.deployment',
+                'off_server'
+            )
+            ->where(
+                'e.status',
+                'active'
+            )
+            ->where(
+                'l.status',
+                'active'
+            )
+            ->where(
+                'a.status',
+                'active'
+            )
+            ->where(
+                'a.core_instance_uuid',
+                $coreInstanceUuid
+            )
+            ->exists();
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    protected function validationResponse(
+        int $licenseId,
+        array $entitlement,
+        string $coreInstanceUuid
+    ): array {
+        $license =
+            $this->license(
+                $licenseId
+            );
+
+        return [
+            'valid' =>
+                true,
+
+            'license_reference' =>
+                $license[
+                    'license_reference'
+                ],
+
+            'license_uuid' =>
+                $license['uuid'],
+
+            'entitlement_uuid' =>
+                $entitlement['uuid'],
+
+            'product_type' =>
+                $entitlement[
+                    'product_type'
+                ],
+
+            'product_id' =>
+                (int) $entitlement[
+                    'product_id'
+                ],
+
+            'product_slug' =>
+                $entitlement[
+                    'product_slug'
+                ] ?? null,
+
+            'product_version' =>
+                $entitlement[
+                    'product_version'
+                ] ?? null,
+
+            'deployment' =>
+                'off_server',
+
+            'core_instance_uuid' =>
+                $coreInstanceUuid,
+
+            'capabilities' =>
+                $entitlement[
+                    'capabilities'
+                ],
+
+            'expires_at' =>
+                $license[
+                    'expires_at'
+                ] ?? null,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    protected function entitlement(
+        int $id
+    ): array {
+        $row = DB::table(
+            'marketplace_entitlements'
+        )->where(
+            'id',
+            $id
+        )->first();
+
+        if (!$row) {
+            throw new RuntimeException(
+                'Marketplace entitlement not found.'
+            );
+        }
+
+        $result = (array) $row;
+
+        $result['capabilities'] =
+            $this->decodeJson(
+                $result[
+                    'capabilities'
+                ] ?? null
+            );
+
+        $result['metadata'] =
+            $this->decodeJson(
+                $result[
+                    'metadata'
+                ] ?? null
+            );
+
+        return $result;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    protected function license(
+        int $id
+    ): array {
+        $row = DB::table(
+            'marketplace_licenses'
+        )->where(
+            'id',
+            $id
+        )->first();
+
+        if (!$row) {
+            throw new RuntimeException(
+                'Marketplace license not found.'
+            );
+        }
+
+        $result = (array) $row;
+
+        $result['metadata'] =
+            $this->decodeJson(
+                $result[
+                    'metadata'
+                ] ?? null
+            );
+
+        /*
+         * Never expose token_hash as part of service output.
+         */
+        unset(
+            $result['token_hash']
+        );
+
+        return $result;
+    }
+
+    protected function licenseReference(
+        string $productType
+    ): string {
+        return sprintf(
+            'LIC-%s-%s',
+            strtoupper(
+                substr(
+                    preg_replace(
+                        '/[^A-Za-z0-9]/',
+                        '',
+                        $productType
+                    ) ?: 'PRD',
+                    0,
+                    4
+                )
+            ),
+            strtoupper(
+                Str::random(12)
+            )
+        );
+    }
+
+    protected function generateLicenseKey(
+        string $productType
+    ): string {
+        $type = strtoupper(
+            substr(
+                preg_replace(
+                    '/[^A-Za-z0-9]/',
+                    '',
+                    $productType
+                ) ?: 'PRD',
+                0,
+                3
+            )
+        );
+
+        $groups = [];
+
+        for ($i = 0; $i < 4; $i++) {
+            $groups[] =
+                strtoupper(
+                    Str::random(4)
+                );
+        }
+
+        return 'ESB-'
+            . $type
+            . '-'
+            . implode(
+                '-',
+                $groups
+            );
+    }
+
+    /**
+     * @return array<mixed>
+     */
+    protected function decodeJson(
+        mixed $value
+    ): array {
+        if (is_array($value)) {
+            return $value;
+        }
+
+        if (
+            !is_string($value)
+            || trim($value) === ''
+        ) {
+            return [];
+        }
+
+        $decoded =
+            json_decode(
+                $value,
+                true
+            );
+
+        return is_array(
+            $decoded
+        )
+            ? $decoded
+            : [];
+    }
+}

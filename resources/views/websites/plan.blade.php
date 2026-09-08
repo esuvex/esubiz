@@ -5,8 +5,40 @@
 @section('content')
 
 @php
-$step = 3;
-$steps = 5;
+/*
+ * ESUBIZ_DYNAMIC_PLAN_PROGRESS_V27
+ */
+$wizardProgressTypeSlug = trim(
+    (string) (
+        ($wizard['type'] ?? null)
+        ?? ($website->wizard_data['type'] ?? null)
+        ?? ''
+    )
+);
+
+$wizardProgressType = $wizardProgressTypeSlug !== ''
+    ? \App\Models\WebsiteType::query()
+        ->where('slug', $wizardProgressTypeSlug)
+        ->first()
+    : null;
+
+$wizardProgressProfile = $wizardProgressType
+    ? app(
+        \App\Services\Website\Deployment\WebsiteTypeDeploymentProfileService::class
+    )->resolve($wizardProgressType, 'saas')
+    : [];
+
+$wizardThemeVisible = filter_var(
+    data_get(
+        $wizardProgressProfile,
+        'configuration.show_theme_selection',
+        true
+    ),
+    FILTER_VALIDATE_BOOLEAN
+);
+
+$steps = $wizardThemeVisible ? 6 : 5;
+$step = $wizardThemeVisible ? 4 : 3;
 
 $plans = [
     [

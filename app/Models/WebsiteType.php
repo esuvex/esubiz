@@ -2,11 +2,29 @@
 
 namespace App\Models;
 
+use App\Services\Marketplace\WebsiteTypeCatalogService;
+
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class WebsiteType extends Model
 {
+
+    /**
+     * ESUBIZ_WEBSITE_TYPE_MARKETPLACE_AUTO_SYNC_V1
+     *
+     * Every Website Type automatically owns a canonical Marketplace
+     * catalog identity. This applies to existing and future Website Types
+     * regardless of whether they are created/updated through Admin,
+     * seeders, APIs, or another application service.
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (WebsiteType $websiteType): void {
+            app(WebsiteTypeCatalogService::class)->sync($websiteType);
+        });
+    }
+
     use SoftDeletes;
 
     protected $fillable = [

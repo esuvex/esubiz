@@ -54,6 +54,28 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         /*
+         * ESUBIZ_CORE_FIRST_RUN_GATE_REGISTRATION_V1
+         *
+         * Universal root-domain first-run gate.
+         *
+         * The middleware itself is deployment-aware:
+         *
+         * - SaaS bypasses first-run setup.
+         * - Installed Core bypasses first-run setup.
+         * - core.setup.* routes bypass the redirect loop.
+         * - Only an explicitly OFF-SERVER, uninstalled Core
+         *   is redirected from normal web routes into setup.
+         *
+         * This intentionally lives on the normal web stack so
+         * https://example.com/ is the customer entry point.
+         * There is no public /install route or directory.
+         */
+        $middleware->appendToGroup(
+            'web',
+            \App\Http\Middleware\CoreFirstRunGate::class
+        );
+
+        /*
          * Tenant-aware routes.
          *
          * NeedsTenant invokes the configured WebsiteTenantFinder

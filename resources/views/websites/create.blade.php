@@ -11,7 +11,10 @@ $steps = 5;
 
 @endphp
 
-<form method="POST" action="{{ route('websites.store') }}">
+<form
+    method="POST"
+    action="{{ route('websites.store') }}"
+    id="website-type-selection-form">
 
     @csrf
 
@@ -75,48 +78,106 @@ $steps = 5;
 
         </div>
 
-        <div class="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        {{-- ESUBIZ_WEBSITE_TYPE_AJAX_SELECTION_V22 --}}
+        <div class="mt-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
 
             @foreach($types as $type)
 
-                <label class="group cursor-pointer">
+                <label
+                    class="group min-w-0 cursor-pointer"
+                    data-website-type-card>
 
                     <input
                         type="radio"
                         name="type"
                         value="{{ $type->slug }}"
-                        class="peer hidden"
-                        required>
+                        class="peer sr-only"
+                        required
+                        data-website-type-radio>
 
-                    <div class="rounded-3xl border-2 border-slate-200 bg-white p-8 transition-all duration-300 hover:-translate-y-1 hover:border-blue-500 hover:shadow-xl peer-checked:border-blue-600 peer-checked:bg-blue-50">
+                    <div class="flex h-full min-h-[220px] min-w-0 flex-col rounded-2xl border-2 border-slate-200 bg-white p-4 transition-all duration-300 hover:-translate-y-1 hover:border-blue-500 hover:shadow-lg peer-checked:border-blue-600 peer-checked:bg-blue-50 sm:p-5">
 
-                        <div class="flex items-start justify-between">
+                        <div class="flex items-start justify-between gap-2">
 
-                            <div class="text-6xl">
-
+                            <div class="text-3xl sm:text-4xl">
                                 {{ config('website_type_icons.' . $type->icon, '🌐') }}
-
                             </div>
 
-                            <span class="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-500">
-
+                            <span class="hidden rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-500 sm:inline-flex">
                                 Website Type
-
                             </span>
 
                         </div>
 
-                        <h3 class="mt-8 text-3xl font-bold text-slate-900">
-
+                        <h3 class="mt-4 break-words text-lg font-bold leading-tight text-slate-900 sm:text-xl">
                             {{ $type->name }}
-
                         </h3>
 
-                        <p class="mt-4 leading-7 text-slate-500">
+                        @if(
+                            !is_null($type->saas_price)
+                            && (float) $type->saas_price > 0
+                        )
+                            @php
+                                $billingPeriod =
+                                    max(
+                                        1,
+                                        (int) ($type->saas_billing_period ?? 1)
+                                    );
 
+                                $billingInterval =
+                                    trim(
+                                        strtolower(
+                                            (string) ($type->saas_billing_interval ?? '')
+                                        )
+                                    );
+
+                                $billingUnit =
+                                    $billingInterval;
+
+                                if (
+                                    $billingPeriod > 1
+                                    && $billingUnit !== ''
+                                    && !str_ends_with($billingUnit, 's')
+                                ) {
+                                    $billingUnit .= 's';
+                                }
+
+                                $billingDuration =
+                                    $billingUnit !== ''
+                                    ? (
+                                        $billingPeriod > 1
+                                            ? $billingPeriod . ' ' . $billingUnit
+                                            : $billingUnit
+                                    )
+                                    : null;
+                            @endphp
+
+                            <div class="mt-2 flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
+                                <span class="text-lg font-black text-blue-600 sm:text-xl">
+                                    ₦{{ number_format((float) $type->saas_price, 0) }}
+                                </span>
+
+                                @if($billingDuration)
+                                    <span class="text-xs font-semibold text-slate-500 sm:text-sm">
+                                        / {{ $billingDuration }}
+                                    </span>
+                                @endif
+                            </div>
+                        @endif
+
+                        <p class="mt-2 line-clamp-3 text-xs leading-5 text-slate-500 sm:text-sm sm:leading-6">
                             {{ $type->description ?: 'Create a professional website for your business or organization.' }}
-
                         </p>
+
+                        <div class="mt-auto pt-5">
+
+                            <span
+                                class="flex w-full items-center justify-center rounded-xl border border-blue-600 px-3 py-2 text-xs font-semibold text-blue-600 transition group-hover:bg-blue-50 peer-checked:bg-blue-600 peer-checked:text-white sm:text-sm"
+                                data-select-label>
+                                Select
+                            </span>
+
+                        </div>
 
                     </div>
 
@@ -148,5 +209,151 @@ $steps = 5;
     </div>
 
 </form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    /*
+     * ESUBIZ_WEBSITE_TYPE_AJAX_ADVANCE_V22
+     *
+     * Selecting a Website Type immediately saves Step 1 and follows
+     * the controller redirect into Step 2.
+     *
+     * The existing POST form remains fully functional as a
+     * non-JavaScript fallback.
+     */
+    const form = document.getElementById(
+        'website-type-selection-form'
+    );
+
+    if (!form) {
+        return;
+    }
+
+    let submitting = false;
+
+    const radios = form.querySelectorAll(
+        '[data-website-type-radio]'
+    );
+
+    const cards = form.querySelectorAll(
+        '[data-website-type-card]'
+    );
+
+    function setLoading(selectedRadio) {
+        cards.forEach(function (card) {
+            const radio = card.querySelector(
+                '[data-website-type-radio]'
+            );
+
+            const label = card.querySelector(
+                '[data-select-label]'
+            );
+
+            card.classList.add(
+                'pointer-events-none'
+            );
+
+            if (!label) {
+                return;
+            }
+
+            if (radio === selectedRadio) {
+                label.textContent = 'Loading...';
+            } else {
+                label.textContent = 'Select';
+                label.classList.add('opacity-50');
+            }
+        });
+    }
+
+    function resetLoading() {
+        cards.forEach(function (card) {
+            const label = card.querySelector(
+                '[data-select-label]'
+            );
+
+            card.classList.remove(
+                'pointer-events-none'
+            );
+
+            if (label) {
+                label.textContent = 'Select';
+                label.classList.remove('opacity-50');
+            }
+        });
+
+        submitting = false;
+    }
+
+    radios.forEach(function (radio) {
+        radio.addEventListener('change', async function () {
+            if (submitting || !radio.checked) {
+                return;
+            }
+
+            submitting = true;
+            setLoading(radio);
+
+            try {
+                const response = await fetch(
+                    form.action,
+                    {
+                        method: 'POST',
+                        body: new FormData(form),
+                        headers: {
+                            'X-Requested-With':
+                                'XMLHttpRequest',
+                            'Accept':
+                                'text/html,application/xhtml+xml'
+                        },
+                        credentials: 'same-origin',
+                        redirect: 'follow'
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(
+                        'Website Type selection failed.'
+                    );
+                }
+
+                /*
+                 * ESUBIZ_FAST_STEP1_JSON_NAVIGATION_V25
+                 *
+                 * The controller returns only a lightweight JSON payload.
+                 * Navigate once to Step 2 instead of downloading Step 2
+                 * inside fetch() and then loading it again.
+                 */
+                const data = await response.json();
+
+                if (
+                    data.success
+                    && data.next_url
+                ) {
+                    window.location.assign(
+                        data.next_url
+                    );
+
+                    return;
+                }
+
+                throw new Error(
+                    'Step 2 URL was not returned.'
+                );
+
+            } catch (error) {
+                console.error(error);
+
+                resetLoading();
+
+                /*
+                 * Graceful fallback to the existing normal POST flow.
+                 */
+                form.submit();
+            }
+        });
+    });
+});
+</script>
 
 @endsection

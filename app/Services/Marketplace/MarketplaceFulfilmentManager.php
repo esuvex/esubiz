@@ -9,6 +9,37 @@ class MarketplaceFulfilmentManager
     protected array $handlers = [
 
             /*
+             * ESUBIZ_GENERIC_MARKETPLACE_PRODUCT_HANDLERS_V2
+             *
+             * Standard Marketplace products converge here regardless of
+             * whether payment succeeded through online gateway, wallet,
+             * gift card or approved offline payment.
+             *
+             * The generic handler creates the canonical entitlement and,
+             * for off-server deployment, the centrally managed license.
+             *
+             * License-only products and credit products retain their own
+             * specialized handlers below.
+             */
+            'website_type' =>
+                \App\Services\Marketplace\Handlers\GenericMarketplaceProductFulfilmentHandler::class,
+
+            'addon' =>
+                \App\Services\Marketplace\Handlers\GenericMarketplaceProductFulfilmentHandler::class,
+
+            'bundle' =>
+                \App\Services\Marketplace\Handlers\GenericMarketplaceProductFulfilmentHandler::class,
+
+            'theme' =>
+                \App\Services\Marketplace\Handlers\GenericMarketplaceProductFulfilmentHandler::class,
+
+            'module' =>
+                \App\Services\Marketplace\Handlers\GenericMarketplaceProductFulfilmentHandler::class,
+
+            'app' =>
+                \App\Services\Marketplace\Handlers\GenericMarketplaceProductFulfilmentHandler::class,
+
+            /*
              * OFF_SERVER_LICENSE_MARKETPLACE_HANDLER
              *
              * License-only Marketplace products issue a pending

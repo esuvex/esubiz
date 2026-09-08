@@ -723,49 +723,15 @@ class BuilderController extends Controller
                 }
 
                 /*
-                 * Link the already-generated compile-time licence.
-                 * Never generate another licence during checkout.
+                 * ESUBIZ_DEVELOPER_BUILD_POST_PAYMENT_LICENSING_V2
+                 *
+                 * Checkout does not create, reserve or attach a licence.
+                 *
+                 * This order represents the already-compiled private
+                 * Developer Website Type package. The authoritative
+                 * Marketplace Website Type entitlement and licence are
+                 * created only after successful payment.
                  */
-                $license = \Illuminate\Support\Facades\DB::table(
-                    'off_server_license_registrations'
-                )
-                    ->where(
-                        'id',
-                        $developerBuild->license_registration_id
-                    )
-                    ->where(
-                        'user_id',
-                        $developerBuild->developer_id
-                    )
-                    ->lockForUpdate()
-                    ->first();
-
-                if (!$license) {
-                    throw new \RuntimeException(
-                        'Developer Build primary licence is invalid.'
-                    );
-                }
-
-                if (
-                    $license->marketplace_order_id !== null
-                    && (int) $license->marketplace_order_id
-                        !== (int) $orderId
-                ) {
-                    throw new \RuntimeException(
-                        'Developer Build licence belongs to another order.'
-                    );
-                }
-
-                if ($license->marketplace_order_id === null) {
-                    \Illuminate\Support\Facades\DB::table(
-                        'off_server_license_registrations'
-                    )
-                        ->where('id', $license->id)
-                        ->update([
-                            'marketplace_order_id' => $orderId,
-                            'updated_at' => now(),
-                        ]);
-                }
 
                 /*
                  * Reuse an existing pending checkout session.

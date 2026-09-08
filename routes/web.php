@@ -2186,6 +2186,21 @@ Route::middleware('auth')->group(function () {
         ->middleware(['permission:roles.view', 'account-mode:admin'])
         ->name('admin.website-types.update');
 
+    /*
+     * ESUBIZ_WEBSITE_TYPE_MANAGEMENT_ROUTES_V9
+     */
+    Route::get('/admin/website-types/{websiteType}', [WebsiteTypeController::class, 'show'])
+        ->middleware(['permission:roles.view', 'account-mode:admin'])
+        ->name('admin.website-types.show');
+
+    Route::patch('/admin/website-types/{websiteType}/status', [WebsiteTypeController::class, 'toggleStatus'])
+        ->middleware(['permission:roles.view', 'account-mode:admin'])
+        ->name('admin.website-types.status');
+
+    Route::delete('/admin/website-types/{websiteType}', [WebsiteTypeController::class, 'destroy'])
+        ->middleware(['permission:roles.view', 'account-mode:admin'])
+        ->name('admin.website-types.destroy');
+
 Route::domain('esubiz.com')
     ->get(
         '/admin/dashboard',
@@ -2393,6 +2408,9 @@ Route::post('/websites/{website}/theme', [WebsiteWizardController::class, 'theme
 
     Route::get('/websites/{website}/administrator', [WebsiteWizardController::class, 'administrator'])
         ->name('websites.administrator');
+
+    Route::post('/websites/{website}/administrator', [WebsiteWizardController::class, 'administrator'])
+        ->name('websites.administrator.save');
 
     /*
     |--------------------------------------------------------------------------
@@ -3346,4 +3364,157 @@ Route::get('/media/{path}', function (string $path) {
 })
     ->where('path', '.*')
     ->name('central.media');
+
+
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_MARKETPLACE_LICENSE_VALIDATION_ROUTE_V1
+|--------------------------------------------------------------------------
+|
+| Machine-to-machine validation endpoint for standalone/off-server Core.
+|
+| CSRF is intentionally excluded because this is not a browser form
+| endpoint. The supplied Marketplace license + Core installation identity
+| are validated by the Central licensing authority.
+|
+*/
+
+Route::post(
+    '/marketplace/licenses/validate',
+    [
+        \App\Http\Controllers\MarketplaceLicenseController::class,
+        'validateLicense',
+    ]
+)
+    ->withoutMiddleware(
+        \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class
+    )
+    ->middleware('throttle:30,1')
+    ->name('marketplace.licenses.validate');
+
+
+
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_MARKETPLACE_DEPLOYMENT_API_ROUTE_V1
+|--------------------------------------------------------------------------
+|
+| Machine-to-machine deployment metadata endpoint for authenticated
+| Esubiz Core instances.
+|
+| UUID identifies the deployment, while the dedicated per-deployment
+| bearer token authorizes retrieval.
+|
+*/
+
+Route::get(
+    '/marketplace/deployments/{uuid}',
+    [
+        \App\Http\Controllers\Api\MarketplaceDeploymentController::class,
+        'show',
+    ]
+)
+    ->middleware('throttle:60,1')
+    ->whereUuid('uuid')
+    ->name('marketplace.deployments.show');
+
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_CORE_FIRST_RUN_SETUP_ROUTES_V1
+|--------------------------------------------------------------------------
+|
+| Internal first-run setup endpoints for OFF-SERVER Core.
+|
+| Customer entry is still the root domain:
+|
+|     https://example.com/
+|
+| The CoreFirstRunGate redirects an uninstalled off-server Core here.
+| These routes return 404 on SaaS and after installation completes.
+|
+*/
+
+Route::get(
+    '/_core/setup',
+    [
+        \App\Http\Controllers\Core\CoreSetupController::class,
+        'start',
+    ]
+)->name('core.setup.start');
+
+Route::post(
+    '/_core/setup',
+    [
+        \App\Http\Controllers\Core\CoreSetupController::class,
+        'store',
+    ]
+)->name('core.setup.store');
+
+
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_CORE_FIRST_RUN_REAL_STEP_ROUTES_V1
+|--------------------------------------------------------------------------
+|
+| Server-side actions used by the root-domain first-run wizard.
+|
+*/
+
+Route::post(
+    '/_core/setup/validate-license',
+    [
+        \App\Http\Controllers\Core\CoreSetupController::class,
+        'validateLicense',
+    ]
+)->name('core.setup.validate-license');
+
+Route::post(
+    '/_core/setup/system-check',
+    [
+        \App\Http\Controllers\Core\CoreSetupController::class,
+        'systemCheck',
+    ]
+)->name('core.setup.system-check');
+
+
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_CORE_FIRST_RUN_DATABASE_TEST_ROUTE_V1
+|--------------------------------------------------------------------------
+|
+| Real isolated database connection test used by installer Step 3.
+|
+*/
+
+Route::post(
+    '/_core/setup/database-test',
+    [
+        \App\Http\Controllers\Core\CoreSetupController::class,
+        'testDatabase',
+    ]
+)->name('core.setup.database-test');
+
+
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_CORE_FIRST_RUN_ADMINISTRATOR_ROUTE_V1
+|--------------------------------------------------------------------------
+|
+| Validates/stages the first local administrator before final install.
+|
+*/
+
+Route::post(
+    '/_core/setup/administrator',
+    [
+        \App\Http\Controllers\Core\CoreSetupController::class,
+        'validateAdministrator',
+    ]
+)->name('core.setup.administrator');
 

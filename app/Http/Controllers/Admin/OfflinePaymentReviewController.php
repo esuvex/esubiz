@@ -197,6 +197,126 @@ class OfflinePaymentReviewController extends Controller
                 (int) $order->id,
                 (int) $attempt->payment_transaction_id
             );
+
+            /*
+             * ESUBIZ_DEVELOPER_BUILD_OFFLINE_FULFILMENT_V1
+             *
+             * Offline approval must release a paid Developer Build through
+             * the same canonical Website Type entitlement/license/package
+             * fulfilment service used by the normal Marketplace paid flow.
+             *
+             * Do not duplicate licensing or ZIP-release logic here.
+             */
+            if (!empty($order->developer_build_id)) {
+                $developerBuild = \App\Models\DeveloperBuild::query()
+                    ->where('id', (int) $order->developer_build_id)
+                    ->first();
+
+                abort_unless(
+                    $developerBuild,
+                    404,
+                    'Developer Build could not be resolved for this payment.'
+                );
+
+                $developerId = (int) ($developerBuild->developer_id ?? 0);
+
+                abort_unless(
+                    $developerId > 0 &&
+                    (int) $order->buyer_id === $developerId,
+                    422,
+                    'Developer Build ownership does not match this Marketplace order.'
+                );
+
+                app(
+                    \App\Services\Marketplace\DeveloperBuildPaymentFulfilmentService::class
+                )->fulfil(
+                    $order,
+                    $developerBuild,
+                    $developerId
+                );
+            } elseif (!empty($order->marketplace_listing_id)) {
+                /*
+                 * ESUBIZ_UNIVERSAL_OFFLINE_MARKETPLACE_FULFILMENT_V2
+                 *
+                 * Normal Marketplace products must be fulfilled immediately
+                 * when an offline payment is approved.
+                 *
+                 * This uses the same MarketplaceFulfilmentManager as online,
+                 * wallet and gift-card payment convergence.
+                 */
+                $listing = DB::table('marketplace_listings')
+                    ->where('id', (int) $order->marketplace_listing_id)
+                    ->first();
+
+                abort_unless(
+                    $listing,
+                    404,
+                    'Marketplace listing could not be resolved for this payment.'
+                );
+
+                $checkoutSession = DB::table('marketplace_checkout_sessions')
+                    ->where('marketplace_order_id', $order->id)
+                    ->whereNull('deleted_at')
+                    ->latest('id')
+                    ->first();
+
+                $deploymentType =
+                    $checkoutSession->deployment_type
+                    ?? $order->deployment_type
+                    ?? (
+                        str_starts_with(
+                            (string) ($order->reference ?? ''),
+                            'DEV-'
+                        )
+                            ? 'off_server'
+                            : 'saas'
+                    );
+
+                $orderForFulfilment = (object) array_merge(
+                    (array) $order,
+                    [
+                        'payment_status' => 'paid',
+                        'status' => 'completed',
+
+                        'deployment_type' =>
+                            $deploymentType,
+
+                        'website_id' =>
+                            $checkoutSession->website_id
+                            ?? $order->website_id
+                            ?? null,
+
+                        'workspace_id' =>
+                            $checkoutSession->workspace_id
+                            ?? $order->workspace_id
+                            ?? null,
+
+                        'checkout_origin' =>
+                            $checkoutSession->checkout_origin
+                            ?? null,
+
+                        'return_url' =>
+                            $checkoutSession->return_url
+                            ?? null,
+
+                        'return_area' =>
+                            $checkoutSession->return_area
+                            ?? null,
+
+                        'wallet_allowed' =>
+                            isset($checkoutSession->wallet_allowed)
+                                ? (bool) $checkoutSession->wallet_allowed
+                                : true,
+                    ]
+                );
+
+                app(
+                    \App\Services\Marketplace\MarketplaceFulfilmentManager::class
+                )->fulfil(
+                    $orderForFulfilment,
+                    $listing
+                );
+            }
         });
 
         return redirect()

@@ -5,11 +5,49 @@
 @section('content')
 
 @php
-$step = 7;
-$steps = 5;
+    /*
+     * ESUBIZ_DYNAMIC_USER_WIZARD_PROGRESS_V27
+     *
+     * Website Information, Domain, Address and Administrator
+     * are internal screens of Step 2.
+     */
+    $step = 2;
+
+    $wizardProgressTypeSlug = trim(
+        (string) (
+            ($wizard['type'] ?? null)
+            ?? ($website->wizard_data['type'] ?? null)
+            ?? ''
+        )
+    );
+
+    $wizardProgressType = $wizardProgressTypeSlug !== ''
+        ? \App\Models\WebsiteType::query()
+            ->where('slug', $wizardProgressTypeSlug)
+            ->first()
+        : null;
+
+    $wizardProgressProfile = $wizardProgressType
+        ? app(
+            \App\Services\Website\Deployment\WebsiteTypeDeploymentProfileService::class
+        )->resolve($wizardProgressType, 'saas')
+        : [];
+
+    $wizardThemeVisible = filter_var(
+        (
+            data_get(
+                $wizardProgressProfile,
+                'configuration.show_theme_selection'
+            ) ?? true
+        ),
+        FILTER_VALIDATE_BOOLEAN
+    );
+
+    $steps = $wizardThemeVisible ? 6 : 5;
 @endphp
 
-<form method="GET" action="{{ route('websites.review', $website) }}">
+<form method="POST" action="{{ route('websites.administrator.save', $website) }}">
+    @csrf
 
     @foreach(request()->except([
         'admin_name',

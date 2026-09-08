@@ -232,6 +232,180 @@ class InstalledThemeRegistry
     }
 
 
+    /*
+     * ESUBIZ_CORE_INSTALLED_THEME_REGISTRY_WRITE_V3
+     *
+     * Canonical installed-theme persistence.
+     *
+     * Theme installers must write through this registry instead of
+     * manipulating core_installed_themes independently.
+     */
+
+    public function registerInstalled(
+        string $slug,
+        string $version,
+        array $data = []
+    ): array {
+        $slug = strtolower(trim($slug));
+        $version = $this->normalizeVersion($version);
+
+        if ($slug === '' || $version === '') {
+            throw new \InvalidArgumentException(
+                'Theme slug and version are required.'
+            );
+        }
+
+        if (!Schema::hasTable('core_installed_themes')) {
+            throw new \RuntimeException(
+                'The Core installed-theme registry table is not available.'
+            );
+        }
+
+        $existing = DB::table('core_installed_themes')
+            ->where('theme_slug', $slug)
+            ->where('theme_version', $version)
+            ->first();
+
+        $metadata = $data['metadata'] ?? [];
+
+        if (!is_array($metadata)) {
+            $metadata = [];
+        }
+
+        $values = [
+            'name' =>
+                trim((string) ($data['name'] ?? '')) !== ''
+                    ? trim((string) $data['name'])
+                    : $slug,
+
+            'preview_path' =>
+                $data['preview_path'] ?? null,
+
+            'install_path' =>
+                $data['install_path'] ?? null,
+
+            'marketplace_theme_package_id' =>
+                $data['marketplace_theme_package_id'] ?? null,
+
+            'marketplace_theme_uuid' =>
+                $data['marketplace_theme_uuid'] ?? null,
+
+            'checksum_sha256' =>
+                $data['checksum_sha256'] ?? null,
+
+            'metadata' =>
+                json_encode(
+                    $metadata,
+                    JSON_UNESCAPED_SLASHES
+                    | JSON_UNESCAPED_UNICODE
+                ),
+
+            'installed_at' =>
+                $existing->installed_at ?? now(),
+
+            'updated_at' => now(),
+        ];
+
+        if ($existing) {
+            DB::table('core_installed_themes')
+                ->where('id', $existing->id)
+                ->update($values);
+        } else {
+            $values['theme_slug'] = $slug;
+            $values['theme_version'] = $version;
+            $values['is_active'] = false;
+            $values['activated_at'] = null;
+            $values['created_at'] = now();
+
+            DB::table('core_installed_themes')
+                ->insert($values);
+        }
+
+        $theme = $this->find($slug, $version);
+
+        if (!$theme) {
+            throw new \RuntimeException(
+                "Installed Theme [{$slug}@{$version}] could not be registered."
+            );
+        }
+
+        return $theme;
+    }
+
+
+    public function activate(
+        string $slug,
+        string $version
+    ): array {
+        $slug = strtolower(trim($slug));
+        $version = $this->normalizeVersion($version);
+
+        $theme = $this->find($slug, $version);
+
+        if (!$theme) {
+            throw new \RuntimeException(
+                "Theme [{$slug}@{$version}] is not installed."
+            );
+        }
+
+        DB::transaction(function () use ($theme) {
+            DB::table('core_installed_themes')
+                ->where('is_active', true)
+                ->update([
+                    'is_active' => false,
+                    'updated_at' => now(),
+                ]);
+
+            DB::table('core_installed_themes')
+                ->where('id', (int) $theme['id'])
+                ->update([
+                    'is_active' => true,
+                    'activated_at' => now(),
+                    'updated_at' => now(),
+                ]);
+        });
+
+        $active = $this->find($slug, $version);
+
+        if (!$active || empty($active['active'])) {
+            throw new \RuntimeException(
+                "Theme [{$slug}@{$version}] could not be enabled."
+            );
+        }
+
+        return $active;
+    }
+
+
+    public function remove(
+        string $slug,
+        string $version
+    ): bool {
+        $slug = strtolower(trim($slug));
+        $version = $this->normalizeVersion($version);
+
+        if ($slug === '' || $version === '') {
+            return false;
+        }
+
+        $theme = $this->find($slug, $version);
+
+        if (!$theme) {
+            return false;
+        }
+
+        if (!empty($theme['active'])) {
+            throw new \RuntimeException(
+                'The active Theme cannot be removed until another Theme is enabled.'
+            );
+        }
+
+        return DB::table('core_installed_themes')
+            ->where('id', (int) $theme['id'])
+            ->delete() > 0;
+    }
+
+
     protected function key(
         mixed $slug,
         mixed $version

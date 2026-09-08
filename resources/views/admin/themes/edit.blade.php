@@ -585,6 +585,34 @@
 
                     <div class="esubiz-theme-check-grid">
 
+                        {{-- ESUBIZ_THEME_STATUS_CONTROL_V1 --}}
+                        <label class="esubiz-theme-check">
+
+                            <input
+                                type="hidden"
+                                name="is_active"
+                                value="0"
+                            >
+
+                            <input
+                                type="checkbox"
+                                name="is_active"
+                                value="1"
+                                @checked((bool) old('is_active', $theme->is_active))
+                            >
+
+                            <span>
+                                <strong>Theme Active</strong>
+
+                                <span>
+                                    Keep this Theme active and available
+                                    for its configured deployment channels.
+                                </span>
+                            </span>
+
+                        </label>
+
+
                         <label class="esubiz-theme-check">
 
                             <input

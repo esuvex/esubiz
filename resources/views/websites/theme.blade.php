@@ -5,19 +5,20 @@
 @section('content')
 
 @php
-$step = 2;
-$steps = 5;
+/*
+ * ESUBIZ_DYNAMIC_THEME_PROGRESS_V27
+ *
+ * This view is reachable only when Theme selection is visible.
+ */
+$step = 3;
+$steps = 6;
 @endphp
 
-<form method="GET" action="{{ route('websites.information', $website) }}">
-
-    @foreach(request()->except('theme') as $key => $value)
-        <input type="hidden" name="{{ $key }}" value="{{ $value }}">
-    @endforeach
-
-    <form method="POST"
-          action="{{ route('websites.theme.save', $website) }}"
-          class="rounded-3xl bg-slate-100 p-8">
+<form
+    method="POST"
+    action="{{ route('websites.theme.save', $website) }}"
+    class="rounded-3xl bg-slate-100 p-8"
+    id="website-theme-selection-form">
 
     @csrf
 
@@ -67,44 +68,153 @@ $steps = 5;
 
         </div>
 
-        <div class="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        {{-- ESUBIZ_WIZARD_THEME_CARDS_V40 --}}
+        <div class="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-3">
 
             @foreach($themes as $theme)
 
-                <label class="cursor-pointer">
+                @php
+                    $themeSlug = (string) $theme->slug;
+                    $themeName = (string) $theme->name;
+                    $themeDescription =
+                        (string) ($theme->description ?? '');
+
+                    $themePreviewUrl =
+                        $theme->wizard_preview_url ?? null;
+
+                    $isDefaultTheme =
+                        $defaultTheme !== ''
+                        && $themeSlug === $defaultTheme;
+
+                    $savedTheme =
+                        trim(
+                            (string) data_get(
+                                $wizard,
+                                'theme',
+                                ''
+                            )
+                        );
+
+                    $isSelectedTheme =
+                        $savedTheme !== ''
+                        ? $savedTheme === $themeSlug
+                        : $isDefaultTheme;
+                @endphp
+
+                <article
+                    data-theme-card
+                    data-theme-slug="{{ $themeSlug }}"
+                    class="overflow-hidden rounded-3xl border-2 bg-white transition duration-300 hover:-translate-y-1 hover:shadow-xl {{ $isSelectedTheme ? 'border-blue-600 ring-4 ring-blue-100' : 'border-slate-200' }}">
 
                     <input
                         type="radio"
                         name="theme"
-                        value="{{ $theme['id'] }}"
-                        class="peer hidden"
-                        required>
+                        value="{{ $themeSlug }}"
+                        data-theme-radio
+                        class="hidden"
+                        {{ $isSelectedTheme ? 'checked' : '' }}
+                        form="website-theme-selection-form">
 
-                    <div class="rounded-3xl border-2 border-slate-200 bg-white transition-all duration-300 hover:-translate-y-1 hover:border-blue-500 hover:shadow-xl peer-checked:border-blue-600 peer-checked:bg-blue-50">
+                    @if($themePreviewUrl)
 
-                        <div class="flex aspect-[16/10] items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
+                        <button
+                            type="button"
+                            data-theme-preview
+                            data-preview-url="{{ $themePreviewUrl }}"
+                            data-preview-name="{{ $themeName }}"
+                            class="group relative block aspect-[16/10] w-full overflow-hidden bg-slate-100 text-left">
 
-                            <div class="text-6xl">
-                                🖥️
+                            <img
+                                src="{{ $themePreviewUrl }}"
+                                alt="{{ $themeName }} Theme preview"
+                                loading="lazy"
+                                class="h-full w-full object-cover object-top transition duration-500 group-hover:scale-[1.02]">
+
+                            <span class="absolute inset-0 flex items-center justify-center bg-slate-950/0 transition group-hover:bg-slate-950/25">
+
+                                <span class="translate-y-2 rounded-xl bg-white/95 px-4 py-2 text-sm font-bold text-slate-900 opacity-0 shadow-lg transition group-hover:translate-y-0 group-hover:opacity-100">
+                                    View Preview
+                                </span>
+
+                            </span>
+
+                        </button>
+
+                    @else
+
+                        <div class="flex aspect-[16/10] items-center justify-center bg-slate-100">
+
+                            <div class="text-center">
+
+                                <div class="text-5xl">
+                                    🖥️
+                                </div>
+
+                                <p class="mt-3 text-sm font-semibold text-slate-500">
+                                    Preview unavailable
+                                </p>
+
                             </div>
 
                         </div>
 
-                        <div class="p-8">
+                    @endif
 
-                            <h3 class="text-2xl font-bold text-slate-900">
-                                {{ $theme['name'] }}
+                    <div class="p-6">
+
+                        <div class="flex items-start justify-between gap-4">
+
+                            <h3 class="text-xl font-bold text-slate-900">
+                                {{ $themeName }}
                             </h3>
 
-                            <p class="mt-3 text-slate-500">
-                                {{ $theme['description'] }}
+                            @if($isDefaultTheme)
+
+                                <span class="shrink-0 rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">
+                                    Default
+                                </span>
+
+                            @endif
+
+                        </div>
+
+                        @if($themeDescription !== '')
+
+                            <p class="mt-3 line-clamp-3 text-sm leading-6 text-slate-500">
+                                {{ $themeDescription }}
                             </p>
+
+                        @endif
+
+                        <div class="mt-6 grid grid-cols-2 gap-3">
+
+                            <button
+                                type="button"
+                                data-theme-preview
+                                data-preview-url="{{ $themePreviewUrl }}"
+                                data-preview-name="{{ $themeName }}"
+                                {{ !$themePreviewUrl ? 'disabled' : '' }}
+                                class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
+
+                                Preview
+
+                            </button>
+
+                            <button
+                                type="button"
+                                data-theme-select
+                                data-theme-slug="{{ $themeSlug }}"
+                                class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-blue-700">
+
+                                {{ $isSelectedTheme ? 'Selected' : 'Select' }}
+
+                            </button>
 
                         </div>
 
                     </div>
 
-                </label>
+                </article>
 
             @endforeach
 
@@ -113,7 +223,7 @@ $steps = 5;
         <div class="mt-10 flex flex-col gap-4 border-t border-slate-200 pt-8 sm:flex-row sm:items-center sm:justify-between">
 
             <a
-                href="{{ route('websites.create') }}"
+                href="{{ route('websites.administrator', $website) }}"
                 class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-6 py-3 font-medium text-slate-700 hover:bg-slate-100">
 
                 ← Back
@@ -133,5 +243,344 @@ $steps = 5;
     </div>
 
 </form>
+
+
+{{-- ESUBIZ_WIZARD_THEME_PREVIEW_MODAL_V40 --}}
+<div
+    id="wizardThemePreviewModal"
+    class="fixed inset-0 z-[99999] hidden overflow-y-auto bg-slate-950/80 p-4 backdrop-blur-sm sm:p-8 lg:left-[318px]"
+    aria-hidden="true">
+
+    <div class="mx-auto flex min-h-full max-w-6xl items-center justify-center">
+
+        <div
+            id="wizardThemePreviewPanel"
+            class="w-full overflow-hidden rounded-3xl bg-white shadow-2xl">
+
+            <div class="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+
+                <div>
+
+                    <p class="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
+                        Theme Preview
+                    </p>
+
+                    <h3
+                        id="wizardThemePreviewTitle"
+                        class="mt-1 text-xl font-bold text-slate-900">
+                        Theme Preview
+                    </h3>
+
+                </div>
+
+                <button
+                    type="button"
+                    id="wizardThemePreviewClose"
+                    class="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-2xl text-slate-600 transition hover:bg-slate-200"
+                    aria-label="Close Theme preview">
+                    ×
+                </button>
+
+            </div>
+
+            <div class="max-h-[78vh] overflow-y-auto bg-slate-100 p-3 sm:p-6">
+
+                <img
+                    id="wizardThemePreviewImage"
+                    src=""
+                    alt="Theme preview"
+                    class="mx-auto h-auto w-full rounded-2xl bg-white shadow-sm">
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    const modal =
+        document.getElementById(
+            'wizardThemePreviewModal'
+        );
+
+    const panel =
+        document.getElementById(
+            'wizardThemePreviewPanel'
+        );
+
+    const image =
+        document.getElementById(
+            'wizardThemePreviewImage'
+        );
+
+    const title =
+        document.getElementById(
+            'wizardThemePreviewTitle'
+        );
+
+    const close =
+        document.getElementById(
+            'wizardThemePreviewClose'
+        );
+
+    if (!modal || !image || !title || !close) {
+        return;
+    }
+
+    function openPreview(trigger) {
+
+        const url =
+            trigger.dataset.previewUrl || '';
+
+        const name =
+            trigger.dataset.previewName
+            || 'Theme';
+
+        if (!url) {
+            return;
+        }
+
+        image.src = url;
+        image.alt = name + ' Theme preview';
+        title.textContent = name;
+
+        modal.classList.remove('hidden');
+        modal.setAttribute(
+            'aria-hidden',
+            'false'
+        );
+
+        document.body.classList.add(
+            'overflow-hidden'
+        );
+    }
+
+    function closePreview() {
+
+        modal.classList.add('hidden');
+        modal.setAttribute(
+            'aria-hidden',
+            'true'
+        );
+
+        image.src = '';
+
+        document.body.classList.remove(
+            'overflow-hidden'
+        );
+    }
+
+    document
+        .querySelectorAll(
+            '[data-theme-preview]'
+        )
+        .forEach(function (trigger) {
+
+            trigger.addEventListener(
+                'click',
+                function (event) {
+
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    openPreview(trigger);
+                }
+            );
+        });
+
+    close.addEventListener(
+        'click',
+        closePreview
+    );
+
+    modal.addEventListener(
+        'click',
+        function (event) {
+
+            if (
+                event.target === modal
+                || (
+                    panel
+                    && !panel.contains(
+                        event.target
+                    )
+                )
+            ) {
+                closePreview();
+            }
+        }
+    );
+
+    document.addEventListener(
+        'keydown',
+        function (event) {
+
+            if (
+                event.key === 'Escape'
+                && !modal.classList.contains(
+                    'hidden'
+                )
+            ) {
+                closePreview();
+            }
+        }
+    );
+});
+</script>
+
+{{-- ESUBIZ_USER_THEME_FAST_AJAX_V29 --}}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('website-theme-selection-form');
+
+    if (!form) {
+        return;
+    }
+
+    const buttons = Array.from(
+        form.querySelectorAll('[data-theme-select]')
+    );
+
+    let submitting = false;
+
+    async function submitTheme(button) {
+        if (submitting) {
+            return;
+        }
+
+        const slug = button.dataset.themeSlug;
+
+        const radio = Array.from(
+            form.querySelectorAll('[data-theme-radio]')
+        ).find(function (item) {
+            return item.value === slug;
+        });
+
+        if (!radio) {
+            return;
+        }
+
+        radio.checked = true;
+
+        form.querySelectorAll('[data-theme-card]').forEach(
+            function (card) {
+                const selected =
+                    card.dataset.themeSlug === slug;
+
+                card.classList.toggle(
+                    'border-blue-600',
+                    selected
+                );
+
+                card.classList.toggle(
+                    'ring-4',
+                    selected
+                );
+
+                card.classList.toggle(
+                    'ring-blue-100',
+                    selected
+                );
+
+                if (!selected) {
+                    card.classList.add(
+                        'border-slate-200'
+                    );
+                } else {
+                    card.classList.remove(
+                        'border-slate-200'
+                    );
+                }
+            }
+        );
+
+        submitting = true;
+
+        const oldLabel = button.textContent;
+
+        buttons.forEach(function (item) {
+            item.disabled = true;
+            item.classList.add(
+                'opacity-60',
+                'cursor-not-allowed'
+            );
+        });
+
+        button.textContent = 'Loading...';
+
+        try {
+            const response = await fetch(
+                form.action,
+                {
+                    method: 'POST',
+                    body: new FormData(form),
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin',
+                    cache: 'no-store'
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(
+                    'Theme selection request failed.'
+                );
+            }
+
+            const data = await response.json();
+
+            if (
+                data.success
+                && data.next_url
+            ) {
+                window.location.assign(
+                    data.next_url
+                );
+                return;
+            }
+
+            throw new Error(
+                'Plan URL was not returned.'
+            );
+
+        } catch (error) {
+            submitting = false;
+
+            buttons.forEach(function (item) {
+                item.disabled = false;
+                item.classList.remove(
+                    'opacity-60',
+                    'cursor-not-allowed'
+                );
+            });
+
+            button.textContent = oldLabel;
+
+            console.error(
+                'Esubiz Theme selection:',
+                error
+            );
+        }
+    }
+
+    buttons.forEach(function (button) {
+        button.addEventListener(
+            'click',
+            function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                submitTheme(button);
+            }
+        );
+    });
+});
+</script>
 
 @endsection
