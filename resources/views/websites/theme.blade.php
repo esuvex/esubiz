@@ -245,10 +245,26 @@ $steps = 6;
 </form>
 
 
+{{-- ESUBIZ_WIZARD_THEME_PREVIEW_DESKTOP_OFFSET_V46 --}}
+<style>
+@media (min-width: 1024px) {
+    #wizardThemePreviewModal {
+        left: 318px !important;
+        right: auto !important;
+        width: calc(100vw - 318px) !important;
+    }
+
+    #wizardThemePreviewModal > div {
+        width: 100% !important;
+        max-width: 1152px !important;
+    }
+}
+</style>
+
 {{-- ESUBIZ_WIZARD_THEME_PREVIEW_MODAL_V40 --}}
 <div
     id="wizardThemePreviewModal"
-    class="fixed inset-0 z-[99999] hidden overflow-y-auto bg-slate-950/80 p-4 backdrop-blur-sm sm:p-8 lg:left-[318px]"
+    class="fixed inset-0 z-[99999] hidden overflow-y-auto bg-slate-950/80 p-4 backdrop-blur-sm sm:p-8 lg:left-[318px] lg:w-[calc(100vw-318px)]"
     aria-hidden="true">
 
     <div class="mx-auto flex min-h-full max-w-6xl items-center justify-center">
