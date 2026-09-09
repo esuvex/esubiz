@@ -131,11 +131,28 @@ class TenantUsersController extends Controller
         $currentUserId =
             $this->currentUserId($website);
 
+        /*
+         * ESUBIZ_USERS_TABLE_V84
+         *
+         * Live roles are supplied to the Users table so the
+         * role filter is never hard-coded. Any role created
+         * through Core Roles automatically becomes available.
+         */
+        $roles = $db
+            ->table('site_roles')
+            ->orderBy('name')
+            ->get([
+                'id',
+                'name',
+                'slug',
+            ]);
+
         return view(
             'tenant.admin.users.index',
             compact(
                 'website',
                 'users',
+                'roles',
                 'currentUserId'
             )
         );
@@ -212,10 +229,16 @@ class TenantUsersController extends Controller
                 'email',
                 'max:255',
             ],
+            'country_code' => [
+                'required',
+                'string',
+                'size:2',
+            ],
             'phone' => [
                 'nullable',
                 'string',
                 'max:50',
+                'regex:/^[0-9]+$/',
             ],
             'password' => [
                 'required',
@@ -241,6 +264,70 @@ class TenantUsersController extends Controller
             trim($data['email'])
         );
 
+        $countryCode = strtoupper(
+            trim(
+                (string) (
+                    $data['country_code']
+                    ?? 'NG'
+                )
+            )
+        );
+
+        if ($countryCode === '') {
+            $countryCode = 'NG';
+        }
+
+        $countryCatalog = app(
+            \App\Services\Core\CorePhoneCountryCatalog::class
+        );
+
+        if (!$countryCatalog->findByCountryCode($countryCode)) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'country_code' =>
+                        'Please select a valid country.',
+                ]);
+        }
+
+        $allowedCountryCodes =
+            $website->allowed_country_codes
+                ?? ['ALL'];
+
+        if (is_string($allowedCountryCodes)) {
+            $decodedAllowedCountries =
+                json_decode(
+                    $allowedCountryCodes,
+                    true
+                );
+
+            $allowedCountryCodes =
+                is_array($decodedAllowedCountries)
+                    ? $decodedAllowedCountries
+                    : ['ALL'];
+        }
+
+        if (
+            is_array($allowedCountryCodes)
+            && !in_array(
+                'ALL',
+                $allowedCountryCodes,
+                true
+            )
+            && !in_array(
+                $countryCode,
+                $allowedCountryCodes,
+                true
+            )
+        ) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'country_code' =>
+                        'The selected country is not available for this website.',
+                ]);
+        }
+
         if (
             $db->table('site_users')
                 ->whereRaw(
@@ -263,6 +350,7 @@ class TenantUsersController extends Controller
             $db,
             $data,
             $email,
+            $countryCode,
             &$userId
         ) {
             $now = now();
@@ -272,6 +360,7 @@ class TenantUsersController extends Controller
                 ->insertGetId([
                     'name' => trim($data['name']),
                     'email' => $email,
+                    'country_code' => $countryCode,
                     'phone' =>
                         isset($data['phone'])
                         && trim(
@@ -458,10 +547,16 @@ class TenantUsersController extends Controller
                 'email',
                 'max:255',
             ],
+            'country_code' => [
+                'required',
+                'string',
+                'size:2',
+            ],
             'phone' => [
                 'nullable',
                 'string',
                 'max:50',
+                'regex:/^[0-9]+$/',
             ],
             'password' => [
                 'nullable',
@@ -486,6 +581,70 @@ class TenantUsersController extends Controller
         $email = strtolower(
             trim($data['email'])
         );
+
+        $countryCode = strtoupper(
+            trim(
+                (string) (
+                    $data['country_code']
+                    ?? 'NG'
+                )
+            )
+        );
+
+        if ($countryCode === '') {
+            $countryCode = 'NG';
+        }
+
+        $countryCatalog = app(
+            \App\Services\Core\CorePhoneCountryCatalog::class
+        );
+
+        if (!$countryCatalog->findByCountryCode($countryCode)) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'country_code' =>
+                        'Please select a valid country.',
+                ]);
+        }
+
+        $allowedCountryCodes =
+            $website->allowed_country_codes
+                ?? ['ALL'];
+
+        if (is_string($allowedCountryCodes)) {
+            $decodedAllowedCountries =
+                json_decode(
+                    $allowedCountryCodes,
+                    true
+                );
+
+            $allowedCountryCodes =
+                is_array($decodedAllowedCountries)
+                    ? $decodedAllowedCountries
+                    : ['ALL'];
+        }
+
+        if (
+            is_array($allowedCountryCodes)
+            && !in_array(
+                'ALL',
+                $allowedCountryCodes,
+                true
+            )
+            && !in_array(
+                $countryCode,
+                $allowedCountryCodes,
+                true
+            )
+        ) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'country_code' =>
+                        'The selected country is not available for this website.',
+                ]);
+        }
 
         $emailExists = $db
             ->table('site_users')
@@ -535,6 +694,7 @@ class TenantUsersController extends Controller
             $db,
             $data,
             $email,
+            $countryCode,
             $user
         ) {
             $updates = [
@@ -542,6 +702,8 @@ class TenantUsersController extends Controller
                     trim($data['name']),
                 'email' =>
                     $email,
+                'country_code' =>
+                    $countryCode,
                 'phone' =>
                     isset($data['phone'])
                     && trim(

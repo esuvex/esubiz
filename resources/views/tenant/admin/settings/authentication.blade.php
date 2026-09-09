@@ -5,6 +5,82 @@
 
 @section('content')
 
+
+{{-- ESUBIZ_AUTH_REGISTRATION_GRID_V72C --}}
+<style>
+    /*
+     * Default Registration settings.
+     *
+     * Desktop:
+     * Public Registration | Auto Login
+     * Email Verification  | SMS Verification
+     *
+     * Mobile:
+     * one setting per row.
+     */
+
+    [data-auth-panel="registration"]
+    .esubiz-registration-option-list {
+        display:grid !important;
+        grid-template-columns:1fr !important;
+        gap:16px !important;
+        width:100% !important;
+    }
+
+    [data-auth-panel="registration"]
+    .esubiz-registration-option,
+    [data-auth-panel="registration"]
+    .auth-registration-v14-row {
+        width:100% !important;
+        max-width:100% !important;
+        min-width:0 !important;
+        box-sizing:border-box !important;
+        margin:0 !important;
+    }
+
+    @media (min-width:901px) {
+        [data-auth-panel="registration"]
+        .esubiz-registration-option-list {
+            grid-template-columns:
+                repeat(2, minmax(0, 1fr)) !important;
+            align-items:stretch;
+        }
+
+        [data-auth-panel="registration"]
+        .esubiz-registration-option-list
+        > .esubiz-registration-option,
+        [data-auth-panel="registration"]
+        .esubiz-registration-option-list
+        > .auth-registration-v14-row {
+            height:100%;
+        }
+    }
+</style>
+
+
+
+{{-- ESUBIZ_AUTH_ACTIVE_TAB_BLUE_V70 --}}
+<style>
+    [data-auth-ui-tab].active,
+    [data-auth-ui-tab].is-active,
+    [data-auth-ui-tab][aria-selected="true"],
+    [data-auth-ui-tab][aria-pressed="true"],
+    [data-auth-ui-tab][data-active="true"] {
+        background:#2563eb !important;
+        border-color:#2563eb !important;
+        color:#fff !important;
+    }
+
+    [data-auth-ui-tab].active *,
+    [data-auth-ui-tab].is-active *,
+    [data-auth-ui-tab][aria-selected="true"] *,
+    [data-auth-ui-tab][aria-pressed="true"] *,
+    [data-auth-ui-tab][data-active="true"] * {
+        color:#fff !important;
+    }
+</style>
+
+
 {{-- ESUBIZ_UNIFIED_SETTINGS_TOP_TABS_V1 --}}
 <div class="mb-6">
     <div class="mb-5">
@@ -40,6 +116,28 @@
 {{-- ESUBIZ_TENANT_AUTH_SETTINGS_UI_V1 --}}
 
 @php
+    /*
+     * ESUBIZ_CORE_REGISTRATION_ROLE_OPTIONS_V1
+     *
+     * Populate registration-role choices from the live Core roles
+     * table. The native "user" role remains the fallback default.
+     */
+    try {
+        $registrationRoleOptions =
+            \App\Models\Core\CoreRole::query()
+                ->orderBy('name')
+                ->get(['id', 'name', 'slug']);
+    } catch (\Throwable $e) {
+        $registrationRoleOptions = collect();
+    }
+
+    $selectedRegistrationRole =
+        old(
+            'default_registration_role',
+            $siteConfig['default_registration_role']
+                ?? 'user'
+        );
+
     $providers = [
         'esubiz' => [
             'name' => 'Esubiz',
@@ -1837,934 +1935,2397 @@ main,
     
 <div class="esubiz-auth-ui-panel" data-auth-ui-panel="registration">
 
-
-{{-- ESUBIZ_REFERENCE_REGISTRATION_SETTINGS_V8 --}}
-
-<div class="auth-card esubiz-registration-settings-card">
-
-    <div class="esubiz-registration-card-heading">
-
-        <div>
-
-            <h2 class="auth-card-title">
-                Registration Settings
-            </h2>
-
-            <p class="auth-card-subtitle">
-                Control how new users can create accounts
-                on this website.
-            </p>
-
-        </div>
-
-    </div>
-
-
-    <div class="esubiz-registration-option-list">
-
-
-        {{-- ALLOW REGISTRATION --}}
-
-        <div class="esubiz-registration-option">
-
-            <div class="esubiz-registration-option-copy">
-
-                <div class="esubiz-registration-option-title">
-                    Allow user registration
-                </div>
-
-                <div class="esubiz-registration-option-description">
-                    Allow visitors to create an account
-                    from the public registration page.
-                </div>
-
-            </div>
-
-
-            <label class="esubiz-switch">
-
-                <input
-                    type="hidden"
-                    name="registration_enabled"
-                    value="0"
-                >
-
-                <input
-                    type="checkbox"
-                    name="registration_enabled"
-                    value="1"
-                    {{
-                        old(
-                            'registration_enabled',
-                            $authConfig[
-                                'registration_enabled'
-                            ]
-                            ?? true
-                        )
-                        ? 'checked'
-                        : ''
-                    }}
-                >
-
-                <span class="esubiz-switch-slider"></span>
-
-            </label>
-
-        </div>
-
-
-        {{-- AUTO LOGIN --}}
-
-        <div class="esubiz-registration-option">
-
-            <div class="esubiz-registration-option-copy">
-
-                <div class="esubiz-registration-option-title">
-                    Automatically log in new users
-                </div>
-
-                <div class="esubiz-registration-option-description">
-                    Sign the user in automatically after
-                    successful registration.
-                </div>
-
-            </div>
-
-
-            <label class="esubiz-switch">
-
-                <input
-                    type="hidden"
-                    name="auto_login"
-                    value="0"
-                >
-
-                <input
-                    type="checkbox"
-                    name="auto_login"
-                    value="1"
-                    {{
-                        old(
-                            'auto_login',
-                            $authConfig[
-                                'auto_login'
-                            ]
-                            ?? true
-                        )
-                        ? 'checked'
-                        : ''
-                    }}
-                >
-
-                <span class="esubiz-switch-slider"></span>
-
-            </label>
-
-        </div>
-
-
-        {{-- EMAIL VERIFICATION REFERENCE ROW --}}
-
-        
-
-<div class="auth-registration-v14-row">
-    {{-- ESUBIZ_REAL_REGISTRATION_ROLE_VERIFICATION_V13 --}}
-    {{-- ESUBIZ_REGISTRATION_REAL_CONTROLS_LAYOUT_FIX_V14 --}}
-
-    <div class="auth-registration-v14-copy">
-        <strong>Require email verification</strong>
-
-        <span>
-            Ask new users to verify their email address after registration.
-        </span>
-    </div>
-
-    <div class="auth-registration-v14-action">
-        <label
-            class="auth-registration-v14-switch"
-            aria-label="Require email verification"
-        >
-            <input
-                type="hidden"
-                name="registration_require_email_verification"
-                value="0"
-            >
-
-            <input
-                type="checkbox"
-                name="registration_require_email_verification"
-                value="1"
-                @checked(
-                    old(
-                        'registration_require_email_verification',
-                        $defaultAuthFormV12['registration']['require_email_verification']
-                        ?? false
-                    )
-                )
-            >
-
-            <span></span>
-        </label>
-    </div>
-</div>
-
-
-    </div>
-
-
-    <div class="esubiz-registration-form-section">
-
-        
-
-<div class="auth-registration-v14-row">
-
-    <div class="auth-registration-v14-copy">
-        <strong>Default Role</strong>
-
-        <span>
-            Choose the role assigned to new users who register with this form.
-        </span>
-    </div>
-
-    <div class="auth-registration-v14-action auth-registration-v14-role">
-        <select name="registration_default_role">
-            <option value="">Select a role</option>
-
-            @foreach(($registrationRoles ?? []) as $registrationRole)
-                <option
-                    value="{{ $registrationRole['value'] }}"
-                    @selected(
-                        (string) old(
-                            'registration_default_role',
-                            $defaultAuthFormV12['registration']['default_role']
-                            ?? ''
-                        )
-                        ===
-                        (string) $registrationRole['value']
-                    )
-                >
-                    {{ $registrationRole['label'] }}
-                </option>
-            @endforeach
-        </select>
-    </div>
-</div>
-
-
-        <div class="esubiz-registration-form-group">
-
-            <label
-                for="esubiz-registration-redirect"
-                class="esubiz-registration-label"
-            >
-                Registration Redirect
-            </label>
-
-            <input
-                id="esubiz-registration-redirect"
-                class="esubiz-registration-input"
-                type="text"
-                name="registration_redirect"
-                value="{{ old(
-                    'registration_redirect',
-                    $authConfig[
-                        'registration_redirect'
-                    ]
-                    ?? '/admin/dashboard'
-                ) }}"
-                placeholder="/admin/dashboard"
-            >
-
-            <div class="esubiz-registration-help">
-                Relative website path users should be sent to
-                after successful registration.
-            </div>
-
-        </div>
-
-    </div>
-
-</div>
-
-
-<div class="auth-card">
-
-                <h2 class="auth-card-title">
-                    Registration Form Fields
-                </h2>
-
-                <p class="auth-card-subtitle">
-                    Add, remove, reorder and configure fields
-                    shown during registration.
-                </p>
-
-                {{-- ESUBIZ_DYNAMIC_REGISTRATION_FIELD_BUILDER_V1 --}}
-
-                @php
-                    $registrationFields =
-                        old(
-                            'registration_fields',
-                            $authConfig[
-                                'registration_fields'
-                            ] ?? []
-                        );
-
-                    if (empty($registrationFields)) {
-                        $registrationFields = [
-                            [
-                                'key' => 'name',
-                                'label' => 'Name',
-                                'type' => 'text',
-                                'required' => true,
-                                'system' => true,
-                                'enabled' => true,
-                            ],
-                            [
-                                'key' => 'email',
-                                'label' => 'Email',
-                                'type' => 'email',
-                                'required' => true,
-                                'system' => true,
-                                'enabled' => true,
-                            ],
-                            [
-                                'key' => 'password',
-                                'label' => 'Password',
-                                'type' => 'password',
-                                'required' => true,
-                                'system' => true,
-                                'enabled' => true,
-                            ],
-                            [
-                                'key' => 'password_confirmation',
-                                'label' => 'Confirm Password',
-                                'type' => 'password',
-                                'required' => true,
-                                'system' => true,
-                                'enabled' => true,
-                            ],
-                        ];
-                    }
-                @endphp
-
-                
-{{-- ESUBIZ_DYNAMIC_REGISTRATION_FIELD_BUILDER_V1 --}}
-{{-- ESUBIZ_REFERENCE_REGISTRATION_FIELD_MANAGER_V10 --}}
-
+{{-- ESUBIZ_AUTH_FORMS_TABLE_MODAL_V75 --}}
 @php
-
-    $registrationFields =
-        $authConfig['registration_fields']
-        ?? [];
-
-    if (!is_array($registrationFields)) {
-        $registrationFields = [];
-    }
-
-@endphp
-
-
-<div class="auth-forms-v11" data-auth-forms-v11>
-    {{-- ESUBIZ_MULTI_AUTH_FORMS_MANAGER_UI_V11 --}}
-
-    @php
-        /*
-         * ESUBIZ_MULTI_AUTH_FORMS_VIEW_DATA_V12
-         *
-         * Registry is supplied by TenantCmsController.
-         * Fallback keeps this view safe if rendered by an older path.
-         */
-        $authFormsV12 =
-            isset($authForms)
-            && is_array($authForms)
-                ? $authForms
-                : [];
-
-        $defaultAuthFormV12 =
-            $authFormsV12['default']
-            ?? null;
-    @endphp
-
-
-    {{-- ESUBIZ_CORE_AUTH_FORMS_CANONICAL_UI_V1 --}}
-<div class="auth-forms-v11-header">
-    <div>
-        <h3>Authentication Forms</h3>
-        <p>
-            Core authentication forms use the same Form Builder
-            records as every other Core form. Edit a form here
-            without creating a second copy of its fields.
-        </p>
-    </div>
-
-    
-{{-- ESUBIZ_CORE_AUTH_FORM_CONFIG_V2 --}}
-
-<button
-    type="button"
-    class="btn btn-primary"
-    id="esubiz-auth-add-form-v2"
->
-    Add Form
-</button>
-
-<div
-    id="esubiz-auth-form-config-v2"
-    style="
-        display:none;
-        margin-top:18px;
-        padding:20px;
-        border:1px solid #e5e7eb;
-        border-radius:14px;
-        background:#fff;
-    "
->
-    <div style="display:grid;gap:18px;">
-
-        <div>
-            <label
-                for="esubiz-auth-form-select-v2"
-                style="
-                    display:block;
-                    font-weight:700;
-                    margin-bottom:7px;
-                "
-            >
-                Authentication Form
-            </label>
-
-            <select
-                id="esubiz-auth-form-select-v2"
-                style="
-                    width:100%;
-                    min-height:44px;
-                "
-            >
-                <option value="">
-                    Select authentication form
-                </option>
-
-                @foreach(($authForms ?? []) as $authForm)
-                    <option
-                        value="{{ $authForm['id'] }}"
-                        data-purpose="{{
-                            $authForm['purpose'] ?? ''
-                        }}"
-                        data-redirect="{{
-                            $authForm['auth_config']['redirect']
-                            ?? ''
-                        }}"
-                        data-role="{{
-                            $authForm['auth_config']['role_id']
-                            ?? ''
-                        }}"
-                        data-edit="{{
-                            $authForm['edit_url'] ?? ''
-                        }}"
-                    >
-                        {{
-                            $authForm['name']
-                            ?? 'Authentication Form'
-                        }}
-
-                        @if(!empty($authForm['purpose']))
-                            — {{
-                                ucwords(
-                                    str_replace(
-                                        '-',
-                                        ' ',
-                                        $authForm['purpose']
-                                    )
-                                )
-                            }}
-                        @endif
-                    </option>
-                @endforeach
-            </select>
-        </div>
-
-        <div
-            id="esubiz-auth-form-fields-v2"
-            style="display:none;"
-        >
-            <div style="display:grid;gap:18px;">
-
-                <div>
-                    <label
-                        for="esubiz-auth-redirect-v2"
-                        style="
-                            display:block;
-                            font-weight:700;
-                            margin-bottom:7px;
-                        "
-                    >
-                        Redirect After Successful Authentication
-                    </label>
-
-                    <input
-                        type="text"
-                        id="esubiz-auth-redirect-v2"
-                        placeholder="/user/dashboard"
-                        style="
-                            width:100%;
-                            min-height:44px;
-                        "
-                    >
-                </div>
-
-                <div
-                    id="esubiz-auth-role-container-v2"
-                    style="display:none;"
-                >
-                    <label
-                        for="esubiz-auth-role-v2"
-                        style="
-                            display:block;
-                            font-weight:700;
-                            margin-bottom:7px;
-                        "
-                    >
-                        User Role
-                    </label>
-
-                    <select
-                        id="esubiz-auth-role-v2"
-                        style="
-                            width:100%;
-                            min-height:44px;
-                        "
-                    >
-                        <option value="">
-                            No automatic role
-                        </option>
-
-                        @foreach(($authRoles ?? []) as $authRole)
-                            <option value="{{ $authRole['id'] }}">
-                                {{ $authRole['name'] }}
-
-                                @if(!empty($authRole['slug']))
-                                    ({{ $authRole['slug'] }})
-                                @endif
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div
-                    style="
-                        display:flex;
-                        flex-wrap:wrap;
-                        gap:10px;
-                    "
-                >
-                    <a
-                        href="#"
-                        id="esubiz-auth-edit-form-v2"
-                        class="btn btn-light"
-                        style="display:none;"
-                    >
-                        Edit Form Fields
-                    </a>
-
-                    <a
-                        href="{{ route(
-                            'tenant.cms.forms.create',
-                            [
-                                'subdomain' =>
-                                    $website->subdomain
-                            ]
-                        ) }}"
-                        class="btn btn-light"
-                    >
-                        Create New Auth Form
-                    </a>
-                </div>
-
-            </div>
-        </div>
-
-    </div>
-</div>
-
-<script>
-document.addEventListener(
-    'DOMContentLoaded',
-    function () {
-        const add =
-            document.getElementById(
-                'esubiz-auth-add-form-v2'
-            );
-
-        const box =
-            document.getElementById(
-                'esubiz-auth-form-config-v2'
-            );
-
-        const selector =
-            document.getElementById(
-                'esubiz-auth-form-select-v2'
-            );
-
-        const fields =
-            document.getElementById(
-                'esubiz-auth-form-fields-v2'
-            );
-
-        const redirect =
-            document.getElementById(
-                'esubiz-auth-redirect-v2'
-            );
-
-        const roleWrap =
-            document.getElementById(
-                'esubiz-auth-role-container-v2'
-            );
-
-        const role =
-            document.getElementById(
-                'esubiz-auth-role-v2'
-            );
-
-        const edit =
-            document.getElementById(
-                'esubiz-auth-edit-form-v2'
-            );
-
-        if (
-            !add
-            || !box
-            || !selector
-            || !fields
-            || !redirect
-            || !roleWrap
-            || !role
-        ) {
-            return;
-        }
-
-        function clearNames() {
-            redirect.removeAttribute('name');
-            role.removeAttribute('name');
-        }
-
-        function loadSelected() {
-            clearNames();
-
-            const option =
-                selector.options[
-                    selector.selectedIndex
-                ];
-
-            if (!option || !option.value) {
-                fields.style.display = 'none';
-                return;
-            }
-
-            const formId = option.value;
-            const purpose =
-                option.dataset.purpose || '';
-
-            redirect.value =
-                option.dataset.redirect || '';
-
-            role.value =
-                option.dataset.role || '';
-
-            redirect.name =
-                'auth_form_config['
-                + formId
-                + '][redirect]';
-
-            if (purpose === 'registration') {
-                roleWrap.style.display = '';
-
-                role.name =
-                    'auth_form_config['
-                    + formId
-                    + '][role_id]';
-            } else {
-                roleWrap.style.display = 'none';
-                role.value = '';
-            }
-
-            if (
-                edit
-                && option.dataset.edit
-            ) {
-                edit.href = option.dataset.edit;
-                edit.style.display = '';
-            } else if (edit) {
-                edit.style.display = 'none';
-            }
-
-            fields.style.display = '';
-        }
-
-        add.addEventListener(
-            'click',
-            function () {
-                box.style.display =
-                    box.style.display === 'none'
-                        ? ''
-                        : 'none';
-            }
-        );
-
-        selector.addEventListener(
-            'change',
-            loadSelected
-        );
-
-        redirect.addEventListener(
-            'input',
-            function () {
-                const option =
-                    selector.options[
-                        selector.selectedIndex
-                    ];
-
-                if (option) {
-                    option.dataset.redirect =
-                        redirect.value;
-                }
-            }
-        );
-
-        role.addEventListener(
-            'change',
-            function () {
-                const option =
-                    selector.options[
-                        selector.selectedIndex
-                    ];
-
-                if (option) {
-                    option.dataset.role =
-                        role.value;
-                }
-            }
-        );
-    }
-);
-</script>
-
-</div>
-
-@php
-    /*
-     * Core registry supplied by TenantCmsController.
-     * Each item points to the canonical Core Form Builder record.
-     */
-    $coreAuthFormsV1 =
+    $authFormsV75 =
         isset($authForms) && is_array($authForms)
-            ? $authForms
+            ? array_values($authForms)
             : [];
 
-    $coreAuthPurposeLabelsV1 = [
+    $authPurposeLabelsV75 = [
         'registration' => 'Registration',
         'login' => 'Login',
         'password-reset' => 'Password Reset',
     ];
 @endphp
 
-<div class="auth-forms-v11-shell">
+<div class="esubiz-auth-manager-v75">
 
-    <aside class="auth-forms-v11-list">
-
-        @forelse($coreAuthFormsV1 as $coreAuthFormV1)
-
-            <a
-                href="{{ $coreAuthFormV1['edit_url'] }}"
-                class="auth-forms-v11-form-card"
-                style="
-                    display:block;
-                    text-decoration:none;
-                    color:inherit;
-                "
-            >
-                <span class="auth-forms-v11-form-title">
-                    {{ $coreAuthFormV1['name'] }}
-                </span>
-
-                <span class="auth-forms-v11-form-type">
-                    {{
-                        $coreAuthPurposeLabelsV1[
-                            $coreAuthFormV1['purpose']
-                        ]
-                        ?? ucfirst(
-                            str_replace(
-                                '-',
-                                ' ',
-                                $coreAuthFormV1['purpose']
-                            )
-                        )
-                    }}
-                </span>
-
-                @if(!empty($coreAuthFormV1['is_system']))
-                    <span class="auth-forms-v11-default">
-                        Core
-                    </span>
-                @endif
-            </a>
-
-        @empty
-
-            <div class="auth-forms-v11-list-help">
-                No Core Authentication Forms were found.
-                Create a Core Form and set its Form Type to
-                Authentication Form.
-            </div>
-
-        @endforelse
-
-    </aside>
-
-    <section class="auth-forms-v11-editor">
-
-        <div class="auth-forms-v11-editor-head">
-            <div>
-                <h4>Core Authentication Forms</h4>
-                <p>
-                    Registration, Login and Password Reset
-                    forms are managed by Core Forms.
-                </p>
-            </div>
-
-            <span class="auth-forms-v11-active">
-                Core
-            </span>
-        </div>
-
-        <div
-            style="
-                margin-top:18px;
-                padding:22px;
-                border:1px solid #e2e8f0;
-                border-radius:16px;
-                background:#f8fafc;
-            "
-        >
-            <div
-                style="
-                    font-size:15px;
-                    font-weight:800;
-                    color:#0f172a;
-                    margin-bottom:8px;
-                "
-            >
-                One form. One field source.
-            </div>
-
-            <p
-                style="
-                    margin:0;
-                    color:#64748b;
-                    font-size:13px;
-                    line-height:1.7;
-                "
-            >
-                Select an Authentication Form from the left
-                to edit its fields, order, type and settings
-                in the Core Form Builder. Changes apply to
-                the public authentication form directly.
+    <div class="esubiz-auth-manager-v75-head">
+        <div>
+            <h3>Authentication Forms</h3>
+            <p>
+                Manage the Core authentication forms and additional
+                registration journeys from one place.
             </p>
         </div>
 
-        @if(!empty($coreAuthFormsV1))
+        <button
+            type="button"
+            class="esubiz-auth-add-premium-v77"
+            id="esubiz-auth-add-v75"
+        >
+            + Add Authentication Form
+        </button>
+    </div>
 
-            <div
-                style="
-                    margin-top:18px;
-                    display:grid;
-                    gap:12px;
-                "
-            >
-                @foreach($coreAuthFormsV1 as $coreAuthFormV1)
+    <div class="esubiz-auth-table-wrap-v75">
+        <table class="esubiz-auth-table-v75">
+            <thead>
+                <tr>
+                    <th>Form</th>
+                    <th>Type</th>
+                    <th>URL</th>
+                    <th>Status</th>
+                    <th>Form Type</th>
+                    <th class="esubiz-auth-actions-col-v75"></th>
+                </tr>
+            </thead>
 
-                    <a
-                        href="{{ $coreAuthFormV1['edit_url'] }}"
-                        style="
-                            display:flex;
-                            align-items:center;
-                            justify-content:space-between;
-                            gap:14px;
-                            border:1px solid #e2e8f0;
-                            border-radius:14px;
-                            padding:15px 16px;
-                            text-decoration:none;
-                            color:#0f172a;
-                            background:#fff;
-                        "
+            <tbody id="esubiz-auth-table-body-v75">
+                @forelse($authFormsV75 as $authFormV75)
+                    @php
+                        $purposeV75 =
+                            $authFormV75['purpose'] ?? '';
+
+                        $isSystemV75 =
+                            !empty($authFormV75['is_system']);
+
+                        $configV75 =
+                            is_array(
+                                $authFormV75['auth_config'] ?? null
+                            )
+                                ? $authFormV75['auth_config']
+                                : [];
+
+                        if ($purposeV75 === 'registration') {
+                            $pageUrlV75 =
+                                $isSystemV75
+                                    ? '/register'
+                                    : (
+                                        $configV75['page_url']
+                                        ?? 'Not configured'
+                                    );
+                        } elseif ($purposeV75 === 'login') {
+                            $pageUrlV75 = '/login';
+                        } else {
+                            $pageUrlV75 = 'Core password reset';
+                        }
+                    @endphp
+
+                    <tr
+                        data-auth-row-v75
+                        data-form-id="{{ $authFormV75['id'] }}"
                     >
-                        <span>
-                            <strong
-                                style="
-                                    display:block;
-                                    font-size:14px;
-                                "
-                            >
-                                {{ $coreAuthFormV1['name'] }}
+                        <td>
+                            <strong>
+                                {{ $authFormV75['name'] }}
                             </strong>
+                        </td>
 
-                            <span
-                                style="
-                                    display:block;
-                                    margin-top:3px;
-                                    font-size:12px;
-                                    color:#64748b;
-                                "
-                            >
-                                {{
-                                    $coreAuthPurposeLabelsV1[
-                                        $coreAuthFormV1['purpose']
-                                    ]
-                                    ?? ucfirst(
-                                        str_replace(
-                                            '-',
-                                            ' ',
-                                            $coreAuthFormV1['purpose']
-                                        )
-                                    )
-                                }}
-
-                                @if(
-                                    !empty(
-                                        $coreAuthFormV1[
-                                            'is_system'
-                                        ]
+                        <td>
+                            {{
+                                $authPurposeLabelsV75[$purposeV75]
+                                ?? ucfirst(
+                                    str_replace(
+                                        '-',
+                                        ' ',
+                                        $purposeV75
                                     )
                                 )
-                                    · Protected Core Form
-                                @endif
+                            }}
+                        </td>
+
+                        <td>
+                            <code>{{ $pageUrlV75 }}</code>
+                        </td>
+
+                        <td>
+                            <span class="esubiz-auth-status-v75 {{
+                                !empty($authFormV75['is_active'])
+                                    ? 'is-active'
+                                    : 'is-inactive'
+                            }}">
+                                {{
+                                    !empty($authFormV75['is_active'])
+                                        ? 'Active'
+                                        : 'Inactive'
+                                }}
                             </span>
-                        </span>
+                        </td>
 
-                        <span
-                            style="
-                                font-size:13px;
-                                font-weight:800;
-                                color:#2563eb;
-                            "
-                        >
-                            Edit Form →
-                        </span>
-                    </a>
+                        <td>
+                            @if($isSystemV75)
+                                <span class="esubiz-auth-system-v75">
+                                    Core System
+                                </span>
+                            @else
+                                Custom
+                            @endif
+                        </td>
 
-                @endforeach
+                        <td class="esubiz-auth-actions-v75">
+                            <button
+                                type="button"
+                                class="esubiz-auth-menu-button-v75"
+                                data-auth-menu-button-v75
+                                aria-label="Authentication form actions"
+                            >
+                                ⋮
+                            </button>
+
+                            <div
+                                class="esubiz-auth-menu-v75"
+                                data-auth-menu-v75
+                            >
+                                <button
+                                    type="button"
+                                    data-auth-edit-v75="{{ $authFormV75['id'] }}"
+                                >
+                                    Edit
+                                </button>
+
+                                @unless($isSystemV75)
+                                    <button
+                                        type="button"
+                                        class="is-danger"
+                                        data-auth-delete-v75="{{ $authFormV75['id'] }}"
+                                    >
+                                        Delete
+                                    </button>
+                                @endunless
+                            </div>
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="6">
+                            No authentication forms are available.
+                        </td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+
+    <div class="esubiz-auth-pagination-v75">
+        <span id="esubiz-auth-page-info-v75"></span>
+
+        <div>
+            <button
+                type="button"
+                class="btn btn-light"
+                id="esubiz-auth-prev-v75"
+            >
+                Previous
+            </button>
+
+            <button
+                type="button"
+                class="btn btn-light"
+                id="esubiz-auth-next-v75"
+            >
+                Next
+            </button>
+        </div>
+    </div>
+</div>
+
+{{-- Authoritative same-page Authentication Form editor --}}
+<div
+    class="esubiz-auth-modal-v75"
+    id="esubiz-auth-modal-v75"
+    aria-hidden="true"
+>
+    <div
+        class="esubiz-auth-modal-backdrop-v75"
+        data-auth-modal-close-v75
+    ></div>
+
+    <div
+        class="esubiz-auth-modal-dialog-v75"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="esubiz-auth-modal-title-v75"
+    >
+        <div class="esubiz-auth-modal-head-v75">
+            <div>
+                <h3 id="esubiz-auth-modal-title-v75">
+                    Edit Authentication Form
+                </h3>
+
+                <p id="esubiz-auth-modal-subtitle-v75"></p>
             </div>
 
-        @endif
+            <button
+                type="button"
+                class="esubiz-auth-modal-close-v75"
+                data-auth-modal-close-v75
+                aria-label="Close"
+            >
+                ×
+            </button>
+        </div>
 
-    </section>
+        <div class="esubiz-auth-modal-body-v75">
 
+            <div
+                class="esubiz-auth-settings-v75"
+                id="esubiz-auth-settings-v75"
+            >
+                <h4>Authentication Settings</h4>
+
+                <div
+                    class="esubiz-auth-settings-grid-v75"
+                    id="esubiz-auth-registration-settings-v75"
+                >
+                    <label class="esubiz-auth-full-v75">
+                        <span>Form Name</span>
+
+                        <input
+                            type="text"
+                            id="esubiz-auth-form-name-v77"
+                            placeholder="Partner Registration"
+                        >
+                    </label>
+
+                    <label>
+                        <span>Allow Registration</span>
+                        <input
+                            type="checkbox"
+                            id="esubiz-auth-enabled-v75"
+                        >
+                    </label>
+
+                    <label>
+                        <span>Auto Login</span>
+                        <input
+                            type="checkbox"
+                            id="esubiz-auth-auto-login-v75"
+                        >
+                    </label>
+
+                    <label>
+                        <span>Email Verification</span>
+                        <input
+                            type="checkbox"
+                            id="esubiz-auth-email-verify-v75"
+                        >
+                    </label>
+
+                    <label>
+                        <span>SMS Verification</span>
+                        <input
+                            type="checkbox"
+                            id="esubiz-auth-sms-verify-v75"
+                        >
+                    </label>
+
+                    <label>
+                        <span>Default User Role</span>
+
+                        <select id="esubiz-auth-role-v75">
+                            <option value="">
+                                No automatic role
+                            </option>
+
+                            @foreach(($authRoles ?? []) as $authRoleV75)
+                                <option
+                                    value="{{ $authRoleV75['id'] }}"
+                                    data-role-slug="{{ $authRoleV75['slug'] ?? '' }}"
+                                >
+                                    {{ $authRoleV75['name'] }}
+                                    @if(!empty($authRoleV75['slug']))
+                                        ({{ $authRoleV75['slug'] }})
+                                    @endif
+                                </option>
+                            @endforeach
+                        </select>
+                    </label>
+
+                    <label>
+                        <span>Registration Page URL</span>
+
+                        <input
+                            type="text"
+                            id="esubiz-auth-page-url-v75"
+                            placeholder="/reg-partner"
+                        >
+
+                        <small id="esubiz-auth-page-url-help-v75">
+                            Additional Registration forms can have
+                            their own public URL.
+                        </small>
+                    </label>
+
+                    <label class="esubiz-auth-full-v75">
+                        <span>Redirect After Registration</span>
+
+                        <select
+                            id="esubiz-auth-redirect-v75"
+                        >
+                            <option value="">
+                                Automatic — Default Role Dashboard
+                            </option>
+
+                            @foreach(($authRoles ?? []) as $redirectRoleV78)
+                                @php
+                                    $redirectSlugV78 =
+                                        trim(
+                                            (string) (
+                                                $redirectRoleV78['slug']
+                                                ?? ''
+                                            )
+                                        );
+
+                                    $redirectPathV78 =
+                                        $redirectSlugV78 !== ''
+                                            ? '/'
+                                                . $redirectSlugV78
+                                                . '/dashboard'
+                                            : '';
+                                @endphp
+
+                                @if($redirectPathV78 !== '')
+                                    <option
+                                        value="{{ $redirectPathV78 }}"
+                                    >
+                                        {{ $redirectRoleV78['name'] }}
+                                        Dashboard
+                                        ({{ $redirectPathV78 }})
+                                    </option>
+                                @endif
+                            @endforeach
+                        </select>
+
+                        <small>
+                            Leave this on Automatic to send the new
+                            user to the dashboard belonging to the
+                            Default User Role selected above.
+                        </small>
+                    </label>
+                </div>
+
+                <div
+                    class="esubiz-auth-non-registration-v75"
+                    id="esubiz-auth-non-registration-v75"
+                >
+                    This Core authentication form uses the
+                    authoritative Core authentication URL.
+                </div>
+            </div>
+
+            <div class="esubiz-auth-fields-section-v75">
+                <div class="esubiz-auth-fields-head-v75">
+                    <div>
+                        <h4>Form Fields</h4>
+                        <p>
+                            These are the canonical fields attached
+                            to this Core authentication form.
+                        </p>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="btn btn-light"
+                        id="esubiz-auth-add-field-v75"
+                    >
+                        + Add Field
+                    </button>
+                </div>
+
+                <div id="esubiz-auth-fields-v75"></div>
+            </div>
+
+        </div>
+
+        <div class="esubiz-auth-modal-footer-v75">
+            <button
+                type="button"
+                class="btn btn-light"
+                data-auth-modal-close-v75
+            >
+                Cancel
+            </button>
+
+            <button
+                type="button"
+                class="esubiz-auth-save-premium-v76"
+                id="esubiz-auth-save-v75"
+            >
+                Save Changes
+            </button>
+        </div>
+    </div>
 </div>
+
+<script type="application/json" id="esubiz-auth-data-v75">
+{!! json_encode(
+    $authFormsV75,
+    JSON_HEX_TAG
+    | JSON_HEX_AMP
+    | JSON_HEX_APOS
+    | JSON_HEX_QUOT
+) !!}
+</script>
+
+<style>
+.esubiz-auth-manager-v75{
+    margin-top:18px;
+}
+
+.esubiz-auth-manager-v75-head{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:18px;
+    margin-bottom:18px;
+}
+
+.esubiz-auth-manager-v75-head h3,
+.esubiz-auth-modal-v75 h3,
+.esubiz-auth-modal-v75 h4{
+    margin:0;
+    color:#0f172a;
+}
+
+.esubiz-auth-manager-v75-head p,
+.esubiz-auth-modal-v75 p{
+    margin:5px 0 0;
+    color:#64748b;
+}
+
+.esubiz-auth-table-wrap-v75{
+    overflow-x:auto;
+    border:1px solid #e2e8f0;
+    border-radius:14px;
+    background:#fff;
+}
+
+.esubiz-auth-table-v75{
+    width:100%;
+    border-collapse:collapse;
+    min-width:760px;
+}
+
+.esubiz-auth-table-v75 th{
+    padding:13px 16px;
+    background:#f8fafc;
+    border-bottom:1px solid #e2e8f0;
+    color:#475569;
+    font-size:12px;
+    font-weight:800;
+    text-align:left;
+}
+
+.esubiz-auth-table-v75 td{
+    padding:15px 16px;
+    border-bottom:1px solid #eef2f7;
+    color:#334155;
+    vertical-align:middle;
+}
+
+.esubiz-auth-table-v75 tbody tr:last-child td{
+    border-bottom:0;
+}
+
+.esubiz-auth-table-v75 code{
+    padding:3px 6px;
+    border-radius:6px;
+    background:#f1f5f9;
+    color:#334155;
+}
+
+.esubiz-auth-status-v75,
+.esubiz-auth-system-v75{
+    display:inline-flex;
+    border-radius:999px;
+    padding:4px 8px;
+    font-size:11px;
+    font-weight:800;
+}
+
+.esubiz-auth-status-v75.is-active{
+    background:#dcfce7;
+    color:#166534;
+}
+
+.esubiz-auth-status-v75.is-inactive{
+    background:#f1f5f9;
+    color:#64748b;
+}
+
+.esubiz-auth-system-v75{
+    background:#dbeafe;
+    color:#1d4ed8;
+}
+
+.esubiz-auth-actions-col-v75{
+    width:56px;
+}
+
+.esubiz-auth-actions-v75{
+    position:relative;
+    text-align:right;
+}
+
+.esubiz-auth-menu-button-v75{
+    width:36px;
+    height:36px;
+    border:0;
+    border-radius:8px;
+    background:transparent;
+    color:#475569;
+    font-size:22px;
+    cursor:pointer;
+}
+
+.esubiz-auth-menu-button-v75:hover{
+    background:#f1f5f9;
+}
+
+.esubiz-auth-menu-v75{
+    display:none;
+    position:absolute;
+    z-index:30;
+    top:44px;
+    right:14px;
+    width:140px;
+    padding:6px;
+    border:1px solid #e2e8f0;
+    border-radius:10px;
+    background:#fff;
+    box-shadow:0 14px 30px rgba(15,23,42,.14);
+}
+
+.esubiz-auth-menu-v75.is-open{
+    display:block;
+}
+
+.esubiz-auth-menu-v75 button{
+    display:block;
+    width:100%;
+    border:0;
+    border-radius:7px;
+    padding:9px 10px;
+    background:transparent;
+    color:#334155;
+    text-align:left;
+    cursor:pointer;
+}
+
+.esubiz-auth-menu-v75 button:hover{
+    background:#f8fafc;
+}
+
+.esubiz-auth-menu-v75 button.is-danger{
+    color:#dc2626;
+}
+
+.esubiz-auth-pagination-v75{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:14px;
+    margin-top:14px;
+    color:#64748b;
+    font-size:13px;
+}
+
+.esubiz-auth-pagination-v75 > div{
+    display:flex;
+    gap:8px;
+}
+
+.esubiz-auth-modal-v75{
+    display:none;
+    position:fixed;
+    z-index:99999;
+    inset:0;
+}
+
+.esubiz-auth-modal-v75.is-open{
+    display:block;
+}
+
+.esubiz-auth-modal-backdrop-v75{
+    position:absolute;
+    inset:0;
+    background:rgba(15,23,42,.56);
+}
+
+.esubiz-auth-modal-dialog-v75{
+    position:relative;
+    z-index:1;
+    width:min(980px,calc(100% - 32px));
+    max-height:calc(100vh - 48px);
+    margin:24px auto;
+    overflow:hidden;
+    border-radius:18px;
+    background:#fff;
+    box-shadow:0 24px 70px rgba(15,23,42,.28);
+}
+
+.esubiz-auth-modal-head-v75,
+.esubiz-auth-modal-footer-v75{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    padding:18px 22px;
+    border-bottom:1px solid #e2e8f0;
+}
+
+.esubiz-auth-modal-footer-v75{
+    justify-content:flex-end;
+    border-top:1px solid #e2e8f0;
+    border-bottom:0;
+}
+
+.esubiz-auth-modal-close-v75{
+    width:38px;
+    height:38px;
+    border:0;
+    border-radius:9px;
+    background:#f1f5f9;
+    color:#334155;
+    font-size:25px;
+    cursor:pointer;
+}
+
+.esubiz-auth-modal-body-v75{
+    max-height:calc(100vh - 190px);
+    overflow:auto;
+    padding:22px;
+}
+
+.esubiz-auth-settings-v75,
+.esubiz-auth-fields-section-v75{
+    border:1px solid #e2e8f0;
+    border-radius:14px;
+    padding:18px;
+}
+
+.esubiz-auth-fields-section-v75{
+    margin-top:18px;
+}
+
+.esubiz-auth-settings-grid-v75{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:16px;
+    margin-top:16px;
+}
+
+.esubiz-auth-settings-grid-v75 label{
+    display:block;
+}
+
+.esubiz-auth-settings-grid-v75 label > span{
+    display:block;
+    margin-bottom:6px;
+    color:#334155;
+    font-size:13px;
+    font-weight:700;
+}
+
+.esubiz-auth-settings-grid-v75 input[type="text"],
+.esubiz-auth-settings-grid-v75 select{
+    width:100%;
+    box-sizing:border-box;
+    min-height:42px;
+    border:1px solid #cbd5e1;
+    border-radius:9px;
+    padding:9px 11px;
+    background:#fff;
+}
+
+.esubiz-auth-settings-grid-v75 small{
+    display:block;
+    margin-top:5px;
+    color:#64748b;
+}
+
+.esubiz-auth-full-v75{
+    grid-column:1 / -1;
+}
+
+.esubiz-auth-non-registration-v75{
+    display:none;
+    margin-top:16px;
+    padding:13px 14px;
+    border-radius:10px;
+    background:#f8fafc;
+    color:#64748b;
+}
+
+.esubiz-auth-fields-head-v75{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:14px;
+    margin-bottom:14px;
+}
+
+.esubiz-auth-field-v75{
+    display:grid;
+    grid-template-columns:
+        minmax(120px,1fr)
+        minmax(120px,1fr)
+        140px
+        90px
+        44px;
+    gap:10px;
+    align-items:center;
+    padding:11px;
+    border:1px solid #e2e8f0;
+    border-radius:10px;
+    margin-top:9px;
+}
+
+.esubiz-auth-field-v75 input,
+.esubiz-auth-field-v75 select{
+    width:100%;
+    box-sizing:border-box;
+    min-height:38px;
+    border:1px solid #cbd5e1;
+    border-radius:8px;
+    padding:7px 9px;
+    background:#fff;
+}
+
+.esubiz-auth-field-remove-v75{
+    border:0;
+    background:transparent;
+    color:#dc2626;
+    font-size:20px;
+    cursor:pointer;
+}
+
+
+
+/* ESUBIZ_AUTH_MANAGER_V77B */
+
+.esubiz-auth-add-premium-v77{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:44px;
+    padding:0 20px;
+    border:1px solid #2563eb;
+    border-radius:10px;
+    background:linear-gradient(
+        135deg,
+        #2563eb 0%,
+        #1d4ed8 100%
+    );
+    box-shadow:
+        0 8px 20px rgba(37,99,235,.18),
+        inset 0 1px 0 rgba(255,255,255,.18);
+    color:#fff;
+    font-size:14px;
+    font-weight:800;
+    cursor:pointer;
+    transition:
+        transform .16s ease,
+        box-shadow .16s ease,
+        background .16s ease;
+}
+
+.esubiz-auth-add-premium-v77:hover{
+    background:linear-gradient(
+        135deg,
+        #1d4ed8 0%,
+        #1e40af 100%
+    );
+    box-shadow:
+        0 10px 24px rgba(37,99,235,.25);
+    transform:translateY(-1px);
+}
+
+.esubiz-auth-field-v75{
+    cursor:grab;
+}
+
+.esubiz-auth-field-v75:active{
+    cursor:grabbing;
+}
+
+.esubiz-auth-field-v75.is-dragging-v77{
+    opacity:.45;
+    border-color:#2563eb;
+}
+
+.esubiz-auth-field-v75.is-drag-target-v77{
+    border-color:#2563eb;
+    box-shadow:0 0 0 2px rgba(37,99,235,.10);
+}
+
+
+
+
+/* ESUBIZ_AUTH_COUNTRY_PHONE_PAIR_V80 */
+
+.esubiz-auth-field-v75.is-country-phone-v79{
+    border-color:#bfdbfe;
+    background:#f8fbff;
+}
+
+.esubiz-auth-field-v75.is-country-phone-v79::before{
+    content:'Identity';
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:24px;
+    padding:3px 6px;
+    border-radius:999px;
+    background:#dbeafe;
+    color:#1d4ed8;
+    font-size:10px;
+    font-weight:800;
+    white-space:nowrap;
+}
+
+@media(min-width:768px){
+    .esubiz-auth-field-v75.is-country-phone-v79{
+        grid-template-columns:
+            38px
+            60px
+            minmax(120px,1fr)
+            minmax(120px,1fr)
+            140px
+            90px
+            44px;
+    }
+}
+
+/* ESUBIZ_AUTH_COUNTRY_PHONE_PAIR_V79 */
+
+.esubiz-auth-field-v75.is-country-phone-v79{
+    background:#f8fbff;
+    border-color:#dbeafe;
+}
+
+.esubiz-auth-field-v75.is-country-phone-v79
+.esubiz-auth-drag-handle-v78{
+    background:#eff6ff;
+    border-color:#bfdbfe;
+    color:#2563eb;
+}
+
+/* ESUBIZ_AUTH_MODAL_SCROLL_DRAG_V78 */
+
+.esubiz-auth-modal-v75{
+    overflow:hidden;
+}
+
+.esubiz-auth-modal-dialog-v75{
+    display:flex;
+    flex-direction:column;
+    width:min(980px,calc(100% - 24px));
+    height:auto;
+    max-height:calc(100dvh - 24px);
+    margin:12px auto;
+    overflow:hidden;
+}
+
+.esubiz-auth-modal-head-v75{
+    flex:0 0 auto;
+}
+
+.esubiz-auth-modal-body-v75{
+    flex:1 1 auto;
+    min-height:0;
+    max-height:none !important;
+    overflow-y:auto;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+}
+
+.esubiz-auth-modal-footer-v75{
+    position:relative;
+    z-index:5;
+    flex:0 0 auto;
+    background:#fff;
+    box-shadow:0 -8px 18px rgba(15,23,42,.05);
+}
+
+.esubiz-auth-field-v75{
+    grid-template-columns:
+        38px
+        minmax(120px,1fr)
+        minmax(120px,1fr)
+        140px
+        90px
+        44px;
+}
+
+.esubiz-auth-drag-handle-v78{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:34px;
+    height:38px;
+    padding:0;
+    border:1px solid #dbe3ee;
+    border-radius:8px;
+    background:#f8fafc;
+    color:#64748b;
+    font-size:18px;
+    font-weight:900;
+    letter-spacing:-3px;
+    cursor:grab;
+    touch-action:none;
+    user-select:none;
+    -webkit-user-select:none;
+}
+
+.esubiz-auth-drag-handle-v78:hover{
+    border-color:#93c5fd;
+    background:#eff6ff;
+    color:#1d4ed8;
+}
+
+.esubiz-auth-drag-handle-v78:active{
+    cursor:grabbing;
+}
+
+.esubiz-auth-field-v75.is-pointer-dragging-v78{
+    opacity:.55;
+    border-color:#2563eb;
+    box-shadow:0 0 0 2px rgba(37,99,235,.10);
+}
+
+.esubiz-auth-field-v75.is-pointer-target-v78{
+    border-color:#2563eb;
+}
+
+@media(max-width:767px){
+    .esubiz-auth-modal-dialog-v75{
+        width:calc(100% - 12px);
+        max-height:calc(100dvh - 12px);
+        margin:6px auto;
+        border-radius:14px;
+    }
+
+    .esubiz-auth-modal-body-v75{
+        padding:16px;
+    }
+
+    .esubiz-auth-modal-head-v75,
+    .esubiz-auth-modal-footer-v75{
+        padding:14px 16px;
+    }
+
+    .esubiz-auth-field-v75{
+        grid-template-columns:38px minmax(0,1fr);
+    }
+
+    .esubiz-auth-field-v75
+    > :not(.esubiz-auth-drag-handle-v78){
+        grid-column:2;
+    }
+
+    .esubiz-auth-drag-handle-v78{
+        grid-column:1;
+        grid-row:1;
+    }
+}
+
+/* ESUBIZ_AUTH_MODAL_POLISH_V76 */
+
+.esubiz-auth-field-v75 label{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    margin:0;
+    color:#334155;
+    font-size:13px;
+    font-weight:600;
+}
+
+.esubiz-auth-field-v75 input[type="checkbox"]{
+    width:18px !important;
+    height:18px !important;
+    min-width:18px;
+    min-height:18px;
+    margin:0;
+    padding:0;
+    border-radius:4px;
+    accent-color:#2563eb;
+    cursor:pointer;
+}
+
+.esubiz-auth-save-premium-v76{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:44px;
+    padding:0 22px;
+    border:1px solid #2563eb;
+    border-radius:10px;
+    background:linear-gradient(
+        135deg,
+        #2563eb 0%,
+        #1d4ed8 100%
+    );
+    box-shadow:
+        0 8px 20px rgba(37,99,235,.20),
+        inset 0 1px 0 rgba(255,255,255,.18);
+    color:#fff;
+    font-size:14px;
+    font-weight:800;
+    letter-spacing:.01em;
+    cursor:pointer;
+    transition:
+        transform .16s ease,
+        box-shadow .16s ease,
+        background .16s ease;
+}
+
+.esubiz-auth-save-premium-v76:hover{
+    background:linear-gradient(
+        135deg,
+        #1d4ed8 0%,
+        #1e40af 100%
+    );
+    box-shadow:
+        0 10px 24px rgba(37,99,235,.27),
+        inset 0 1px 0 rgba(255,255,255,.16);
+    transform:translateY(-1px);
+}
+
+.esubiz-auth-save-premium-v76:active{
+    transform:translateY(0);
+}
+
+.esubiz-auth-save-premium-v76:disabled{
+    opacity:.6;
+    cursor:not-allowed;
+    transform:none;
+}
+
+@media(max-width:767px){
+    .esubiz-auth-manager-v75-head,
+    .esubiz-auth-pagination-v75,
+    .esubiz-auth-fields-head-v75{
+        align-items:stretch;
+        flex-direction:column;
+    }
+
+    .esubiz-auth-settings-grid-v75{
+        grid-template-columns:1fr;
+    }
+
+    .esubiz-auth-full-v75{
+        grid-column:auto;
+    }
+
+    .esubiz-auth-field-v75{
+        grid-template-columns:1fr;
+    }
+
+    .esubiz-auth-modal-dialog-v75{
+        width:calc(100% - 20px);
+        margin:10px auto;
+        max-height:calc(100vh - 20px);
+    }
+
+    .esubiz-auth-modal-body-v75{
+        max-height:calc(100vh - 160px);
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const dataNode =
+        document.getElementById('esubiz-auth-data-v75');
+
+    let forms = [];
+
+    try {
+        forms = JSON.parse(
+            dataNode ? dataNode.textContent : '[]'
+        );
+    } catch (error) {
+        forms = [];
+    }
+
+    const rows = Array.from(
+        document.querySelectorAll('[data-auth-row-v75]')
+    );
+
+    const prev =
+        document.getElementById('esubiz-auth-prev-v75');
+
+    const next =
+        document.getElementById('esubiz-auth-next-v75');
+
+    const info =
+        document.getElementById('esubiz-auth-page-info-v75');
+
+    const modal =
+        document.getElementById('esubiz-auth-modal-v75');
+
+    const title =
+        document.getElementById(
+            'esubiz-auth-modal-title-v75'
+        );
+
+    const subtitle =
+        document.getElementById(
+            'esubiz-auth-modal-subtitle-v75'
+        );
+
+    const regSettings =
+        document.getElementById(
+            'esubiz-auth-registration-settings-v75'
+        );
+
+    const nonReg =
+        document.getElementById(
+            'esubiz-auth-non-registration-v75'
+        );
+
+    const pageUrl =
+        document.getElementById(
+            'esubiz-auth-page-url-v75'
+        );
+
+    const redirect =
+        document.getElementById(
+            'esubiz-auth-redirect-v75'
+        );
+
+    const role =
+        document.getElementById(
+            'esubiz-auth-role-v75'
+        );
+
+    const enabled =
+        document.getElementById(
+            'esubiz-auth-enabled-v75'
+        );
+
+    const autoLogin =
+        document.getElementById(
+            'esubiz-auth-auto-login-v75'
+        );
+
+    const emailVerify =
+        document.getElementById(
+            'esubiz-auth-email-verify-v75'
+        );
+
+    const smsVerify =
+        document.getElementById(
+            'esubiz-auth-sms-verify-v75'
+        );
+
+    const fieldsBox =
+        document.getElementById(
+            'esubiz-auth-fields-v75'
+        );
+
+    let currentPage = 1;
+    const perPage = 10;
+    let activeForm = null;
+
+    function renderPage() {
+        const totalPages =
+            Math.max(
+                1,
+                Math.ceil(rows.length / perPage)
+            );
+
+        if (currentPage > totalPages) {
+            currentPage = totalPages;
+        }
+
+        rows.forEach(function (row, index) {
+            const rowPage =
+                Math.floor(index / perPage) + 1;
+
+            row.style.display =
+                rowPage === currentPage ? '' : 'none';
+        });
+
+        if (info) {
+            info.textContent =
+                rows.length
+                    ? 'Page '
+                        + currentPage
+                        + ' of '
+                        + totalPages
+                        + ' · '
+                        + rows.length
+                        + ' forms'
+                    : '0 forms';
+        }
+
+        if (prev) {
+            prev.disabled = currentPage <= 1;
+        }
+
+        if (next) {
+            next.disabled =
+                currentPage >= totalPages;
+        }
+    }
+
+    function closeMenus() {
+        document
+            .querySelectorAll(
+                '[data-auth-menu-v75].is-open'
+            )
+            .forEach(function (menu) {
+                menu.classList.remove('is-open');
+            });
+    }
+
+    function boolValue(value, fallback) {
+        if (
+            value === true
+            || value === 1
+            || value === '1'
+        ) {
+            return true;
+        }
+
+        if (
+            value === false
+            || value === 0
+            || value === '0'
+        ) {
+            return false;
+        }
+
+        return fallback;
+    }
+
+
+    /*
+     * Pointer-based drag handle.
+     *
+     * Unlike HTML5 draggable, this works with mouse, pen and
+     * touch. Only the handle starts a reorder operation, so
+     * inputs remain easy to edit and the modal can still scroll.
+     */
+    function makeDragHandleV78(row) {
+        const handle =
+            document.createElement('button');
+
+        handle.type = 'button';
+        handle.className =
+            'esubiz-auth-drag-handle-v78';
+
+        handle.innerHTML = '⋮⋮';
+        handle.title = 'Drag to reorder field';
+        handle.setAttribute(
+            'aria-label',
+            'Drag to reorder field'
+        );
+
+        handle.addEventListener(
+            'pointerdown',
+            function (event) {
+                event.preventDefault();
+
+                const pointerId =
+                    event.pointerId;
+
+                row.classList.add(
+                    'is-pointer-dragging-v78'
+                );
+
+                try {
+                    handle.setPointerCapture(
+                        pointerId
+                    );
+                } catch (error) {
+                }
+
+                function move(moveEvent) {
+                    moveEvent.preventDefault();
+
+                    const target =
+                        document.elementFromPoint(
+                            moveEvent.clientX,
+                            moveEvent.clientY
+                        );
+
+                    if (!target) {
+                        return;
+                    }
+
+                    const targetRow =
+                        target.closest(
+                            '.esubiz-auth-field-v75'
+                        );
+
+                    if (
+                        !targetRow
+                        || targetRow === row
+                        || targetRow.parentElement
+                            !== fieldsBox
+                    ) {
+                        return;
+                    }
+
+                    fieldsBox
+                        .querySelectorAll(
+                            '.is-pointer-target-v78'
+                        )
+                        .forEach(function (item) {
+                            item.classList.remove(
+                                'is-pointer-target-v78'
+                            );
+                        });
+
+                    targetRow.classList.add(
+                        'is-pointer-target-v78'
+                    );
+
+                    const rect =
+                        targetRow
+                            .getBoundingClientRect();
+
+                    const after =
+                        moveEvent.clientY
+                        > (
+                            rect.top
+                            + rect.height / 2
+                        );
+
+                    if (after) {
+                        targetRow.after(row);
+                    } else {
+                        targetRow.before(row);
+                    }
+                }
+
+                function finish() {
+                    row.classList.remove(
+                        'is-pointer-dragging-v78'
+                    );
+
+                    fieldsBox
+                        .querySelectorAll(
+                            '.is-pointer-target-v78'
+                        )
+                        .forEach(function (item) {
+                            item.classList.remove(
+                                'is-pointer-target-v78'
+                            );
+                        });
+
+                    handle.removeEventListener(
+                        'pointermove',
+                        move
+                    );
+
+                    handle.removeEventListener(
+                        'pointerup',
+                        finish
+                    );
+
+                    handle.removeEventListener(
+                        'pointercancel',
+                        finish
+                    );
+
+                    try {
+                        handle.releasePointerCapture(
+                            pointerId
+                        );
+                    } catch (error) {
+                    }
+                }
+
+                handle.addEventListener(
+                    'pointermove',
+                    move
+                );
+
+                handle.addEventListener(
+                    'pointerup',
+                    finish
+                );
+
+                handle.addEventListener(
+                    'pointercancel',
+                    finish
+                );
+            }
+        );
+
+        return handle;
+    }
+
+    function renderFields(form) {
+        if (!fieldsBox) {
+            return;
+        }
+
+        fieldsBox.innerHTML = '';
+
+        const fields =
+            Array.isArray(form.fields)
+                ? form.fields.slice()
+                : [];
+
+        /*
+         * ESUBIZ_AUTH_IDENTITY_ORDER_V80
+         *
+         * Core Registration identity sequence:
+         * Name / Email
+         * Country / Phone
+         * Password / Confirm Password
+         */
+        if (
+            form
+            && form.purpose === 'registration'
+        ) {
+            const identityPriorityV80 = {
+                name:0,
+                full_name:0,
+                first_name:0,
+                last_name:1,
+                email:2,
+                country_code:3,
+                phone:4,
+                password:5,
+                password_confirmation:6,
+                confirm_password:6
+            };
+
+            fields.sort(
+                function (leftV80, rightV80) {
+                    const leftNameV80 =
+                        String(
+                            leftV80.name || ''
+                        );
+
+                    const rightNameV80 =
+                        String(
+                            rightV80.name || ''
+                        );
+
+                    const leftPriorityV80 =
+                        Object.prototype
+                            .hasOwnProperty.call(
+                                identityPriorityV80,
+                                leftNameV80
+                            )
+                                ? identityPriorityV80[
+                                    leftNameV80
+                                ]
+                                : 1000;
+
+                    const rightPriorityV80 =
+                        Object.prototype
+                            .hasOwnProperty.call(
+                                identityPriorityV80,
+                                rightNameV80
+                            )
+                                ? identityPriorityV80[
+                                    rightNameV80
+                                ]
+                                : 1000;
+
+                    if (
+                        leftPriorityV80
+                        !== rightPriorityV80
+                    ) {
+                        return (
+                            leftPriorityV80
+                            - rightPriorityV80
+                        );
+                    }
+
+                    return (
+                        Number(
+                            leftV80.sort_order || 0
+                        )
+                        -
+                        Number(
+                            rightV80.sort_order || 0
+                        )
+                    );
+                }
+            );
+        }
+
+        fields.forEach(function (field) {
+            const row = document.createElement('div');
+            row.className = 'esubiz-auth-field-v75';
+            row.dataset.fieldId = field.id || '';
+            row.draggable = false;
+
+            if (
+                field.name === 'country_code'
+                || field.name === 'phone'
+            ) {
+                row.classList.add(
+                    'is-country-phone-v79'
+                );
+
+                row.dataset.identityPairV79 =
+                    'country-phone';
+            }
+
+            const label = document.createElement('input');
+            label.type = 'text';
+            label.value = field.label || '';
+            label.placeholder = 'Field label';
+            label.dataset.fieldProp = 'label';
+
+            const name = document.createElement('input');
+            name.type = 'text';
+            name.value = field.name || '';
+            name.placeholder = 'field_name';
+            name.dataset.fieldProp = 'name';
+
+            const protectedIdentityNameV80 =
+                !!form.is_system
+                && form.purpose === 'registration'
+                && [
+                    'country_code',
+                    'phone',
+                    'password',
+                    'password_confirmation',
+                    'confirm_password',
+                    'email',
+                    'name',
+                    'full_name',
+                    'first_name',
+                    'last_name'
+                ].includes(
+                    String(field.name || '')
+                );
+
+            if (protectedIdentityNameV80) {
+                name.readOnly = true;
+            }
+
+            const type = document.createElement('select');
+            type.dataset.fieldProp = 'type';
+
+            [
+                'text',
+                'email',
+                'tel',
+                'country',
+                'number',
+                'date',
+                'textarea',
+                'select',
+                'checkbox',
+                'radio',
+                'password'
+            ].forEach(function (value) {
+                const option =
+                    document.createElement('option');
+
+                option.value = value;
+                option.textContent =
+                    value === 'country'
+                        ? 'Country Selector'
+                        : (
+                            value === 'tel'
+                                ? 'Phone'
+                                : (
+                                    value
+                                        .charAt(0)
+                                        .toUpperCase()
+                                    + value.slice(1)
+                                )
+                        );
+
+                option.selected =
+                    value === field.type;
+
+                type.appendChild(option);
+            });
+
+            const requiredWrap =
+                document.createElement('label');
+
+            const required =
+                document.createElement('input');
+
+            required.type = 'checkbox';
+            required.checked = !!field.required;
+            required.dataset.fieldProp = 'required';
+
+            requiredWrap.appendChild(required);
+            requiredWrap.appendChild(
+                document.createTextNode(' Required')
+            );
+
+            const protectedIdentityV80 =
+                !!form.is_system
+                && form.purpose === 'registration'
+                && [
+                    'name',
+                    'full_name',
+                    'first_name',
+                    'last_name',
+                    'email',
+                    'country_code',
+                    'phone',
+                    'password',
+                    'password_confirmation',
+                    'confirm_password'
+                ].includes(
+                    String(field.name || '')
+                );
+
+            const remove =
+                document.createElement('button');
+
+            remove.type = 'button';
+            remove.className =
+                'esubiz-auth-field-remove-v75';
+
+            if (protectedIdentityV80) {
+                remove.innerHTML = '🔒';
+                remove.title =
+                    'Protected Core registration field';
+                remove.disabled = true;
+                remove.style.opacity = '.45';
+                remove.style.cursor = 'not-allowed';
+            } else {
+                remove.innerHTML = '×';
+                remove.title = 'Remove field';
+
+                remove.addEventListener(
+                    'click',
+                    function () {
+                        row.remove();
+                    }
+                );
+            }
+
+            row.appendChild(
+                makeDragHandleV78(row)
+            );
+            row.appendChild(label);
+            row.appendChild(name);
+            row.appendChild(type);
+            row.appendChild(requiredWrap);
+            row.appendChild(remove);
+
+            fieldsBox.appendChild(row);
+        });
+    }
+
+
+    function openNewAuthFormV77() {
+        activeForm = {
+            id: null,
+            name: 'New Registration Form',
+            slug: '',
+            purpose: 'registration',
+            is_system: false,
+            is_active: true,
+            auth_config: {
+                registration_enabled: true,
+                auto_login: false,
+                require_email_verification: false,
+                require_sms_verification: false,
+                role_id: null,
+                page_url: '',
+                redirect: ''
+            },
+            fields: [
+                {
+                    id:null,
+                    name:'name',
+                    label:'Name',
+                    type:'text',
+                    required:true,
+                    sort_order:0
+                },
+                {
+                    id:null,
+                    name:'email',
+                    label:'Email',
+                    type:'email',
+                    required:true,
+                    sort_order:1
+                },
+                {
+                    id:null,
+                    name:'country_code',
+                    label:'Country',
+                    type:'country',
+                    required:true,
+                    sort_order:2
+                },
+                {
+                    id:null,
+                    name:'phone',
+                    label:'Phone',
+                    type:'tel',
+                    required:true,
+                    sort_order:3
+                },
+                {
+                    id:null,
+                    name:'password',
+                    label:'Password',
+                    type:'password',
+                    required:true,
+                    sort_order:4
+                },
+                {
+                    id:null,
+                    name:'password_confirmation',
+                    label:'Confirm Password',
+                    type:'password',
+                    required:true,
+                    sort_order:5
+                }
+            ]
+        };
+
+        if (!modal) {
+            return;
+        }
+
+        title.textContent =
+            'Add Authentication Form';
+
+        subtitle.textContent =
+            'Create an additional Registration form and public URL';
+
+        regSettings.style.display = 'grid';
+        nonReg.style.display = 'none';
+
+        const formName =
+            document.getElementById(
+                'esubiz-auth-form-name-v77'
+            );
+
+        if (formName) {
+            formName.value = '';
+            formName.readOnly = false;
+        }
+
+        pageUrl.value = '';
+        pageUrl.readOnly = false;
+
+        enabled.checked = true;
+        autoLogin.checked = false;
+        emailVerify.checked = false;
+        smsVerify.checked = false;
+
+        const userRoleOption =
+            Array.from(role.options).find(
+                function (option) {
+                    return (
+                        String(
+                            option.dataset.roleSlug || ''
+                        ).toLowerCase() === 'user'
+                    );
+                }
+            );
+
+        role.value =
+            userRoleOption
+                ? userRoleOption.value
+                : '';
+
+        /*
+         * Blank is authoritative "Automatic":
+         * public registration resolves the dashboard
+         * from this form's Default User Role.
+         */
+        redirect.value = '';
+
+        renderFields(activeForm);
+
+        modal.classList.add('is-open');
+        modal.setAttribute(
+            'aria-hidden',
+            'false'
+        );
+
+        document.body.style.overflow =
+            'hidden';
+    }
+
+    function openEditor(formId) {
+        activeForm = forms.find(function (form) {
+            return String(form.id) === String(formId);
+        });
+
+        if (!activeForm || !modal) {
+            return;
+        }
+
+        const purpose =
+            activeForm.purpose || '';
+
+        const config =
+            activeForm.auth_config
+            && typeof activeForm.auth_config === 'object'
+                ? activeForm.auth_config
+                : {};
+
+        title.textContent =
+            'Edit ' + (activeForm.name || 'Authentication Form');
+
+        const formName =
+            document.getElementById(
+                'esubiz-auth-form-name-v77'
+            );
+
+        if (formName) {
+            formName.value =
+                activeForm.name || '';
+
+            formName.readOnly =
+                !!activeForm.is_system;
+        }
+
+
+        subtitle.textContent =
+            purpose === 'registration'
+                ? 'Registration form and authentication settings'
+                : (
+                    purpose === 'login'
+                        ? 'Core Login form'
+                        : 'Core Password Reset form'
+                );
+
+        const isRegistration =
+            purpose === 'registration';
+
+        regSettings.style.display =
+            isRegistration ? 'grid' : 'none';
+
+        nonReg.style.display =
+            isRegistration ? 'none' : 'block';
+
+        if (isRegistration) {
+            const isSystem =
+                !!activeForm.is_system;
+
+            pageUrl.value =
+                isSystem
+                    ? '/register'
+                    : (config.page_url || '');
+
+            pageUrl.readOnly = isSystem;
+
+            enabled.checked =
+                boolValue(
+                    config.registration_enabled,
+                    true
+                );
+
+            autoLogin.checked =
+                boolValue(
+                    config.auto_login,
+                    false
+                );
+
+            emailVerify.checked =
+                boolValue(
+                    config.require_email_verification,
+                    false
+                );
+
+            smsVerify.checked =
+                boolValue(
+                    config.require_sms_verification,
+                    false
+                );
+
+            if (
+                config.role_id != null
+                && String(config.role_id) !== ''
+            ) {
+                role.value = String(config.role_id);
+            } else if (isSystem) {
+                const userRoleOption =
+                    Array.from(role.options).find(
+                        function (option) {
+                            return (
+                                String(
+                                    option.dataset.roleSlug || ''
+                                ).toLowerCase() === 'user'
+                            );
+                        }
+                    );
+
+                role.value =
+                    userRoleOption
+                        ? userRoleOption.value
+                        : '';
+            } else {
+                role.value = '';
+            }
+
+            const configuredRedirect =
+                config.redirect || '';
+
+            if (configuredRedirect !== '') {
+                const existingRedirectOption =
+                    Array.from(
+                        redirect.options
+                    ).find(
+                        function (option) {
+                            return (
+                                option.value
+                                === configuredRedirect
+                            );
+                        }
+                    );
+
+                if (!existingRedirectOption) {
+                    const legacyOption =
+                        document.createElement(
+                            'option'
+                        );
+
+                    legacyOption.value =
+                        configuredRedirect;
+
+                    legacyOption.textContent =
+                        'Current Redirect ('
+                        + configuredRedirect
+                        + ')';
+
+                    redirect.appendChild(
+                        legacyOption
+                    );
+                }
+            }
+
+            redirect.value =
+                configuredRedirect;
+        }
+
+        renderFields(activeForm);
+
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() {
+        if (!modal) {
+            return;
+        }
+
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+
+        document.body.style.overflow = '';
+
+        activeForm = null;
+    }
+
+    document.addEventListener(
+        'click',
+        function (event) {
+            const menuButton =
+                event.target.closest(
+                    '[data-auth-menu-button-v75]'
+                );
+
+            if (menuButton) {
+                const menu =
+                    menuButton.parentElement.querySelector(
+                        '[data-auth-menu-v75]'
+                    );
+
+                const wasOpen =
+                    menu
+                    && menu.classList.contains(
+                        'is-open'
+                    );
+
+                closeMenus();
+
+                if (menu && !wasOpen) {
+                    menu.classList.add('is-open');
+                }
+
+                event.stopPropagation();
+                return;
+            }
+
+            const editButton =
+                event.target.closest(
+                    '[data-auth-edit-v75]'
+                );
+
+            if (editButton) {
+                closeMenus();
+
+                openEditor(
+                    editButton.getAttribute(
+                        'data-auth-edit-v75'
+                    )
+                );
+
+                return;
+            }
+
+            if (
+                event.target.closest(
+                    '[data-auth-modal-close-v75]'
+                )
+            ) {
+                closeModal();
+                return;
+            }
+
+            closeMenus();
+        }
+    );
+
+
+    const addAuthFormButton =
+        document.getElementById(
+            'esubiz-auth-add-v75'
+        );
+
+    if (addAuthFormButton) {
+        addAuthFormButton.addEventListener(
+            'click',
+            function () {
+                closeMenus();
+                openNewAuthFormV77();
+            }
+        );
+    }
+
+    if (prev) {
+        prev.addEventListener('click', function () {
+            if (currentPage > 1) {
+                currentPage--;
+                renderPage();
+            }
+        });
+    }
+
+    if (next) {
+        next.addEventListener('click', function () {
+            const totalPages =
+                Math.max(
+                    1,
+                    Math.ceil(rows.length / perPage)
+                );
+
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderPage();
+            }
+        });
+    }
+
+
+
+    /*
+     * ESUBIZ_AUTH_FIELD_DRAG_DROP_V77
+     */
+    let draggedFieldV77 = null;
+
+    if (fieldsBox) {
+        fieldsBox.addEventListener(
+            'dragstart',
+            function (event) {
+                const row =
+                    event.target.closest(
+                        '.esubiz-auth-field-v75'
+                    );
+
+                if (!row) {
+                    return;
+                }
+
+                draggedFieldV77 = row;
+
+                row.classList.add(
+                    'is-dragging-v77'
+                );
+
+                if (event.dataTransfer) {
+                    event.dataTransfer.effectAllowed =
+                        'move';
+                }
+            }
+        );
+
+        fieldsBox.addEventListener(
+            'dragover',
+            function (event) {
+                event.preventDefault();
+
+                const target =
+                    event.target.closest(
+                        '.esubiz-auth-field-v75'
+                    );
+
+                if (
+                    !draggedFieldV77
+                    || !target
+                    || target === draggedFieldV77
+                ) {
+                    return;
+                }
+
+                fieldsBox
+                    .querySelectorAll(
+                        '.is-drag-target-v77'
+                    )
+                    .forEach(function (item) {
+                        item.classList.remove(
+                            'is-drag-target-v77'
+                        );
+                    });
+
+                target.classList.add(
+                    'is-drag-target-v77'
+                );
+
+                const rect =
+                    target.getBoundingClientRect();
+
+                const after =
+                    event.clientY
+                    > rect.top
+                    + (rect.height / 2);
+
+                if (after) {
+                    target.after(
+                        draggedFieldV77
+                    );
+                } else {
+                    target.before(
+                        draggedFieldV77
+                    );
+                }
+            }
+        );
+
+        fieldsBox.addEventListener(
+            'dragend',
+            function () {
+                if (draggedFieldV77) {
+                    draggedFieldV77.classList.remove(
+                        'is-dragging-v77'
+                    );
+                }
+
+                fieldsBox
+                    .querySelectorAll(
+                        '.is-drag-target-v77'
+                    )
+                    .forEach(function (item) {
+                        item.classList.remove(
+                            'is-drag-target-v77'
+                        );
+                    });
+
+                draggedFieldV77 = null;
+            }
+        );
+    }
+
+    /*
+     * ESUBIZ_AUTH_ADD_FIELD_V76
+     *
+     * Adds a new unsaved canonical-field row to the active
+     * Authentication Form editor. Persistence will be handled
+     * by the authoritative AJAX save endpoint in the next step.
+     */
+    const addField =
+        document.getElementById(
+            'esubiz-auth-add-field-v75'
+        );
+
+    function appendNewFieldV76() {
+        if (!activeForm || !fieldsBox) {
+            return;
+        }
+
+        const row = document.createElement('div');
+        row.className = 'esubiz-auth-field-v75';
+        row.dataset.fieldId = '';
+        row.draggable = false;
+
+        const label = document.createElement('input');
+        label.type = 'text';
+        label.value = '';
+        label.placeholder = 'Field label';
+        label.dataset.fieldProp = 'label';
+
+        const name = document.createElement('input');
+        name.type = 'text';
+        name.value = '';
+        name.placeholder = 'field_name';
+        name.dataset.fieldProp = 'name';
+
+        const type = document.createElement('select');
+        type.dataset.fieldProp = 'type';
+
+        [
+            'text',
+            'email',
+            'tel',
+            'country',
+            'number',
+            'date',
+            'textarea',
+            'select',
+            'checkbox',
+            'radio',
+            'password'
+        ].forEach(function (value) {
+            const option =
+                document.createElement('option');
+
+            option.value = value;
+
+            option.textContent =
+                value.charAt(0).toUpperCase()
+                + value.slice(1);
+
+            type.appendChild(option);
+        });
+
+        const requiredWrap =
+            document.createElement('label');
+
+        const required =
+            document.createElement('input');
+
+        required.type = 'checkbox';
+        required.checked = false;
+        required.dataset.fieldProp = 'required';
+
+        requiredWrap.appendChild(required);
+        requiredWrap.appendChild(
+            document.createTextNode('Required')
+        );
+
+        const remove =
+            document.createElement('button');
+
+        remove.type = 'button';
+        remove.className =
+            'esubiz-auth-field-remove-v75';
+
+        remove.innerHTML = '×';
+        remove.title = 'Remove field';
+
+        remove.addEventListener(
+            'click',
+            function () {
+                row.remove();
+            }
+        );
+
+        row.appendChild(
+            makeDragHandleV78(row)
+        );
+        row.appendChild(label);
+        row.appendChild(name);
+        row.appendChild(type);
+        row.appendChild(requiredWrap);
+        row.appendChild(remove);
+
+        fieldsBox.appendChild(row);
+
+        label.focus();
+
+        row.scrollIntoView({
+            behavior:'smooth',
+            block:'nearest'
+        });
+    }
+
+    if (addField) {
+        addField.addEventListener(
+            'click',
+            appendNewFieldV76
+        );
+    }
+
+    /*
+     * V75 deliberately does not fake persistence.
+     *
+     * The modal now edits the canonical form data in-place.
+     * The next backend step will wire Save/Add/Delete to the
+     * authoritative forms + form_fields records using AJAX.
+     */
+    const save =
+        document.getElementById(
+            'esubiz-auth-save-v75'
+        );
+
+    if (save) {
+        save.addEventListener('click', function () {
+            if (!activeForm) {
+                return;
+            }
+
+            save.dataset.pendingBackend = '1';
+        });
+    }
+
+    renderPage();
+});
+</script>
 
 {{-- Legacy duplicate registration editor intentionally suppressed.
      Core Forms/form_fields is now the canonical field editor. --}}
 <div style="display:none !important;" aria-hidden="true">
 <div class="auth-fields-v11-head">
                     <div>
+
+                <div class="mb-6">
+                    <label
+                        for="defaultRegistrationRole"
+                        class="mb-2 block text-sm font-semibold text-slate-700"
+                    >
+                        Default Registration Role
+                    </label>
+
+                    <select
+                        id="defaultRegistrationRole"
+                        name="default_registration_role"
+                        class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    >
+                        @forelse($registrationRoleOptions as $role)
+                            <option
+                                value="{{ $role->slug }}"
+                                @selected(
+                                    $selectedRegistrationRole === $role->slug
+                                )
+                            >
+                                {{ $role->name }}
+                            </option>
+                        @empty
+                            <option value="user" selected>
+                                User
+                            </option>
+                        @endforelse
+                    </select>
+
+                    <p class="mt-2 text-xs leading-5 text-slate-500">
+                        New public registrations will receive this Core role.
+                    </p>
+                </div>
+
                         <h4>Registration Fields</h4>
                         <p>
                             Drag fields to reorder them. Click a field
@@ -3319,1048 +4880,9 @@ document.addEventListener(
 
             </div>
 
-            {{-- =====================================================
-                 PLANS / PRODUCTS / MEMBERSHIPS / MODULE OFFERS
-                 ===================================================== --}}
-            <div
-                class="auth-forms-v11-panel"
-                data-auth-form-panel-v11="offers"
-            >
+            
+{{-- ESUBIZ_MULTI_AUTH_FORMS_MANAGER_V11_REMOVED --}}
 
-                <div class="auth-forms-v11-info-card">
-
-                    <h4>
-                        Plans & Products
-                    </h4>
-
-                    <p>
-                        This form can expose registration offers supplied
-                        by Core, website types, installed modules and
-                        extensions.
-                    </p>
-
-                    <div class="auth-forms-v11-info-row">
-
-                        <span>
-                            Registration offers
-                        </span>
-
-                        <strong>
-                            Plug-and-play
-                        </strong>
-
-                    </div>
-
-                    <div class="auth-forms-v11-info-row">
-
-                        <span>
-                            Supported sources
-                        </span>
-
-                        <strong>
-                            Plans, memberships, products,
-                            services and module offers
-                        </strong>
-
-                    </div>
-
-                    <div class="auth-forms-v11-info-row">
-
-                        <span>
-                            Payment
-                        </span>
-
-                        <strong>
-                            Website gateway connection
-                        </strong>
-
-                    </div>
-
-                    <div class="auth-forms-v11-info-row">
-
-                        <span>
-                            Deployment
-                        </span>
-
-                        <strong>
-                            SaaS + Off-server
-                        </strong>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-            {{-- =====================================================
-                 PER-FORM SETTINGS
-                 ===================================================== --}}
-            <div
-                class="auth-forms-v11-panel"
-                data-auth-form-panel-v11="settings"
-            >
-
-                <div class="auth-forms-v11-info-card">
-
-                    <h4>
-                        Form Settings
-                    </h4>
-
-                    <p>
-                        Each Auth Form will independently control its
-                        registration and login behaviour.
-                    </p>
-
-                    <div class="auth-forms-v11-info-row">
-                        <span>Default Role</span>
-                        <strong>Form-specific</strong>
-                    </div>
-
-                    <div class="auth-forms-v11-info-row">
-                        <span>Email Verification</span>
-                        <strong>Form-specific</strong>
-                    </div>
-
-                    <div class="auth-forms-v11-info-row">
-                        <span>Login Providers</span>
-                        <strong>Form-specific</strong>
-                    </div>
-
-                    <div class="auth-forms-v11-info-row">
-                        <span>Redirects</span>
-                        <strong>Form-specific</strong>
-                    </div>
-
-                    <div class="auth-forms-v11-info-row">
-                        <span>Security</span>
-                        <strong>Form-specific</strong>
-                    </div>
-
-                </div>
-
-            </div>
-
-        </section>
-
-    </div>
-
-</div>
-
-<style>
-/* ESUBIZ_MULTI_AUTH_FORMS_MANAGER_UI_V11 */
-
-.auth-forms-v11{
-    margin-top:22px;
-}
-
-.auth-forms-v11-header{
-    display:flex;
-    justify-content:space-between;
-    align-items:flex-start;
-    gap:18px;
-    margin-bottom:18px;
-}
-
-.auth-forms-v11-header h3,
-.auth-forms-v11-editor-head h4,
-.auth-fields-v11-head h4,
-.auth-forms-v11-info-card h4{
-    margin:0;
-    color:#0f172a;
-}
-
-.auth-forms-v11-header p,
-.auth-forms-v11-editor-head p,
-.auth-fields-v11-head p,
-.auth-forms-v11-info-card p{
-    margin:5px 0 0;
-    color:#64748b;
-    line-height:1.55;
-}
-
-.auth-forms-v11-primary{
-    flex:0 0 auto;
-    border:0;
-    border-radius:10px;
-    padding:10px 15px;
-    background:#1d4ed8;
-    color:#fff;
-    font-weight:700;
-    cursor:pointer;
-}
-
-.auth-forms-v11-primary:hover{
-    background:#1e40af;
-}
-
-.auth-forms-v11-shell{
-    display:grid;
-    grid-template-columns:230px minmax(0,1fr);
-    gap:18px;
-}
-
-.auth-forms-v11-list,
-.auth-forms-v11-editor{
-    background:#fff;
-    border:1px solid #e2e8f0;
-    border-radius:14px;
-}
-
-.auth-forms-v11-list{
-    padding:10px;
-    align-self:start;
-}
-
-.auth-forms-v11-form-card{
-    width:100%;
-    border:1px solid transparent;
-    border-radius:10px;
-    padding:12px;
-    background:transparent;
-    text-align:left;
-    cursor:pointer;
-}
-
-.auth-forms-v11-form-card.is-active{
-    background:#eff6ff;
-    border-color:#bfdbfe;
-}
-
-.auth-forms-v11-form-title{
-    display:block;
-    color:#0f172a;
-    font-weight:800;
-}
-
-.auth-forms-v11-form-type{
-    display:block;
-    margin-top:3px;
-    color:#64748b;
-    font-size:12px;
-}
-
-.auth-forms-v11-default{
-    display:inline-flex;
-    margin-top:8px;
-    border-radius:999px;
-    padding:3px 7px;
-    background:#1d4ed8;
-    color:#fff;
-    font-size:10px;
-    font-weight:800;
-}
-
-.auth-forms-v11-list-help{
-    margin-top:10px;
-    padding:12px 5px 4px;
-    border-top:1px solid #eef2f7;
-    color:#94a3b8;
-    font-size:12px;
-    line-height:1.5;
-}
-
-.auth-forms-v11-editor{
-    min-width:0;
-    padding:18px;
-}
-
-.auth-forms-v11-editor-head{
-    display:flex;
-    justify-content:space-between;
-    align-items:flex-start;
-    gap:16px;
-}
-
-.auth-forms-v11-active{
-    display:inline-flex;
-    border-radius:999px;
-    padding:5px 9px;
-    background:#dcfce7;
-    color:#166534;
-    font-size:12px;
-    font-weight:800;
-}
-
-.auth-forms-v11-meta-grid{
-    display:grid;
-    grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:14px;
-    margin-top:18px;
-}
-
-.auth-forms-v11-control label,
-.auth-field-v11-control > label{
-    display:block;
-    margin-bottom:6px;
-    color:#334155;
-    font-size:13px;
-    font-weight:700;
-}
-
-.auth-forms-v11-control input,
-.auth-forms-v11-control select,
-.auth-field-v11-control input[type="text"],
-.auth-field-v11-control select{
-    width:100%;
-    box-sizing:border-box;
-    border:1px solid #cbd5e1;
-    border-radius:9px;
-    padding:10px 11px;
-    background:#fff;
-    color:#0f172a;
-}
-
-.auth-forms-v11-control input[readonly],
-.auth-forms-v11-control select:disabled,
-.auth-field-v11-control input[readonly]{
-    background:#f8fafc;
-    color:#64748b;
-}
-
-.auth-forms-v11-inner-tabs{
-    display:flex;
-    gap:6px;
-    margin-top:22px;
-    padding:5px;
-    border:1px solid #dbeafe;
-    border-radius:11px;
-    background:#eff6ff;
-    overflow-x:auto;
-}
-
-.auth-forms-v11-inner-tab{
-    flex:0 0 auto;
-    border:0;
-    border-radius:8px;
-    padding:9px 14px;
-    background:#60a5fa;
-    color:#fff;
-    font-weight:800;
-    cursor:pointer;
-}
-
-.auth-forms-v11-inner-tab:hover{
-    background:#3b82f6;
-}
-
-.auth-forms-v11-inner-tab.is-active{
-    background:#1d4ed8;
-    box-shadow:0 3px 8px rgba(29,78,216,.18);
-}
-
-.auth-forms-v11-panel{
-    display:none;
-    padding-top:20px;
-}
-
-.auth-forms-v11-panel.is-active{
-    display:block;
-}
-
-.auth-fields-v11-head{
-    display:flex;
-    justify-content:space-between;
-    align-items:flex-start;
-    gap:16px;
-    margin-bottom:14px;
-}
-
-.auth-fields-v11-list{
-    display:flex;
-    flex-direction:column;
-    gap:10px;
-}
-
-.auth-field-v11{
-    overflow:hidden;
-    border:1px solid #dbe3ee;
-    border-radius:12px;
-    background:#fff;
-    transition:
-        border-color .16s ease,
-        box-shadow .16s ease,
-        opacity .16s ease;
-}
-
-.auth-field-v11:hover{
-    border-color:#bfdbfe;
-}
-
-.auth-field-v11.is-dragging{
-    opacity:.55;
-    border-color:#60a5fa;
-}
-
-.auth-field-v11.is-drag-over{
-    border-color:#1d4ed8;
-    box-shadow:0 0 0 2px rgba(29,78,216,.08);
-}
-
-.auth-field-v11-summary{
-    display:flex;
-    align-items:center;
-    gap:12px;
-    min-height:60px;
-    padding:0 14px;
-    cursor:pointer;
-}
-
-.auth-field-v11-drag{
-    flex:0 0 auto;
-    border:0;
-    background:transparent;
-    padding:4px 5px;
-    color:#94a3b8;
-    font-size:20px;
-    font-weight:900;
-    letter-spacing:-4px;
-    cursor:grab;
-}
-
-.auth-field-v11-drag:active{
-    cursor:grabbing;
-}
-
-.auth-field-v11-summary-text{
-    flex:1;
-    min-width:0;
-}
-
-.auth-field-v11-summary-text strong{
-    display:block;
-    overflow:hidden;
-    color:#0f172a;
-    text-overflow:ellipsis;
-    white-space:nowrap;
-}
-
-.auth-field-v11-summary-text span{
-    display:block;
-    margin-top:2px;
-    color:#64748b;
-    font-size:12px;
-}
-
-.auth-field-v11-badges{
-    display:flex;
-    align-items:center;
-    gap:8px;
-}
-
-.auth-field-v11-protected,
-.auth-field-v11-required{
-    display:inline-flex;
-    border-radius:999px;
-    padding:4px 7px;
-    font-size:10px;
-    font-weight:800;
-}
-
-.auth-field-v11-protected{
-    background:#f1f5f9;
-    color:#475569;
-}
-
-.auth-field-v11-required{
-    background:#fef3c7;
-    color:#92400e;
-}
-
-.auth-field-v11-chevron{
-    border:0;
-    background:transparent;
-    padding:5px;
-    color:#64748b;
-    font-size:16px;
-    cursor:pointer;
-    transition:transform .16s ease;
-}
-
-.auth-field-v11.is-open
-.auth-field-v11-chevron{
-    transform:rotate(180deg);
-}
-
-.auth-field-v11-body{
-    display:none;
-    border-top:1px solid #edf2f7;
-    padding:16px;
-    background:#f8fafc;
-}
-
-.auth-field-v11.is-open
-.auth-field-v11-body{
-    display:block;
-}
-
-.auth-field-v11-grid{
-    display:grid;
-    grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:14px;
-}
-
-.auth-field-v11-switch{
-    position:relative;
-    display:inline-flex !important;
-    width:42px;
-    height:24px;
-    margin:2px 0 0 !important;
-}
-
-.auth-field-v11-switch
-input[type="checkbox"]{
-    position:absolute;
-    opacity:0;
-    pointer-events:none;
-}
-
-.auth-field-v11-switch span{
-    position:absolute;
-    inset:0;
-    border-radius:999px;
-    background:#cbd5e1;
-    cursor:pointer;
-    transition:.18s ease;
-}
-
-.auth-field-v11-switch span:before{
-    content:"";
-    position:absolute;
-    width:18px;
-    height:18px;
-    top:3px;
-    left:3px;
-    border-radius:50%;
-    background:#fff;
-    transition:.18s ease;
-}
-
-.auth-field-v11-switch
-input[type="checkbox"]:checked + span{
-    background:#1d4ed8;
-}
-
-.auth-field-v11-switch
-input[type="checkbox"]:checked + span:before{
-    transform:translateX(18px);
-}
-
-.auth-field-v11-readonly-state{
-    display:inline-flex;
-    border-radius:999px;
-    padding:5px 8px;
-    background:#f1f5f9;
-    color:#475569;
-    font-size:12px;
-    font-weight:700;
-}
-
-.auth-field-v11-footer{
-    display:flex;
-    justify-content:flex-end;
-    margin-top:14px;
-}
-
-.auth-field-v11-remove{
-    border:1px solid #fecaca;
-    border-radius:8px;
-    padding:8px 11px;
-    background:#fff;
-    color:#b91c1c;
-    font-weight:700;
-    cursor:pointer;
-}
-
-.auth-field-v11-remove:hover{
-    background:#fef2f2;
-}
-
-.auth-forms-v11-info-card{
-    border:1px solid #e2e8f0;
-    border-radius:12px;
-    padding:18px;
-    background:#f8fafc;
-}
-
-.auth-forms-v11-info-row{
-    display:flex;
-    justify-content:space-between;
-    align-items:flex-start;
-    gap:20px;
-    margin-top:14px;
-    padding-top:14px;
-    border-top:1px solid #e2e8f0;
-    color:#475569;
-}
-
-.auth-forms-v11-info-row strong{
-    max-width:55%;
-    color:#0f172a;
-    text-align:right;
-}
-
-@media(max-width:900px){
-
-    .auth-forms-v11-shell{
-        grid-template-columns:1fr;
-    }
-
-    .auth-forms-v11-list{
-        display:flex;
-        gap:8px;
-        overflow-x:auto;
-    }
-
-    .auth-forms-v11-form-card{
-        min-width:190px;
-    }
-
-    .auth-forms-v11-list-help{
-        display:none;
-    }
-}
-
-@media(max-width:640px){
-
-    .auth-forms-v11-header,
-    .auth-forms-v11-editor-head,
-    .auth-fields-v11-head{
-        flex-direction:column;
-    }
-
-    .auth-forms-v11-primary{
-        width:100%;
-    }
-
-    .auth-forms-v11-meta-grid,
-    .auth-field-v11-grid{
-        grid-template-columns:1fr;
-    }
-
-    .auth-forms-v11-info-row{
-        flex-direction:column;
-        gap:5px;
-    }
-
-    .auth-forms-v11-info-row strong{
-        max-width:none;
-        text-align:left;
-    }
-}
-</style>
-
-</div>
-
-<script>
-document.addEventListener(
-    'DOMContentLoaded',
-    function () {
-
-        const root =
-            document.querySelector(
-                '[data-auth-forms-v11]'
-            );
-
-        if (!root) {
-            return;
-        }
-
-
-        function cards() {
-            return Array.from(
-                root.querySelectorAll(
-                    '[data-auth-field-v11]'
-                )
-            );
-        }
-
-
-        function reindexFields() {
-
-            cards().forEach(
-                function (card, index) {
-
-                    card.querySelectorAll(
-                        '[data-auth-field-name-v11]'
-                    ).forEach(
-                        function (input) {
-
-                            const key =
-                                input.getAttribute(
-                                    'data-auth-field-name-v11'
-                                );
-
-                            input.name =
-                                'legacy_registration_fields['
-                                + index
-                                + ']['
-                                + key
-                                + ']';
-                        }
-                    );
-
-                    card.querySelectorAll(
-                        '[data-auth-field-checkbox-v11]'
-                    ).forEach(
-                        function (input) {
-
-                            const key =
-                                input.getAttribute(
-                                    'data-auth-field-checkbox-v11'
-                                );
-
-                            input.name =
-                                'legacy_registration_fields['
-                                + index
-                                + ']['
-                                + key
-                                + ']';
-                        }
-                    );
-                }
-            );
-        }
-
-
-        function refreshSummary(card) {
-
-            const labelInput =
-                card.querySelector(
-                    '[data-auth-field-label-input-v11]'
-                );
-
-            const typeInput =
-                card.querySelector(
-                    '[data-auth-field-type-input-v11]'
-                );
-
-            const labelSummary =
-                card.querySelector(
-                    '[data-auth-field-summary-label-v11]'
-                );
-
-            const typeSummary =
-                card.querySelector(
-                    '[data-auth-field-summary-type-v11]'
-                );
-
-            if (
-                labelInput
-                && labelSummary
-            ) {
-                labelSummary.textContent =
-                    labelInput.value.trim()
-                    || 'New Field';
-            }
-
-            if (
-                typeInput
-                && typeSummary
-            ) {
-                const selected =
-                    typeInput.options[
-                        typeInput.selectedIndex
-                    ];
-
-                typeSummary.textContent =
-                    selected
-                    ? selected.textContent
-                    : 'Text';
-            }
-        }
-
-
-        root.addEventListener(
-            'click',
-            function (event) {
-
-                const tab =
-                    event.target.closest(
-                        '[data-auth-form-tab-v11]'
-                    );
-
-                if (tab) {
-
-                    const target =
-                        tab.getAttribute(
-                            'data-auth-form-tab-v11'
-                        );
-
-                    root.querySelectorAll(
-                        '[data-auth-form-tab-v11]'
-                    ).forEach(
-                        function (item) {
-                            item.classList.toggle(
-                                'is-active',
-                                item === tab
-                            );
-                        }
-                    );
-
-                    root.querySelectorAll(
-                        '[data-auth-form-panel-v11]'
-                    ).forEach(
-                        function (panel) {
-                            panel.classList.toggle(
-                                'is-active',
-                                panel.getAttribute(
-                                    'data-auth-form-panel-v11'
-                                ) === target
-                            );
-                        }
-                    );
-
-                    return;
-                }
-
-
-                const dragHandle =
-                    event.target.closest(
-                        '[data-auth-field-drag-v11]'
-                    );
-
-                if (dragHandle) {
-                    event.stopPropagation();
-                    return;
-                }
-
-
-                const toggle =
-                    event.target.closest(
-                        '[data-auth-field-toggle-v11]'
-                    );
-
-                if (toggle) {
-
-                    const card =
-                        toggle.closest(
-                            '[data-auth-field-v11]'
-                        );
-
-                    if (card) {
-                        card.classList.toggle(
-                            'is-open'
-                        );
-                    }
-
-                    return;
-                }
-
-
-                const remove =
-                    event.target.closest(
-                        '[data-auth-field-remove-v11]'
-                    );
-
-                if (remove) {
-
-                    const card =
-                        remove.closest(
-                            '[data-auth-field-v11]'
-                        );
-
-                    if (card) {
-                        card.remove();
-                        reindexFields();
-                    }
-
-                    return;
-                }
-
-
-                const add =
-                    event.target.closest(
-                        '[data-auth-field-add-v11]'
-                    );
-
-                if (add) {
-
-                    const template =
-                        root.querySelector(
-                            '[data-auth-field-template-v11]'
-                        );
-
-                    const list =
-                        root.querySelector(
-                            '[data-auth-fields-list-v11]'
-                        );
-
-                    if (
-                        !template
-                        || !list
-                    ) {
-                        return;
-                    }
-
-                    const card =
-                        template.content
-                            .firstElementChild
-                            .cloneNode(true);
-
-                    list.appendChild(card);
-
-                    reindexFields();
-
-                    return;
-                }
-
-
-                const createForm =
-                    event.target.closest(
-                        '[data-auth-form-create-v11]'
-                    );
-
-                if (createForm) {
-
-                    /*
-                     * UI foundation only.
-                     * Persistence will use TenantAuthFormService.
-                     * Deliberately no fake local-only form creation.
-                     */
-                    return;
-                }
-            }
-        );
-
-
-        root.addEventListener(
-            'input',
-            function (event) {
-
-                const card =
-                    event.target.closest(
-                        '[data-auth-field-v11]'
-                    );
-
-                if (card) {
-                    refreshSummary(card);
-                }
-            }
-        );
-
-
-        root.addEventListener(
-            'change',
-            function (event) {
-
-                const card =
-                    event.target.closest(
-                        '[data-auth-field-v11]'
-                    );
-
-                if (card) {
-                    refreshSummary(card);
-                }
-            }
-        );
-
-
-        let dragging = null;
-
-
-        root.addEventListener(
-            'dragstart',
-            function (event) {
-
-                const card =
-                    event.target.closest(
-                        '[data-auth-field-v11]'
-                    );
-
-                if (!card) {
-                    return;
-                }
-
-                dragging = card;
-
-                card.classList.add(
-                    'is-dragging'
-                );
-
-                if (event.dataTransfer) {
-                    event.dataTransfer.effectAllowed =
-                        'move';
-                }
-            }
-        );
-
-
-        root.addEventListener(
-            'dragover',
-            function (event) {
-
-                if (!dragging) {
-                    return;
-                }
-
-                const target =
-                    event.target.closest(
-                        '[data-auth-field-v11]'
-                    );
-
-                if (
-                    !target
-                    || target === dragging
-                ) {
-                    return;
-                }
-
-                event.preventDefault();
-
-                cards().forEach(
-                    function (card) {
-                        card.classList.remove(
-                            'is-drag-over'
-                        );
-                    }
-                );
-
-                target.classList.add(
-                    'is-drag-over'
-                );
-
-                const rect =
-                    target.getBoundingClientRect();
-
-                const insertAfter =
-                    event.clientY
-                    > rect.top
-                    + rect.height / 2;
-
-                target.parentNode.insertBefore(
-                    dragging,
-                    insertAfter
-                        ? target.nextSibling
-                        : target
-                );
-            }
-        );
-
-
-        root.addEventListener(
-            'dragend',
-            function () {
-
-                cards().forEach(
-                    function (card) {
-                        card.classList.remove(
-                            'is-dragging',
-                            'is-drag-over'
-                        );
-                    }
-                );
-
-                dragging = null;
-
-                reindexFields();
-            }
-        );
-
-
-        reindexFields();
-    }
-);
-</script>
 
 
 <template data-v10-registration-field-template>

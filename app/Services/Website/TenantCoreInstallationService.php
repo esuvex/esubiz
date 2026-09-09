@@ -66,6 +66,36 @@ class TenantCoreInstallationService
     }
 
     /**
+     * Apply pending Core schema migrations to an existing SaaS website.
+     *
+     * This intentionally does NOT run the Core seeder or initializer.
+     * Existing tenant content, configuration, themes and layouts remain
+     * untouched while the Core database schema is upgraded.
+     */
+    public function migrateExisting(Website $website): void
+    {
+        $connection = $website->databaseConnection;
+
+        if (!$connection) {
+            throw new RuntimeException(
+                'Cannot migrate Core: no tenant database connection exists.'
+            );
+        }
+
+        $this->tenantDatabaseService->connect($website);
+
+        try {
+            $this->createMigrationTable();
+
+            $this->runTenantCoreMigrations(
+                $website
+            );
+        } finally {
+            $this->tenantDatabaseService->disconnect();
+        }
+    }
+
+    /**
      * Create the tenant migration repository.
      */
     protected function createMigrationTable(): void

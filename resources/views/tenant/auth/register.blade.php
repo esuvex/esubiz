@@ -1080,6 +1080,87 @@ form .error{
         >
     </div>
 
+
+    {{-- ESUBIZ_PUBLIC_COUNTRY_PHONE_V81 --}}
+    @php
+        $publicCountryV81 =
+            strtoupper(
+                trim(
+                    (string) old(
+                        'country_code',
+                        $website->default_country_code
+                            ?? 'NG'
+                    )
+                )
+            );
+
+        if ($publicCountryV81 === '') {
+            $publicCountryV81 = 'NG';
+        }
+
+        $publicPhoneV81 =
+            (string) old('phone', '');
+
+        $allowedCountriesV81 =
+            $website->allowed_country_codes
+                ?? ['ALL'];
+
+        if (is_string($allowedCountriesV81)) {
+            $decodedAllowedV81 =
+                json_decode(
+                    $allowedCountriesV81,
+                    true
+                );
+
+            $allowedCountriesV81 =
+                is_array($decodedAllowedV81)
+                    ? $decodedAllowedV81
+                    : ['ALL'];
+        }
+
+        if (
+            !is_array($allowedCountriesV81)
+            || empty($allowedCountriesV81)
+        ) {
+            $allowedCountriesV81 = ['ALL'];
+        }
+    @endphp
+
+    <x-core.country-phone
+        country-field="country_code"
+        phone-field="phone"
+        :selected-country="$publicCountryV81"
+        :phone-value="$publicPhoneV81"
+        :allowed-countries="$allowedCountriesV81"
+        layout="two-column"
+    />
+
+    @error('country_code')
+        <div
+            style="
+                margin-top:-10px;
+                margin-bottom:14px;
+                color:#dc2626;
+                font-size:12px;
+            "
+        >
+            {{ $message }}
+        </div>
+    @enderror
+
+    @error('phone')
+        <div
+            style="
+                margin-top:-10px;
+                margin-bottom:14px;
+                color:#dc2626;
+                font-size:12px;
+            "
+        >
+            {{ $message }}
+        </div>
+    @enderror
+
     <div class="field">
         <label for="password">
             Password
@@ -1224,6 +1305,17 @@ form .error{
                 && $fieldEnabled
                 && $fieldKey !== ''
                 && $fieldLabel !== ''
+                && !in_array(
+                    $fieldKey,
+                    [
+                        'country_code',
+                        'phone',
+                        'password',
+                        'password_confirmation',
+                        'confirm_password',
+                    ],
+                    true
+                )
             )
 
                 <div class="field">

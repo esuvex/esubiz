@@ -1,0 +1,6678 @@
+<?php
+
+namespace App\Http\Controllers;
+
+
+
+use App\Services\Website\TenantAuthFormService;
+use App\Models\Website;
+use App\Models\WebsiteTenant;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use App\Services\Sso\SsoService;
+use Illuminate\Support\Str;
+
+class TenantCmsController extends Controller
+{
+    /**
+     * Get the current website from the active tenant.
+     */
+    protected function currentWebsite(): Website
+    {
+        $tenant = WebsiteTenant::current();
+
+        abort_unless(
+            $tenant,
+            404,
+            'Website tenant not found.'
+        );
+
+        return Website::query()
+            ->where('id', $tenant->website_id)
+            ->where('status', 'active')
+            ->where('user_enabled', true)
+            ->firstOrFail();
+    }
+
+
+    /**
+     * Tenant CMS entry point.
+     *
+     * Future:
+     * - Local website administrator login
+     * - Esubiz SSO login
+     *
+     * For the current development stage this takes the
+     * authenticated website owner into the CMS dashboard.
+     */
+    public function admin(
+        Request $request,
+        SsoService $sso
+    ) {
+
+        /*
+         * WEBSITE-DASHBOARD-DIRECT-SSO
+         *
+         * Accept the short-lived owner handoff generated from
+         * Esubiz -> User Mode -> My Websites.
+         */
+        if ($request->boolean('sso')) {
+
+            $websiteId = (int) $request->query('website');
+            $userId = (int) $request->query('user');
+            $expires = (int) $request->query('expires');
+            $signature = (string) $request->query('signature');
+
+            /*
+             * ESUBIZ_CENTRAL_ADMIN_TENANT_SUPPORT_LOGIN_V1
+             *
+             * Empty access preserves the original website-owner SSO
+             * signature format. admin_support uses a separate signed
+             * payload and authorization path.
+             */
+            $access = (string) $request->query('access', '');
+
+            abort_if(
+                !$websiteId
+                || !$userId
+                || !$expires
+                || !$signature,
+                403,
+                'Invalid website SSO request.'
+            );
+
+            abort_if(
+                $expires < now()->timestamp,
+                403,
+                'Website SSO request has expired.'
+            );
+
+            $payload = $access === 'admin_support'
+                ? implode('|', [
+                    $websiteId,
+                    $userId,
+                    $expires,
+                    $access,
+                ])
+                : implode('|', [
+                    $websiteId,
+                    $userId,
+                    $expires,
+                ]);
+
+            $expected = hash_hmac(
+                'sha256',
+                $payload,
+                config('app.key')
+            );
+
+            abort_unless(
+                hash_equals($expected, $signature),
+                403,
+                'Invalid website SSO signature.'
+            );
+
+            /*
+             * Verify the requested website against the current
+             * tenant host before creating the CMS session.
+             */
+            $host = strtolower($request->getHost());
+
+            $subdomain = explode('.', $host)[0] ?? null;
+
+            $websiteQuery = \App\Models\Website::query()
+                ->where('id', $websiteId)
+                ->where('subdomain', $subdomain)
+                ->where('status', 'active');
+
+            if ($access === 'admin_support') {
+                /*
+                 * The central route itself is protected by Admin Mode
+                 * and central permissions. The HMAC proves this request
+                 * originated from Esubiz Central.
+                 *
+                 * Support access is intentionally allowed even when the
+                 * owner has disabled the public website so Central Admin
+                 * can troubleshoot it.
+                 */
+                $website = $websiteQuery->first();
+            } else {
+                $website = $websiteQuery
+                    ->where('owner_id', $userId)
+                    ->where('user_enabled', true)
+                    ->first();
+            }
+
+            abort_unless(
+                $website,
+                403,
+                'Website SSO authorization failed.'
+            );
+
+            /*
+             * ESUBIZ_MULTI_SITE_TENANT_SESSION_WRITE_V1
+             *
+             * Authentication is persisted independently for each website.
+             * Legacy keys remain temporarily for compatibility.
+             */
+            $authMethod =
+                $access === 'admin_support'
+                    ? 'esubiz_admin_support'
+                    : 'esubiz_sso';
+
+            $supportAccess =
+                $access === 'admin_support';
+
+            session([
+                'tenant_cms_authenticated' => true,
+                'tenant_cms_user_id' => $userId,
+                'tenant_cms_website_id' => $websiteId,
+                'tenant_cms_auth_method' => $authMethod,
+                'tenant_cms_support_access' => $supportAccess,
+
+                "tenant_cms_sites.{$websiteId}.authenticated" => true,
+                "tenant_cms_sites.{$websiteId}.user_id" => $userId,
+                "tenant_cms_sites.{$websiteId}.auth_method" => $authMethod,
+                "tenant_cms_sites.{$websiteId}.support_access" => $supportAccess,
+            ]);
+
+            $request->session()->regenerate();
+
+            return redirect('/admin/dashboard');
+        }
+
+
+        $website = $this->currentWebsite();
+
+        /*
+         * Already authenticated specifically for this website.
+         */
+        if (
+            session()->get(
+                "tenant_cms_sites.{$website->id}.authenticated"
+            ) === true
+            || (
+                session()->get('tenant_cms_authenticated') === true
+                && (int) session()->get('tenant_cms_website_id')
+                    === (int) $website->id
+            )
+        ) {
+            return redirect()->route(
+                'tenant.cms.dashboard',
+                [
+                    'subdomain' => $website->subdomain,
+                ]
+            );
+        }
+
+        /*
+         * Every website provisioned by Esubiz may have its own
+         * central SSO application registration.
+         */
+        $application = $sso->findWebsiteApplication(
+            (int) $website->id
+        );
+
+        $ssoUrl = null;
+
+        if ($application) {
+
+            $redirectUri =
+                'https://'
+                . $website->subdomain
+                . '.esubiz.com/sso/callback';
+
+            /*
+             * State protects the tenant login request and lets us
+             * return specifically to the CMS after authorization.
+             */
+            $state = Str::random(48);
+
+            session([
+                'tenant_cms_sso_state' =>
+                    $state,
+
+                'tenant_cms_sso_website_id' =>
+                    (int) $website->id,
+
+                'tenant_cms_sso_destination' =>
+                    '/admin/dashboard',
+            ]);
+
+            $ssoUrl =
+                'https://esubiz.com/oauth/authorize?'
+                . http_build_query([
+                    'client_id' =>
+                        $application->client_id,
+
+                    'redirect_uri' =>
+                        $redirectUri,
+
+                    'state' =>
+                        $state,
+                ]);
+        }
+
+        return view(
+            'tenant.admin.login',
+            compact(
+                'website',
+                'ssoUrl'
+            )
+        );
+    }
+
+
+    /**
+     * Core CMS dashboard.
+     */
+
+    public function dashboard()
+    {
+
+        
+        /*
+         * ESUBIZ_REAL_REGISTRATION_ROLE_VERIFICATION_V13
+         */
+        $registrationRoles =
+            \App\Models\Role::query()
+                ->orderBy('name')
+                ->get()
+                ->map(
+                    function ($role) {
+                        return [
+                            'value' =>
+                                (string) (
+                                    $role->slug
+                                    ?? $role->id
+                                ),
+                            'label' =>
+                                (string) (
+                                    $role->name
+                                    ?? $role->title
+                                    ?? $role->slug
+                                    ?? $role->id
+                                ),
+                        ];
+                    }
+                )
+                ->values()
+                ->all();
+
+/*
+         * ESUBIZ_MULTI_AUTH_FORMS_ADMIN_READ_V12
+         *
+         * Compatibility-safe Auth Forms registry.
+         *
+         * Existing authConfig remains authoritative for the current
+         * Default UI while the multi-form manager is introduced.
+         */
+        $authFormService =
+            app(TenantAuthFormService::class);
+
+        $authForms =
+            $authFormService->all();
+
+
+        $website = $this->currentWebsite();
+
+        /*
+         * ESUBIZ_MULTI_SITE_TENANT_SESSION_V1
+         *
+         * Authentication is scoped per website. One owner can therefore
+         * remain authenticated to multiple tenant websites simultaneously
+         * in the same browser without one website replacing another.
+         *
+         * The legacy single-website session is accepted once and promoted
+         * into the new per-website authentication map for compatibility
+         * with the existing SSO/direct-login flow.
+         */
+        $websiteId = (int) $website->id;
+
+        $tenantAuthenticated =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.authenticated"
+            ) === true;
+
+        if (
+            !$tenantAuthenticated
+            && session()->get('tenant_cms_authenticated') === true
+            && (int) session()->get('tenant_cms_website_id') === $websiteId
+        ) {
+            session()->put(
+                "tenant_cms_sites.{$websiteId}.authenticated",
+                true
+            );
+
+            if (session()->has('tenant_cms_user_id')) {
+                session()->put(
+                    "tenant_cms_sites.{$websiteId}.user_id",
+                    (int) session()->get('tenant_cms_user_id')
+                );
+            }
+
+            $tenantAuthenticated = true;
+        }
+
+        if (!$tenantAuthenticated) {
+            /*
+             * ESUBIZ_CORE_REMEMBER_LOGIN_RESTORE_V37
+             *
+             * Restore authentication only for this Core website.
+             */
+            $rememberCookieName =
+                'core_remember_' . $websiteId;
+
+            $rememberValue =
+                request()->cookie(
+                    $rememberCookieName
+                );
+
+            if (
+                is_string($rememberValue)
+                && strpos(
+                    $rememberValue,
+                    ':'
+                ) !== false
+            ) {
+                [$rememberSelector, $rememberPlainToken] =
+                    array_pad(
+                        explode(
+                            ':',
+                            $rememberValue,
+                            2
+                        ),
+                        2,
+                        null
+                    );
+
+                if (
+                    is_string($rememberSelector)
+                    && $rememberSelector !== ''
+                    && is_string($rememberPlainToken)
+                    && $rememberPlainToken !== ''
+                ) {
+                    $rememberTenantService = app(
+                        \App\Services\Website\WebsiteTenantDatabaseService::class
+                    );
+
+                    $rememberTenantService
+                        ->connect($website);
+
+                    $rememberDb =
+                        $rememberTenantService
+                            ->connection();
+
+                    $rememberUser =
+                        $rememberDb
+                            ->table('site_users')
+                            ->where(
+                                'is_active',
+                                true
+                            )
+                            ->where(
+                                'remember_token',
+                                'like',
+                                $rememberSelector . ':%'
+                            )
+                            ->first();
+
+                    if (
+                        $rememberUser
+                        && is_string(
+                            $rememberUser
+                                ->remember_token
+                        )
+                    ) {
+                        $storedParts = explode(
+                            ':',
+                            $rememberUser
+                                ->remember_token,
+                            2
+                        );
+
+                        $storedHash =
+                            $storedParts[1]
+                            ?? '';
+
+                        $incomingHash =
+                            hash(
+                                'sha256',
+                                $rememberPlainToken
+                            );
+
+                        if (
+                            $storedHash !== ''
+                            && hash_equals(
+                                $storedHash,
+                                $incomingHash
+                            )
+                        ) {
+                            session()->put(
+                                "tenant_cms_sites.{$websiteId}.authenticated",
+                                true
+                            );
+
+                            session()->put(
+                                "tenant_cms_sites.{$websiteId}.user_id",
+                                (int) $rememberUser->id
+                            );
+
+                            session()->put(
+                                "tenant_cms_sites.{$websiteId}.auth_method",
+                                'local_remember'
+                            );
+
+                            session()->put(
+                                "tenant_cms_sites.{$websiteId}.support_access",
+                                false
+                            );
+
+                            /*
+                             * Keep compatibility with existing
+                             * Core session consumers.
+                             */
+                            session()->put(
+                                'tenant_cms_authenticated',
+                                true
+                            );
+
+                            session()->put(
+                                'tenant_cms_user_id',
+                                (int) $rememberUser->id
+                            );
+
+                            session()->put(
+                                'tenant_cms_website_id',
+                                $websiteId
+                            );
+
+                            session()->put(
+                                'tenant_cms_auth_method',
+                                'local_remember'
+                            );
+
+                            session()->put(
+                                'tenant_cms_support_access',
+                                false
+                            );
+
+                            session()->regenerate();
+
+                            $tenantAuthenticated = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!$tenantAuthenticated) {
+            session()->put(
+                'url.intended',
+                request()->fullUrl()
+            );
+
+            return redirect()->to('/login');
+        }
+
+        $db = DB::connection('tenant');
+
+        $settings = $db->table('site_settings')
+            ->pluck('value', 'key')
+            ->all();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Safe Tenant Table Helpers
+        |--------------------------------------------------------------------------
+        |
+        | Core and installed modules do not all have the same tables.
+        | Dashboard cards therefore appear only when the relevant
+        | resource exists in this tenant database.
+        |
+        */
+
+        $schema = \Illuminate\Support\Facades\Schema::connection(
+            'tenant'
+        );
+
+        $countTable = function (
+            array $tables
+        ) use (
+            $db,
+            $schema
+        ): ?int {
+
+            foreach ($tables as $table) {
+
+                if ($schema->hasTable($table)) {
+                    return (int) $db
+                        ->table($table)
+                        ->count();
+                }
+            }
+
+            return null;
+        };
+
+
+        $sumTable = function (
+            array $tables,
+            array $amountColumns
+        ) use (
+            $db,
+            $schema
+        ): ?float {
+
+            foreach ($tables as $table) {
+
+                if (!$schema->hasTable($table)) {
+                    continue;
+                }
+
+                foreach ($amountColumns as $column) {
+
+                    if (
+                        $schema->hasColumn(
+                            $table,
+                            $column
+                        )
+                    ) {
+                        return (float) $db
+                            ->table($table)
+                            ->sum($column);
+                    }
+                }
+            }
+
+            return null;
+        };
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Module / Core Statistics
+        |--------------------------------------------------------------------------
+        */
+
+        /*
+         * ESUBIZ_TENANT_DASHBOARD_RESOURCE_METERS_V1
+         *
+         * Website-specific resource usage.
+         * Additional quota-based resources can be added to this
+         * same resource-card structure later.
+         */
+        $resourceUsage =
+            app(
+                \App\Services\Website\WebsiteResourceUsageService::class
+            )->summary(
+                $website
+            );
+
+        $dashboardStats = [];
+
+
+        $orders = $countTable([
+            'orders',
+            'ecommerce_orders',
+            'store_orders',
+        ]);
+
+        if ($orders !== null) {
+            $dashboardStats[] = [
+                'label' => 'Orders',
+                'value' => number_format($orders),
+                'icon' => 'orders',
+            ];
+        }
+
+
+        $sales = $sumTable(
+            [
+                'orders',
+                'ecommerce_orders',
+                'store_orders',
+                'sales',
+            ],
+            [
+                'total_amount',
+                'grand_total',
+                'total',
+                'amount',
+            ]
+        );
+
+        if ($sales !== null) {
+            $dashboardStats[] = [
+                'label' => 'Sales',
+                'value' =>
+                    ($settings['currency'] ?? 'NGN')
+                    . ' '
+                    . number_format(
+                        $sales,
+                        2
+                    ),
+                'icon' => 'sales',
+            ];
+        }
+
+
+        $products = $countTable([
+            'products',
+            'ecommerce_products',
+            'store_products',
+        ]);
+
+        if ($products !== null) {
+            $dashboardStats[] = [
+                'label' => 'Products',
+                'value' => number_format($products),
+                'icon' => 'products',
+            ];
+        }
+
+
+        /*
+         * Storage replaces the former Clients overview card.
+         */
+        $storageUsage =
+            $resourceUsage['storage'];
+
+        $dashboardStats[] = [
+            'label' => 'Storage',
+            'value' =>
+                $storageUsage['used_mb'] >= 1024
+                    ? number_format(
+                        $storageUsage['used_gb'],
+                        2
+                    ) . ' GB'
+                    : number_format(
+                        $storageUsage['used_mb'],
+                        2
+                    ) . ' MB',
+            'icon' => 'storage',
+            'resource' => true,
+            'percentage' =>
+                $storageUsage['percentage'],
+            'resource_detail' =>
+                'of '
+                . number_format(
+                    $storageUsage['limit_gb'],
+                    2
+                )
+                . ' GB',
+        ];
+
+
+        /*
+         * Bandwidth replaces the former Staff overview card.
+         *
+         * Real transfer accounting is added separately; until then
+         * this card exposes the website allocation without inventing
+         * usage data.
+         */
+        $bandwidthUsage =
+            $resourceUsage['bandwidth'];
+
+        $bandwidthLimitMb =
+            (int) $bandwidthUsage['limit_mb'];
+
+        /*
+         * ESUBIZ_BANDWIDTH_DASHBOARD_THRESHOLD_STATE_V1
+         *
+         * Add-on recommendation is advisory only. Esubiz Admin will
+         * later configure the actual trigger Add-on attached to this
+         * resource/threshold.
+         */
+        $bandwidthPercentage =
+            (float) $bandwidthUsage['percentage'];
+
+        $bandwidthStatus =
+            $bandwidthPercentage >= 90
+                ? 'critical'
+                : (
+                    $bandwidthPercentage >= 80
+                        ? 'warning'
+                        : 'normal'
+                );
+
+        $dashboardStats[] = [
+            'label' => 'Bandwidth',
+            'value' =>
+                !empty($bandwidthUsage['tracking'])
+                    ? number_format(
+                        min(
+                            (float) $bandwidthUsage['used_mb'],
+                            (float) $bandwidthLimitMb
+                        ) / 1024,
+                        2
+                    ) . ' GB'
+                    : 'Not tracked yet',
+            'icon' => 'bandwidth',
+            'resource' => true,
+            'percentage' =>
+                $bandwidthPercentage,
+            'resource_status' =>
+                $bandwidthStatus,
+            'resource_detail' =>
+                'of '
+                . number_format(
+                    $bandwidthLimitMb / 1024,
+                    2
+                )
+                . ' GB monthly',
+            'resource_warning' =>
+                $bandwidthPercentage >= 100
+                    ? 'Your monthly bandwidth is exhausted. Increase your limit with a Bandwidth Add-on.'
+                    : (
+                        $bandwidthPercentage >= 90
+                            ? 'Your bandwidth is almost exhausted. Consider increasing your limit with a Bandwidth Add-on.'
+                            : (
+                                $bandwidthPercentage >= 80
+                                    ? 'You are approaching your monthly bandwidth limit.'
+                                    : null
+                            )
+                    ),
+        ];
+
+
+        $tickets = $countTable([
+            'tickets',
+            'support_tickets',
+        ]);
+
+        if ($tickets !== null) {
+            $dashboardStats[] = [
+                'label' => 'Tickets',
+                'value' => number_format($tickets),
+                'icon' => 'tickets',
+            ];
+        }
+
+
+        $bookings = $countTable([
+            'bookings',
+            'hotel_bookings',
+            'reservations',
+        ]);
+
+        if ($bookings !== null) {
+            $dashboardStats[] = [
+                'label' => 'Bookings',
+                'value' => number_format($bookings),
+                'icon' => 'bookings',
+            ];
+        }
+
+
+        /*
+         * Always keep useful Core stats visible even before
+         * a specialized module has been installed.
+         */
+        if (empty($dashboardStats)) {
+
+            $pages = $countTable([
+                'pages',
+            ]) ?? 0;
+
+            $users = $countTable([
+                'site_users',
+            ]) ?? 0;
+
+            $dashboardStats = [
+                [
+                    'label' => 'Pages',
+                    'value' => number_format($pages),
+                    'icon' => 'pages',
+                ],
+                [
+                    'label' => 'Users',
+                    'value' => number_format($users),
+                    'icon' => 'users',
+                ],
+            ];
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Income / Expense Chart
+        |--------------------------------------------------------------------------
+        |
+        | Financial Tracker tables will feed this automatically
+        | when compatible income/expense tables exist.
+        |
+        */
+
+        $chartLabels = [];
+        $chartIncome = [];
+        $chartExpenses = [];
+
+        for ($i = 6; $i >= 0; $i--) {
+
+            $day = now()
+                ->copy()
+                ->subDays($i);
+
+            $chartLabels[] =
+                $day->format('D');
+
+            $chartIncome[] = 0;
+            $chartExpenses[] = 0;
+        }
+
+
+        /*
+         * Try common Core/module financial tables without
+         * assuming that every website has them.
+         */
+        $financialTables = [
+            'financial_transactions',
+            'finance_transactions',
+            'transactions',
+        ];
+
+        foreach ($financialTables as $table) {
+
+            if (!$schema->hasTable($table)) {
+                continue;
+            }
+
+            $dateColumn = null;
+
+            foreach (
+                [
+                    'created_at',
+                    'occurred_at',
+                    'transaction_date',
+                    'date',
+                ] as $candidate
+            ) {
+                if (
+                    $schema->hasColumn(
+                        $table,
+                        $candidate
+                    )
+                ) {
+                    $dateColumn = $candidate;
+                    break;
+                }
+            }
+
+            $amountColumn = null;
+
+            foreach (
+                [
+                    'amount',
+                    'total',
+                    'total_amount',
+                ] as $candidate
+            ) {
+                if (
+                    $schema->hasColumn(
+                        $table,
+                        $candidate
+                    )
+                ) {
+                    $amountColumn = $candidate;
+                    break;
+                }
+            }
+
+            $typeColumn = null;
+
+            foreach (
+                [
+                    'type',
+                    'transaction_type',
+                    'entry_type',
+                ] as $candidate
+            ) {
+                if (
+                    $schema->hasColumn(
+                        $table,
+                        $candidate
+                    )
+                ) {
+                    $typeColumn = $candidate;
+                    break;
+                }
+            }
+
+            if (
+                !$dateColumn
+                || !$amountColumn
+                || !$typeColumn
+            ) {
+                continue;
+            }
+
+
+            for ($i = 6; $i >= 0; $i--) {
+
+                $day = now()
+                    ->copy()
+                    ->subDays($i);
+
+                $index = 6 - $i;
+
+                $rows = $db
+                    ->table($table)
+                    ->whereDate(
+                        $dateColumn,
+                        $day->toDateString()
+                    )
+                    ->get([
+                        $amountColumn,
+                        $typeColumn,
+                    ]);
+
+                foreach ($rows as $row) {
+
+                    $type = strtolower(
+                        (string) $row->{$typeColumn}
+                    );
+
+                    $amount = (float)
+                        $row->{$amountColumn};
+
+                    if (
+                        in_array(
+                            $type,
+                            [
+                                'income',
+                                'credit',
+                                'sale',
+                                'revenue',
+                            ],
+                            true
+                        )
+                    ) {
+                        $chartIncome[$index] +=
+                            $amount;
+                    }
+
+                    if (
+                        in_array(
+                            $type,
+                            [
+                                'expense',
+                                'debit',
+                                'cost',
+                            ],
+                            true
+                        )
+                    ) {
+                        $chartExpenses[$index] +=
+                            $amount;
+                    }
+                }
+            }
+
+            break;
+        }
+
+
+        
+        view()->share(
+            'authForms',
+            $authForms
+        );
+
+        view()->share(
+            'registrationRoles',
+            $registrationRoles
+        );
+
+
+/*
+ * ESUBIZ_CORE_ROLE_AWARE_DASHBOARD_V1
+ *
+ * The existing dashboard below remains the full
+ * Administrator dashboard.
+ */
+$corePermissions = app(
+    \App\Services\Core\CorePermissionService::class
+);
+
+$coreUserId = $corePermissions->userId();
+$coreRoles = $corePermissions->roles();
+
+if ($coreUserId) {
+    $coreUser = \Illuminate\Support\Facades\DB::connection(
+        'website_tenant'
+    )
+        ->table('site_users')
+        ->where('id', $coreUserId)
+        ->first();
+
+    $internalNavigation = app(
+        \App\Services\Core\CoreFeatureRegistry::class
+    )->navigation($corePermissions);
+
+    /*
+     * ESUBIZ_CORE_USER_ADMIN_REDIRECT_V1
+     *
+     * Core user-only accounts never enter the admin
+     * workspace. Send them to their mirrored frontend
+     * User Dashboard instead.
+     */
+    if (
+        count($coreRoles) === 1
+        && in_array('user', $coreRoles, true)
+    ) {
+        return redirect('/user/dashboard');
+    }
+
+    if (
+        !$corePermissions->isAdministrator()
+        && $corePermissions->hasRole('partners_investors')
+    ) {
+        $partnerInvestment = null;
+
+        if (
+            \Illuminate\Support\Facades\Schema::connection(
+                'website_tenant'
+            )->hasTable('site_partner_investments')
+        ) {
+            $partnerInvestment =
+                \Illuminate\Support\Facades\DB::connection(
+                    'website_tenant'
+                )
+                    ->table('site_partner_investments')
+                    ->where('user_id', $coreUserId)
+                    ->where('is_active', true)
+                    ->first();
+        }
+
+        // ESUBIZ_CORE_PARTNER_LEDGER_DASHBOARD_V1
+        $partnerLedgerTotals = [
+            'credits' => 0.00,
+            'debits' => 0.00,
+            'balance' => 0.00,
+        ];
+
+        $partnerLedgerEntries = [];
+
+        if (
+            \Illuminate\Support\Facades\Schema::connection(
+                'website_tenant'
+            )->hasTable('site_partner_ledger_entries')
+        ) {
+            $partnerLedger = app(
+                \App\Services\Core\CorePartnerLedgerService::class
+            );
+
+            $partnerLedgerTotals =
+                $partnerLedger->totals($coreUserId);
+
+            $partnerLedgerEntries =
+                $partnerLedger->recent(
+                    $coreUserId,
+                    10
+                );
+        }
+
+        
+        /*
+        |--------------------------------------------------------------------------
+        | ESUBIZ_CORE_PARTNER_SITE_FINANCIAL_TOTALS_V1
+        |--------------------------------------------------------------------------
+        |
+        | Core-only financial totals.
+        |
+        | Total Credits = completed site income/revenue.
+        | Total Debits  = completed site expenses.
+        |
+        | The Partner ledger remains separate and continues to
+        | represent the individual Partner's own credits/debits.
+        |
+        */
+
+        $partnerSiteCredits = 0.00;
+        $partnerSiteDebits = 0.00;
+        $partnerFinancialCurrency = null;
+
+        if ($schema->hasTable('financial_transactions')) {
+
+            $partnerSiteCredits = (float) $db
+                ->table('financial_transactions')
+                ->where('status', 'completed')
+                ->whereIn(
+                    \Illuminate\Support\Facades\DB::raw(
+                        'LOWER(type)'
+                    ),
+                    [
+                        'income',
+                        'revenue',
+                        'sale',
+                        'credit',
+                    ]
+                )
+                ->sum('amount');
+
+            $partnerSiteDebits = (float) $db
+                ->table('financial_transactions')
+                ->where('status', 'completed')
+                ->whereIn(
+                    \Illuminate\Support\Facades\DB::raw(
+                        'LOWER(type)'
+                    ),
+                    [
+                        'expense',
+                        'cost',
+                        'debit',
+                    ]
+                )
+                ->sum('amount');
+
+            $partnerFinancialCurrency = $db
+                ->table('financial_transactions')
+                ->whereNotNull('currency')
+                ->where('currency', '<>', '')
+                ->orderByDesc('id')
+                ->value('currency');
+        }
+
+        if (
+            !$partnerFinancialCurrency
+            && $schema->hasTable('financial_accounts')
+        ) {
+            $partnerFinancialCurrency = $db
+                ->table('financial_accounts')
+                ->whereNotNull('currency')
+                ->where('currency', '<>', '')
+                ->orderByDesc('id')
+                ->value('currency');
+        }
+
+        $partnerFinancialCurrency = strtoupper(
+            trim(
+                (string) (
+                    $partnerFinancialCurrency
+                    ?: 'NGN'
+                )
+            )
+        );
+
+        $partnerSiteNetResult =
+            $partnerSiteCredits
+            - $partnerSiteDebits;
+
+return view(
+            'tenant.admin.dashboard.partner',
+            get_defined_vars()
+        );
+    }
+
+    if (!$corePermissions->isAdministrator()) {
+
+        /*
+        |--------------------------------------------------------------------------
+        | ESUBIZ_CORE_PREMIUM_STAFF_DASHBOARD_V2
+        |--------------------------------------------------------------------------
+        |
+        | Live Core-only Staff dashboard metrics.
+        |
+        | No owner, Partner or technical Administrator figures are
+        | exposed here. The workspace is derived from this user's
+        | actual Core roles, permissions and available features.
+        |
+        */
+
+        $staffPermissions =
+            $corePermissions->permissions();
+
+        $staffPermissionCount =
+            count($staffPermissions);
+
+        $staffRoleCount =
+            count($coreRoles);
+
+        $staffWorkspaceItems = collect(
+            $internalNavigation ?? []
+        )->filter(function ($item) {
+            $url = $item['url'] ?? null;
+
+            return is_string($url)
+                && $url !== ''
+                && $url !== '#'
+                && $url !== '/admin/dashboard';
+        })->values();
+
+        $staffWorkspaceCount =
+            $staffWorkspaceItems->count();
+
+        $staffAccountActive =
+            (bool) ($coreUser->is_active ?? false);
+
+        return view(
+            'tenant.admin.dashboard.staff',
+            get_defined_vars()
+        );
+    }
+}
+
+return view(
+            'tenant.admin.dashboard',
+            compact(
+                'website',
+                'settings',
+                'dashboardStats',
+                'chartLabels',
+                'chartIncome',
+                'chartExpenses'
+            )
+        );
+    }
+
+
+
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | ESUBIZ_CORE_USER_DASHBOARD_V1
+    |--------------------------------------------------------------------------
+    |
+    | Core website User Dashboard.
+    |
+    | This uses only the current Core website's website_tenant
+    | connection and local site_users identity.
+    |
+    | It does NOT use Central Esubiz User, Website, Wallet,
+    | subscriptions, revenue_events or account-mode architecture.
+    |
+    */
+    public function userDashboard()
+    {
+        $corePermissions = app(
+            \App\Services\Core\CorePermissionService::class
+        );
+
+        $coreUserId = $corePermissions->userId();
+
+        if (!$coreUserId) {
+            return redirect('/login');
+        }
+
+        $db = \Illuminate\Support\Facades\DB::connection(
+            'website_tenant'
+        );
+
+        $coreUser = $db
+            ->table('site_users')
+            ->where('id', $coreUserId)
+            ->where('is_active', true)
+            ->first();
+
+        if (!$coreUser) {
+            return redirect('/login');
+        }
+
+        $coreRoles = $corePermissions->roles();
+
+        /*
+         * Only a pure Core User account uses this dashboard.
+         *
+         * Administrator, Partner, Staff and custom internal
+         * roles continue through the role-aware Admin Dashboard.
+         */
+        $isUserOnly =
+            count($coreRoles) === 1
+            && in_array(
+                'user',
+                $coreRoles,
+                true
+            );
+
+        if (!$isUserOnly) {
+            return redirect('/admin/dashboard');
+        }
+
+        /*
+         * Live Core account information only.
+         */
+        $accountStatus =
+            (bool) ($coreUser->is_active ?? false)
+                ? 'Active'
+                : 'Inactive';
+
+        $memberSince =
+            $coreUser->created_at ?? null;
+
+        $lastLoginAt =
+            $coreUser->last_login_at ?? null;
+
+        /*
+         * Profile completion is calculated only from fields
+         * that already exist on Core site_users.
+         */
+        $profileFields = collect([
+            trim(
+                (string) ($coreUser->name ?? '')
+            ),
+            trim(
+                (string) ($coreUser->email ?? '')
+            ),
+            trim(
+                (string) ($coreUser->phone ?? '')
+            ),
+        ]);
+
+        $profileFieldCount =
+            $profileFields->count();
+
+        $completedProfileFields =
+            $profileFields
+                ->filter(
+                    fn ($value) => $value !== ''
+                )
+                ->count();
+
+        $profileCompletion =
+            $profileFieldCount > 0
+                ? (int) round(
+                    (
+                        $completedProfileFields
+                        / $profileFieldCount
+                    ) * 100
+                )
+                : 0;
+
+        return view(
+            'tenant.user.dashboard',
+            get_defined_vars()
+        );
+    }
+
+
+    /**
+     * Save the first editable Core CMS settings.
+     */
+    /*
+     * ESUBIZ_TENANT_AUTH_SETTINGS_CONTROLLER_V1
+     *
+     * Authentication configuration belongs to the current website.
+     * Values are stored in the tenant site_settings table.
+     */
+    /**
+     * ESUBIZ_CORE_SITE_SETTINGS_V1
+     *
+     * Core-native website settings.
+     * Values live inside the website's own site_settings table,
+     * making this portable across SaaS and off-server Core.
+     */
+    public function siteSettings(Request $request)
+    {
+        $website = $this->currentWebsite();
+
+        $websiteId = (int) $website->id;
+
+        $tenantAuthenticated =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.authenticated"
+            ) === true
+            || (
+                session()->get('tenant_cms_authenticated') === true
+                && (int) session()->get('tenant_cms_website_id')
+                    === $websiteId
+            );
+
+        if (!$tenantAuthenticated) {
+            session()->put(
+                'url.intended',
+                $request->fullUrl()
+            );
+
+            return redirect()->to('/login');
+        }
+
+        $db = DB::connection('tenant');
+
+        $settings = $db->table('site_settings')
+            ->pluck('value', 'key')
+            ->all();
+
+        $currencyConfig = [];
+
+        if (!empty($settings['core_currency'])) {
+            $decoded = json_decode(
+                (string) $settings['core_currency'],
+                true
+            );
+
+            if (is_array($decoded)) {
+                $currencyConfig = $decoded;
+            }
+        }
+
+        $siteConfig = [
+            'website_name' =>
+                $settings['website_name']
+                ?? $website->name
+                ?? '',
+
+            'timezone' =>
+                $settings['timezone']
+                ?? config('app.timezone', 'UTC'),
+
+            'language' =>
+                $settings['language']
+                ?? config('app.locale', 'en'),
+
+            'currency' =>
+                $currencyConfig['primary']
+                ?? 'NGN',
+
+            'date_format' =>
+                $settings['date_format']
+                ?? 'd/m/Y',
+        ];
+
+        $timezones = timezone_identifiers_list();
+
+        $languages = [
+            'en' => 'English',
+            'fr' => 'French',
+            'es' => 'Spanish',
+            'de' => 'German',
+            'pt' => 'Portuguese',
+            'ar' => 'Arabic',
+        ];
+
+        $dateFormats = [
+            'd/m/Y' => 'DD/MM/YYYY',
+            'm/d/Y' => 'MM/DD/YYYY',
+            'Y-m-d' => 'YYYY-MM-DD',
+            'd M Y' => 'DD Mon YYYY',
+            'M d, Y' => 'Mon DD, YYYY',
+        ];
+
+        /*
+         * Reuse the Core currency catalogue when available.
+         * This keeps the Settings UI aligned with Core checkout.
+         */
+        try {
+            $currencies = app(
+                \App\Services\Core\CoreCurrencyCatalog::class
+            )->all();
+        } catch (\Throwable $e) {
+            $currencies = [
+                [
+                    'code' => 'NGN',
+                    'currency' => 'Nigerian Naira',
+                    'symbol' => '₦',
+                ],
+                [
+                    'code' => 'USD',
+                    'currency' => 'US Dollar',
+                    'symbol' => '$',
+                ],
+                [
+                    'code' => 'GBP',
+                    'currency' => 'British Pound',
+                    'symbol' => '£',
+                ],
+                [
+                    'code' => 'EUR',
+                    'currency' => 'Euro',
+                    'symbol' => '€',
+                ],
+            ];
+        }
+
+        return view(
+            'tenant.admin.settings.site',
+            compact(
+                'website',
+                'siteConfig',
+                'timezones',
+                'languages',
+                'dateFormats',
+                'currencies'
+            )
+        );
+    }
+
+
+    /**
+     * ESUBIZ_CORE_SITE_SETTINGS_UPDATE_V1
+     *
+     * Persist Core site settings in the website's own database.
+     */
+    public function updateSiteSettings(Request $request)
+    {
+        $website = $this->currentWebsite();
+
+        $websiteId = (int) $website->id;
+
+        $tenantAuthenticated =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.authenticated"
+            ) === true
+            || (
+                session()->get('tenant_cms_authenticated') === true
+                && (int) session()->get('tenant_cms_website_id')
+                    === $websiteId
+            );
+
+        if (!$tenantAuthenticated) {
+            session()->put(
+                'url.intended',
+                $request->fullUrl()
+            );
+
+            return redirect()->to('/login');
+        }
+
+        $data = $request->validate([
+            'website_name' => [
+                'required',
+                'string',
+                'max:150',
+            ],
+
+            'timezone' => [
+                'required',
+                'string',
+                'max:100',
+            ],
+
+            'language' => [
+                'required',
+                'string',
+                'max:20',
+            ],
+
+            'currency' => [
+                'required',
+                'string',
+                'size:3',
+                'regex:/^[A-Za-z]{3}$/',
+            ],
+
+            'date_format' => [
+                'required',
+                'string',
+                'max:40',
+            ],
+        ]);
+
+        abort_unless(
+            in_array(
+                $data['timezone'],
+                timezone_identifiers_list(),
+                true
+            ),
+            422,
+            'Invalid timezone.'
+        );
+
+        $db = DB::connection('tenant');
+
+        $db->transaction(function () use ($db, $data) {
+
+            $now = now();
+
+            $plainSettings = [
+                'website_name' =>
+                    trim($data['website_name']),
+
+                'timezone' =>
+                    trim($data['timezone']),
+
+                'language' =>
+                    trim($data['language']),
+
+                'date_format' =>
+                    trim($data['date_format']),
+            ];
+
+            foreach ($plainSettings as $key => $value) {
+                $db->table('site_settings')
+                    ->updateOrInsert(
+                        ['key' => $key],
+                        [
+                            'value' => $value,
+                            'updated_at' => $now,
+                            'created_at' => $now,
+                        ]
+                    );
+            }
+
+            /*
+             * Currency is already a Core capability.
+             * Update only the primary currency and preserve
+             * all existing secondary-currency configuration.
+             */
+            $existingCurrency = $db->table('site_settings')
+                ->where('key', 'core_currency')
+                ->value('value');
+
+            $currencyConfig = [];
+
+            if ($existingCurrency) {
+                $decoded = json_decode(
+                    (string) $existingCurrency,
+                    true
+                );
+
+                if (is_array($decoded)) {
+                    $currencyConfig = $decoded;
+                }
+            }
+
+            $currencyConfig['primary'] = strtoupper(
+                trim($data['currency'])
+            );
+
+            $db->table('site_settings')
+                ->updateOrInsert(
+                    ['key' => 'core_currency'],
+                    [
+                        'value' => json_encode(
+                            $currencyConfig,
+                            JSON_UNESCAPED_SLASHES
+                        ),
+                        'updated_at' => $now,
+                        'created_at' => $now,
+                    ]
+                );
+        });
+
+        return back()->with(
+            'success',
+            'Site settings updated successfully.'
+        );
+    }
+
+
+
+    /*
+     * ESUBIZ_SAAS_ADMIN_PROFILE_CONTEXT_V1
+     *
+     * Determines whether the authenticated Core user is
+     * the configured administrator of a centrally managed
+     * SaaS website.
+     *
+     * Only that administrator may synchronize Profile
+     * Settings back to Website.admin_*.
+     */
+    protected function coreProfileAdminContext(
+        $website,
+        $profileUser
+    ): array {
+        $host = strtolower(
+            trim(
+                (string) request()->getHost()
+            )
+        );
+
+        /*
+         * Hosted tenant domains are centrally managed SaaS.
+         *
+         * This deliberately excludes esubiz.com itself and
+         * off-server/custom-domain Core installations.
+         */
+        $isSaas =
+            $host !== 'esubiz.com'
+            && $host !== 'www.esubiz.com'
+            && str_ends_with(
+                $host,
+                '.esubiz.com'
+            );
+
+        $centralAdminEmail = strtolower(
+            trim(
+                (string) (
+                    $website->admin_email
+                    ?? ''
+                )
+            )
+        );
+
+        $localUserEmail = strtolower(
+            trim(
+                (string) (
+                    $profileUser->email
+                    ?? ''
+                )
+            )
+        );
+
+        /*
+         * The Central Website admin_email is the identity
+         * key already used by tenant initialization and the
+         * existing SaaS backfill.
+         */
+        $isWebsiteAdministrator =
+            $centralAdminEmail !== ''
+            && $localUserEmail !== ''
+            && hash_equals(
+                $centralAdminEmail,
+                $localUserEmail
+            );
+
+        return [
+            'is_saas' =>
+                $isSaas,
+
+            'is_website_administrator' =>
+                $isWebsiteAdministrator,
+
+            'sync_central_admin' =>
+                $isSaas
+                && $isWebsiteAdministrator,
+        ];
+    }
+
+
+    /*
+     * ESUBIZ_CORE_PROFILE_SETTINGS_V2
+     *
+     * Core Profile Settings.
+     *
+     * SaaS configured administrator:
+     * Central Website admin details and local site_users
+     * represent the same website administrator.
+     *
+     * Other Core users remain local.
+     * Off-server Core remains local.
+     */
+    public function profileSettings(Request $request)
+    {
+        $website = $this->currentWebsite();
+        $websiteId = (int) $website->id;
+
+        $authenticated =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.authenticated"
+            ) === true
+            || (
+                session()->get('tenant_cms_authenticated') === true
+                && (int) session()->get('tenant_cms_website_id')
+                    === $websiteId
+            );
+
+        if (!$authenticated) {
+            session()->put(
+                'url.intended',
+                $request->fullUrl()
+            );
+
+            return redirect()->to('/login');
+        }
+
+        $userId =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.user_id"
+            )
+            ?? session()->get('tenant_cms_user_id');
+
+        if (!$userId) {
+            return redirect()
+                ->to('/login')
+                ->withErrors([
+                    'profile' =>
+                        'Your website user session could not be resolved.',
+                ]);
+        }
+
+        $db = $this->tenantAuthConnection($website);
+
+        $profileUser = $db
+            ->table('site_users')
+            ->where('id', (int) $userId)
+            ->first();
+
+        if (!$profileUser) {
+            return redirect()
+                ->to('/login')
+                ->withErrors([
+                    'profile' =>
+                        'Your local website account could not be found.',
+                ]);
+        }
+
+        $authMethod =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.auth_method"
+            )
+            ?? session()->get('tenant_cms_auth_method')
+            ?? session()->get('tenant_cms_authenticated_via')
+            ?? 'local';
+
+        $isSso = in_array(
+            (string) $authMethod,
+            ['esubiz_sso', 'sso'],
+            true
+        );
+
+        $adminContext =
+            $this->coreProfileAdminContext(
+                $website,
+                $profileUser
+            );
+
+        $isSaasAdmin =
+            (bool) (
+                $adminContext['sync_central_admin']
+                ?? false
+            );
+
+        /*
+         * Central Website admin details are authoritative
+         * for the configured SaaS administrator.
+         */
+        if ($isSaasAdmin) {
+
+            if (
+                trim(
+                    (string) $website->admin_name
+                ) !== ''
+            ) {
+                $profileUser->name =
+                    $website->admin_name;
+            }
+
+            if (
+                trim(
+                    (string) $website->admin_email
+                ) !== ''
+            ) {
+                $profileUser->email =
+                    strtolower(
+                        trim(
+                            (string)
+                            $website->admin_email
+                        )
+                    );
+            }
+
+            $wizardData =
+                is_array($website->wizard_data)
+                    ? $website->wizard_data
+                    : [];
+
+            if (
+                array_key_exists(
+                    'admin_phone',
+                    $wizardData
+                )
+            ) {
+                $profileUser->phone =
+                    $wizardData['admin_phone'];
+            }
+        }
+
+        /*
+         * ESUBIZ_CORE_ROLE_AWARE_PROFILE_VIEW_V1
+         *
+         * The profile DATA/HANDLERS remain universal Core.
+         * Only the presentation shell follows the user's role.
+         *
+         * Pure User -> frontend User Profile
+         * Internal roles -> Admin Profile Settings
+         */
+        $corePermissions = app(
+            \App\Services\Core\CorePermissionService::class
+        );
+
+        $profileRoles = $corePermissions->roles();
+
+        $isPureCoreUser =
+            count($profileRoles) === 1
+            && in_array(
+                'user',
+                $profileRoles,
+                true
+            );
+
+        $profileView = $isPureCoreUser
+            ? 'tenant.user.profile'
+            : 'tenant.admin.settings.profile';
+
+        return view(
+            $profileView,
+            compact(
+                'website',
+                'profileUser',
+                'authMethod',
+                'isSso',
+                'isSaasAdmin',
+                'isPureCoreUser'
+            )
+        );
+    }
+
+
+    /*
+     * ESUBIZ_CORE_PROFILE_UPDATE_V2
+     */
+    public function updateProfileSettings(
+        Request $request
+    ) {
+        $website = $this->currentWebsite();
+        $websiteId = (int) $website->id;
+
+        $authenticated =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.authenticated"
+            ) === true
+            || (
+                session()->get('tenant_cms_authenticated') === true
+                && (int) session()->get('tenant_cms_website_id')
+                    === $websiteId
+            );
+
+        if (!$authenticated) {
+            return redirect()->to('/login');
+        }
+
+        $userId =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.user_id"
+            )
+            ?? session()->get('tenant_cms_user_id');
+
+        abort_unless(
+            $userId,
+            403,
+            'Website user session not found.'
+        );
+
+        $db = $this->tenantAuthConnection($website);
+
+        $profileUser = $db
+            ->table('site_users')
+            ->where('id', (int) $userId)
+            ->first();
+
+        abort_unless(
+            $profileUser,
+            404,
+            'Website user not found.'
+        );
+
+        $adminContext =
+            $this->coreProfileAdminContext(
+                $website,
+                $profileUser
+            );
+
+        $syncCentral =
+            (bool) (
+                $adminContext['sync_central_admin']
+                ?? false
+            );
+
+        $validated = $request->validate([
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+            ],
+            'phone' => [
+                'nullable',
+                'string',
+                'max:50',
+            ],
+
+            /*
+             * ESUBIZ_CORE_USER_AVATAR_V1
+             *
+             * Avatar is always owned by this Core
+             * installation. Central Esubiz does not store it.
+             */
+            'avatar' => [
+                'nullable',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:3072',
+            ],
+        ]);
+
+        $name = trim(
+            (string) $validated['name']
+        );
+
+        $email = strtolower(
+            trim(
+                (string) $validated['email']
+            )
+        );
+
+        $phone =
+            isset($validated['phone'])
+            && trim(
+                (string) $validated['phone']
+            ) !== ''
+                ? trim(
+                    (string) $validated['phone']
+                )
+                : null;
+
+        $emailExists = $db
+            ->table('site_users')
+            ->whereRaw(
+                'LOWER(email) = ?',
+                [$email]
+            )
+            ->where(
+                'id',
+                '<>',
+                (int) $userId
+            )
+            ->exists();
+
+        if ($emailExists) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'email' =>
+                        'Another account already uses this email address.',
+                ]);
+        }
+
+        /*
+         * ESUBIZ_CORE_USER_AVATAR_STORAGE_V1
+         *
+         * Avatar files always live on this Core
+         * installation's local public disk.
+         *
+         * SaaS and off-server Core therefore use the exact
+         * same storage contract.
+         */
+        $avatarPath =
+            $profileUser->avatar_path
+            ?? null;
+
+        if ($request->hasFile('avatar')) {
+
+            $avatarFile =
+                $request->file('avatar');
+
+            if (
+                !$avatarFile
+                || !$avatarFile->isValid()
+            ) {
+                return back()
+                    ->withInput()
+                    ->withErrors([
+                        'avatar' =>
+                            'The profile photo could not be uploaded.',
+                    ]);
+            }
+
+            $avatarDirectory =
+                'core/profile-avatars/'
+                . $websiteId;
+
+            $extension = strtolower(
+                $avatarFile
+                    ->getClientOriginalExtension()
+            );
+
+            if (
+                !in_array(
+                    $extension,
+                    [
+                        'jpg',
+                        'jpeg',
+                        'png',
+                        'webp',
+                    ],
+                    true
+                )
+            ) {
+                $extension = 'jpg';
+            }
+
+            $newAvatarPath =
+                $avatarFile->storeAs(
+                    $avatarDirectory,
+                    (string)
+                    \Illuminate\Support\Str::uuid()
+                    . '.'
+                    . $extension,
+                    'public'
+                );
+
+            if (!$newAvatarPath) {
+                return back()
+                    ->withInput()
+                    ->withErrors([
+                        'avatar' =>
+                            'The profile photo could not be saved.',
+                    ]);
+            }
+
+            /*
+             * Delete the previous local avatar only after
+             * the replacement has been stored successfully.
+             */
+            if (
+                $avatarPath
+                && $avatarPath !== $newAvatarPath
+            ) {
+                \Illuminate\Support\Facades\Storage
+                    ::disk('public')
+                    ->delete($avatarPath);
+            }
+
+            $avatarPath =
+                $newAvatarPath;
+        }
+
+        /*
+         * Update the Core local administrator/user.
+         */
+        $db
+            ->table('site_users')
+            ->where('id', (int) $userId)
+            ->update([
+                'name' => $name,
+                'email' => $email,
+                'phone' => $phone,
+                'avatar_path' => $avatarPath,
+                'updated_at' => now(),
+            ]);
+
+        /*
+         * SaaS configured administrator:
+         *
+         * Synchronize the same administrator information
+         * back to the Central Website record.
+         */
+        if ($syncCentral) {
+
+            $wizardData =
+                is_array($website->wizard_data)
+                    ? $website->wizard_data
+                    : [];
+
+            $wizardData['admin_phone'] =
+                $phone;
+
+            $website->admin_name = $name;
+            $website->admin_email = $email;
+            $website->wizard_data = $wizardData;
+            $website->save();
+        }
+
+        return back()->with(
+            'success',
+            $syncCentral
+                ? 'Profile settings saved and synchronized with Esubiz.'
+                : 'Profile settings saved successfully.'
+        );
+    }
+
+
+    /*
+     * ESUBIZ_CORE_PROFILE_AVATAR_DELIVERY_V1
+     *
+     * Avatar files remain Core-local.
+     *
+     * The file is streamed through Laravel because Core installations
+     * must not depend on a public/storage web-server mapping.
+     */
+    public function profileAvatar(
+        Request $request
+    ) {
+        $website = $this->currentWebsite();
+        $websiteId = (int) $website->id;
+
+        $authenticated =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.authenticated"
+            ) === true
+            || (
+                session()->get('tenant_cms_authenticated') === true
+                && (int) session()->get('tenant_cms_website_id')
+                    === $websiteId
+            );
+
+        abort_unless(
+            $authenticated,
+            403,
+            'Website user session not found.'
+        );
+
+        $userId =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.user_id"
+            )
+            ?? session()->get('tenant_cms_user_id');
+
+        abort_unless(
+            $userId,
+            403,
+            'Website user session not found.'
+        );
+
+        $db = $this->tenantAuthConnection($website);
+
+        $profileUser = $db
+            ->table('site_users')
+            ->where('id', (int) $userId)
+            ->first();
+
+        abort_unless(
+            $profileUser,
+            404,
+            'Website user not found.'
+        );
+
+        $avatarPath =
+            trim(
+                (string) (
+                    $profileUser->avatar_path
+                    ?? ''
+                )
+            );
+
+        abort_if(
+            $avatarPath === '',
+            404,
+            'Profile photo not found.'
+        );
+
+        /*
+         * Only permit files from this website's Core
+         * profile-avatar directory.
+         */
+        $allowedPrefix =
+            'core/profile-avatars/'
+            . $websiteId
+            . '/';
+
+        abort_unless(
+            str_starts_with(
+                $avatarPath,
+                $allowedPrefix
+            ),
+            404,
+            'Profile photo not found.'
+        );
+
+        $disk =
+            \Illuminate\Support\Facades\Storage
+                ::disk('public');
+
+        abort_unless(
+            $disk->exists($avatarPath),
+            404,
+            'Profile photo not found.'
+        );
+
+        $absolutePath =
+            $disk->path($avatarPath);
+
+        $mimeType =
+            $disk->mimeType($avatarPath)
+            ?: 'application/octet-stream';
+
+        return response()->file(
+            $absolutePath,
+            [
+                'Content-Type' => $mimeType,
+                'Cache-Control' =>
+                    'private, max-age=300',
+                'X-Content-Type-Options' =>
+                    'nosniff',
+            ]
+        );
+    }
+
+
+    /*
+     * ESUBIZ_CORE_PROFILE_AVATAR_DELETE_V1
+     *
+     * Avatar ownership is exclusively Core-local.
+     * Central Esubiz is intentionally not modified.
+     */
+    public function deleteProfileAvatar(
+        Request $request
+    ) {
+        $website = $this->currentWebsite();
+        $websiteId = (int) $website->id;
+
+        $authenticated =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.authenticated"
+            ) === true
+            || (
+                session()->get('tenant_cms_authenticated') === true
+                && (int) session()->get('tenant_cms_website_id')
+                    === $websiteId
+            );
+
+        if (!$authenticated) {
+            return redirect()->to('/login');
+        }
+
+        $userId =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.user_id"
+            )
+            ?? session()->get('tenant_cms_user_id');
+
+        abort_unless(
+            $userId,
+            403,
+            'Website user session not found.'
+        );
+
+        $db = $this->tenantAuthConnection($website);
+
+        $profileUser = $db
+            ->table('site_users')
+            ->where('id', (int) $userId)
+            ->first();
+
+        abort_unless(
+            $profileUser,
+            404,
+            'Website user not found.'
+        );
+
+        $avatarPath =
+            trim(
+                (string) (
+                    $profileUser->avatar_path
+                    ?? ''
+                )
+            );
+
+        /*
+         * Clear the database reference first.
+         *
+         * This guarantees the deleted avatar immediately disappears
+         * from Core even if filesystem cleanup encounters a problem.
+         */
+        $db
+            ->table('site_users')
+            ->where('id', (int) $userId)
+            ->update([
+                'avatar_path' => null,
+                'updated_at' => now(),
+            ]);
+
+        if ($avatarPath !== '') {
+
+            $allowedPrefix =
+                'core/profile-avatars/'
+                . $websiteId
+                . '/';
+
+            if (
+                str_starts_with(
+                    $avatarPath,
+                    $allowedPrefix
+                )
+            ) {
+                try {
+                    \Illuminate\Support\Facades\Storage
+                        ::disk('public')
+                        ->delete($avatarPath);
+                } catch (\Throwable $avatarDeleteError) {
+                    report($avatarDeleteError);
+                }
+            }
+        }
+
+        return back()->with(
+            'success',
+            'Profile photo deleted successfully.'
+        );
+    }
+
+
+    /*
+     * ESUBIZ_CORE_PROFILE_PASSWORD_UPDATE_V2
+     */
+    public function updateProfilePassword(
+        Request $request
+    ) {
+        $website = $this->currentWebsite();
+        $websiteId = (int) $website->id;
+
+        $authenticated =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.authenticated"
+            ) === true
+            || (
+                session()->get('tenant_cms_authenticated') === true
+                && (int) session()->get('tenant_cms_website_id')
+                    === $websiteId
+            );
+
+        if (!$authenticated) {
+            return redirect()->to('/login');
+        }
+
+        $userId =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.user_id"
+            )
+            ?? session()->get('tenant_cms_user_id');
+
+        abort_unless(
+            $userId,
+            403,
+            'Website user session not found.'
+        );
+
+        $db = $this->tenantAuthConnection($website);
+
+        $profileUser = $db
+            ->table('site_users')
+            ->where('id', (int) $userId)
+            ->first();
+
+        abort_unless(
+            $profileUser,
+            404,
+            'Website user not found.'
+        );
+
+        $adminContext =
+            $this->coreProfileAdminContext(
+                $website,
+                $profileUser
+            );
+
+        $syncCentral =
+            (bool) (
+                $adminContext['sync_central_admin']
+                ?? false
+            );
+
+        $authMethod =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.auth_method"
+            )
+            ?? session()->get('tenant_cms_auth_method')
+            ?? session()->get('tenant_cms_authenticated_via')
+            ?? 'local';
+
+        $isSso = in_array(
+            (string) $authMethod,
+            ['esubiz_sso', 'sso'],
+            true
+        );
+
+        $rules = [
+            'password' => [
+                'required',
+                'string',
+                'min:8',
+                'confirmed',
+            ],
+        ];
+
+        if (!$isSso) {
+            $rules['current_password'] = [
+                'required',
+                'string',
+            ];
+        }
+
+        $validated = $request->validate(
+            $rules
+        );
+
+        if (
+            !$isSso
+            && !\Illuminate\Support\Facades\Hash::check(
+                (string)
+                $validated['current_password'],
+                (string)
+                $profileUser->password
+            )
+        ) {
+            return back()->withErrors([
+                'current_password' =>
+                    'The current password is incorrect.',
+            ]);
+        }
+
+        /*
+         * One password hash is generated and reused.
+         * Never hash an already-hashed password.
+         */
+        $passwordHash =
+            \Illuminate\Support\Facades\Hash::make(
+                (string)
+                $validated['password']
+            );
+
+        $db
+            ->table('site_users')
+            ->where('id', (int) $userId)
+            ->update([
+                'password' => $passwordHash,
+                'updated_at' => now(),
+            ]);
+
+        /*
+         * Keep Central Website admin_password synchronized
+         * for the configured SaaS administrator.
+         */
+        if ($syncCentral) {
+            $website->admin_password =
+                $passwordHash;
+
+            $website->save();
+        }
+
+        return back()->with(
+            'password_success',
+            $syncCentral
+                ? 'Administrator password changed and synchronized with Esubiz.'
+                : 'Password changed successfully.'
+        );
+    }
+
+
+    public function authenticationSettings(Request $request)
+    {
+        $website = $this->currentWebsite();
+
+        $websiteId = (int) $website->id;
+
+        $authenticated =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.authenticated"
+            ) === true
+            || (
+                session()->get('tenant_cms_authenticated') === true
+                && (int) session()->get('tenant_cms_website_id')
+                    === $websiteId
+            );
+
+        if (!$authenticated) {
+            session()->put(
+                'url.intended',
+                $request->fullUrl()
+            );
+
+            return redirect()->to('/login');
+        }
+
+        /*
+         * ESUBIZ_CORE_PORTABLE_AUTH_SETTINGS_DB_V1
+         *
+         * Core-first database access:
+         * - SaaS uses its active tenant database
+         * - Off-server uses the same Core schema locally
+         *
+         * No central landlord database dependency is required
+         * for reading website-owned authentication settings.
+         */
+        $db = DB::connection('tenant');
+
+        $settings = $db
+            ->table('site_settings')
+            ->where('key', 'like', 'auth.%')
+            ->pluck('value', 'key')
+            ->all();
+
+        $decode = static function ($value, $fallback = []) {
+            if ($value === null || $value === '') {
+                return $fallback;
+            }
+
+            $decoded = json_decode($value, true);
+
+            return json_last_error() === JSON_ERROR_NONE
+                ? $decoded
+                : $fallback;
+        };
+
+        $authConfig = [
+            'providers' => [
+                'esubiz' => [
+                    'label' => 'Esubiz',
+                    'enabled' =>
+                        ($settings['auth.esubiz.enabled'] ?? '1') === '1',
+                ],
+
+                'google' => [
+                    'label' => 'Google',
+                    'enabled' =>
+                        ($settings['auth.google.enabled'] ?? '0') === '1',
+                    'client_id' =>
+                        $settings['auth.google.client_id'] ?? '',
+                    'has_secret' =>
+                        !empty($settings['auth.google.client_secret'] ?? ''),
+                ],
+
+                'facebook' => [
+                    'label' => 'Facebook',
+                    'enabled' =>
+                        ($settings['auth.facebook.enabled'] ?? '0') === '1',
+                    'client_id' =>
+                        $settings['auth.facebook.client_id'] ?? '',
+                    'has_secret' =>
+                        !empty($settings['auth.facebook.client_secret'] ?? ''),
+                ],
+
+                'instagram' => [
+                    'label' => 'Instagram',
+                    'enabled' =>
+                        ($settings['auth.instagram.enabled'] ?? '0') === '1',
+                    'client_id' =>
+                        $settings['auth.instagram.client_id'] ?? '',
+                    'has_secret' =>
+                        !empty($settings['auth.instagram.client_secret'] ?? ''),
+                ],
+
+                'tiktok' => [
+                    'label' => 'TikTok',
+                    'enabled' =>
+                        ($settings['auth.tiktok.enabled'] ?? '0') === '1',
+                    'client_id' =>
+                        $settings['auth.tiktok.client_key'] ?? '',
+                    'has_secret' =>
+                        !empty($settings['auth.tiktok.client_secret'] ?? ''),
+                ],
+
+                'x' => [
+                    'label' => 'X',
+                    'enabled' =>
+                        ($settings['auth.x.enabled'] ?? '0') === '1',
+                    'client_id' =>
+                        $settings['auth.x.client_id'] ?? '',
+                    'has_secret' =>
+                        !empty($settings['auth.x.client_secret'] ?? ''),
+                ],
+            ],
+
+            /*
+             * ESUBIZ_SHARED_AUTH_LOGO_CONFIG_V1
+             */
+            'brand' => [
+                'logo_light' => $settings[
+                    'auth.brand.logo_light'
+                ] ?? '',
+
+                'logo_dark' => $settings[
+                    'auth.brand.logo_dark'
+                ] ?? '',
+            ],
+
+            'provider_order' => $decode(
+                $settings['auth.provider_order'] ?? null,
+                [
+                    'esubiz',
+                    'google',
+                    'facebook',
+                    'instagram',
+                    'tiktok',
+                    'x',
+                ]
+            ),
+
+            /*
+             * ESUBIZ_AUTH_BOT_PROTECTION_SETTINGS_V1
+             */
+            'security' => [
+                'login_enabled' =>
+                    (
+                        $settings[
+                            'auth.security.login_enabled'
+                        ] ?? '1'
+                    ) === '1',
+
+                'register_enabled' =>
+                    (
+                        $settings[
+                            'auth.security.register_enabled'
+                        ] ?? '1'
+                    ) === '1',
+            ],
+
+            'registration_enabled' =>
+                ($settings['auth.registration_enabled'] ?? '1') === '1',
+
+            'auto_login' =>
+                (
+                    $settings[
+                        'auth.auto_login_after_registration'
+                    ] ?? '1'
+                ) === '1',
+
+            'registration_redirect' =>
+                $settings['auth.registration_redirect']
+                ?? '/admin/dashboard',
+
+            /*
+             * ESUBIZ_SHARED_AUTH_APPEARANCE_CONFIG_V1
+             */
+            'appearance' => [
+                'background_color' =>
+                    $settings['auth.appearance.background_color']
+                    ?? $settings['auth.login.background_color']
+                    ?? '#f5f7fb',
+
+                'card_color' =>
+                    $settings['auth.appearance.card_color']
+                    ?? $settings['auth.login.card_color']
+                    ?? '#ffffff',
+
+                'text_color' =>
+                    $settings['auth.appearance.text_color']
+                    ?? $settings['auth.login.text_color']
+                    ?? '#111827',
+
+                'button_color' =>
+                    $settings['auth.appearance.button_color']
+                    ?? $settings['auth.login.button_color']
+                    ?? '#111827',
+            ],
+
+            'login' => [
+                'logo' =>
+                    $settings['auth.login.logo'] ?? '',
+                'heading' =>
+                    $settings['auth.login.heading']
+                    ?? 'Welcome back',
+                'subheading' =>
+                    $settings['auth.login.subheading'] ?? '',
+                'background_color' =>
+                    $settings['auth.login.background_color']
+                    ?? '#f5f7fb',
+                'card_color' =>
+                    $settings['auth.login.card_color']
+                    ?? '#ffffff',
+                'text_color' =>
+                    $settings['auth.login.text_color']
+                    ?? '#111827',
+                'button_color' =>
+                    $settings['auth.login.button_color']
+                    ?? '#111827',
+            ],
+
+            'register' => [
+                'logo' =>
+                    $settings['auth.register.logo'] ?? '',
+                'heading' =>
+                    $settings['auth.register.heading']
+                    ?? 'Create your account',
+                'subheading' =>
+                    $settings['auth.register.subheading'] ?? '',
+                'background_color' =>
+                    $settings['auth.register.background_color']
+                    ?? '#f5f7fb',
+                'card_color' =>
+                    $settings['auth.register.card_color']
+                    ?? '#ffffff',
+                'text_color' =>
+                    $settings['auth.register.text_color']
+                    ?? '#111827',
+                'button_color' =>
+                    $settings['auth.register.button_color']
+                    ?? '#111827',
+            ],
+
+            'registration_fields' => $decode(
+                $settings['auth.registration_fields'] ?? null
+            ),
+
+            'registration_products' => $decode(
+                $settings['auth.registration_products'] ?? null
+            ),
+        ];
+
+        /*
+         * ESUBIZ_CORE_AUTH_FORM_REGISTRY_V1
+         *
+         * Core Forms is the canonical authentication-form registry.
+         *
+         * Registration/Login/Password Reset forms are ordinary Core
+         * forms classified through forms.settings.purpose.
+         *
+         * Legacy auth.registration_fields is only used to seed the
+         * protected Registration Core Form when that form has no
+         * form_fields yet. It is not the long-term field source.
+         */
+        $coreDb = DB::connection('tenant');
+
+        $authForms = [];
+
+        if (
+            \Illuminate\Support\Facades\Schema::connection('tenant')
+                ->hasTable('forms')
+            && \Illuminate\Support\Facades\Schema::connection('tenant')
+                ->hasTable('form_fields')
+        ) {
+            $formRecords = $coreDb->table('forms')
+                ->orderBy('id')
+                ->get();
+
+            foreach ($formRecords as $formRecord) {
+                $formSettings = json_decode(
+                    (string) ($formRecord->settings ?? ''),
+                    true
+                );
+
+                $formSettings = is_array($formSettings)
+                    ? $formSettings
+                    : [];
+
+                $purpose = (string) (
+                    $formSettings['purpose'] ?? ''
+                );
+
+                $coreDefault = (string) (
+                    $formSettings['core_default_form'] ?? ''
+                );
+
+                if (
+                    $purpose === ''
+                    && in_array(
+                        $coreDefault,
+                        [
+                            'registration',
+                            'login',
+                            'password-reset',
+                            'password_reset',
+                        ],
+                        true
+                    )
+                ) {
+                    $normalizedDefault =
+                        $coreDefault === 'password_reset'
+                            ? 'password-reset'
+                            : $coreDefault;
+
+                    $purpose =
+                        'authentication.'
+                        . $normalizedDefault;
+                }
+
+                if (
+                    !in_array(
+                        $purpose,
+                        [
+                            'authentication.registration',
+                            'authentication.login',
+                            'authentication.password-reset',
+                        ],
+                        true
+                    )
+                ) {
+                    continue;
+                }
+
+                $purposeName = substr(
+                    $purpose,
+                    strlen('authentication.')
+                );
+
+                $authForms[] = [
+                    'id' => (int) $formRecord->id,
+                    'name' => (string) $formRecord->name,
+                    'slug' => (string) $formRecord->slug,
+                    'purpose' => $purposeName,
+                    'is_system' =>
+                        ($formSettings['system'] ?? false)
+                        === true,
+                    'is_active' =>
+                        (bool) ($formRecord->is_active ?? false),
+                                        /*
+                     * ESUBIZ_CORE_AUTH_FORM_CONFIG_V2
+                     */
+                    'auth_config' =>
+                        is_array(
+                            $formSettings['auth_config'] ?? null
+                        )
+                            ? $formSettings['auth_config']
+                            : [],
+
+'edit_url' => route(
+                        'tenant.cms.forms.edit',
+                        [
+                            'subdomain' => $website->subdomain,
+                            'form' => $formRecord->id,
+                        ]
+                    ),
+                ];
+            }
+
+            /*
+             * One-time safe legacy migration:
+             *
+             * If the canonical protected Registration form exists but
+             * has no fields, seed it from auth.registration_fields.
+             *
+             * We deliberately do NOT overwrite existing Core fields.
+             */
+            $registrationForm = collect($formRecords)
+                ->first(function ($formRecord) {
+                    $settings = json_decode(
+                        (string) ($formRecord->settings ?? ''),
+                        true
+                    );
+
+                    $settings = is_array($settings)
+                        ? $settings
+                        : [];
+
+                    return
+                        ($settings['purpose'] ?? null)
+                            === 'authentication.registration'
+                        || ($settings['core_default_form'] ?? null)
+                            === 'registration';
+                });
+
+            if ($registrationForm) {
+                $existingFieldCount =
+                    $coreDb->table('form_fields')
+                        ->where(
+                            'form_id',
+                            $registrationForm->id
+                        )
+                        ->count();
+
+                if ($existingFieldCount === 0) {
+                    $legacyFields =
+                        $authConfig['registration_fields']
+                        ?? [];
+
+                    if (
+                        is_array($legacyFields)
+                        && !empty($legacyFields)
+                    ) {
+                        $now = now();
+                        $sortOrder = 0;
+
+                        foreach ($legacyFields as $legacyField) {
+                            if (!is_array($legacyField)) {
+                                continue;
+                            }
+
+                            if (
+                                array_key_exists(
+                                    'enabled',
+                                    $legacyField
+                                )
+                                && !filter_var(
+                                    $legacyField['enabled'],
+                                    FILTER_VALIDATE_BOOLEAN
+                                )
+                            ) {
+                                continue;
+                            }
+
+                            $name = trim(
+                                (string) (
+                                    $legacyField['key']
+                                    ?? ''
+                                )
+                            );
+
+                            $label = trim(
+                                (string) (
+                                    $legacyField['label']
+                                    ?? ''
+                                )
+                            );
+
+                            if (
+                                $name === ''
+                                || $label === ''
+                            ) {
+                                continue;
+                            }
+
+                            $type = (string) (
+                                $legacyField['type']
+                                ?? 'text'
+                            );
+
+                            if (
+                                !in_array(
+                                    $type,
+                                    [
+                                        'text',
+                                        'email',
+                                        'tel',
+                                        'number',
+                                        'textarea',
+                                        'select',
+                                        'checkbox',
+                                        'radio',
+                                        'password',
+                                        'date',
+                                    ],
+                                    true
+                                )
+                            ) {
+                                $type = 'text';
+                            }
+
+                            $options =
+                                $legacyField['options']
+                                ?? null;
+
+                            if (
+                                is_string($options)
+                                && trim($options) !== ''
+                            ) {
+                                $options = array_values(
+                                    array_filter(
+                                        array_map(
+                                            'trim',
+                                            preg_split(
+                                                '/[\r\n,]+/',
+                                                $options
+                                            )
+                                        ),
+                                        static fn ($value) =>
+                                            $value !== ''
+                                    )
+                                );
+                            }
+
+                            if (
+                                !is_array($options)
+                                || empty($options)
+                            ) {
+                                $options = null;
+                            }
+
+                            $coreDb->table('form_fields')
+                                ->insert([
+                                    'form_id' =>
+                                        (int) $registrationForm->id,
+                                    'name' => $name,
+                                    'label' => $label,
+                                    'type' => $type,
+                                    'required' =>
+                                        (bool) (
+                                            $legacyField['required']
+                                            ?? false
+                                        ),
+                                    'options' =>
+                                        $options === null
+                                            ? null
+                                            : json_encode($options),
+                                    'sort_order' => $sortOrder++,
+                                    'created_at' => $now,
+                                    'updated_at' => $now,
+                                ]);
+                        }
+                    }
+                }
+            }
+        }
+
+
+        /*
+         * ESUBIZ_CORE_AUTH_FORM_DYNAMIC_ROLES_V2
+         */
+        $authRoles = [];
+
+        if (
+            \Illuminate\Support\Facades\Schema::connection('tenant')
+                ->hasTable('site_roles')
+        ) {
+            $authRoles = $coreDb
+                ->table('site_roles')
+                ->orderBy('name')
+                ->get([
+                    'id',
+                    'name',
+                    'slug',
+                ])
+                ->map(
+                    static fn ($role) => [
+                        'id' => (int) $role->id,
+                        'name' => (string) $role->name,
+                        'slug' => (string) $role->slug,
+                    ]
+                )
+                ->values()
+                ->all();
+        }
+
+
+        return view(
+            'tenant.admin.settings.authentication',
+            compact(
+                'website',
+                'authConfig',
+                'authForms',
+                'authRoles'
+            )
+        );
+    }
+
+
+    public function updateAuthenticationSettings(Request $request)
+    {
+        $website = $this->currentWebsite();
+
+        $websiteId = (int) $website->id;
+
+        $authenticated =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.authenticated"
+            ) === true
+            || (
+                session()->get('tenant_cms_authenticated') === true
+                && (int) session()->get('tenant_cms_website_id')
+                    === $websiteId
+            );
+
+        if (!$authenticated) {
+            session()->put(
+                'url.intended',
+                $request->fullUrl()
+            );
+
+            return redirect()->to('/login');
+        }
+
+        $data = $request->validate([
+            'providers' => [
+                'nullable',
+                'array',
+            ],
+
+            'providers.*.enabled' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'providers.*.client_id' => [
+                'nullable',
+                'string',
+                'max:500',
+            ],
+
+            'providers.*.client_secret' => [
+                'nullable',
+                'string',
+                'max:2000',
+            ],
+
+            'security.login_enabled' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'security.register_enabled' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'appearance.background_color' => [
+                'required',
+                'regex:/^#[0-9A-Fa-f]{6}$/',
+            ],
+
+            'appearance.card_color' => [
+                'required',
+                'regex:/^#[0-9A-Fa-f]{6}$/',
+            ],
+
+            'appearance.text_color' => [
+                'required',
+                'regex:/^#[0-9A-Fa-f]{6}$/',
+            ],
+
+            'appearance.button_color' => [
+                'required',
+                'regex:/^#[0-9A-Fa-f]{6}$/',
+            ],
+
+            'registration_enabled' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'auto_login' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'registration_redirect' => [
+                'nullable',
+                'string',
+                'max:500',
+            ],
+
+            'auth_form_config' => [
+                'nullable',
+                'array',
+            ],
+
+            'auth_form_config.*.redirect' => [
+                'nullable',
+                'string',
+                'max:500',
+            ],
+
+            'auth_form_config.*.role_id' => [
+                'nullable',
+                'integer',
+            ],
+
+
+            'login.heading' => [
+                'nullable',
+                'string',
+                'max:150',
+            ],
+
+            'login.subheading' => [
+                'nullable',
+                'string',
+                'max:500',
+            ],
+
+            'login.logo' => [
+                'nullable',
+                'string',
+                'max:2000',
+            ],
+
+            'login.background_color' => [
+                'nullable',
+                'regex:/^#[0-9A-Fa-f]{6}$/',
+            ],
+
+            'login.card_color' => [
+                'nullable',
+                'regex:/^#[0-9A-Fa-f]{6}$/',
+            ],
+
+            'login.text_color' => [
+                'nullable',
+                'regex:/^#[0-9A-Fa-f]{6}$/',
+            ],
+
+            'login.button_color' => [
+                'nullable',
+                'regex:/^#[0-9A-Fa-f]{6}$/',
+            ],
+
+            'register.heading' => [
+                'nullable',
+                'string',
+                'max:150',
+            ],
+
+            'register.subheading' => [
+                'nullable',
+                'string',
+                'max:500',
+            ],
+
+            'register.logo' => [
+                'nullable',
+                'string',
+                'max:2000',
+            ],
+
+            'register.background_color' => [
+                'nullable',
+                'regex:/^#[0-9A-Fa-f]{6}$/',
+            ],
+
+            'register.card_color' => [
+                'nullable',
+                'regex:/^#[0-9A-Fa-f]{6}$/',
+            ],
+
+            'register.text_color' => [
+                'nullable',
+                'regex:/^#[0-9A-Fa-f]{6}$/',
+            ],
+
+            'register.button_color' => [
+                'nullable',
+                'regex:/^#[0-9A-Fa-f]{6}$/',
+            ],
+
+            /*
+             * ESUBIZ_DYNAMIC_REGISTRATION_FIELDS_SAVE_V1
+             */
+            /*
+             * ESUBIZ_SHARED_AUTH_LOGO_VALIDATION_V1
+             */
+            'auth_logo_light' => [
+                'nullable',
+                'image',
+                'mimes:jpg,jpeg,png,webp,gif',
+                'max:4096',
+            ],
+
+            'auth_logo_dark' => [
+                'nullable',
+                'image',
+                'mimes:jpg,jpeg,png,webp,gif',
+                'max:4096',
+            ],
+
+            'remove_auth_logo_light' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'remove_auth_logo_dark' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'registration_fields' => [
+                'nullable',
+                'array',
+                'max:50',
+            ],
+
+            'registration_fields.*.key' => [
+                'nullable',
+                'string',
+                'max:80',
+            ],
+
+            'registration_fields.*.label' => [
+                'nullable',
+                'string',
+                'max:150',
+            ],
+
+            'registration_fields.*.type' => [
+                'nullable',
+                'in:text,email,tel,number,date,textarea,select,checkbox,password',
+            ],
+
+            'registration_fields.*.placeholder' => [
+                'nullable',
+                'string',
+                'max:250',
+            ],
+
+            'registration_fields.*.required' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'registration_fields.*.system' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'registration_fields.*.enabled' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'registration_fields.*.options' => [
+                'nullable',
+                'string',
+                'max:3000',
+            ],
+        ]);
+
+        /*
+         * ESUBIZ_CORE_PORTABLE_AUTH_SETTINGS_DB_V1
+         *
+         * Core-first database access:
+         * - SaaS uses its active tenant database
+         * - Off-server uses the same Core schema locally
+         *
+         * No central landlord database dependency is required
+         * for reading website-owned authentication settings.
+         */
+        $db = DB::connection('tenant');
+
+        $save = static function (
+            $db,
+            string $key,
+            $value
+        ): void {
+            $db->table('site_settings')
+                ->updateOrInsert(
+                    ['key' => $key],
+                    [
+                        'value' => is_array($value)
+                            ? json_encode(
+                                $value,
+                                JSON_UNESCAPED_SLASHES
+                                | JSON_UNESCAPED_UNICODE
+                            )
+                            : (string) $value,
+
+                        'updated_at' => now(),
+                        'created_at' => now(),
+                    ]
+                );
+        };
+
+        $providers = [
+            'esubiz',
+            'google',
+            'facebook',
+            'instagram',
+            'tiktok',
+            'x',
+        ];
+
+        foreach ($providers as $provider) {
+
+            $providerData =
+                $data['providers'][$provider] ?? [];
+
+            $save(
+                $db,
+                "auth.{$provider}.enabled",
+                !empty($providerData['enabled'])
+                    ? '1'
+                    : '0'
+            );
+
+            if ($provider === 'esubiz') {
+                continue;
+            }
+
+            $clientKey =
+                $provider === 'tiktok'
+                    ? 'auth.tiktok.client_key'
+                    : "auth.{$provider}.client_id";
+
+            $save(
+                $db,
+                $clientKey,
+                trim(
+                    (string) (
+                        $providerData['client_id']
+                        ?? ''
+                    )
+                )
+            );
+
+            /*
+             * Blank secret means "keep existing secret".
+             * This prevents the settings form from exposing
+             * or accidentally deleting stored credentials.
+             */
+            $newSecret = trim(
+                (string) (
+                    $providerData['client_secret']
+                    ?? ''
+                )
+            );
+
+            if ($newSecret !== '') {
+                $save(
+                    $db,
+                    "auth.{$provider}.client_secret",
+                    $newSecret
+                );
+            }
+        }
+
+        /*
+         * ESUBIZ_AUTH_BOT_PROTECTION_SAVE_V1
+         */
+        $save(
+            $db,
+            'auth.security.login_enabled',
+            !empty(
+                $data['security']['login_enabled']
+            ) ? '1' : '0'
+        );
+
+        $save(
+            $db,
+            'auth.security.register_enabled',
+            !empty(
+                $data['security']['register_enabled']
+            ) ? '1' : '0'
+        );
+
+        /* ESUBIZ_SHARED_AUTH_APPEARANCE_SAVE_V1 */
+        $save($db, 'auth.appearance.background_color', strtolower($data['appearance']['background_color']));
+        $save($db, 'auth.appearance.card_color', strtolower($data['appearance']['card_color']));
+        $save($db, 'auth.appearance.text_color', strtolower($data['appearance']['text_color']));
+        $save($db, 'auth.appearance.button_color', strtolower($data['appearance']['button_color']));
+
+        $save(
+            $db,
+            'auth.registration_enabled',
+            !empty($data['registration_enabled'])
+                ? '1'
+                : '0'
+        );
+
+        $save(
+            $db,
+            'auth.auto_login_after_registration',
+            !empty($data['auto_login'])
+                ? '1'
+                : '0'
+        );
+
+        $save(
+            $db,
+            'auth.registration_redirect',
+            trim(
+                (string) (
+                    $data['registration_redirect']
+                    ?? '/admin/dashboard'
+                )
+            ) ?: '/admin/dashboard'
+        );
+
+        /*
+         * ESUBIZ_SHARED_AUTH_LOGO_STORAGE_V1
+         *
+         * Actual files belong to the current Core website.
+         *
+         * The website's site_settings table stores only:
+         *
+         * auth.brand.logo_light
+         * auth.brand.logo_dark
+         *
+         * SaaS and off-server use the same implementation.
+         */
+        foreach ([
+            'light' => 'auth_logo_light',
+            'dark' => 'auth_logo_dark',
+        ] as $mode => $input) {
+
+            $settingKey =
+                'auth.brand.logo_' . $mode;
+
+            $removeInput =
+                'remove_auth_logo_' . $mode;
+
+            $currentPath = $db
+                ->table('site_settings')
+                ->where('key', $settingKey)
+                ->value('value');
+
+            if ($request->boolean($removeInput)) {
+
+                if (
+                    is_string($currentPath)
+                    && str_starts_with(
+                        $currentPath,
+                        'auth/branding/'
+                    )
+                ) {
+                    \Illuminate\Support\Facades\Storage
+                        ::disk('public')
+                        ->delete($currentPath);
+                }
+
+                $save(
+                    $db,
+                    $settingKey,
+                    ''
+                );
+
+                $currentPath = '';
+            }
+
+            if ($request->hasFile($input)) {
+
+                if (
+                    is_string($currentPath)
+                    && str_starts_with(
+                        $currentPath,
+                        'auth/branding/'
+                    )
+                ) {
+                    \Illuminate\Support\Facades\Storage
+                        ::disk('public')
+                        ->delete($currentPath);
+                }
+
+                $storedPath = $request
+                    ->file($input)
+                    ->store(
+                        'auth/branding',
+                        'public'
+                    );
+
+                $save(
+                    $db,
+                    $settingKey,
+                    $storedPath
+                );
+            }
+        }
+
+
+        /*
+         * Dynamic Registration Fields
+         *
+         * Core system fields cannot be removed or converted
+         * into arbitrary fields. Site admins may configure
+         * additional fields around them.
+         */
+        $systemFields = [
+            'name' => [
+                'key' => 'name',
+                'label' => 'Name',
+                'type' => 'text',
+                'required' => true,
+                'system' => true,
+                'enabled' => true,
+            ],
+
+            'email' => [
+                'key' => 'email',
+                'label' => 'Email',
+                'type' => 'email',
+                'required' => true,
+                'system' => true,
+                'enabled' => true,
+            ],
+
+            'password' => [
+                'key' => 'password',
+                'label' => 'Password',
+                'type' => 'password',
+                'required' => true,
+                'system' => true,
+                'enabled' => true,
+            ],
+
+            'password_confirmation' => [
+                'key' => 'password_confirmation',
+                'label' => 'Confirm Password',
+                'type' => 'password',
+                'required' => true,
+                'system' => true,
+                'enabled' => true,
+            ],
+        ];
+
+        $submittedFields =
+            $data['registration_fields'] ?? [];
+
+        $normalizedFields = [];
+
+        foreach ($submittedFields as $field) {
+
+            /*
+             * ESUBIZ_INTERNAL_REGISTRATION_FIELD_KEYS_V3
+             *
+             * Core system fields retain their protected
+             * internal keys.
+             *
+             * Custom field keys are generated internally
+             * from the Site Admin's field label.
+             */
+            $isSystemField =
+                filter_var(
+                    $field['system'] ?? false,
+                    FILTER_VALIDATE_BOOLEAN
+                );
+
+            $rawKey = trim(
+                (string) (
+                    $isSystemField
+                        ? ($field['key'] ?? '')
+                        : ($field['label'] ?? '')
+                )
+            );
+
+            $key = \Illuminate\Support\Str::snake(
+                $rawKey
+            );
+
+            $key = preg_replace(
+                '/[^a-z0-9_]/',
+                '',
+                strtolower($key)
+            );
+
+            if (!$key) {
+                continue;
+            }
+
+            /*
+             * System fields always use Core's protected
+             * definitions, regardless of browser input.
+             */
+            if (isset($systemFields[$key])) {
+
+                if (
+                    !collect($normalizedFields)
+                        ->contains(
+                            fn ($existing) =>
+                                ($existing['key'] ?? null)
+                                === $key
+                        )
+                ) {
+                    $normalizedFields[] =
+                        $systemFields[$key];
+                }
+
+                continue;
+            }
+
+            $label = trim(
+                (string) ($field['label'] ?? '')
+            );
+
+            if ($label === '') {
+                continue;
+            }
+
+            $type =
+                $field['type'] ?? 'text';
+
+            if (!in_array(
+                $type,
+                [
+                    'text',
+                    'email',
+                    'tel',
+                    'number',
+                    'date',
+                    'textarea',
+                    'select',
+                    'checkbox',
+                ],
+                true
+            )) {
+                $type = 'text';
+            }
+
+            $options = [];
+
+            if (
+                $type === 'select'
+                && !empty($field['options'])
+            ) {
+                $options = array_values(
+                    array_filter(
+                        array_map(
+                            'trim',
+                            preg_split(
+                                '/[\r\n,]+/',
+                                (string)
+                                $field['options']
+                            )
+                        ),
+                        fn ($option) =>
+                            $option !== ''
+                    )
+                );
+
+                $options = array_slice(
+                    $options,
+                    0,
+                    100
+                );
+            }
+
+            $normalizedFields[] = [
+                'key' => $key,
+                'label' => $label,
+                'type' => $type,
+                'placeholder' => trim(
+                    (string) (
+                        $field['placeholder']
+                        ?? ''
+                    )
+                ),
+                'required' =>
+                    !empty($field['required']),
+                'system' => false,
+                'enabled' =>
+                    !array_key_exists(
+                        'enabled',
+                        $field
+                    )
+                    || !empty($field['enabled']),
+                'options' => $options,
+            ];
+        }
+
+        /*
+         * Ensure Core's required system fields are present
+         * even if the browser request attempted to omit them.
+         */
+        foreach ($systemFields as $key => $definition) {
+
+            $exists = collect($normalizedFields)
+                ->contains(
+                    fn ($field) =>
+                        ($field['key'] ?? null)
+                        === $key
+                );
+
+            if (!$exists) {
+                $normalizedFields[] = $definition;
+            }
+        }
+
+        /*
+         * ESUBIZ_CORE_REGISTRATION_FIELDS_MIGRATION_ONLY_V1
+         *
+         * Registration fields are now owned exclusively by
+         * Core forms + form_fields.
+         *
+         * auth.registration_fields remains readable only by
+         * the backward-compatible migration paths and is no
+         * longer written by Authentication Settings.
+         */
+
+
+        foreach ([
+            'login',
+            'register',
+        ] as $page) {
+
+            foreach ([
+                'heading',
+                'subheading',
+                'background_color',
+                'card_color',
+                'text_color',
+                'button_color',
+            ] as $property) {
+
+                if (
+                    array_key_exists(
+                        $property,
+                        $data[$page] ?? []
+                    )
+                ) {
+                    $save(
+                        $db,
+                        "auth.{$page}.{$property}",
+                        trim(
+                            (string)
+                            $data[$page][$property]
+                        )
+                    );
+                }
+            }
+        }
+
+        
+        
+        /*
+         * Registration defaults.
+         * The role is selected only by an administrator.
+         */
+        $registrationRequireEmailVerification =
+            $request->boolean(
+                'registration_require_email_verification'
+            );
+
+        $registrationDefaultRole =
+            trim(
+                (string) $request->input(
+                    'registration_default_role',
+                    ''
+                )
+            );
+
+        $validRegistrationRoleValues =
+            collect($registrationRoles ?? [])
+                ->pluck('value')
+                ->map(
+                    fn ($value) =>
+                        (string) $value
+                )
+                ->all();
+
+        if (
+            $registrationDefaultRole !== ''
+            && !in_array(
+                $registrationDefaultRole,
+                $validRegistrationRoleValues,
+                true
+            )
+        ) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'registration_default_role' =>
+                        'Please select a valid default role.',
+                ]);
+        }
+
+        DB::connection('tenant')
+            ->table('site_settings')
+            ->updateOrInsert(
+                [
+                    'key' =>
+                        'auth.registration_require_email_verification',
+                ],
+                [
+                    'value' =>
+                        $registrationRequireEmailVerification
+                            ? '1'
+                            : '0',
+                ]
+            );
+
+        DB::connection('tenant')
+            ->table('site_settings')
+            ->updateOrInsert(
+                [
+                    'key' =>
+                        'auth.registration_default_role',
+                ],
+                [
+                    'value' =>
+                        $registrationDefaultRole,
+                ]
+            );
+
+/*
+         * ESUBIZ_MULTI_AUTH_FORMS_ADMIN_PERSISTENCE_V12
+         *
+         * Keep the Default Auth Form synchronized with the existing
+         * authoritative Core authentication settings.
+         *
+         * This is intentionally performed AFTER the existing settings
+         * persistence logic so no old behaviour is replaced.
+         */
+
+        /*
+         * ESUBIZ_CORE_AUTH_FORM_CONFIG_PERSISTENCE_V2
+         */
+        $submittedAuthFormConfigs =
+            $data['auth_form_config'] ?? [];
+
+        if (
+            is_array($submittedAuthFormConfigs)
+            && \Illuminate\Support\Facades\Schema::connection('tenant')
+                ->hasTable('forms')
+        ) {
+            foreach (
+                $submittedAuthFormConfigs
+                as $submittedFormId => $submittedConfig
+            ) {
+                if (
+                    !is_numeric($submittedFormId)
+                    || !is_array($submittedConfig)
+                ) {
+                    continue;
+                }
+
+                $submittedFormId = (int) $submittedFormId;
+
+                $formRecord = $db
+                    ->table('forms')
+                    ->where('id', $submittedFormId)
+                    ->first();
+
+                if (!$formRecord) {
+                    continue;
+                }
+
+                $formSettings = json_decode(
+                    (string) ($formRecord->settings ?? ''),
+                    true
+                );
+
+                $formSettings = is_array($formSettings)
+                    ? $formSettings
+                    : [];
+
+                $purpose = (string) (
+                    $formSettings['purpose'] ?? ''
+                );
+
+                $coreDefault = (string) (
+                    $formSettings['core_default_form'] ?? ''
+                );
+
+                if ($coreDefault === 'password_reset') {
+                    $coreDefault = 'password-reset';
+                }
+
+                $authPurpose = null;
+
+                if (
+                    str_starts_with(
+                        $purpose,
+                        'authentication.'
+                    )
+                ) {
+                    $authPurpose = substr(
+                        $purpose,
+                        strlen('authentication.')
+                    );
+                }
+
+                if (
+                    !$authPurpose
+                    && in_array(
+                        $coreDefault,
+                        [
+                            'registration',
+                            'login',
+                            'password-reset',
+                        ],
+                        true
+                    )
+                ) {
+                    $authPurpose = $coreDefault;
+                }
+
+                if (
+                    !in_array(
+                        $authPurpose,
+                        [
+                            'registration',
+                            'login',
+                            'password-reset',
+                        ],
+                        true
+                    )
+                ) {
+                    continue;
+                }
+
+                $redirect = trim(
+                    (string) (
+                        $submittedConfig['redirect']
+                        ?? ''
+                    )
+                );
+
+                $roleId =
+                    $submittedConfig['role_id']
+                    ?? null;
+
+                $roleId = is_numeric($roleId)
+                    ? (int) $roleId
+                    : null;
+
+                if (
+                    $authPurpose === 'registration'
+                    && $roleId !== null
+                ) {
+                    $roleExists =
+                        \Illuminate\Support\Facades\Schema::connection('tenant')
+                            ->hasTable('site_roles')
+                        && $db
+                            ->table('site_roles')
+                            ->where('id', $roleId)
+                            ->exists();
+
+                    if (!$roleExists) {
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            'auth_form_config' =>
+                                'The selected Core user role no longer exists.',
+                        ]);
+                    }
+                }
+
+                $authConfig = [
+                    'redirect' => $redirect,
+                ];
+
+                if ($authPurpose === 'registration') {
+                    $authConfig['role_id'] = $roleId;
+                }
+
+                $formSettings['auth_config'] = $authConfig;
+
+                $db
+                    ->table('forms')
+                    ->where('id', $submittedFormId)
+                    ->update([
+                        'settings' => json_encode($formSettings),
+                        'updated_at' => now(),
+                    ]);
+            }
+        }
+
+
+        $authFormService =
+            app(TenantAuthFormService::class);
+
+        $authForms =
+            $authFormService->all();
+
+        $defaultAuthForm =
+            $authFormService->buildDefaultForm();
+
+        /*
+         * Preserve any form-level capability configuration already
+         * stored in the registry while refreshing legacy-backed
+         * Default settings.
+         */
+        if (
+            isset($authForms[
+                TenantAuthFormService::DEFAULT_FORM_ID
+            ])
+            && is_array(
+                $authForms[
+                    TenantAuthFormService::DEFAULT_FORM_ID
+                ]
+            )
+        ) {
+            $storedDefault =
+                $authForms[
+                    TenantAuthFormService::DEFAULT_FORM_ID
+                ];
+
+            foreach (
+                [
+                    'offers',
+                    'payment',
+                    'extensions',
+                ]
+                as $portableSection
+            ) {
+                if (
+                    array_key_exists(
+                        $portableSection,
+                        $storedDefault
+                    )
+                ) {
+                    $defaultAuthForm[
+                        $portableSection
+                    ] =
+                        $storedDefault[
+                            $portableSection
+                        ];
+                }
+            }
+        }
+
+        $authForms[
+            TenantAuthFormService::DEFAULT_FORM_ID
+        ] =
+            $defaultAuthForm;
+
+        $authFormService->saveAll(
+            $authForms
+        );
+
+return back()->with(
+            'success',
+            'Authentication settings updated successfully.'
+        );
+    }
+
+
+    public function updateHomepage(Request $request)
+    {
+        $website = $this->currentWebsite();
+
+        $websiteId = (int) $website->id;
+
+        $tenantAuthenticated =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.authenticated"
+            ) === true
+            || (
+                session()->get('tenant_cms_authenticated') === true
+                && (int) session()->get('tenant_cms_website_id')
+                    === $websiteId
+            );
+
+        if (!$tenantAuthenticated) {
+            session()->put(
+                'url.intended',
+                request()->fullUrl()
+            );
+
+            return redirect()->to('/login');
+        }
+
+        $data = $request->validate([
+            'website_name' => [
+                'required',
+                'string',
+                'max:150',
+            ],
+
+            'homepage_title' => [
+                'required',
+                'string',
+                'max:200',
+            ],
+
+            'homepage_content' => [
+                'nullable',
+                'string',
+                'max:10000',
+            ],
+
+            'home_menu_label' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
+        ]);
+
+        $db = DB::connection('tenant');
+
+        $db->transaction(function () use (
+            $db,
+            $data
+        ) {
+
+            /*
+             * SITE NAME
+             */
+            $db->table('site_settings')
+                ->updateOrInsert(
+                    [
+                        'key' => 'website_name',
+                    ],
+                    [
+                        'value' => trim(
+                            $data['website_name']
+                        ),
+
+                        'updated_at' => now(),
+                        'created_at' => now(),
+                    ]
+                );
+
+
+            /*
+             * HOMEPAGE
+             */
+            $homepage = $db->table('pages')
+                ->where('is_homepage', true)
+                ->first();
+
+            if (!$homepage) {
+                $homepage = $db->table('pages')
+                    ->where('slug', 'home')
+                    ->first();
+            }
+
+            abort_unless(
+                $homepage,
+                422,
+                'Homepage does not exist.'
+            );
+
+            $db->table('pages')
+                ->where('id', $homepage->id)
+                ->update([
+                    'title' => trim(
+                        $data['homepage_title']
+                    ),
+
+                    'content' =>
+                        $data['homepage_content']
+                        ?? '',
+
+                    'status' => 'published',
+
+                    'published_at' =>
+                        $homepage->published_at
+                            ?: now(),
+
+                    'updated_at' => now(),
+                ]);
+
+
+            /*
+             * HOME MENU LABEL
+             */
+            if (
+                !empty(
+                    trim(
+                        (string) (
+                            $data['home_menu_label']
+                            ?? ''
+                        )
+                    )
+                )
+            ) {
+
+                $menu = $db->table('menus')
+                    ->where(
+                        'location',
+                        'header'
+                    )
+                    ->where(
+                        'is_active',
+                        true
+                    )
+                    ->first();
+
+                if ($menu) {
+
+                    $homeItem = $db
+                        ->table('menu_items')
+                        ->where(
+                            'menu_id',
+                            $menu->id
+                        )
+                        ->where(
+                            'page_id',
+                            $homepage->id
+                        )
+                        ->first();
+
+                    if ($homeItem) {
+
+                        $db->table('menu_items')
+                            ->where(
+                                'id',
+                                $homeItem->id
+                            )
+                            ->update([
+                                'label' => trim(
+                                    $data[
+                                        'home_menu_label'
+                                    ]
+                                ),
+
+                                'updated_at' =>
+                                    now(),
+                            ]);
+                    }
+                }
+            }
+        });
+
+        return back()->with(
+            'success',
+            'Website updated successfully.'
+        );
+    }
+
+
+    /*
+     * ESUBIZ_TENANT_AUTH_PAGES_V1
+     *
+     * Tenant-domain authentication entry pages.
+     * These do not replace the central esubiz.com login/register pages.
+     */
+    /*
+     * ESUBIZ_SHARED_AUTH_PAGE_BRANDING_V3
+     *
+     * Shared Core authentication branding.
+     *
+     * Light:
+     *     configured Light Auth Logo
+     *     -> existing Site Logo
+     *     -> website initial
+     *
+     * Dark:
+     *     configured Dark Auth Logo
+     *     -> resolved Light/Site Logo
+     *     -> website initial
+     *
+     * Same Core implementation for SaaS and off-server.
+     */
+        /*
+     * ESUBIZ_PUBLIC_AUTH_ADMIN_CONFIG_V1
+     *
+     * Public authentication presentation is controlled
+     * by the current website's Core authentication settings.
+     *
+     * Website-owned:
+     * - provider visibility
+     * - provider order
+     * - headings
+     * - subheadings
+     * - colors
+     * - registration fields
+     * - auth page logos
+     *
+     * Esubiz provider identity/connection metadata remains
+     * Central-owned. Core only controls whether it is visible.
+     *
+     * Same Core contract for SaaS and off-server.
+     */
+    private function tenantPublicAuthConfig(
+        $website,
+        string $page
+    ): array {
+        $db = DB::connection('tenant');
+
+        $settings = $db
+            ->table('site_settings')
+            ->where('key', 'like', 'auth.%')
+            ->orWhere(
+                'key',
+                'theme.corporate.logo_path'
+            )
+            ->pluck('value', 'key')
+            ->all();
+
+        $decode = static function (
+            $value,
+            array $fallback = []
+        ): array {
+            if (
+                $value === null
+                || $value === ''
+            ) {
+                return $fallback;
+            }
+
+            $decoded = json_decode(
+                $value,
+                true
+            );
+
+            return is_array($decoded)
+                ? $decoded
+                : $fallback;
+        };
+
+        $providerOrder = $decode(
+            $settings[
+                'auth.provider_order'
+            ] ?? null,
+            [
+                'esubiz',
+                'google',
+                'facebook',
+                'instagram',
+                'tiktok',
+                'x',
+            ]
+        );
+
+        $providerDefinitions = [
+            'esubiz' => [
+                'label' => 'Esubiz',
+                'enabled' =>
+                    (
+                        $settings[
+                            'auth.esubiz.enabled'
+                        ] ?? '1'
+                    ) === '1',
+
+                /*
+                 * Central owns the Esubiz provider logo.
+                 *
+                 * Do NOT add a tenant-side Esubiz logo
+                 * configuration here.
+                 *
+                 * The future Central API provider metadata
+                 * resolver will populate this value.
+                 */
+                'logo_url' => null,
+
+                'url' => '/admin?sso=1',
+            ],
+
+            'google' => [
+                'label' => 'Google',
+                'enabled' =>
+                    (
+                        $settings[
+                            'auth.google.enabled'
+                        ] ?? '0'
+                    ) === '1',
+            ],
+
+            'facebook' => [
+                'label' => 'Facebook',
+                'enabled' =>
+                    (
+                        $settings[
+                            'auth.facebook.enabled'
+                        ] ?? '0'
+                    ) === '1',
+            ],
+
+            'instagram' => [
+                'label' => 'Instagram',
+                'enabled' =>
+                    (
+                        $settings[
+                            'auth.instagram.enabled'
+                        ] ?? '0'
+                    ) === '1',
+            ],
+
+            'tiktok' => [
+                'label' => 'TikTok',
+                'enabled' =>
+                    (
+                        $settings[
+                            'auth.tiktok.enabled'
+                        ] ?? '0'
+                    ) === '1',
+            ],
+
+            'x' => [
+                'label' => 'X',
+                'enabled' =>
+                    (
+                        $settings[
+                            'auth.x.enabled'
+                        ] ?? '0'
+                    ) === '1',
+            ],
+        ];
+
+        $providers = [];
+
+        foreach ($providerOrder as $providerKey) {
+            if (
+                isset(
+                    $providerDefinitions[
+                        $providerKey
+                    ]
+                )
+            ) {
+                $providers[
+                    $providerKey
+                ] =
+                    $providerDefinitions[
+                        $providerKey
+                    ];
+            }
+        }
+
+        foreach (
+            $providerDefinitions
+            as $providerKey => $provider
+        ) {
+            if (!isset($providers[$providerKey])) {
+                $providers[$providerKey] =
+                    $provider;
+            }
+        }
+
+        $family =
+            $page === 'register'
+                ? 'register'
+                : 'login';
+
+        $prefix =
+            'auth.'
+            . $family
+            . '.';
+
+        $authLight = trim(
+            (string) (
+                $settings[
+                    'auth.brand.logo_light'
+                ] ?? ''
+            )
+        );
+
+        $authDark = trim(
+            (string) (
+                $settings[
+                    'auth.brand.logo_dark'
+                ] ?? ''
+            )
+        );
+
+        /*
+         * Canonical current Core website Header Logo.
+         */
+        $siteLogo = trim(
+            (string) (
+                $settings[
+                    'theme.corporate.logo_path'
+                ] ?? ''
+            )
+        );
+
+        $lightUrl = '';
+
+        if ($authLight !== '') {
+            $lightUrl =
+                request()
+                    ->getSchemeAndHttpHost()
+                . '/storage/'
+                . ltrim(
+                    $authLight,
+                    '/'
+                );
+        } elseif ($siteLogo !== '') {
+            $lightUrl =
+                request()
+                    ->getSchemeAndHttpHost()
+                . '/media/'
+                . ltrim(
+                    $siteLogo,
+                    '/'
+                );
+        }
+
+        if ($authDark !== '') {
+            $darkUrl =
+                request()
+                    ->getSchemeAndHttpHost()
+                . '/storage/'
+                . ltrim(
+                    $authDark,
+                    '/'
+                );
+        } else {
+            $darkUrl =
+                $lightUrl;
+        }
+
+        /* ESUBIZ_SHARED_AUTH_APPEARANCE_PUBLIC_V1 */
+        $sharedAppearance = [
+            'background_color' =>
+                $settings['auth.appearance.background_color']
+                ?? $settings['auth.login.background_color']
+                ?? '#f5f7fb',
+
+            'card_color' =>
+                $settings['auth.appearance.card_color']
+                ?? $settings['auth.login.card_color']
+                ?? '#ffffff',
+
+            'text_color' =>
+                $settings['auth.appearance.text_color']
+                ?? $settings['auth.login.text_color']
+                ?? '#111827',
+
+            'button_color' =>
+                $settings['auth.appearance.button_color']
+                ?? $settings['auth.login.button_color']
+                ?? '#111827',
+        ];
+
+        return [
+            'page' => $page,
+
+            'security' => [
+                'login_enabled' =>
+                    (
+                        $settings[
+                            'auth.security.login_enabled'
+                        ] ?? '1'
+                    ) === '1',
+
+                'register_enabled' =>
+                    (
+                        $settings[
+                            'auth.security.register_enabled'
+                        ] ?? '1'
+                    ) === '1',
+            ],
+
+            /*
+             * ESUBIZ_PUBLIC_AUTH_LOGO_OUTPUT_V17
+             *
+             * Site Logo is the default authentication logo
+             * independently for Light and Dark modes.
+             */
+            'logo_light_url' =>
+                (string) (
+                    $settings[
+                        'auth.brand.logo_light'
+                    ]
+                    ?? $settings[
+                        'theme.corporate.logo_path'
+                    ]
+                    ?? ''
+                ),
+
+            'logo_dark_url' =>
+                (string) (
+                    $settings[
+                        'auth.brand.logo_dark'
+                    ]
+                    ?? $settings[
+                        'theme.corporate.logo_path'
+                    ]
+                    ?? ''
+                ),
+
+            'providers' =>
+                $providers,
+
+            'provider_order' =>
+                $providerOrder,
+
+            'heading' =>
+                (string) (
+                    $settings[
+                        $prefix . 'heading'
+                    ]
+                    ?? (
+                        $family === 'register'
+                            ? 'Create your account'
+                            : 'Welcome back'
+                    )
+                ),
+
+            'subheading' =>
+                (string) (
+                    $settings[
+                        $prefix . 'subheading'
+                    ]
+                    ?? ''
+                ),
+
+            /*
+             * ESUBIZ_PUBLIC_AUTH_SHARED_APPEARANCE_V16
+             * One shared Authentication Appearance configuration.
+             */
+            'background_color' =>
+                (string) (
+                    $settings[
+                        'auth.appearance.background_color'
+                    ]
+                    ?? $settings[
+                        $prefix
+                        . 'background_color'
+                    ]
+                    ?? '#f5f7fb'
+                ),
+
+            'card_color' =>
+                (string) (
+                    $settings[
+                        'auth.appearance.card_color'
+                    ]
+                    ?? $settings[
+                        $prefix
+                        . 'card_color'
+                    ]
+                    ?? '#ffffff'
+                ),
+
+            'text_color' =>
+                (string) (
+                    $settings[
+                        'auth.appearance.text_color'
+                    ]
+                    ?? $settings[
+                        $prefix
+                        . 'text_color'
+                    ]
+                    ?? '#111827'
+                ),
+
+            'button_color' =>
+                (string) (
+                    $settings[
+                        'auth.appearance.button_color'
+                    ]
+                    ?? $settings[
+                        $prefix
+                        . 'button_color'
+                    ]
+                    ?? '#111827'
+                ),
+
+            'logo_light_url' =>
+                $lightUrl,
+
+            'logo_dark_url' =>
+                $darkUrl,
+
+            /*
+             * Deployment identity controls
+             * Esubiz attribution.
+             *
+             * Never infer this from hostname.
+             */
+            'is_saas' =>
+                method_exists(
+                    $website,
+                    'isSaas'
+                )
+                && $website->isSaas(),
+        ];
+    }
+
+
+private function tenantAuthBranding($website): array
+    {
+        $db = DB::connection('tenant');
+
+        $keys = [
+            'auth.brand.logo_light',
+            'auth.brand.logo_dark',
+
+            /*
+             * Existing Site Logo candidates.
+             * No duplicate site logo is created here.
+             */
+            'site.logo_light',
+            'site.logo',
+            'branding.logo',
+            'general.logo',
+            'site_logo',
+            'logo',
+        ];
+
+        $settings = $db
+            ->table('site_settings')
+            ->whereIn('key', $keys)
+            ->pluck('value', 'key')
+            ->all();
+
+        $authLight = trim(
+            (string) (
+                $settings['auth.brand.logo_light']
+                ?? ''
+            )
+        );
+
+        $authDark = trim(
+            (string) (
+                $settings['auth.brand.logo_dark']
+                ?? ''
+            )
+        );
+
+        $siteLogo = '';
+
+        foreach ([
+            'site.logo_light',
+            'site.logo',
+            'branding.logo',
+            'general.logo',
+            'site_logo',
+            'logo',
+        ] as $key) {
+
+            $candidate = trim(
+                (string) (
+                    $settings[$key]
+                    ?? ''
+                )
+            );
+
+            if ($candidate !== '') {
+                $siteLogo = $candidate;
+                break;
+            }
+        }
+
+        /*
+         * Website model fallback where available.
+         */
+        if (
+            $siteLogo === ''
+            && isset($website->logo)
+            && trim((string) $website->logo) !== ''
+        ) {
+            $siteLogo = trim(
+                (string) $website->logo
+            );
+        }
+
+        /*
+         * Configured Light Auth Logo overrides Site Logo.
+         */
+        $resolvedLight =
+            $authLight !== ''
+                ? $authLight
+                : $siteLogo;
+
+        /*
+         * Configured Dark Auth Logo overrides the
+         * Light/Site fallback in Dark mode.
+         */
+        $resolvedDark =
+            $authDark !== ''
+                ? $authDark
+                : $resolvedLight;
+
+        return [
+            'logo_light' => $resolvedLight,
+            'logo_dark' => $resolvedDark,
+
+            'auth_logo_light' => $authLight,
+            'auth_logo_dark' => $authDark,
+
+            'site_logo' => $siteLogo,
+
+            'light_is_override' =>
+                $authLight !== '',
+
+            'dark_is_override' =>
+                $authDark !== '',
+        ];
+    }
+
+
+    /*
+     * ESUBIZ_CORE_AUTH_FORM_RUNTIME_RESOLVER_V1
+     *
+     * Core forms + form_fields are the canonical public
+     * authentication-form definitions.
+     *
+     * This resolver supplies presentation metadata only.
+     * Existing authentication/security handlers remain
+     * authoritative.
+     */
+    private function tenantPublicAuthFormFields(
+        string $purpose
+    ): array {
+        $supported = [
+            'registration',
+            'login',
+            'password-reset',
+        ];
+
+        if (!in_array($purpose, $supported, true)) {
+            return [];
+        }
+
+        $schema =
+            \Illuminate\Support\Facades\Schema::connection(
+                'tenant'
+            );
+
+        if (
+            !$schema->hasTable('forms')
+            || !$schema->hasTable('form_fields')
+        ) {
+            return [];
+        }
+
+        $db = DB::connection('tenant');
+
+        $forms = $db->table('forms')
+            ->orderBy('id')
+            ->get();
+
+        $authForm = null;
+
+        /*
+         * Protected Core default takes priority.
+         */
+        foreach ($forms as $form) {
+            $settings = json_decode(
+                (string) ($form->settings ?? ''),
+                true
+            );
+
+            $settings = is_array($settings)
+                ? $settings
+                : [];
+
+            $coreDefault = (string) (
+                $settings['core_default_form']
+                ?? ''
+            );
+
+            if ($coreDefault === 'password_reset') {
+                $coreDefault = 'password-reset';
+            }
+
+            if ($coreDefault === $purpose) {
+                $authForm = $form;
+                break;
+            }
+        }
+
+        /*
+         * Explicit Authentication Form fallback.
+         */
+        if (!$authForm) {
+            $expected =
+                'authentication.' . $purpose;
+
+            foreach ($forms as $form) {
+                $settings = json_decode(
+                    (string) ($form->settings ?? ''),
+                    true
+                );
+
+                $settings = is_array($settings)
+                    ? $settings
+                    : [];
+
+                if (
+                    ($settings['purpose'] ?? null)
+                    === $expected
+                ) {
+                    $authForm = $form;
+                    break;
+                }
+            }
+        }
+
+        if (!$authForm) {
+            return [];
+        }
+
+        return $db->table('form_fields')
+            ->where(
+                'form_id',
+                (int) $authForm->id
+            )
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get()
+            ->map(
+                static function ($record) {
+                    $options = [];
+
+                    if (
+                        isset($record->options)
+                        && is_string($record->options)
+                        && trim($record->options) !== ''
+                    ) {
+                        $decoded = json_decode(
+                            $record->options,
+                            true
+                        );
+
+                        if (is_array($decoded)) {
+                            $options = $decoded;
+                        }
+                    }
+
+                    return [
+                        'key' => (string) (
+                            $record->name
+                            ?? ''
+                        ),
+                        'name' => (string) (
+                            $record->name
+                            ?? ''
+                        ),
+                        'label' => (string) (
+                            $record->label
+                            ?? ''
+                        ),
+                        'type' => (string) (
+                            $record->type
+                            ?? 'text'
+                        ),
+                        'required' =>
+                            (bool) (
+                                $record->required
+                                ?? false
+                            ),
+                        'options' => $options,
+                    ];
+                }
+            )
+            ->filter(
+                static fn ($field) =>
+                    trim($field['name']) !== ''
+                    && trim($field['label']) !== ''
+            )
+            ->values()
+            ->all();
+    }
+
+    public function showLogin()
+    {
+        $website = $this->currentWebsite();
+        $websiteId = (int) $website->id;
+
+        $tenantAuthenticated =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.authenticated"
+            ) === true
+            || (
+                session()->get('tenant_cms_authenticated') === true
+                && (int) session()->get('tenant_cms_website_id')
+                    === $websiteId
+            );
+
+        if ($tenantAuthenticated) {
+            return redirect()->route(
+                'tenant.cms.dashboard',
+                ['subdomain' => $website->subdomain]
+            );
+        }
+
+        return view(
+            'tenant.auth.login',
+            compact('website')
+        )
+            ->with(
+                'authBranding',
+                $this->tenantAuthBranding($website)
+            )
+            ->with(
+                'authPageConfig',
+                $this->tenantPublicAuthConfig(
+                    $website,
+                    'login'
+                )
+            )
+            ->with(
+                'authFormFields',
+                $this->tenantPublicAuthFormFields(
+                    'login'
+                )
+            );
+    }
+
+    /*
+     * ESUBIZ_TENANT_NATIVE_LOGIN_V1
+     *
+     * Native tenant authentication uses this website's
+     * own site_users table and creates a website-scoped
+     * session. Central Esubiz authentication is untouched.
+     */
+    /*
+     * ESUBIZ_AUTH_FIRST_LAYER_SECURITY_V1
+     *
+     * Core-native first-layer authentication protection.
+     *
+     * Protection is website-scoped and can be independently
+     * enabled for Login and Registration by Site Admin.
+     *
+     * Layers:
+     * - invisible honeypot
+     * - minimum form completion time
+     * - website/action/IP scoped rate limiting
+     */
+    private function enforceTenantAuthSecurity(
+        Request $request,
+        $website,
+        string $action
+    ): ?\Illuminate\Http\RedirectResponse {
+
+        $db = $this->tenantAuthConnection(
+            $website
+        );
+
+        $settingKey =
+            $action === 'register'
+                ? 'auth.security.register_enabled'
+                : 'auth.security.login_enabled';
+
+        $enabled = (
+            (
+                $db
+                    ->table('site_settings')
+                    ->where('key', $settingKey)
+                    ->value('value')
+            ) ?? '1'
+        ) === '1';
+
+        if (!$enabled) {
+            return null;
+        }
+
+        /*
+         * Honeypot.
+         *
+         * Legitimate visitors never see or populate this field.
+         */
+        if (
+            trim(
+                (string) $request->input(
+                    'website_url',
+                    ''
+                )
+            ) !== ''
+        ) {
+            return back()
+                ->withInput(
+                    $request->except([
+                        'password',
+                        'password_confirmation',
+                        'website_url',
+                        'auth_started_at',
+                    ])
+                )
+                ->withErrors([
+                    'email' =>
+                        'Unable to process this request. Please try again.',
+                ]);
+        }
+
+        /*
+         * Minimum completion time.
+         *
+         * Timestamp is session-bound so a posted arbitrary value
+         * cannot bypass the check.
+         */
+        $websiteId = (int) $website->id;
+
+        $sessionKey =
+            "tenant_auth_form_started."
+            . $websiteId
+            . "."
+            . $action;
+
+        $startedAt = (int) $request
+            ->session()
+            ->get(
+                $sessionKey,
+                0
+            );
+
+        $postedStartedAt = (int) $request->input(
+            'auth_started_at',
+            0
+        );
+
+        if (
+            $startedAt <= 0
+            || $postedStartedAt <= 0
+            || $postedStartedAt !== $startedAt
+            || (time() - $startedAt) < 2
+        ) {
+            return back()
+                ->withInput(
+                    $request->except([
+                        'password',
+                        'password_confirmation',
+                        'website_url',
+                        'auth_started_at',
+                    ])
+                )
+                ->withErrors([
+                    'email' =>
+                        'Please wait a moment and try again.',
+                ]);
+        }
+
+        /*
+         * Website + action + IP isolation prevents one Core
+         * website from consuming another website's allowance.
+         */
+        $rateKey =
+            'tenant-auth:'
+            . $websiteId
+            . ':'
+            . $action
+            . ':'
+            . sha1(
+                (string) $request->ip()
+            );
+
+        $maxAttempts =
+            $action === 'register'
+                ? 5
+                : 10;
+
+        if (
+            \Illuminate\Support\Facades\RateLimiter::tooManyAttempts(
+                $rateKey,
+                $maxAttempts
+            )
+        ) {
+            $seconds =
+                \Illuminate\Support\Facades\RateLimiter::availableIn(
+                    $rateKey
+                );
+
+            return back()
+                ->withInput(
+                    $request->except([
+                        'password',
+                        'password_confirmation',
+                        'website_url',
+                        'auth_started_at',
+                    ])
+                )
+                ->withErrors([
+                    'email' =>
+                        'Too many attempts. Please try again in '
+                        . max(1, $seconds)
+                        . ' seconds.',
+                ]);
+        }
+
+        \Illuminate\Support\Facades\RateLimiter::hit(
+            $rateKey,
+            60
+        );
+
+        return null;
+    }
+
+
+    private function tenantAuthRateLimitKey(
+        Request $request,
+        $website,
+        string $action
+    ): string {
+        return
+            'tenant-auth:'
+            . (int) $website->id
+            . ':'
+            . $action
+            . ':'
+            . sha1(
+                (string) $request->ip()
+            );
+    }
+
+
+    public function login(Request $request)
+    {
+        $website = $this->currentWebsite();
+
+        /*
+         * ESUBIZ_AUTH_LOGIN_SECURITY_ENFORCEMENT_V1
+         */
+        if (
+            $securityResponse =
+                $this->enforceTenantAuthSecurity(
+                    $request,
+                    $website,
+                    'login'
+                )
+        ) {
+            return $securityResponse;
+        }
+
+        $validated = $request->validate([
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+            ],
+            'password' => [
+                'required',
+                'string',
+            ],
+            'remember' => [
+                'nullable',
+                'boolean',
+            ],
+        ]);
+
+        $email = strtolower(
+            trim($validated['email'])
+        );
+
+        /*
+         * Use the same tenant database connection already
+         * configured for this website by the Core CMS.
+         */
+        $tenantDatabaseService = app(
+            \App\Services\Website\WebsiteTenantDatabaseService::class
+        );
+
+        $tenantDatabaseService->connect($website);
+
+        $db = $tenantDatabaseService->connection();
+
+        $siteUser = $db
+            ->table('site_users')
+            ->whereRaw(
+                'LOWER(email) = ?',
+                [$email]
+            )
+            ->first();
+
+        /*
+         * ESUBIZ_TENANT_PRIMARY_ADMIN_SELF_HEAL_V1
+         *
+         * Some earlier deployments retained the website
+         * administrator only in the landlord websites table
+         * and did not create the matching site_users record.
+         *
+         * The central Website record is authoritative only
+         * for the configured PRIMARY website administrator.
+         * If those credentials validate, repair/synchronize
+         * that administrator into this website's tenant DB.
+         */
+        $isPrimaryWebsiteAdmin =
+            strtolower(
+                trim(
+                    (string) $website->admin_email
+                )
+            ) === $email;
+
+        $centralAdminPasswordValid =
+            $isPrimaryWebsiteAdmin
+            && !empty($website->admin_password)
+            && \Illuminate\Support\Facades\Hash::check(
+                $validated['password'],
+                $website->admin_password
+            );
+
+        if ($centralAdminPasswordValid) {
+
+            if (!$siteUser) {
+
+                $siteUserId = $db
+                    ->table('site_users')
+                    ->insertGetId([
+                        'name' =>
+                            $website->admin_name
+                            ?: $website->name
+                            ?: 'Administrator',
+
+                        'email' => $email,
+
+                        'phone' =>
+                            data_get(
+                                $website->wizard_data,
+                                'admin_phone'
+                            ),
+
+                        /*
+                         * admin_password is already a Laravel
+                         * password hash. Never hash it again.
+                         */
+                        'password' =>
+                            $website->admin_password,
+
+                        'is_active' => true,
+
+                        'last_login_at' => null,
+
+                        'remember_token' => null,
+
+                        'created_at' => now(),
+
+                        'updated_at' => now(),
+                    ]);
+
+                $siteUser = $db
+                    ->table('site_users')
+                    ->where(
+                        'id',
+                        $siteUserId
+                    )
+                    ->first();
+
+            } else {
+
+                /*
+                 * Repair stale primary-admin credentials too.
+                 * This affects only the configured primary
+                 * administrator for this website.
+                 */
+                $db
+                    ->table('site_users')
+                    ->where(
+                        'id',
+                        $siteUser->id
+                    )
+                    ->update([
+                        'name' =>
+                            $website->admin_name
+                            ?: $siteUser->name,
+
+                        'password' =>
+                            $website->admin_password,
+
+                        'is_active' => true,
+
+                        'updated_at' => now(),
+                    ]);
+
+                $siteUser = $db
+                    ->table('site_users')
+                    ->where(
+                        'id',
+                        $siteUser->id
+                    )
+                    ->first();
+            }
+        }
+
+        if (
+            !$siteUser
+            || !$siteUser->is_active
+            || !\Illuminate\Support\Facades\Hash::check(
+                $validated['password'],
+                $siteUser->password
+            )
+        ) {
+            return back()
+                ->withInput(
+                    $request->only('email')
+                )
+                ->withErrors([
+                    'email' =>
+                        'The email or password is incorrect.',
+                ]);
+        }
+
+        $db
+            ->table('site_users')
+            ->where('id', $siteUser->id)
+            ->update([
+                'last_login_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        $websiteId = (int) $website->id;
+
+        /*
+         * ESUBIZ_CORE_REMEMBER_LOGIN_V37
+         *
+         * Core-local persistent authentication.
+         *
+         * Browser receives selector + raw random token.
+         * site_users stores selector + SHA-256 hash only.
+         *
+         * This does not use or alter Central Esubiz auth.
+         */
+        $rememberCookie = null;
+
+        if ($request->boolean('remember')) {
+            $rememberSelector = bin2hex(
+                random_bytes(12)
+            );
+
+            $rememberPlainToken = bin2hex(
+                random_bytes(32)
+            );
+
+            $db
+                ->table('site_users')
+                ->where('id', $siteUser->id)
+                ->update([
+                    'remember_token' =>
+                        $rememberSelector
+                        . ':'
+                        . hash(
+                            'sha256',
+                            $rememberPlainToken
+                        ),
+                    'updated_at' => now(),
+                ]);
+
+            $rememberCookie = cookie(
+                'core_remember_' . $websiteId,
+                $rememberSelector
+                    . ':'
+                    . $rememberPlainToken,
+                60 * 24 * 30,
+                '/',
+                null,
+                $request->isSecure(),
+                true,
+                false,
+                'Lax'
+            );
+        } else {
+            /*
+             * A normal non-remembered login invalidates any
+             * old persistent token for this Core user.
+             */
+            $db
+                ->table('site_users')
+                ->where('id', $siteUser->id)
+                ->update([
+                    'remember_token' => null,
+                    'updated_at' => now(),
+                ]);
+        }
+
+        $request->session()->put(
+            "tenant_cms_sites.{$websiteId}.authenticated",
+            true
+        );
+
+        $request->session()->put(
+            "tenant_cms_sites.{$websiteId}.user_id",
+            (int) $siteUser->id
+        );
+
+        $request->session()->put(
+            "tenant_cms_sites.{$websiteId}.auth_method",
+            'local'
+        );
+
+        $request->session()->put(
+            "tenant_cms_sites.{$websiteId}.support_access",
+            false
+        );
+
+        /*
+         * Retain compatibility with existing Core CMS code
+         * while website-scoped sessions remain authoritative.
+         */
+        $request->session()->put(
+            'tenant_cms_authenticated',
+            true
+        );
+
+        $request->session()->put(
+            'tenant_cms_user_id',
+            (int) $siteUser->id
+        );
+
+        $request->session()->put(
+            'tenant_cms_website_id',
+            $websiteId
+        );
+
+        $request->session()->put(
+            'tenant_cms_auth_method',
+            'local'
+        );
+
+        $request->session()->put(
+            'tenant_cms_support_access',
+            false
+        );
+
+        /*
+         * ESUBIZ_AUTH_LOGIN_RATE_LIMIT_CLEAR_V1
+         *
+         * A successful authentication proves this request stream
+         * is legitimate, so clear its failed-attempt window.
+         */
+        \Illuminate\Support\Facades\RateLimiter::clear(
+            $this->tenantAuthRateLimitKey(
+                $request,
+                $website,
+                'login'
+            )
+        );
+
+        $request->session()->regenerate();
+
+        $response = redirect()->route(
+            'tenant.cms.dashboard',
+            [
+                'subdomain' => $website->subdomain,
+            ]
+        );
+
+        if ($rememberCookie !== null) {
+            $response->withCookie(
+                $rememberCookie
+            );
+        } else {
+            $response->withCookie(
+                cookie()->forget(
+                    'core_remember_' . $websiteId
+                )
+            );
+        }
+
+        return $response;
+    }
+
+
+    /*
+     * ESUBIZ_COMPLETE_TENANT_AUTH_HANDLERS_V1
+     *
+     * Tenant-local registration and password recovery.
+     * Authentication data belongs to this website's
+     * site_users table. Central Esubiz auth is untouched.
+     */
+
+    protected function tenantAuthConnection($website)
+    {
+        $tenantDatabaseService = app(
+            \App\Services\Website\WebsiteTenantDatabaseService::class
+        );
+
+        $tenantDatabaseService->connect($website);
+
+        return $tenantDatabaseService->connection();
+    }
+
+
+    public function register(Request $request)
+    {
+        $website = $this->currentWebsite();
+
+        /*
+         * ESUBIZ_AUTH_REGISTER_SECURITY_ENFORCEMENT_V1
+         */
+        if (
+            $securityResponse =
+                $this->enforceTenantAuthSecurity(
+                    $request,
+                    $website,
+                    'register'
+                )
+        ) {
+            return $securityResponse;
+        }
+
+        $validated = $request->validate([
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+            ],
+            'password' => [
+                'required',
+                'string',
+                'min:8',
+                'confirmed',
+            ],
+        ]);
+
+        $db = $this->tenantAuthConnection(
+            $website
+        );
+
+        $email = strtolower(
+            trim($validated['email'])
+        );
+
+        $exists = $db
+            ->table('site_users')
+            ->whereRaw(
+                'LOWER(email) = ?',
+                [$email]
+            )
+            ->exists();
+
+        if ($exists) {
+            return back()
+                ->withInput(
+                    $request->except([
+                        'password',
+                        'password_confirmation',
+                    ])
+                )
+                ->withErrors([
+                    'email' =>
+                        'An account with this email already exists.',
+                ]);
+        }
+
+        $userId = $db
+            ->table('site_users')
+            ->insertGetId([
+                'name' => trim(
+                    $validated['name']
+                ),
+                'email' => $email,
+                'phone' => null,
+                'password' =>
+                    \Illuminate\Support\Facades\Hash::make(
+                        $validated['password']
+                    ),
+                'is_active' => true,
+                'last_login_at' => now(),
+                'remember_token' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        $websiteId = (int) $website->id;
+
+        $request->session()->put(
+            "tenant_cms_sites.{$websiteId}.authenticated",
+            true
+        );
+
+        $request->session()->put(
+            "tenant_cms_sites.{$websiteId}.user_id",
+            (int) $userId
+        );
+
+        $request->session()->put(
+            "tenant_cms_sites.{$websiteId}.auth_method",
+            'local'
+        );
+
+        $request->session()->put(
+            "tenant_cms_sites.{$websiteId}.support_access",
+            false
+        );
+
+        /*
+         * Legacy compatibility.
+         */
+        $request->session()->put(
+            'tenant_cms_authenticated',
+            true
+        );
+
+        $request->session()->put(
+            'tenant_cms_user_id',
+            (int) $userId
+        );
+
+        $request->session()->put(
+            'tenant_cms_website_id',
+            $websiteId
+        );
+
+        $request->session()->put(
+            'tenant_cms_auth_method',
+            'local'
+        );
+
+        $request->session()->put(
+            'tenant_cms_support_access',
+            false
+        );
+
+        $request->session()->regenerate();
+
+        return redirect()->route(
+            'tenant.cms.dashboard',
+            [
+                'subdomain' =>
+                    $website->subdomain,
+            ]
+        );
+    }
+
+
+    public function showForgotPassword()
+    {
+        $website = $this->currentWebsite();
+
+        return view(
+            'tenant.auth.forgot-password',
+            compact('website')
+        )
+            ->with(
+                'authBranding',
+                $this->tenantAuthBranding($website)
+            )
+            ->with(
+                'authPageConfig',
+                $this->tenantPublicAuthConfig(
+                    $website,
+                    'forgot'
+                )
+            )
+            ->with(
+                'authFormFields',
+                array_values(
+                    array_filter(
+                        $this->tenantPublicAuthFormFields(
+                            'password-reset'
+                        ),
+                        static fn ($field) =>
+                            ($field['name'] ?? '')
+                            === 'email'
+                    )
+                )
+            );
+    }
+
+
+    public function sendPasswordReset(
+        Request $request
+    ) {
+        $website = $this->currentWebsite();
+
+        $validated = $request->validate([
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+            ],
+        ]);
+
+        $email = strtolower(
+            trim($validated['email'])
+        );
+
+        $db = $this->tenantAuthConnection(
+            $website
+        );
+
+        $siteUser = $db
+            ->table('site_users')
+            ->whereRaw(
+                'LOWER(email) = ?',
+                [$email]
+            )
+            ->where('is_active', true)
+            ->first();
+
+        /*
+         * Do not disclose whether an account exists.
+         */
+        if (!$siteUser) {
+            return back()->with(
+                'status',
+                'If an account exists for that email, a password reset link has been sent.'
+            );
+        }
+
+        /*
+         * Tenant reset tokens are stored in the website
+         * session namespace so one website cannot reset
+         * another website's account.
+         *
+         * The raw token is only sent in the email.
+         */
+        $token = \Illuminate\Support\Str::random(
+            64
+        );
+
+        $websiteId = (int) $website->id;
+
+        $request->session()->put(
+            "tenant_password_resets.{$websiteId}.{$siteUser->id}",
+            [
+                'token_hash' =>
+                    hash('sha256', $token),
+                'email' => $email,
+                'expires_at' =>
+                    now()->addMinutes(60)->timestamp,
+            ]
+        );
+
+        $resetUrl = route(
+            'tenant.auth.password.reset',
+            [
+                'subdomain' =>
+                    $website->subdomain,
+                'token' => $token,
+                'email' => $email,
+            ]
+        );
+
+        try {
+            \Illuminate\Support\Facades\Mail::raw(
+                "We received a request to reset your password for "
+                . ($website->name ?? 'your website')
+                . ".\n\nReset your password:\n"
+                . $resetUrl
+                . "\n\nThis link expires in 60 minutes.\n\n"
+                . "If you did not request this reset, you can ignore this email.",
+                function ($message) use (
+                    $email,
+                    $website
+                ) {
+                    $message
+                        ->to($email)
+                        ->subject(
+                            'Reset your password - '
+                            . (
+                                $website->name
+                                ?? 'Website'
+                            )
+                        );
+                }
+            );
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error(
+                'Tenant password reset email failed.',
+                [
+                    'website_id' =>
+                        $website->id,
+                    'email' => $email,
+                    'error' =>
+                        $e->getMessage(),
+                ]
+            );
+
+            return back()
+                ->withInput(
+                    $request->only('email')
+                )
+                ->withErrors([
+                    'email' =>
+                        'We could not send the reset email right now. Please try again.',
+                ]);
+        }
+
+        return back()->with(
+            'status',
+            'If an account exists for that email, a password reset link has been sent.'
+        );
+    }
+
+
+    public function showResetPassword(
+        Request $request,
+        string $token
+    ) {
+        $website = $this->currentWebsite();
+
+        return view(
+            'tenant.auth.reset-password',
+            [
+                'website' => $website,
+                'token' => $token,
+                'email' =>
+                    (string) $request->query(
+                        'email',
+                        ''
+                    ),
+            ]
+        )
+            ->with(
+                'authBranding',
+                $this->tenantAuthBranding($website)
+            )
+            ->with(
+                'authPageConfig',
+                $this->tenantPublicAuthConfig(
+                    $website,
+                    'reset'
+                )
+            )
+            ->with(
+                'authFormFields',
+                array_values(
+                    array_filter(
+                        $this->tenantPublicAuthFormFields(
+                            'password-reset'
+                        ),
+                        static fn ($field) =>
+                            in_array(
+                                $field['name'] ?? '',
+                                [
+                                    'password',
+                                    'password_confirmation',
+                                ],
+                                true
+                            )
+                    )
+                )
+            );
+    }
+
+
+    public function resetPassword(
+        Request $request
+    ) {
+        $website = $this->currentWebsite();
+
+        $validated = $request->validate([
+            'token' => [
+                'required',
+                'string',
+            ],
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+            ],
+            'password' => [
+                'required',
+                'string',
+                'min:8',
+                'confirmed',
+            ],
+        ]);
+
+        $email = strtolower(
+            trim($validated['email'])
+        );
+
+        $db = $this->tenantAuthConnection(
+            $website
+        );
+
+        $siteUser = $db
+            ->table('site_users')
+            ->whereRaw(
+                'LOWER(email) = ?',
+                [$email]
+            )
+            ->where('is_active', true)
+            ->first();
+
+        if (!$siteUser) {
+            return back()
+                ->withInput(
+                    $request->only('email')
+                )
+                ->withErrors([
+                    'email' =>
+                        'This password reset link is invalid or has expired.',
+                ]);
+        }
+
+        $websiteId = (int) $website->id;
+
+        $reset = $request
+            ->session()
+            ->get(
+                "tenant_password_resets.{$websiteId}.{$siteUser->id}"
+            );
+
+        $valid =
+            is_array($reset)
+            && isset(
+                $reset['token_hash'],
+                $reset['email'],
+                $reset['expires_at']
+            )
+            && hash_equals(
+                (string) $reset['token_hash'],
+                hash(
+                    'sha256',
+                    $validated['token']
+                )
+            )
+            && strtolower(
+                (string) $reset['email']
+            ) === $email
+            && (int) $reset['expires_at']
+                >= now()->timestamp;
+
+        if (!$valid) {
+            return back()
+                ->withInput(
+                    $request->only('email')
+                )
+                ->withErrors([
+                    'email' =>
+                        'This password reset link is invalid or has expired.',
+                ]);
+        }
+
+        $newPassword =
+            \Illuminate\Support\Facades\Hash::make(
+                $validated['password']
+            );
+
+        $db
+            ->table('site_users')
+            ->where('id', $siteUser->id)
+            ->update([
+                'password' => $newPassword,
+                'remember_token' => null,
+                'updated_at' => now(),
+            ]);
+
+        /*
+         * Keep the canonical Website administrator
+         * credential synchronized when this is the
+         * configured primary website administrator.
+         */
+        if (
+            strtolower(
+                (string) $website->admin_email
+            ) === $email
+        ) {
+            $website->update([
+                'admin_password' =>
+                    $newPassword,
+            ]);
+        }
+
+        $request
+            ->session()
+            ->forget(
+                "tenant_password_resets.{$websiteId}.{$siteUser->id}"
+            );
+
+        return redirect()
+            ->route(
+                'tenant.auth.login',
+                [
+                    'subdomain' =>
+                        $website->subdomain,
+                ]
+            )
+            ->with(
+                'status',
+                'Your password has been reset. You can now sign in.'
+            );
+    }
+
+
+    /*
+     * ESUBIZ_PUBLIC_DYNAMIC_REGISTRATION_FIELDS_V1
+     *
+     * Public registration fields belong to the current
+     * Core website and are read from its local site_settings.
+     *
+     * Same Core behaviour for SaaS and off-server.
+     */
+    private function tenantPublicRegistrationFields(): array
+{
+    /*
+     * ESUBIZ_CORE_REGISTRATION_FORM_RUNTIME_V1
+     *
+     * Core Forms/form_fields is the canonical source for the
+     * public Registration form.
+     *
+     * Legacy auth.registration_fields is used only to seed an
+     * empty canonical Registration form. Once Core fields exist,
+     * the legacy setting is never used as the runtime source.
+     */
+    $db = DB::connection('tenant');
+
+    if (
+        !\Illuminate\Support\Facades\Schema::connection('tenant')
+            ->hasTable('forms')
+        || !\Illuminate\Support\Facades\Schema::connection('tenant')
+            ->hasTable('form_fields')
+    ) {
+        return [];
+    }
+
+    $registrationForm = null;
+
+    $forms = $db->table('forms')
+        ->orderBy('id')
+        ->get();
+
+    /*
+     * Prefer the protected Core default Registration form.
+     */
+    foreach ($forms as $form) {
+        $settings = json_decode(
+            (string) ($form->settings ?? ''),
+            true
+        );
+
+        $settings = is_array($settings)
+            ? $settings
+            : [];
+
+        if (
+            ($settings['core_default_form'] ?? null)
+                === 'registration'
+        ) {
+            $registrationForm = $form;
+            break;
+        }
+    }
+
+    /*
+     * If no Core-default record exists, use the first Core Form
+     * explicitly classified for Registration authentication.
+     */
+    if (!$registrationForm) {
+        foreach ($forms as $form) {
+            $settings = json_decode(
+                (string) ($form->settings ?? ''),
+                true
+            );
+
+            $settings = is_array($settings)
+                ? $settings
+                : [];
+
+            if (
+                ($settings['purpose'] ?? null)
+                    === 'authentication.registration'
+            ) {
+                $registrationForm = $form;
+                break;
+            }
+        }
+    }
+
+    if (!$registrationForm) {
+        return [];
+    }
+
+    $formId = (int) $registrationForm->id;
+
+    /*
+     * Safe one-time migration for older Core installs.
+     *
+     * Never overwrite an existing Core Form Builder definition.
+     */
+    $existingCount = $db->table('form_fields')
+        ->where('form_id', $formId)
+        ->count();
+
+    if ($existingCount === 0) {
+        $rawLegacy = $db->table('site_settings')
+            ->where('key', 'auth.registration_fields')
+            ->value('value');
+
+        $legacyFields = is_string($rawLegacy)
+            ? json_decode($rawLegacy, true)
+            : null;
+
+        if (is_array($legacyFields)) {
+            $now = now();
+            $sortOrder = 0;
+
+            foreach ($legacyFields as $legacyField) {
+                if (!is_array($legacyField)) {
+                    continue;
+                }
+
+                if (
+                    array_key_exists('enabled', $legacyField)
+                    && !filter_var(
+                        $legacyField['enabled'],
+                        FILTER_VALIDATE_BOOLEAN
+                    )
+                ) {
+                    continue;
+                }
+
+                $name = trim(
+                    (string) (
+                        $legacyField['key']
+                        ?? $legacyField['name']
+                        ?? ''
+                    )
+                );
+
+                $label = trim(
+                    (string) (
+                        $legacyField['label']
+                        ?? ''
+                    )
+                );
+
+                if ($name === '' || $label === '') {
+                    continue;
+                }
+
+                $type = (string) (
+                    $legacyField['type']
+                    ?? 'text'
+                );
+
+                if (
+                    !in_array(
+                        $type,
+                        [
+                            'text',
+                            'email',
+                            'tel',
+                            'number',
+                            'date',
+                            'textarea',
+                            'select',
+                            'checkbox',
+                            'radio',
+                            'password',
+                        ],
+                        true
+                    )
+                ) {
+                    $type = 'text';
+                }
+
+                $options =
+                    $legacyField['options']
+                    ?? null;
+
+                if (
+                    is_string($options)
+                    && trim($options) !== ''
+                ) {
+                    $options = array_values(
+                        array_filter(
+                            array_map(
+                                'trim',
+                                preg_split(
+                                    '/[\r\n,]+/',
+                                    $options
+                                )
+                            ),
+                            static fn ($value) =>
+                                $value !== ''
+                        )
+                    );
+                }
+
+                if (
+                    !is_array($options)
+                    || empty($options)
+                ) {
+                    $options = null;
+                }
+
+                $db->table('form_fields')->insert([
+                    'form_id' => $formId,
+                    'name' => $name,
+                    'label' => $label,
+                    'type' => $type,
+                    'required' => (bool) (
+                        $legacyField['required']
+                        ?? false
+                    ),
+                    'options' =>
+                        $options === null
+                            ? null
+                            : json_encode($options),
+                    'sort_order' => $sortOrder++,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
+        }
+    }
+
+    $records = $db->table('form_fields')
+        ->where('form_id', $formId)
+        ->orderBy('sort_order')
+        ->orderBy('id')
+        ->get();
+
+    $protected = [
+        'name',
+        'email',
+        'password',
+        'password_confirmation',
+    ];
+
+    $fields = [];
+
+    foreach ($records as $record) {
+        $name = trim(
+            (string) ($record->name ?? '')
+        );
+
+        $label = trim(
+            (string) ($record->label ?? '')
+        );
+
+        if ($name === '' || $label === '') {
+            continue;
+        }
+
+        $options = null;
+
+        if (
+            isset($record->options)
+            && is_string($record->options)
+            && trim($record->options) !== ''
+        ) {
+            $decoded = json_decode(
+                $record->options,
+                true
+            );
+
+            if (is_array($decoded)) {
+                $options = $decoded;
+            }
+        }
+
+        $fields[] = [
+            'key' => $name,
+            'name' => $name,
+            'label' => $label,
+            'type' => (string) (
+                $record->type
+                ?? 'text'
+            ),
+            'placeholder' => '',
+            'required' =>
+                (bool) ($record->required ?? false),
+            'system' =>
+                in_array(
+                    $name,
+                    $protected,
+                    true
+                ),
+            'enabled' => true,
+            'options' => $options ?? [],
+        ];
+    }
+
+    /*
+     * Registration authentication cannot operate without these
+     * protected Core identity/credential fields.
+     *
+     * Keep them available even if an old/custom Form Builder
+     * record was incomplete.
+     */
+    $requiredSystemFields = [
+        'name' => [
+            'key' => 'name',
+            'name' => 'name',
+            'label' => 'Name',
+            'type' => 'text',
+            'placeholder' => '',
+            'required' => true,
+            'system' => true,
+            'enabled' => true,
+            'options' => [],
+        ],
+        'email' => [
+            'key' => 'email',
+            'name' => 'email',
+            'label' => 'Email',
+            'type' => 'email',
+            'placeholder' => '',
+            'required' => true,
+            'system' => true,
+            'enabled' => true,
+            'options' => [],
+        ],
+        'password' => [
+            'key' => 'password',
+            'name' => 'password',
+            'label' => 'Password',
+            'type' => 'password',
+            'placeholder' => '',
+            'required' => true,
+            'system' => true,
+            'enabled' => true,
+            'options' => [],
+        ],
+        'password_confirmation' => [
+            'key' => 'password_confirmation',
+            'name' => 'password_confirmation',
+            'label' => 'Confirm Password',
+            'type' => 'password',
+            'placeholder' => '',
+            'required' => true,
+            'system' => true,
+            'enabled' => true,
+            'options' => [],
+        ],
+    ];
+
+    $existingNames = array_values(
+        array_filter(
+            array_map(
+                static fn ($field) =>
+                    $field['key'] ?? null,
+                $fields
+            )
+        )
+    );
+
+    foreach (
+        $requiredSystemFields
+        as $name => $definition
+    ) {
+        if (!in_array($name, $existingNames, true)) {
+            $fields[] = $definition;
+        }
+    }
+
+    return $fields;
+}
+
+
+    public function showRegister()
+    {
+        $website = $this->currentWebsite();
+        $websiteId = (int) $website->id;
+
+        $tenantAuthenticated =
+            session()->get(
+                "tenant_cms_sites.{$websiteId}.authenticated"
+            ) === true
+            || (
+                session()->get('tenant_cms_authenticated') === true
+                && (int) session()->get('tenant_cms_website_id')
+                    === $websiteId
+            );
+
+        if ($tenantAuthenticated) {
+            return redirect()->route(
+                'tenant.cms.dashboard',
+                ['subdomain' => $website->subdomain]
+            );
+        }
+
+        return view(
+            'tenant.auth.register',
+            compact('website')
+        )
+            ->with(
+                'authBranding',
+                $this->tenantAuthBranding($website)
+            )
+            ->with(
+                'registrationFields',
+                $this->tenantPublicRegistrationFields()
+            )
+            ->with(
+                'authPageConfig',
+                $this->tenantPublicAuthConfig(
+                    $website,
+                    'register'
+                )
+            );
+    }
+
+    /*
+     * ESUBIZ_WEBSITE_SCOPED_TENANT_LOGOUT_V1
+     *
+     * Logout applies only to the current tenant website.
+     * It does not destroy central Esubiz authentication or other
+     * tenant website sessions in the same browser.
+     */
+    public function logout(Request $request)
+    {
+        $website = $this->currentWebsite();
+        $websiteId = (int) $website->id;
+
+        $request->session()->forget(
+            "tenant_cms_sites.{$websiteId}"
+        );
+
+        /*
+         * Remove legacy single-site keys only when they belong
+         * to the website currently being logged out.
+         */
+        if (
+            (int) $request->session()->get(
+                'tenant_cms_website_id'
+            ) === $websiteId
+        ) {
+            $request->session()->forget([
+                'tenant_cms_authenticated',
+                'tenant_cms_website_id',
+                'tenant_cms_user_id',
+                'tenant_cms_authenticated_via',
+                'tenant_cms_auth_method',
+                'tenant_cms_support_access',
+                'tenant_cms_sso_state',
+                'tenant_cms_sso_website_id',
+                'tenant_cms_sso_destination',
+            ]);
+        }
+
+        $request->session()->regenerateToken();
+
+        return redirect()->to('/login');
+    }
+
+}

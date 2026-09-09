@@ -1,0 +1,237 @@
+@extends('tenant.admin.layouts.app')
+
+@section('title', 'Partner Dashboard')
+
+@section('content')
+<div class="container-fluid py-4">
+    <div class="mb-4">
+        <h1 class="h3 mb-1">
+            Partner / Investor Dashboard
+        </h1>
+
+        <p class="text-muted mb-0">
+            @if(!empty($coreUser?->name))
+                Welcome, {{ $coreUser->name }}.
+            @endif
+
+            Business and investment performance overview.
+        </p>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-body">
+                    <div class="text-muted small mb-2">
+                        CURRENT BALANCE
+                    </div>
+
+                    <div class="h4 mb-0">
+                        ₦{{ number_format(
+                            (float) (
+                                $partnerLedgerTotals['balance']
+                                ?? 0
+                            ),
+                            2
+                        ) }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-body">
+                    <div class="text-muted small mb-2">
+                        TOTAL CREDITS
+                    </div>
+
+                    <div class="h4 mb-0">
+                        ₦{{ number_format(
+                            (float) (
+                                $partnerLedgerTotals['credits']
+                                ?? 0
+                            ),
+                            2
+                        ) }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-body">
+                    <div class="text-muted small mb-2">
+                        TOTAL DEBITS
+                    </div>
+
+                    <div class="h4 mb-0">
+                        ₦{{ number_format(
+                            (float) (
+                                $partnerLedgerTotals['debits']
+                                ?? 0
+                            ),
+                            2
+                        ) }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-body">
+                    <div class="text-muted small mb-2">
+                        INVESTMENT SHARE
+                    </div>
+
+                    <div class="h4 mb-0">
+                        @if($partnerInvestment)
+                            {{ number_format(
+                                (float)
+                                $partnerInvestment
+                                    ->investment_percentage,
+                                2
+                            ) }}%
+                        @else
+                            —
+                        @endif
+                    </div>
+
+                    @if($partnerInvestment)
+                        <div class="small text-muted mt-1">
+                            {{ ucfirst(
+                                $partnerInvestment
+                                    ->profit_basis
+                            ) }}
+                            Profit Basis
+                        </div>
+                    @endif
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if(!$partnerInvestment)
+        <div class="alert alert-warning">
+            Your investment percentage and profit basis have
+            not yet been configured by the Site Administrator.
+        </div>
+    @endif
+
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-transparent border-0 pt-4 px-4">
+            <h2 class="h5 mb-1">
+                Credit & Debit Ledger
+            </h2>
+
+            <div class="small text-muted">
+                Profit shares are credited. Loss shares and
+                approved deductions are debited.
+            </div>
+        </div>
+
+        <div class="card-body px-0">
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">Date</th>
+                            <th>Type</th>
+                            <th>Description</th>
+                            <th>Period</th>
+                            <th class="text-end pe-4">
+                                Amount
+                            </th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        @forelse(
+                            $partnerLedgerEntries ?? []
+                            as $entry
+                        )
+                            <tr>
+                                <td class="ps-4 text-nowrap">
+                                    {{ $entry->posted_at
+                                        ? \Illuminate\Support\Carbon::parse(
+                                            $entry->posted_at
+                                        )->format('d M Y')
+                                        : '—'
+                                    }}
+                                </td>
+
+                                <td>
+                                    @if(
+                                        $entry->entry_type
+                                        === 'credit'
+                                    )
+                                        <span
+                                            class="badge text-bg-success"
+                                        >
+                                            Credit
+                                        </span>
+                                    @else
+                                        <span
+                                            class="badge text-bg-danger"
+                                        >
+                                            Debit
+                                        </span>
+                                    @endif
+                                </td>
+
+                                <td>
+                                    {{ $entry->description
+                                        ?: ucwords(
+                                            str_replace(
+                                                '_',
+                                                ' ',
+                                                $entry
+                                                    ->entry_category
+                                            )
+                                        )
+                                    }}
+                                </td>
+
+                                <td>
+                                    {{ $entry->period_key ?: '—' }}
+                                </td>
+
+                                <td
+                                    class="text-end pe-4 fw-semibold"
+                                >
+                                    {{ $entry->entry_type
+                                        === 'credit'
+                                        ? '+'
+                                        : '-'
+                                    }}₦{{ number_format(
+                                        (float) $entry->amount,
+                                        2
+                                    ) }}
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td
+                                    colspan="5"
+                                    class="text-center py-5 text-muted"
+                                >
+                                    No partner ledger entries
+                                    have been posted yet.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="small text-muted mt-3">
+        Profit and loss entries will be posted from the Core's
+        canonical financial records when that financial source
+        is connected.
+    </div>
+</div>
+@endsection

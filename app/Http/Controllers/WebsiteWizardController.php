@@ -90,12 +90,26 @@ class WebsiteWizardController extends Controller
         Website $website
     ): RedirectResponse {
 
+        /*
+         * ESUBIZ_CONDITIONAL_THEME_RESUME_V48
+         *
+         * Step 2 must always hand resume control to the Theme route.
+         * The Theme route is the single authority for whether Theme
+         * selection is visible:
+         *
+         * - visible => render conditional Theme Step 3
+         * - hidden  => silently persist Admin default and continue Plan
+         *
+         * This prevents resumed Website Wizards from bypassing the
+         * Website Type deployment-profile Theme configuration.
+         */
         $routes = [
             1 => 'websites.information',
-            2 => 'websites.plan',
-            3 => 'websites.review',
+            2 => 'websites.theme',
+            3 => 'websites.plan',
             4 => 'websites.review',
             5 => 'websites.review',
+            6 => 'websites.review',
         ];
 
         $currentStep = (int) ($website->current_step ?? 1);
@@ -503,6 +517,7 @@ class WebsiteWizardController extends Controller
                     'nullable',
                     'string',
                     'max:50',
+                    'regex:/^[0-9]+$/',
                 ],
 
                 'password' => [
@@ -580,6 +595,14 @@ class WebsiteWizardController extends Controller
                     (string) $validated['admin_email']
                 )
             );
+
+            $adminCountryCode =
+                strtoupper(
+                    trim(
+                        (string)
+                        $validated['admin_country_code']
+                    )
+                );
 
             $adminPhone =
                 isset($validated['admin_phone'])
@@ -750,6 +773,9 @@ class WebsiteWizardController extends Controller
 
                 'admin_email' =>
                     $adminEmail,
+
+                'admin_country_code' =>
+                    $adminCountryCode,
 
                 'admin_phone' =>
                     $adminPhone,

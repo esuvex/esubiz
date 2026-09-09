@@ -1,0 +1,791 @@
+<?php
+
+namespace App\Http\Controllers\Core;
+
+use App\Http\Controllers\Controller;
+use App\Services\Core\Installation\CoreInstallationState;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
+use Illuminate\View\View;
+use RuntimeException;
+use Throwable;
+
+/**
+ * ESUBIZ_CORE_FIRST_RUN_SETUP_CONTROLLER_V3
+ *
+ * Real OFF-SERVER Core first-run installer.
+ *
+ * Customer entry:
+ *
+ *     https://example.com/
+ *
+ * Wizard:
+ *
+ * 1. Website & Licence
+ * 2. System Check
+ * 3. Database
+ * 4. Administrator
+ * 5. Install Esubiz
+ *
+ * There is no /install lifecycle.
+ */
+class CoreSetupController extends Controller
+{
+    public function __construct(
+        protected CoreInstallationState $installation
+    ) {
+    }
+
+    public function start(
+        Request $request
+    ): View {
+        $this->assertAvailable();
+
+        $instanceUuid = $request->session()->get(
+            'core_first_run_instance_uuid'
+        );
+
+        if (!$instanceUuid) {
+            $instanceUuid = (string) Str::uuid();
+
+            $request->session()->put(
+                'core_first_run_instance_uuid',
+                $instanceUuid
+            );
+        }
+
+        return view(
+            'core.installation.setup',
+            [
+                'detectedDomain' =>
+                    $request->getHost(),
+
+                'generatedInstanceUuid' =>
+                    $instanceUuid,
+            ]
+        );
+    }
+
+    /**
+     * STEP 1:
+     * Validate website identity + Esubiz Core licence.
+     */
+    public function validateLicense(
+        Request $request
+    ): JsonResponse {
+        $this->assertAvailable();
+
+        $validated = $request->validate([
+            'site_name' => [
+                'required',
+                'string',
+                'max:191',
+            ],
+
+            'domain' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+
+            'license_key' => [
+                'required',
+                'string',
+                'max:191',
+            ],
+
+            'core_instance_uuid' => [
+                'required',
+                'uuid',
+            ],
+        ]);
+
+        try {
+            $license = $this->validateCentralLicense(
+                $validated
+            );
+
+            $request->session()->put(
+                'core_first_run_website',
+                [
+                    'site_name' =>
+                        $validated['site_name'],
+
+                    'domain' =>
+                        $validated['domain'],
+
+                    'license_key' =>
+                        $validated['license_key'],
+
+                    'core_instance_uuid' =>
+                        $validated['core_instance_uuid'],
+
+                    'license_validation' =>
+                        $license,
+                ]
+            );
+
+            return response()->json([
+                'ok' => true,
+                'message' =>
+                    'Esubiz licence validated successfully.',
+            ]);
+        } catch (RuntimeException $e) {
+            return response()->json(
+                [
+                    'ok' => false,
+                    'message' =>
+                        $e->getMessage(),
+                ],
+                422
+            );
+        } catch (Throwable $e) {
+            report($e);
+
+            return response()->json(
+                [
+                    'ok' => false,
+                    'message' =>
+                        'Unable to validate the Esubiz licence right now.',
+                ],
+                500
+            );
+        }
+    }
+
+    /**
+     * STEP 2:
+     * Run genuine server/environment requirements.
+     */
+    public function systemCheck(): JsonResponse
+    {
+        $this->assertAvailable();
+
+        $requiredExtensions = [
+            'pdo',
+            'pdo_mysql',
+            'openssl',
+            'mbstring',
+            'xml',
+            'curl',
+            'zip',
+        ];
+
+        $missingExtensions = array_values(
+            array_filter(
+                $requiredExtensions,
+                fn (string $extension): bool =>
+                    !extension_loaded($extension)
+            )
+        );
+
+        $storageWritable =
+            is_writable(storage_path());
+
+        $cacheWritable =
+            is_writable(
+                base_path('bootstrap/cache')
+            );
+
+        $https =
+            request()->isSecure()
+            || strtolower(
+                (string) request()->header(
+                    'x-forwarded-proto'
+                )
+            ) === 'https';
+
+        /*
+         * Laravel 12 / modern Esubiz Core baseline.
+         * This can later come from the packaged Core manifest.
+         */
+        $minimumPhp = '8.2.0';
+
+        $phpPass =
+            version_compare(
+                PHP_VERSION,
+                $minimumPhp,
+                '>='
+            );
+
+        $checks = [
+            [
+                'key' => 'php',
+                'label' => 'PHP Version',
+                'detail' =>
+                    'Running PHP '
+                    . PHP_VERSION
+                    . ' — minimum '
+                    . $minimumPhp,
+                'pass' => $phpPass,
+            ],
+
+            [
+                'key' => 'pdo_mysql',
+                'label' => 'PDO / MySQL',
+                'detail' =>
+                    extension_loaded('pdo_mysql')
+                        ? 'MySQL database driver is available.'
+                        : 'PDO MySQL extension is missing.',
+                'pass' =>
+                    extension_loaded('pdo')
+                    && extension_loaded('pdo_mysql'),
+            ],
+
+            [
+                'key' => 'extensions',
+                'label' =>
+                    'OpenSSL, Mbstring, XML, cURL, ZIP',
+                'detail' =>
+                    empty($missingExtensions)
+                        ? 'All required PHP extensions are available.'
+                        : 'Missing: '
+                            . implode(
+                                ', ',
+                                $missingExtensions
+                            ),
+                'pass' =>
+                    empty($missingExtensions),
+            ],
+
+            [
+                'key' => 'permissions',
+                'label' => 'Storage Permissions',
+                'detail' =>
+                    (
+                        $storageWritable
+                        && $cacheWritable
+                    )
+                        ? 'storage/ and bootstrap/cache/ are writable.'
+                        : 'Required application directories are not writable.',
+                'pass' =>
+                    $storageWritable
+                    && $cacheWritable,
+            ],
+
+            [
+                'key' => 'https',
+                'label' => 'HTTPS / Domain',
+                'detail' =>
+                    $https
+                        ? 'Secure HTTPS request detected for '
+                            . request()->getHost()
+                            . '.'
+                        : 'HTTPS was not detected for this request.',
+                'pass' =>
+                    $https,
+            ],
+        ];
+
+        $allPassed = collect(
+            $checks
+        )->every(
+            fn (array $check): bool =>
+                $check['pass'] === true
+        );
+
+        if ($allPassed) {
+            request()->session()->put(
+                'core_first_run_system_check_passed',
+                true
+            );
+        } else {
+            request()->session()->forget(
+                'core_first_run_system_check_passed'
+            );
+        }
+
+        return response()->json([
+            'ok' => true,
+            'passed' => $allPassed,
+            'checks' => $checks,
+        ]);
+    }
+
+    /**
+     * STEP 3:
+     * Test the supplied MySQL/MariaDB database connection.
+     *
+     * This uses an isolated temporary Laravel connection and
+     * does NOT modify the application's current/default DB.
+     */
+    public function testDatabase(
+        Request $request
+    ): JsonResponse {
+        $this->assertAvailable();
+
+        if (
+            !$request->session()->has(
+                'core_first_run_website'
+            )
+        ) {
+            return response()->json(
+                [
+                    'ok' => false,
+                    'message' =>
+                        'Validate the Esubiz licence before configuring the database.',
+                ],
+                409
+            );
+        }
+
+        if (
+            !$request->session()->get(
+                'core_first_run_system_check_passed',
+                false
+            )
+        ) {
+            return response()->json(
+                [
+                    'ok' => false,
+                    'message' =>
+                        'Complete the system check before configuring the database.',
+                ],
+                409
+            );
+        }
+
+        $validated = $request->validate([
+            'db_host' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+
+            'db_port' => [
+                'required',
+                'integer',
+                'min:1',
+                'max:65535',
+            ],
+
+            'db_database' => [
+                'required',
+                'string',
+                'max:191',
+            ],
+
+            'db_username' => [
+                'required',
+                'string',
+                'max:191',
+            ],
+
+            'db_password' => [
+                'nullable',
+                'string',
+                'max:1000',
+            ],
+        ]);
+
+        $connectionName =
+            'esubiz_core_installer_test';
+
+        config([
+            'database.connections.'
+                . $connectionName => [
+                    'driver' =>
+                        'mysql',
+
+                    'host' =>
+                        $validated['db_host'],
+
+                    'port' =>
+                        (int) $validated['db_port'],
+
+                    'database' =>
+                        $validated['db_database'],
+
+                    'username' =>
+                        $validated['db_username'],
+
+                    'password' =>
+                        $validated['db_password']
+                            ?? '',
+
+                    'unix_socket' =>
+                        '',
+
+                    'charset' =>
+                        'utf8mb4',
+
+                    'collation' =>
+                        'utf8mb4_unicode_ci',
+
+                    'prefix' =>
+                        '',
+
+                    'prefix_indexes' =>
+                        true,
+
+                    'strict' =>
+                        true,
+
+                    'engine' =>
+                        null,
+
+                    'options' =>
+                        extension_loaded(
+                            'pdo_mysql'
+                        )
+                            ? array_filter([
+                                \PDO::ATTR_TIMEOUT =>
+                                    8,
+                            ])
+                            : [],
+                ],
+        ]);
+
+        try {
+            DB::purge(
+                $connectionName
+            );
+
+            $connection =
+                DB::connection(
+                    $connectionName
+                );
+
+            /*
+             * Force a genuine network/auth/database connection.
+             */
+            $connection->getPdo();
+
+            /*
+             * Confirm the selected database can execute SQL.
+             */
+            $connection->select(
+                'SELECT 1 AS esubiz_connection_test'
+            );
+
+            /*
+             * Store the validated settings only for this
+             * first-run installation session.
+             *
+             * They will later be written safely into .env.
+             */
+            $request->session()->put(
+                'core_first_run_database',
+                [
+                    'host' =>
+                        $validated['db_host'],
+
+                    'port' =>
+                        (int) $validated['db_port'],
+
+                    'database' =>
+                        $validated['db_database'],
+
+                    'username' =>
+                        $validated['db_username'],
+
+                    'password' =>
+                        $validated['db_password']
+                            ?? '',
+                ]
+            );
+
+            $request->session()->put(
+                'core_first_run_database_passed',
+                true
+            );
+
+            return response()->json([
+                'ok' => true,
+
+                'message' =>
+                    'Database connection successful.',
+
+                'database' =>
+                    $validated['db_database'],
+            ]);
+        } catch (Throwable $e) {
+            $request->session()->forget(
+                'core_first_run_database_passed'
+            );
+
+            $request->session()->forget(
+                'core_first_run_database'
+            );
+
+            /*
+             * Do not expose raw PDO/SQL credentials or server
+             * exception details to the browser.
+             */
+            report($e);
+
+            return response()->json(
+                [
+                    'ok' => false,
+
+                    'message' =>
+                        'Database connection failed. Check the host, port, database name, username and password.',
+                ],
+                422
+            );
+        } finally {
+            DB::disconnect(
+                $connectionName
+            );
+
+            DB::purge(
+                $connectionName
+            );
+        }
+    }
+
+    /**
+     * STEP 4:
+     * Validate and stage the first local Core administrator.
+     *
+     * The administrator is NOT written to the database here.
+     * Creation only occurs during the final installation transaction.
+     */
+    public function validateAdministrator(
+        Request $request
+    ): JsonResponse {
+        $this->assertAvailable();
+
+        if (
+            !$request->session()->get(
+                'core_first_run_database_passed',
+                false
+            )
+        ) {
+            return response()->json(
+                [
+                    'ok' => false,
+                    'message' =>
+                        'Complete the database connection test before creating the administrator.',
+                ],
+                409
+            );
+        }
+
+        $validated = $request->validate([
+            'admin_name' => [
+                'required',
+                'string',
+                'max:191',
+            ],
+
+            'admin_email' => [
+                'required',
+                'email',
+                'max:255',
+            ],
+
+            'admin_phone' => [
+                'nullable',
+                'string',
+                'max:50',
+            ],
+
+            'admin_password' => [
+                'required',
+                'string',
+                'min:8',
+                'max:255',
+                'confirmed',
+            ],
+        ]);
+
+        /*
+         * Retain only for the current first-run installation session.
+         *
+         * The password will be hashed during final installation and
+         * must never be written into the installed lock metadata.
+         */
+        $request->session()->put(
+            'core_first_run_administrator',
+            [
+                'name' =>
+                    $validated['admin_name'],
+
+                'email' =>
+                    strtolower(
+                        trim(
+                            $validated['admin_email']
+                        )
+                    ),
+
+                'phone' =>
+                    $validated['admin_phone']
+                        ?? null,
+
+                'password' =>
+                    $validated['admin_password'],
+            ]
+        );
+
+        $request->session()->put(
+            'core_first_run_administrator_passed',
+            true
+        );
+
+        return response()->json([
+            'ok' => true,
+
+            'message' =>
+                'Administrator details validated successfully.',
+
+            'administrator' => [
+                'name' =>
+                    $validated['admin_name'],
+
+                'email' =>
+                    strtolower(
+                        trim(
+                            $validated['admin_email']
+                        )
+                    ),
+
+                'phone' =>
+                    $validated['admin_phone']
+                        ?? null,
+            ],
+        ]);
+    }
+
+    /**
+     * Final installer orchestration endpoint.
+     *
+     * Database testing, environment writing, migrations,
+     * administrator creation and final installation are being
+     * connected in the next stages.
+     */
+    public function store(
+        Request $request
+    ): RedirectResponse {
+        $this->assertAvailable();
+
+        throw new RuntimeException(
+            'Core final installation processor is not wired yet.'
+        );
+    }
+
+    /**
+     * Validate Core licence with Central Esubiz.
+     *
+     * @param array<string,mixed> $setup
+     * @return array<string,mixed>
+     */
+    protected function validateCentralLicense(
+        array $setup
+    ): array {
+        $central = rtrim(
+            (string) config(
+                'services.esubiz.marketplace_url',
+                'https://esubiz.com'
+            ),
+            '/'
+        );
+
+        try {
+            $response = Http::asJson()
+                ->acceptJson()
+                ->timeout(20)
+                ->post(
+                    $central
+                        . '/marketplace/licenses/validate',
+                    [
+                        'license_key' =>
+                            $setup['license_key'],
+
+                        'core_instance_uuid' =>
+                            $setup['core_instance_uuid'],
+
+                        'product_type' =>
+                            'core',
+
+                        /*
+                         * Temporary Core package identity.
+                         *
+                         * This will be replaced by identity read
+                         * from the signed Core package manifest.
+                         */
+                        'product_id' =>
+                            1,
+
+                        'product_slug' =>
+                            'core',
+
+                        'domain' =>
+                            $setup['domain'],
+
+                        'core_version' =>
+                            config('app.version'),
+
+                        'installation_fingerprint' =>
+                            hash(
+                                'sha256',
+                                strtolower(
+                                    trim(
+                                        $setup['domain']
+                                    )
+                                )
+                                . '|'
+                                . $setup[
+                                    'core_instance_uuid'
+                                ]
+                            ),
+                    ]
+                );
+        } catch (ConnectionException $e) {
+            throw new RuntimeException(
+                'Esubiz licence server could not be reached.'
+            );
+        }
+
+        $payload =
+            $response->json();
+
+        if (
+            !$response->successful()
+            || !is_array($payload)
+            || !($payload['valid'] ?? false)
+        ) {
+            throw new RuntimeException(
+                is_array($payload)
+                    ? (
+                        $payload['message']
+                            ?? 'Esubiz licence validation failed.'
+                    )
+                    : 'Esubiz licence validation failed.'
+            );
+        }
+
+        return $payload;
+    }
+
+    protected function assertAvailable(): void
+    {
+        if (!$this->isOffServer()) {
+            abort(404);
+        }
+
+        if ($this->installation->isInstalled()) {
+            abort(404);
+        }
+    }
+
+    protected function isOffServer(): bool
+    {
+        return strtolower(
+            trim(
+                (string) config(
+                    'services.esubiz.deployment',
+                    env(
+                        'ESUBIZ_DEPLOYMENT',
+                        'saas'
+                    )
+                )
+            )
+        ) === 'off_server';
+    }
+}

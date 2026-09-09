@@ -1,0 +1,253 @@
+<?php
+
+namespace App\Services\Core\Installer;
+
+use App\Services\Core\Installer\Contracts\CoreProductInstallerHandler;
+use RuntimeException;
+
+/**
+ * ESUBIZ_CORE_PRODUCT_INSTALLER_MANAGER_V1
+ *
+ * Universal Core product installation dispatcher.
+ *
+ * This manager is intentionally deployment-agnostic. The same installed
+ * Core architecture can therefore use it for:
+ *
+ * - Esubiz-hosted SaaS tenant websites;
+ * - off-server Esubiz websites;
+ * - automatic Central-driven installation/update;
+ * - manually uploaded packages after Central license validation.
+ *
+ * Payment does NOT belong here.
+ *
+ * Marketplace payment/fulfilment creates the entitlement/license and
+ * obtains/delivers the package. The Core installation pipeline validates
+ * and stages that package before dispatching it here.
+ */
+class CoreProductInstallerManager
+{
+    /**
+     * @var array<string,CoreProductInstallerHandler|string>
+     */
+    protected array $handlers = [
+        /*
+         * ESUBIZ_CORE_PRODUCT_INSTALLER_HANDLERS_V2
+         *
+         * Concrete Core product-family installers.
+         *
+         * Additional Module, Add-on, Bundle and App handlers join this
+         * registry as their installers are implemented.
+         */
+        'theme' =>
+            \App\Services\Core\Installer\Handlers\ThemeInstallerHandler::class,
+
+        'module' =>
+            \App\Services\Core\Installer\Handlers\ModuleInstallerHandler::class,
+
+        'addon' =>
+            \App\Services\Core\Installer\Handlers\AddonInstallerHandler::class,
+    ];
+
+    /**
+     * Register a product-family installer.
+     */
+    public function register(
+        string $productType,
+        CoreProductInstallerHandler|string $handler
+    ): void {
+        $productType = $this->normalizeProductType($productType);
+
+        if ($productType === '') {
+            throw new RuntimeException(
+                'Core installer product type cannot be empty.'
+            );
+        }
+
+        $this->handlers[$productType] = $handler;
+    }
+
+    /**
+     * Determine whether an installer is registered.
+     */
+    public function supports(string $productType): bool
+    {
+        return isset(
+            $this->handlers[
+                $this->normalizeProductType($productType)
+            ]
+        );
+    }
+
+    /**
+     * Resolve the concrete installer for a product family.
+     */
+    public function handler(
+        string $productType
+    ): CoreProductInstallerHandler {
+        $productType = $this->normalizeProductType($productType);
+
+        $handler = $this->handlers[$productType] ?? null;
+
+        if (!$handler) {
+            throw new RuntimeException(
+                "No Core installer registered for product type [{$productType}]."
+            );
+        }
+
+        if (is_string($handler)) {
+            $resolved = app($handler);
+
+            if (!$resolved instanceof CoreProductInstallerHandler) {
+                throw new RuntimeException(
+                    "Core installer [{$handler}] must implement CoreProductInstallerHandler."
+                );
+            }
+
+            $this->handlers[$productType] = $resolved;
+
+            return $resolved;
+        }
+
+        return $handler;
+    }
+
+    /**
+     * Install a package that has already passed validation and staging.
+     *
+     * Installation and enablement remain separate operations by design.
+     *
+     * @param array<string,mixed> $manifest
+     * @param array<string,mixed> $context
+     * @return array<string,mixed>
+     */
+    public function install(
+        string $productType,
+        string $extractedPath,
+        array $manifest,
+        array $context = []
+    ): array {
+        return $this->handler($productType)->install(
+            $extractedPath,
+            $manifest,
+            $context
+        );
+    }
+
+    /**
+     * Enable an installed product.
+     *
+     * @param array<string,mixed> $manifest
+     * @param array<string,mixed> $installation
+     * @param array<string,mixed> $context
+     * @return array<string,mixed>
+     */
+    public function enable(
+        string $productType,
+        array $manifest,
+        array $installation,
+        array $context = []
+    ): array {
+        return $this->handler($productType)->enable(
+            $manifest,
+            $installation,
+            $context
+        );
+    }
+
+    /**
+     * Update an already-installed product from a validated staged package.
+     *
+     * @param array<string,mixed> $manifest
+     * @param array<string,mixed> $context
+     * @return array<string,mixed>
+     */
+    public function update(
+        string $productType,
+        string $extractedPath,
+        array $manifest,
+        array $context = []
+    ): array {
+        return $this->handler($productType)->update(
+            $extractedPath,
+            $manifest,
+            $context
+        );
+    }
+
+    /**
+     * Roll back the product-family-specific live changes.
+     *
+     * @param array<string,mixed> $context
+     */
+    public function rollback(
+        string $productType,
+        array $context = []
+    ): void {
+        $this->handler($productType)->rollback($context);
+    }
+
+    /**
+     * Run the complete install + enable operation after the package has
+     * already been centrally/local validated and safely staged.
+     *
+     * If enablement fails after installation, ask the handler to roll back.
+     *
+     * @param array<string,mixed> $manifest
+     * @param array<string,mixed> $context
+     * @return array<string,mixed>
+     */
+    public function installAndEnable(
+        string $productType,
+        string $extractedPath,
+        array $manifest,
+        array $context = []
+    ): array {
+        $handler = $this->handler($productType);
+
+        try {
+            $installation = $handler->install(
+                $extractedPath,
+                $manifest,
+                $context
+            );
+
+            $enabled = $handler->enable(
+                $manifest,
+                $installation,
+                $context
+            );
+
+            return [
+                'product_type' =>
+                    $this->normalizeProductType($productType),
+
+                'installed' => true,
+                'enabled' => true,
+
+                'installation' => $installation,
+                'enablement' => $enabled,
+            ];
+        } catch (\Throwable $e) {
+            try {
+                $handler->rollback($context);
+            } catch (\Throwable) {
+                /*
+                 * Preserve the original installation failure.
+                 * Rollback implementations should log their own failure.
+                 */
+            }
+
+            throw $e;
+        }
+    }
+
+    protected function normalizeProductType(
+        string $productType
+    ): string {
+        return strtolower(
+            trim(
+                str_replace('-', '_', $productType)
+            )
+        );
+    }
+}

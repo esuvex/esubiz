@@ -1084,7 +1084,13 @@ input:focus{
 
                         <input
                             id="adminPhone"
-                            value="+234"
+                            type="text"
+                            value=""
+                            inputmode="numeric"
+                            pattern="[0-9]*"
+                            autocomplete="tel"
+                            placeholder="Enter phone number"
+                            oninput="this.value = this.value.replace(/[^0-9]/g, '')"
                         >
                     </div>
 

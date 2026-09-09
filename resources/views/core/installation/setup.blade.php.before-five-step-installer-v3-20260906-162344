@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Esubiz Core Setup</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 32px 20px;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            background: #f5f7fa;
+            color: #172033;
+        }
+
+        .shell {
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: #ffffff;
+            border: 1px solid #e4e9f0;
+            border-radius: 18px;
+            padding: 30px;
+            box-shadow: 0 18px 50px rgba(20, 31, 51, 0.07);
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 30px;
+        }
+
+        .intro {
+            margin: 0 0 28px;
+            color: #667085;
+            line-height: 1.65;
+        }
+
+        .section {
+            margin-top: 28px;
+            padding-top: 24px;
+            border-top: 1px solid #edf0f4;
+        }
+
+        .section:first-of-type {
+            border-top: 0;
+            padding-top: 0;
+        }
+
+        h2 {
+            margin: 0 0 18px;
+            font-size: 18px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 18px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+
+        .field.full {
+            grid-column: 1 / -1;
+        }
+
+        label {
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        input {
+            width: 100%;
+            min-height: 46px;
+            border: 1px solid #d8dee8;
+            border-radius: 10px;
+            padding: 0 13px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: #172033;
+        }
+
+        .hint {
+            font-size: 12px;
+            color: #7c8595;
+            line-height: 1.5;
+        }
+
+        .alert {
+            padding: 14px 16px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            line-height: 1.55;
+        }
+
+        .alert.success {
+            background: #ecfdf3;
+            border: 1px solid #abefc6;
+        }
+
+        .alert.error {
+            background: #fff1f0;
+            border: 1px solid #fecdca;
+        }
+
+        .error-text {
+            font-size: 12px;
+            color: #b42318;
+        }
+
+        button {
+            width: 100%;
+            min-height: 50px;
+            margin-top: 28px;
+            border: 0;
+            border-radius: 11px;
+            background: #172033;
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        @media (max-width: 700px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .field.full {
+                grid-column: auto;
+            }
+
+            .card {
+                padding: 22px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+<div class="shell">
+    <div class="card">
+        <h1>Esubiz Core Setup</h1>
+
+        <p class="intro">
+            Configure this website, connect its database and validate
+            the Esubiz license to begin installation.
+        </p>
+
+        @if (session('success'))
+            <div class="alert success">
+                {{ session('success') }}
+            </div>
+        @endif
+
+        @if ($errors->any())
+            <div class="alert error">
+                Please correct the highlighted information and try again.
+            </div>
+        @endif
+
+        <form
+            method="POST"
+            action="{{ route('core.setup.store') }}"
+            autocomplete="off"
+        >
+            @csrf
+
+            <input
+                type="hidden"
+                name="core_instance_uuid"
+                value="{{ old('core_instance_uuid', $generatedInstanceUuid) }}"
+            >
+
+            <section class="section">
+                <h2>Website</h2>
+
+                <div class="grid">
+                    <div class="field">
+                        <label for="site_name">
+                            Website Name
+                        </label>
+
+                        <input
+                            id="site_name"
+                            name="site_name"
+                            type="text"
+                            value="{{ old('site_name') }}"
+                            required
+                        >
+
+                        @error('site_name')
+                            <span class="error-text">
+                                {{ $message }}
+                            </span>
+                        @enderror
+                    </div>
+
+                    <div class="field">
+                        <label for="domain">
+                            Domain
+                        </label>
+
+                        <input
+                            id="domain"
+                            name="domain"
+                            type="text"
+                            value="{{ old('domain', $detectedDomain) }}"
+                            required
+                        >
+
+                        @error('domain')
+                            <span class="error-text">
+                                {{ $message }}
+                            </span>
+                        @enderror
+                    </div>
+
+                    <div class="field full">
+                        <label for="license_key">
+                            Esubiz License
+                        </label>
+
+                        <input
+                            id="license_key"
+                            name="license_key"
+                            type="text"
+                            value="{{ old('license_key') }}"
+                            placeholder="ESB-CORE-XXXX-XXXX-XXXX-XXXX"
+                            required
+                        >
+
+                        <span class="hint">
+                            Enter the license issued for this Core/website package.
+                        </span>
+
+                        @error('license_key')
+                            <span class="error-text">
+                                {{ $message }}
+                            </span>
+                        @enderror
+                    </div>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2>Database</h2>
+
+                <div class="grid">
+                    <div class="field">
+                        <label for="db_host">
+                            Database Host
+                        </label>
+
+                        <input
+                            id="db_host"
+                            name="db_host"
+                            type="text"
+                            value="{{ old('db_host', '127.0.0.1') }}"
+                            required
+                        >
+                    </div>
+
+                    <div class="field">
+                        <label for="db_port">
+                            Database Port
+                        </label>
+
+                        <input
+                            id="db_port"
+                            name="db_port"
+                            type="number"
+                            value="{{ old('db_port', '3306') }}"
+                            required
+                        >
+                    </div>
+
+                    <div class="field">
+                        <label for="db_database">
+                            Database Name
+                        </label>
+
+                        <input
+                            id="db_database"
+                            name="db_database"
+                            type="text"
+                            value="{{ old('db_database') }}"
+                            required
+                        >
+                    </div>
+
+                    <div class="field">
+                        <label for="db_username">
+                            Database Username
+                        </label>
+
+                        <input
+                            id="db_username"
+                            name="db_username"
+                            type="text"
+                            value="{{ old('db_username') }}"
+                            required
+                        >
+                    </div>
+
+                    <div class="field full">
+                        <label for="db_password">
+                            Database Password
+                        </label>
+
+                        <input
+                            id="db_password"
+                            name="db_password"
+                            type="password"
+                        >
+                    </div>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2>Administrator</h2>
+
+                <div class="grid">
+                    <div class="field">
+                        <label for="admin_name">
+                            Name
+                        </label>
+
+                        <input
+                            id="admin_name"
+                            name="admin_name"
+                            type="text"
+                            value="{{ old('admin_name') }}"
+                            required
+                        >
+                    </div>
+
+                    <div class="field">
+                        <label for="admin_email">
+                            Email
+                        </label>
+
+                        <input
+                            id="admin_email"
+                            name="admin_email"
+                            type="email"
+                            value="{{ old('admin_email') }}"
+                            required
+                        >
+                    </div>
+
+                    <div class="field">
+                        <label for="admin_password">
+                            Password
+                        </label>
+
+                        <input
+                            id="admin_password"
+                            name="admin_password"
+                            type="password"
+                            required
+                        >
+                    </div>
+
+                    <div class="field">
+                        <label for="admin_password_confirmation">
+                            Confirm Password
+                        </label>
+
+                        <input
+                            id="admin_password_confirmation"
+                            name="admin_password_confirmation"
+                            type="password"
+                            required
+                        >
+                    </div>
+                </div>
+            </section>
+
+            <button type="submit">
+                Validate & Continue Installation
+            </button>
+        </form>
+    </div>
+</div>
+</body>
+</html>

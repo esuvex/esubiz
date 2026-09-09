@@ -470,20 +470,17 @@
                 </div>
 
 
-                {{-- Phone --}}
+                {{-- Country + Phone --}}
 
-                <div>
-
-                    <label class="mb-2 block font-medium text-slate-700">
-                        Phone Number
-                    </label>
-
-                    <input
-                        type="text"
-                        name="admin_phone"
-                        value="{{ old('admin_phone', $wizard['admin_phone'] ?? '') }}"
-                        class="w-full rounded-xl border border-slate-300 px-5 py-4">
-
+                <div class="md:col-span-2">
+                    <x-core.country-phone
+                        country-field="admin_country_code"
+                        phone-field="admin_phone"
+                        :selected-country="$wizard['admin_country_code'] ?? 'NG'"
+                        :phone-value="$wizard['admin_phone'] ?? ''"
+                        :allowed-countries="['ALL']"
+                        layout="two-column"
+                    />
                 </div>
 
 
@@ -506,7 +503,7 @@
 
                 {{-- Confirm Password --}}
 
-                <div class="md:col-span-2">
+                <div>
 
                     <label class="mb-2 block font-medium text-slate-700">
                         Confirm Password

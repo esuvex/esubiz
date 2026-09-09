@@ -1,0 +1,211 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Services\Marketplace\MarketplaceProductDeploymentService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use RuntimeException;
+
+/**
+ * ESUBIZ_MARKETPLACE_DEPLOYMENT_API_V1
+ *
+ * Central deployment API consumed by Esubiz Core instances.
+ *
+ * This controller exposes deployment metadata only.
+ *
+ * Protected package delivery, checksum validation, license validation and
+ * execution are separate concerns and remain server-to-server.
+ */
+class MarketplaceDeploymentController extends Controller
+{
+    public function __construct(
+        protected MarketplaceProductDeploymentService $deployments
+    ) {
+    }
+
+    /**
+     * Return a single deployment instruction by UUID.
+     *
+     * The target Core must authenticate before this route is exposed.
+     */
+    public function show(
+        Request $request,
+        string $uuid
+    ): JsonResponse {
+        $uuid = trim($uuid);
+
+        if ($uuid === '') {
+            throw new RuntimeException(
+                'Marketplace deployment UUID is required.'
+            );
+        }
+
+        $deployment = $this->deployments->findByUuid($uuid);
+
+        if (!$deployment) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Marketplace deployment was not found.',
+            ], 404);
+        }
+
+        $this->assertRuntimeTarget(
+            $deployment,
+            $request
+        );
+
+        return response()->json([
+            'ok' => true,
+            'deployment' => [
+                'id' =>
+                    (int) ($deployment['id'] ?? 0),
+
+                'uuid' =>
+                    $deployment['uuid'] ?? null,
+
+                'status' =>
+                    $deployment['status'] ?? null,
+
+                'action' =>
+                    $deployment['action'] ?? null,
+
+                'product_type' =>
+                    $deployment['product_type'] ?? null,
+
+                'product_slug' =>
+                    $deployment['product_slug'] ?? null,
+
+                'product_version' =>
+                    $deployment['product_version'] ?? null,
+
+                'deployment_type' =>
+                    $deployment['deployment_type'] ?? null,
+
+                'website_id' =>
+                    $deployment['website_id'] ?? null,
+
+                'entitlement_id' =>
+                    $deployment['entitlement_id'] ?? null,
+
+                'license_id' =>
+                    $deployment['license_id'] ?? null,
+
+                'catalog_product_id' =>
+                    $deployment['catalog_product_id'] ?? null,
+
+                'marketplace_listing_id' =>
+                    $deployment['marketplace_listing_id'] ?? null,
+
+                'package_reference' =>
+                    $deployment['package_reference'] ?? null,
+
+                'checksum_sha256' =>
+                    $deployment['checksum_sha256'] ?? null,
+
+                'attempts' =>
+                    (int) ($deployment['attempts'] ?? 0),
+
+                'context' =>
+                    $deployment['context'] ?? [],
+            ],
+        ]);
+    }
+
+    /**
+     * Return pending deployment instructions for one SaaS website.
+     *
+     * Off-server deployments should normally be fetched by deployment UUID
+     * after the Core instance has authenticated itself centrally.
+     */
+    public function pending(
+        Request $request,
+        int $websiteId
+    ): JsonResponse {
+        if ($websiteId <= 0) {
+            throw new RuntimeException(
+                'A valid website ID is required.'
+            );
+        }
+
+        $runtimeWebsiteId = (int) (
+            $request->attributes->get('website_id')
+            ?? $request->input('website_id')
+            ?? $websiteId
+        );
+
+        if ($runtimeWebsiteId !== $websiteId) {
+            return response()->json([
+                'ok' => false,
+                'message' =>
+                    'Marketplace deployment does not belong to this website.',
+            ], 403);
+        }
+
+        $items = $this->deployments->pendingForWebsite(
+            $websiteId
+        );
+
+        return response()->json([
+            'ok' => true,
+            'website_id' => $websiteId,
+            'deployments' => $items,
+        ]);
+    }
+
+    protected function assertRuntimeTarget(
+        array $deployment,
+        Request $request
+    ): void {
+        $type = strtolower(
+            trim(
+                (string) (
+                    $deployment['deployment_type']
+                    ?? ''
+                )
+            )
+        );
+
+        if ($type === 'saas') {
+            $expectedWebsiteId =
+                (int) (
+                    $deployment['website_id']
+                    ?? 0
+                );
+
+            $runtimeWebsiteId =
+                (int) (
+                    $request->attributes->get('website_id')
+                    ?? $request->input('website_id')
+                    ?? 0
+                );
+
+            if (
+                $expectedWebsiteId > 0
+                && $runtimeWebsiteId > 0
+                && $runtimeWebsiteId !== $expectedWebsiteId
+            ) {
+                abort(
+                    403,
+                    'Marketplace deployment does not belong to this website.'
+                );
+            }
+        }
+
+        if ($type === 'off_server') {
+            $licenseId =
+                (int) (
+                    $deployment['license_id']
+                    ?? 0
+                );
+
+            if ($licenseId <= 0) {
+                abort(
+                    403,
+                    'Off-server Marketplace deployment has no authorized license.'
+                );
+            }
+        }
+    }
+}

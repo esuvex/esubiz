@@ -1,0 +1,543 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+
+class TenantSocialAuthController extends Controller
+{
+    /*
+     * ESUBIZ_CORE_GOOGLE_OAUTH_RUNTIME_V2
+     */
+
+    public function googleRedirect(Request $request)
+    {
+        $credentials = $this->googleCredentials();
+
+        if (
+            !$credentials['client_id']
+            || !$credentials['client_secret']
+        ) {
+            return back()->withErrors([
+                'auth' => 'Google authentication is not configured.',
+            ]);
+        }
+
+        $state = Str::random(64);
+
+        $request->session()->put(
+            'core_google_oauth_state',
+            $state
+        );
+
+        $query = http_build_query([
+            'client_id' => $credentials['client_id'],
+            'redirect_uri' => route(
+                'tenant.auth.google.callback'
+            ),
+            'response_type' => 'code',
+            'scope' => 'openid email profile',
+            'state' => $state,
+            'prompt' => 'select_account',
+        ]);
+
+        return redirect()->away(
+            'https://accounts.google.com/o/oauth2/v2/auth?' . $query
+        );
+    }
+
+
+    public function googleCallback(Request $request)
+    {
+        $expected = (string) $request->session()->pull(
+            'core_google_oauth_state',
+            ''
+        );
+
+        $received = (string) $request->query(
+            'state',
+            ''
+        );
+
+        if (
+            $expected === ''
+            || $received === ''
+            || !hash_equals($expected, $received)
+        ) {
+            return $this->loginError(
+                'Google authentication session expired. Please try again.'
+            );
+        }
+
+        $code = (string) $request->query(
+            'code',
+            ''
+        );
+
+        if ($code === '') {
+            return $this->loginError(
+                'Google authentication was cancelled.'
+            );
+        }
+
+        $credentials = $this->googleCredentials();
+
+        if (
+            !$credentials['client_id']
+            || !$credentials['client_secret']
+        ) {
+            return $this->loginError(
+                'Google authentication is not configured.'
+            );
+        }
+
+        $token = Http::asForm()
+            ->timeout(15)
+            ->post(
+                'https://oauth2.googleapis.com/token',
+                [
+                    'code' => $code,
+                    'client_id' => $credentials['client_id'],
+                    'client_secret' => $credentials['client_secret'],
+                    'redirect_uri' => route(
+                        'tenant.auth.google.callback'
+                    ),
+                    'grant_type' => 'authorization_code',
+                ]
+            );
+
+        if (!$token->successful()) {
+            return $this->loginError(
+                'Google authentication could not be completed.'
+            );
+        }
+
+        $accessToken = (string) $token->json(
+            'access_token',
+            ''
+        );
+
+        if ($accessToken === '') {
+            return $this->loginError(
+                'Google did not return a valid access token.'
+            );
+        }
+
+        $profile = Http::withToken($accessToken)
+            ->acceptJson()
+            ->timeout(15)
+            ->get(
+                'https://openidconnect.googleapis.com/v1/userinfo'
+            );
+
+        if (!$profile->successful()) {
+            return $this->loginError(
+                'Google profile information could not be retrieved.'
+            );
+        }
+
+        $email = strtolower(
+            trim(
+                (string) $profile->json(
+                    'email',
+                    ''
+                )
+            )
+        );
+
+        $name = trim(
+            (string) $profile->json(
+                'name',
+                ''
+            )
+        );
+
+        $verified = filter_var(
+            $profile->json(
+                'email_verified',
+                false
+            ),
+            FILTER_VALIDATE_BOOLEAN
+        );
+
+        if ($email === '' || !$verified) {
+            return $this->loginError(
+                'Google must provide a verified email address.'
+            );
+        }
+
+        if (
+            !Schema::connection('tenant')
+                ->hasTable('site_users')
+        ) {
+            return $this->loginError(
+                'Core user authentication is unavailable.'
+            );
+        }
+
+        $db = DB::connection('tenant');
+
+        $user = $db->table('site_users')
+            ->whereRaw(
+                'LOWER(email) = ?',
+                [$email]
+            )
+            ->first();
+
+        if (!$user) {
+            $columns = Schema::connection('tenant')
+                ->getColumnListing('site_users');
+
+            $data = [];
+
+            if (in_array('name', $columns, true)) {
+                $data['name'] = $name !== ''
+                    ? $name
+                    : $email;
+            }
+
+            if (in_array('email', $columns, true)) {
+                $data['email'] = $email;
+            }
+
+            if (in_array('password', $columns, true)) {
+                $data['password'] = password_hash(
+                    Str::random(64),
+                    PASSWORD_BCRYPT
+                );
+            }
+
+            if (in_array('created_at', $columns, true)) {
+                $data['created_at'] = now();
+            }
+
+            if (in_array('updated_at', $columns, true)) {
+                $data['updated_at'] = now();
+            }
+
+            $userId = $db->table('site_users')
+                ->insertGetId($data);
+
+            $this->attachDefaultRegistrationRole(
+                $userId
+            );
+
+            $user = $db->table('site_users')
+                ->where('id', $userId)
+                ->first();
+        }
+
+        if (!$user) {
+            return $this->loginError(
+                'Google user authentication could not be completed.'
+            );
+        }
+
+        $request->session()->regenerate();
+
+        $request->session()->put(
+            'tenant_cms_user_id',
+            (int) $user->id
+        );
+
+        if (isset($user->email)) {
+            $request->session()->put(
+                'tenant_cms_user_email',
+                (string) $user->email
+            );
+        }
+
+        return redirect()->to(
+            $this->loginRedirect()
+        );
+    }
+
+
+    private function googleCredentials(): array
+    {
+        /*
+         * Read only existing Core Authentication settings.
+         * Nothing is written here.
+         */
+        $settings = $this->authSettings();
+
+        $first = static function (
+            array $settings,
+            array $keys
+        ) {
+            foreach ($keys as $key) {
+                if (
+                    array_key_exists($key, $settings)
+                    && trim((string) $settings[$key]) !== ''
+                ) {
+                    return trim(
+                        (string) $settings[$key]
+                    );
+                }
+            }
+
+            return null;
+        };
+
+        return [
+            'client_id' => $first(
+                $settings,
+                [
+                    'auth.google.client_id',
+                    'auth.google_client_id',
+                    'google_client_id',
+                ]
+            ),
+
+            'client_secret' => $first(
+                $settings,
+                [
+                    'auth.google.client_secret',
+                    'auth.google_client_secret',
+                    'google_client_secret',
+                ]
+            ),
+        ];
+    }
+
+
+    private function authSettings(): array
+    {
+        /*
+         * Existing Core code may use site_settings or settings.
+         * Read whichever existing tenant table contains the
+         * Authentication Settings keys. Do not create either.
+         */
+        foreach (
+            ['site_settings', 'settings']
+            as $table
+        ) {
+            if (
+                !Schema::connection('tenant')
+                    ->hasTable($table)
+            ) {
+                continue;
+            }
+
+            $columns = Schema::connection('tenant')
+                ->getColumnListing($table);
+
+            $keyColumn = in_array(
+                'key',
+                $columns,
+                true
+            )
+                ? 'key'
+                : (
+                    in_array(
+                        'name',
+                        $columns,
+                        true
+                    )
+                        ? 'name'
+                        : null
+                );
+
+            $valueColumn = in_array(
+                'value',
+                $columns,
+                true
+            )
+                ? 'value'
+                : null;
+
+            if (!$keyColumn || !$valueColumn) {
+                continue;
+            }
+
+            return DB::connection('tenant')
+                ->table($table)
+                ->pluck(
+                    $valueColumn,
+                    $keyColumn
+                )
+                ->all();
+        }
+
+        return [];
+    }
+
+
+    private function registrationConfig(): array
+    {
+        return $this->authFormConfig(
+            'registration'
+        );
+    }
+
+
+    private function loginRedirect(): string
+    {
+        $config = $this->authFormConfig(
+            'login'
+        );
+
+        $redirect = trim(
+            (string) (
+                $config['redirect']
+                ?? ''
+            )
+        );
+
+        if (
+            $redirect !== ''
+            && str_starts_with(
+                $redirect,
+                '/'
+            )
+            && !str_starts_with(
+                $redirect,
+                '//'
+            )
+        ) {
+            return $redirect;
+        }
+
+        return '/admin/dashboard';
+    }
+
+
+    private function authFormConfig(
+        string $purpose
+    ): array {
+        if (
+            !Schema::connection('tenant')
+                ->hasTable('forms')
+        ) {
+            return [];
+        }
+
+        $forms = DB::connection('tenant')
+            ->table('forms')
+            ->orderBy('id')
+            ->get();
+
+        $fallback = null;
+
+        foreach ($forms as $form) {
+            $settings = json_decode(
+                (string) (
+                    $form->settings
+                    ?? ''
+                ),
+                true
+            );
+
+            $settings = is_array($settings)
+                ? $settings
+                : [];
+
+            if (
+                ($settings['core_default_form'] ?? null)
+                === $purpose
+            ) {
+                $config = $settings['auth_config']
+                    ?? [];
+
+                return is_array($config)
+                    ? $config
+                    : [];
+            }
+
+            if (
+                ($settings['purpose'] ?? null)
+                === 'authentication.' . $purpose
+            ) {
+                $fallback = $settings;
+            }
+        }
+
+        if (!$fallback) {
+            return [];
+        }
+
+        $config = $fallback['auth_config']
+            ?? [];
+
+        return is_array($config)
+            ? $config
+            : [];
+    }
+
+
+    private function attachDefaultRegistrationRole(
+        int $userId
+    ): void {
+        $config = $this->registrationConfig();
+
+        $roleId = filter_var(
+            $config['role_id'] ?? null,
+            FILTER_VALIDATE_INT
+        );
+
+        if (
+            !$roleId
+            || !Schema::connection('tenant')
+                ->hasTable('site_roles')
+            || !Schema::connection('tenant')
+                ->hasTable('site_user_roles')
+        ) {
+            return;
+        }
+
+        $db = DB::connection('tenant');
+
+        if (
+            !$db->table('site_roles')
+                ->where('id', $roleId)
+                ->exists()
+        ) {
+            return;
+        }
+
+        $exists = $db->table('site_user_roles')
+            ->where('user_id', $userId)
+            ->where('role_id', $roleId)
+            ->exists();
+
+        if ($exists) {
+            return;
+        }
+
+        $columns = Schema::connection('tenant')
+            ->getColumnListing(
+                'site_user_roles'
+            );
+
+        $data = [
+            'user_id' => $userId,
+            'role_id' => $roleId,
+        ];
+
+        if (in_array('created_at', $columns, true)) {
+            $data['created_at'] = now();
+        }
+
+        if (in_array('updated_at', $columns, true)) {
+            $data['updated_at'] = now();
+        }
+
+        $db->table('site_user_roles')
+            ->insert($data);
+    }
+
+
+    private function loginError(
+        string $message
+    ) {
+        return redirect()
+            ->to('/login')
+            ->withErrors([
+                'auth' => $message,
+            ]);
+    }
+}

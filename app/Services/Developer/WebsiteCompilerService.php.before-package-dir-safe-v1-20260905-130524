@@ -1,0 +1,1366 @@
+<?php
+
+namespace App\Services\Developer;
+
+use App\Models\DeveloperBuild;
+use App\Models\WebsiteType;
+use App\Services\ProductStorageService;
+use App\Services\Website\WebsiteTypeManifestService;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use RuntimeException;
+
+class WebsiteCompilerService
+{
+    /**
+     * Create an isolated build workspace for a developer project.
+     */
+    public function createWorkspace(string $projectName): array
+    {
+        $slug = Str::slug($projectName);
+
+        if ($slug === '') {
+            throw new RuntimeException('A valid project name is required.');
+        }
+
+        $buildId = $slug . '-' . Str::lower(Str::random(8));
+
+        $root = storage_path('app/developer-builds/' . $buildId);
+
+        File::makeDirectory($root, 0755, true);
+
+        foreach ([
+            'src',
+            'public',
+            'resources',
+            'resources/css',
+            'resources/js',
+            'resources/images',
+            'modules',
+            'dist',
+        ] as $directory) {
+            File::makeDirectory($root . '/' . $directory, 0755, true);
+        }
+
+        File::put(
+            $root . '/project.json',
+            json_encode([
+                'build_id' => $buildId,
+                'project_name' => $projectName,
+                'version' => '1.0.0',
+                'type' => 'developer-website',
+                'entry' => 'src/index.html',
+                'output' => 'dist',
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL
+        );
+
+        File::put(
+            $root . '/src/index.html',
+            '<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>' . e($projectName) . '</title>
+</head>
+<body>
+    <main>
+        <h1>' . e($projectName) . '</h1>
+        <p>Developer website build.</p>
+    </main>
+</body>
+</html>
+'
+        );
+
+        return [
+            'build_id' => $buildId,
+            'project_name' => $projectName,
+            'path' => $root,
+            'dist' => $root . '/dist',
+        ];
+    }
+
+    /**
+     * Compile a developer website workspace into a distributable package.
+     */
+    public function compile(string $buildId): array
+    {
+        try {
+            return $this->performCompile($buildId);
+        } catch (\Throwable $e) {
+            $build = DeveloperBuild::where('build_id', $buildId)->first();
+
+            if ($build) {
+                $build->update([
+                    'status' => 'failed',
+                    'error_message' => $e->getMessage(),
+                    'completed_at' => now(),
+                ]);
+            }
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Perform the actual compilation.
+     */
+    /*
+     * ESUBIZ_DEVELOPER_REAL_PROGRESS_V1
+     *
+     * Persist the REAL compiler checkpoint in the build's existing
+     * configuration JSON. The frontend must read this value; it must
+     * never manufacture compilation progress.
+     */
+    protected function updateBuildProgress(
+        DeveloperBuild $build,
+        int $percent,
+        string $stage
+    ): void {
+        $percent = max(0, min(100, $percent));
+
+        $configuration =
+            is_array($build->configuration)
+                ? $build->configuration
+                : [];
+
+        $configuration['progress'] = [
+            'percent' => $percent,
+            'stage' => $stage,
+            'updated_at' => now()->toIso8601String(),
+        ];
+
+        $build->update([
+            'configuration' => $configuration,
+        ]);
+
+        $build->refresh();
+    }
+
+    protected function performCompile(string $buildId): array
+    {
+        $root = storage_path('app/developer-builds/' . $buildId);
+        $source = $root . '/src';
+        $dist = $root . '/dist';
+
+        $build = DeveloperBuild::where('build_id', $buildId)->first();
+
+        // ESUBIZ_DEVELOPER_BUILD_PRIMARY_LICENSE_V1
+        //
+        // A compiled Website/Core has ONE primary Central licence.
+        // The Website Type and all genuine products compiled into it
+        // are covered by this licence and remain tied to its domain.
+        //
+        // Recompilation must reuse the same licence identity.
+        if (!$build) {
+            throw new RuntimeException(
+                'Developer build was not found.'
+            );
+        }
+
+        if (!$build->license_registration_id) {
+            DB::transaction(function () use ($build) {
+                $lockedBuild = DeveloperBuild::query()
+                    ->where('id', $build->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if ($lockedBuild->license_registration_id) {
+                    return;
+                }
+
+                do {
+                    $licenseKey =
+                        'CORE-' . strtoupper(Str::random(32));
+
+                    $exists = DB::table(
+                        'off_server_license_registrations'
+                    )
+                        ->where('license_key', $licenseKey)
+                        ->exists();
+                } while ($exists);
+
+                $configuration =
+                    is_array($lockedBuild->configuration)
+                        ? $lockedBuild->configuration
+                        : [];
+
+                $selections =
+                    is_array($configuration['selections'] ?? null)
+                        ? $configuration['selections']
+                        : [];
+
+                $coveredProducts = [
+                    'website_type' =>
+                        $selections['website_type']
+                        ?? $lockedBuild->website_type,
+
+                    'addon_bundle' =>
+                        $selections['addon_bundle']
+                        ?? $lockedBuild->addon_bundle,
+
+                    'theme' =>
+                        $selections['theme']
+                        ?? $lockedBuild->theme,
+
+                    'modules' =>
+                        $selections['modules']
+                        ?? (
+                            is_array($lockedBuild->modules)
+                                ? $lockedBuild->modules
+                                : []
+                        ),
+                ];
+
+                $registrationId = DB::table(
+                    'off_server_license_registrations'
+                )->insertGetId([
+                    'uuid' => (string) Str::uuid(),
+                    'user_id' => $lockedBuild->developer_id,
+
+                    /*
+                     * The compiled Website/Core itself is the
+                     * primary licensed product. Attached products
+                     * inherit this licence rather than receiving
+                     * separate keys.
+                     */
+                    'license_product_id' => null,
+                    'marketplace_order_id' => null,
+                    'license_type' => 'developer_build',
+
+                    'website_id' => null,
+                    'license_key' => $licenseKey,
+                    'registered_domain' => null,
+                    'domain_hash' => null,
+                    'installation_uuid' => null,
+                    'api_application_id' => null,
+
+                    /*
+                     * Domain is assigned only on first legitimate
+                     * installation/activation.
+                     */
+                    'status' => 'pending',
+                    'activated_at' => null,
+                    'last_verified_at' => null,
+                    'revoked_at' => null,
+
+                    'metadata' => json_encode([
+                        'issued_by' =>
+                            'developer_build_compilation',
+
+                        'developer_build_id' =>
+                            $lockedBuild->id,
+
+                        'build_id' =>
+                            $lockedBuild->build_id,
+
+                        'project_name' =>
+                            $lockedBuild->project_name,
+
+                        'license_scope' =>
+                            'compiled_website',
+
+                        'domains_per_license' => 1,
+
+                        /*
+                         * These products are covered by the primary
+                         * Core/build licence and cannot independently
+                         * transfer its entitlement to another domain.
+                         */
+                        'covered_products' =>
+                            $coveredProducts,
+                    ], JSON_UNESCAPED_SLASHES),
+
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                $lockedBuild->update([
+                    'license_registration_id' =>
+                        $registrationId,
+
+                    'license_key' =>
+                        $licenseKey,
+                ]);
+            });
+
+            $build->refresh();
+        }
+
+
+        if ($build) {
+            $build->update([
+                'status' => 'building',
+                'started_at' => now(),
+            ]);
+
+            $this->updateBuildProgress(
+                $build,
+                5,
+                'starting'
+            );
+        }
+
+        // ESUBIZ_DEVELOPER_WORKSPACE_RECOVERY_V1
+        //
+        // Live Developer compilation may enter performCompile()
+        // independently of the original synchronous preparation request.
+        // Ensure the private build workspace exists before assembly.
+        //
+        // This is also safe for Recompile when an earlier temporary
+        // workspace has already been removed.
+        if (!File::isDirectory($root)) {
+            File::makeDirectory(
+                $root,
+                0755,
+                true
+            );
+        }
+
+        foreach ([
+            'source',
+            'dist',
+            'temp',
+            'logs',
+        ] as $directory) {
+            $directoryPath =
+                $root
+                . DIRECTORY_SEPARATOR
+                . $directory;
+
+            if (!File::isDirectory($directoryPath)) {
+                File::makeDirectory(
+                    $directoryPath,
+                    0755,
+                    true
+                );
+            }
+        }
+
+        if (!File::isDirectory($root)) {
+            throw new RuntimeException(
+                'Unable to prepare Developer Build workspace.'
+            );
+        }
+
+        // ESUBIZ_DEVELOPER_WEBSITE_TYPE_BASE_PACKAGE_V1
+        //
+        // A Website Type is already a prepared Core distribution:
+        // Core + its configured default theme/modules/add-ons.
+        // It is therefore the base of every Developer compilation.
+        $websiteType = WebsiteType::query()
+            ->where('slug', $build->website_type)
+            ->where('is_active', true)
+            ->where('show_in_developer_wizard', true)
+            ->first();
+
+        if (!$websiteType) {
+            throw new RuntimeException(
+                'Selected Website Type is unavailable for Developer compilation.'
+            );
+        }
+
+        $websiteTypeManifest = app(
+            WebsiteTypeManifestService::class
+        )->get($websiteType);
+
+        $websiteTypeRoot = app(
+            ProductStorageService::class
+        )->path(
+            'packages',
+            'website-types/'
+            . $websiteType->package_key
+            . '/'
+            . $websiteType->package_version
+        );
+
+        if (!File::isDirectory($websiteTypeRoot)) {
+            throw new RuntimeException(
+                'Prepared Website Type package directory was not found.'
+            );
+        }
+
+        $this->updateBuildProgress(
+            $build,
+            20,
+            'website_type_resolved'
+        );
+
+        File::deleteDirectory($dist);
+        File::makeDirectory($dist, 0755, true);
+
+        /*
+         * Copy the prepared Website Type distribution as the base.
+         * manifest.json remains in the package so the installer can
+         * identify the Website Type and its built-in components.
+         */
+        if (!File::copyDirectory($websiteTypeRoot, $dist)) {
+            throw new RuntimeException(
+                'Unable to assemble the prepared Website Type package.'
+            );
+        }
+
+        $this->updateBuildProgress(
+            $build,
+            40,
+            'website_type_assembled'
+        );
+
+        /*
+         * ESUBIZ_DEVELOPER_OPTIONAL_PRODUCTS_ASSEMBLY_V1
+         *
+         * The prepared Website Type above remains the compilation base.
+         *
+         * Developer-selected Marketplace products are attached to that
+         * prepared distribution as validated Esubiz product packages.
+         *
+         * We do NOT reconstruct the Website Type and we do NOT invent
+         * package locations. package_path from the authoritative
+         * Marketplace staging/package record is required.
+         *
+         * The final installer can therefore install these genuine
+         * attached products under the ONE primary Developer Build
+         * licence generated for this compilation.
+         */
+        $configuration =
+            is_array($build->configuration)
+                ? $build->configuration
+                : [];
+
+        $selections =
+            is_array($configuration['selections'] ?? null)
+                ? $configuration['selections']
+                : [];
+
+        $pricing =
+            is_array($configuration['pricing'] ?? null)
+                ? $configuration['pricing']
+                : [];
+
+        $attachedRoot =
+            $dist . DIRECTORY_SEPARATOR . 'esubiz-products';
+
+        File::ensureDirectoryExists(
+            $attachedRoot,
+            0755,
+            true
+        );
+
+        $attachedProducts = [
+            'bundle' => null,
+            'theme' => null,
+            'modules' => [],
+        ];
+
+        /*
+         * Resolve one Marketplace package from the canonical staging
+         * record belonging to the selected listing/catalog product.
+         *
+         * package_path itself remains authoritative. Absolute paths are
+         * accepted only when they point to a real file; relative paths
+         * are resolved beneath the validator's protected storage root.
+         */
+        $resolveMarketplacePackage = function (
+            ?int $listingId,
+            ?int $catalogProductId,
+            string $protectedRoot,
+            string $label
+        ): array {
+            $query = DB::table('marketplace_product_stagings')
+                ->whereNotNull('package_path');
+
+            // ESUBIZ_DEVELOPER_STAGING_PRODUCT_ID_FIX_V1
+            //
+            // marketplace_product_stagings stores:
+            // - marketplace_listing_id
+            // - product_id
+            //
+            // It does NOT have catalog_product_id.
+            if ($listingId) {
+                $query->where(
+                    'marketplace_listing_id',
+                    $listingId
+                );
+            } elseif ($catalogProductId) {
+                $query->where(
+                    'product_id',
+                    $catalogProductId
+                );
+            } else {
+                throw new RuntimeException(
+                    $label . ' has no authoritative product reference.'
+                );
+            }
+
+            $record = $query
+                ->orderByDesc('id')
+                ->first();
+
+            if (
+                !$record
+                || empty($record->package_path)
+            ) {
+                throw new RuntimeException(
+                    $label
+                    . ' does not have an available Marketplace package.'
+                );
+            }
+
+            $recordedPath =
+                trim((string) $record->package_path);
+
+            $absolutePath =
+                str_starts_with($recordedPath, '/')
+                    ? $recordedPath
+                    : rtrim(
+                        $protectedRoot,
+                        DIRECTORY_SEPARATOR
+                    )
+                    . DIRECTORY_SEPARATOR
+                    . ltrim(
+                        $recordedPath,
+                        DIRECTORY_SEPARATOR
+                    );
+
+            if (!is_file($absolutePath)) {
+                throw new RuntimeException(
+                    $label
+                    . ' package file was not found.'
+                );
+            }
+
+            return [
+                'record' => $record,
+                'path' => $absolutePath,
+            ];
+        };
+
+        /*
+         * Optional Add-on Bundle.
+         *
+         * ESUBIZ_DEVELOPER_CANONICAL_BUNDLE_PACKAGE_V1
+         *
+         * Bundles are canonical Esubiz bundle packages and do not depend
+         * on marketplace_product_stagings.
+         */
+        $bundleSelection =
+            is_array($pricing['addon_bundle'] ?? null)
+                ? $pricing['addon_bundle']
+                : null;
+
+        if (!empty($selections['addon_bundle'])) {
+            if (
+                !$bundleSelection
+                || empty($bundleSelection['id'])
+            ) {
+                throw new RuntimeException(
+                    'Selected add-on bundle pricing record is unavailable.'
+                );
+            }
+
+            $bundleService = app(
+                \App\Services\Marketplace\BundlePackageService::class
+            );
+
+            $bundleRoot =
+                rtrim(
+                    $bundleService->protectedRoot(),
+                    DIRECTORY_SEPARATOR
+                );
+
+            if (!File::isDirectory($bundleRoot)) {
+                throw new RuntimeException(
+                    'Canonical add-on bundle storage is unavailable.'
+                );
+            }
+
+            /*
+             * Find the canonical package by validating the packages
+             * already stored in the dedicated protected bundle root.
+             *
+             * No Marketplace staging record or invented package path
+             * is used here.
+             */
+            $matchingBundlePackages = [];
+
+            foreach (
+                File::files($bundleRoot)
+                as $bundleFile
+            ) {
+                if (
+                    strtolower(
+                        $bundleFile->getExtension()
+                    ) !== 'zip'
+                ) {
+                    continue;
+                }
+
+                try {
+                    $candidateManifest =
+                        $bundleService->validatePackage(
+                            $bundleFile->getPathname()
+                        );
+                } catch (\Throwable $e) {
+                    continue;
+                }
+
+                $candidateId =
+                    $candidateManifest['id']
+                    ?? $candidateManifest['bundle_id']
+                    ?? null;
+
+                $candidateName =
+                    $candidateManifest['name']
+                    ?? $candidateManifest['bundle_name']
+                    ?? null;
+
+                $idMatches =
+                    $candidateId !== null
+                    && (string) $candidateId
+                        === (string) $bundleSelection['id'];
+
+                $nameMatches =
+                    $candidateName !== null
+                    && strcasecmp(
+                        trim((string) $candidateName),
+                        trim(
+                            (string) (
+                                $bundleSelection['name']
+                                ?? ''
+                            )
+                        )
+                    ) === 0;
+
+                if ($idMatches || $nameMatches) {
+                    $matchingBundlePackages[] = [
+                        'path' =>
+                            $bundleFile->getPathname(),
+                        'manifest' =>
+                            $candidateManifest,
+                    ];
+                }
+            }
+
+            if (count($matchingBundlePackages) !== 1) {
+                throw new RuntimeException(
+                    count($matchingBundlePackages) === 0
+                        ? 'Canonical package for the selected add-on bundle was not found.'
+                        : 'Multiple canonical packages matched the selected add-on bundle.'
+                );
+            }
+
+            $bundlePackage =
+                $matchingBundlePackages[0];
+
+            $bundleDirectory =
+                $attachedRoot
+                . DIRECTORY_SEPARATOR
+                . 'bundle';
+
+            File::ensureDirectoryExists(
+                $bundleDirectory,
+                0755,
+                true
+            );
+
+            $bundleFilename =
+                basename($bundlePackage['path']);
+
+            if (
+                !File::copy(
+                    $bundlePackage['path'],
+                    $bundleDirectory
+                    . DIRECTORY_SEPARATOR
+                    . $bundleFilename
+                )
+            ) {
+                throw new RuntimeException(
+                    'Unable to attach the selected add-on bundle.'
+                );
+            }
+
+            $attachedProducts['bundle'] = [
+                'id' =>
+                    (int) $bundleSelection['id'],
+
+                'name' =>
+                    $bundleSelection['name']
+                    ?? 'Add-on Bundle',
+
+                'package' =>
+                    'esubiz-products/bundle/'
+                    . $bundleFilename,
+
+                'manifest' =>
+                    $bundlePackage['manifest'],
+            ];
+        }
+
+        /*
+         * Optional Theme.
+         */
+        $themeSelection =
+            is_array($pricing['theme'] ?? null)
+                ? $pricing['theme']
+                : null;
+
+        if (!empty($selections['theme'])) {
+            if (
+                !$themeSelection
+                || empty(
+                    $themeSelection[
+                        'catalog_product_id'
+                    ]
+                )
+                || empty($themeSelection['listing_id'])
+            ) {
+                throw new RuntimeException(
+                    'Selected theme pricing record is unavailable.'
+                );
+            }
+
+            $themeService = app(
+                \App\Services\Marketplace\ThemePackageService::class
+            );
+
+            $themePackage =
+                $resolveMarketplacePackage(
+                    (int) $themeSelection['listing_id'],
+                    (int) $themeSelection[
+                        'catalog_product_id'
+                    ],
+                    $themeService->protectedRoot(),
+                    'Selected theme'
+                );
+
+            $themeManifest =
+                $themeService->validatePackage(
+                    $themePackage['path']
+                );
+
+            $themeDirectory =
+                $attachedRoot
+                . DIRECTORY_SEPARATOR
+                . 'theme';
+
+            File::ensureDirectoryExists(
+                $themeDirectory,
+                0755,
+                true
+            );
+
+            $themeFilename =
+                basename($themePackage['path']);
+
+            if (
+                !File::copy(
+                    $themePackage['path'],
+                    $themeDirectory
+                    . DIRECTORY_SEPARATOR
+                    . $themeFilename
+                )
+            ) {
+                throw new RuntimeException(
+                    'Unable to attach the selected theme.'
+                );
+            }
+
+            $attachedProducts['theme'] = [
+                'catalog_product_id' =>
+                    (int) $themeSelection[
+                        'catalog_product_id'
+                    ],
+                'listing_id' =>
+                    (int) $themeSelection['listing_id'],
+                'name' =>
+                    $themeSelection['name']
+                    ?? 'Theme',
+                'package' =>
+                    'esubiz-products/theme/'
+                    . $themeFilename,
+                'manifest' => $themeManifest,
+            ];
+        }
+
+        /*
+         * Optional Modules.
+         *
+         * Modules use the same genuine Marketplace package pipeline as
+         * add-ons. Each selected module already has its authoritative
+         * listing/catalog identity in the pricing manifest.
+         */
+        $moduleSelections =
+            is_array($pricing['modules'] ?? null)
+                ? $pricing['modules']
+                : [];
+
+        if (!empty($selections['modules'])) {
+            $addonService = app(
+                \App\Services\Marketplace\AddonPackageService::class
+            );
+
+            $moduleDirectory =
+                $attachedRoot
+                . DIRECTORY_SEPARATOR
+                . 'modules';
+
+            File::ensureDirectoryExists(
+                $moduleDirectory,
+                0755,
+                true
+            );
+
+            foreach ($moduleSelections as $moduleSelection) {
+                if (
+                    !is_array($moduleSelection)
+                    || empty(
+                        $moduleSelection[
+                            'catalog_product_id'
+                        ]
+                    )
+                    || empty($moduleSelection['listing_id'])
+                ) {
+                    throw new RuntimeException(
+                        'Selected module pricing record is unavailable.'
+                    );
+                }
+
+                $modulePackage =
+                    $resolveMarketplacePackage(
+                        (int) $moduleSelection[
+                            'listing_id'
+                        ],
+                        (int) $moduleSelection[
+                            'catalog_product_id'
+                        ],
+                        $addonService->protectedRoot(),
+                        'Selected module'
+                    );
+
+                $moduleManifest =
+                    $addonService->validatePackage(
+                        $modulePackage['path']
+                    );
+
+                $moduleFilename =
+                    basename($modulePackage['path']);
+
+                if (
+                    !File::copy(
+                        $modulePackage['path'],
+                        $moduleDirectory
+                        . DIRECTORY_SEPARATOR
+                        . $moduleFilename
+                    )
+                ) {
+                    throw new RuntimeException(
+                        'Unable to attach selected module.'
+                    );
+                }
+
+                $attachedProducts['modules'][] = [
+                    'catalog_product_id' =>
+                        (int) $moduleSelection[
+                            'catalog_product_id'
+                        ],
+                    'listing_id' =>
+                        (int) $moduleSelection[
+                            'listing_id'
+                        ],
+                    'name' =>
+                        $moduleSelection['name']
+                        ?? 'Module',
+                    'package' =>
+                        'esubiz-products/modules/'
+                        . $moduleFilename,
+                    'manifest' => $moduleManifest,
+                ];
+            }
+
+            if (
+                count($attachedProducts['modules'])
+                !== count($selections['modules'])
+            ) {
+                throw new RuntimeException(
+                    'Not all selected modules were assembled.'
+                );
+            }
+        }
+
+        /*
+         * Store an installer-readable attachment manifest inside the
+         * private compiled distribution.
+         */
+        $attachmentManifest = [
+            'schema' => '1.0',
+            'type' => 'developer-build-products',
+            'build_id' => $build->build_id,
+            'website_type' => $websiteType->slug,
+            'products' => $attachedProducts,
+        ];
+
+        File::put(
+            $attachedRoot
+            . DIRECTORY_SEPARATOR
+            . 'manifest.json',
+            json_encode(
+                $attachmentManifest,
+                JSON_PRETTY_PRINT
+                | JSON_UNESCAPED_SLASHES
+            )
+        );
+
+        $configuration['attached_products'] =
+            $attachedProducts;
+
+        $build->update([
+            'configuration' => $configuration,
+        ]);
+
+        $build->refresh();
+
+        $this->updateBuildProgress(
+            $build,
+            55,
+            'optional_products_assembled'
+        );
+
+        /*
+         * Record the canonical prepared Website Type manifest in the
+         * Developer Build configuration without replacing the existing
+         * pricing/selections configuration.
+         */
+        $configuration =
+            is_array($build->configuration)
+                ? $build->configuration
+                : [];
+
+        $configuration['website_type_package'] = [
+            'slug' => $websiteType->slug,
+            'package_key' => $websiteType->package_key,
+            'package_version' => $websiteType->package_version,
+            'manifest' => $websiteTypeManifest,
+        ];
+
+        $build->update([
+            'configuration' => $configuration,
+        ]);
+
+        $build->refresh();
+
+        $this->updateBuildProgress(
+            $build,
+            60,
+            'configuration_ready'
+        );
+
+        // ESUBIZ_DEVELOPER_BUILD_LICENSE_PACKAGE_V1
+        //
+        // The compiled Website/Core package carries ONE primary Central
+        // licence. Genuine products attached during compilation inherit
+        // this licence and remain tied to the same eventual domain.
+        //
+        // The package is still private at this stage. Payment releases
+        // the already-compiled package; it does not generate the licence.
+        $build->refresh();
+
+        if (!$build->license_registration_id || !$build->license_key) {
+            throw new RuntimeException(
+                'Developer Build primary licence is unavailable.'
+            );
+        }
+
+        $licenseRegistration = DB::table(
+            'off_server_license_registrations'
+        )
+            ->where('id', $build->license_registration_id)
+            ->where('user_id', $build->developer_id)
+            ->where('license_key', $build->license_key)
+            ->first();
+
+        if (!$licenseRegistration) {
+            throw new RuntimeException(
+                'Developer Build primary licence registration could not be verified.'
+            );
+        }
+
+        $configuration =
+            is_array($build->configuration)
+                ? $build->configuration
+                : [];
+
+        $selections =
+            is_array($configuration['selections'] ?? null)
+                ? $configuration['selections']
+                : [];
+
+        $coveredProducts = [
+            'website_type' =>
+                $selections['website_type']
+                ?? $build->website_type,
+
+            'addon_bundle' =>
+                $selections['addon_bundle']
+                ?? $build->addon_bundle,
+
+            'theme' =>
+                $selections['theme']
+                ?? $build->theme,
+
+            'modules' =>
+                $selections['modules']
+                ?? (
+                    is_array($build->modules)
+                        ? $build->modules
+                        : []
+                ),
+        ];
+
+        $licenseDirectory = $dist . '/license';
+        $documentationDirectory = $dist . '/documentation';
+
+        File::makeDirectory(
+            $licenseDirectory,
+            0755,
+            true,
+            true
+        );
+
+        File::makeDirectory(
+            $documentationDirectory,
+            0755,
+            true,
+            true
+        );
+
+        $licenseManifest = [
+            'platform' => 'Esubiz',
+            'license_scope' => 'compiled_website',
+            'license_type' => 'developer_build',
+            'license_key' => $build->license_key,
+            'registration_uuid' => $licenseRegistration->uuid,
+            'developer_build_id' => $build->id,
+            'build_id' => $build->build_id,
+            'project_name' => $build->project_name,
+            'website_type' => $build->website_type,
+            'status' => $licenseRegistration->status,
+            'domains_per_license' => 1,
+            'registered_domain' =>
+                $licenseRegistration->registered_domain,
+            'covered_products' => $coveredProducts,
+            'issued_at' =>
+                $licenseRegistration->created_at,
+        ];
+
+        File::put(
+            $licenseDirectory . '/license.json',
+            json_encode(
+                $licenseManifest,
+                JSON_PRETTY_PRINT
+                | JSON_UNESCAPED_SLASHES
+                | JSON_UNESCAPED_UNICODE
+            )
+        );
+
+        $licenseText = implode(PHP_EOL, [
+            'ESUBIZ CENTRAL LICENSE',
+            '======================',
+            '',
+            'Project: ' . $build->project_name,
+            'Build ID: ' . $build->build_id,
+            'License Key: ' . $build->license_key,
+            'License Type: Developer Build',
+            'License Scope: Compiled Website/Core',
+            'Domains Per License: 1',
+            'Status: ' . $licenseRegistration->status,
+            '',
+            'COVERAGE',
+            '--------',
+            'This single Central license covers the Website/Core and',
+            'all genuine Esubiz products attached during compilation.',
+            '',
+            'Website Type: ' .
+                (
+                    is_scalar($coveredProducts['website_type'])
+                        ? (string) $coveredProducts['website_type']
+                        : json_encode($coveredProducts['website_type'])
+                ),
+            'Addon Bundle: ' .
+                (
+                    empty($coveredProducts['addon_bundle'])
+                        ? 'None'
+                        : (
+                            is_scalar($coveredProducts['addon_bundle'])
+                                ? (string) $coveredProducts['addon_bundle']
+                                : json_encode($coveredProducts['addon_bundle'])
+                        )
+                ),
+            'Theme: ' .
+                (
+                    empty($coveredProducts['theme'])
+                        ? 'None'
+                        : (
+                            is_scalar($coveredProducts['theme'])
+                                ? (string) $coveredProducts['theme']
+                                : json_encode($coveredProducts['theme'])
+                        )
+                ),
+            'Modules: ' .
+                (
+                    empty($coveredProducts['modules'])
+                        ? 'None'
+                        : json_encode(
+                            $coveredProducts['modules'],
+                            JSON_UNESCAPED_SLASHES
+                        )
+                ),
+            '',
+            'DOMAIN LOCK',
+            '-----------',
+            'The license is pending until first legitimate activation.',
+            'First activation permanently binds it to one domain.',
+            'Attached products inherit the same domain entitlement.',
+            '',
+            'PRODUCT AUTHENTICITY AND UPDATES',
+            '--------------------------------',
+            'Every genuine Esubiz product validates through the licensed Core.',
+            'A modified or nulled product does not invalidate the Core.',
+            'However, that specific product loses Esubiz-managed lifetime',
+            'update entitlement until the genuine Esubiz package is restored',
+            'and validated using the applicable genuine license entitlement.',
+            '',
+            'Generated by Esubiz Developer Builder.',
+        ]);
+
+        File::put(
+            $licenseDirectory . '/License.txt',
+            $licenseText . PHP_EOL
+        );
+
+        $documentation = implode(PHP_EOL, [
+            'ESUBIZ COMPILED WEBSITE PACKAGE',
+            '===============================',
+            '',
+            'Project: ' . $build->project_name,
+            'Build ID: ' . $build->build_id,
+            '',
+            'INSTALLATION',
+            '------------',
+            '1. Upload and install this compiled Website/Core package.',
+            '2. During first activation, use the license supplied in',
+            '   license/License.txt.',
+            '3. The Central license will bind permanently to the first',
+            '   successfully activated domain.',
+            '4. Genuine products compiled into this package use the same',
+            '   primary Core/domain license entitlement.',
+            '',
+            'LICENSING',
+            '---------',
+            'Do not reuse the compiled package license on another domain.',
+            'Standalone Esubiz products purchased separately require their',
+            'own applicable valid product license.',
+            'Official bundles use one bundle license covering their included',
+            'products.',
+            '',
+            'See the /license directory for the complete package license.',
+        ]);
+
+        File::put(
+            $documentationDirectory . '/README.txt',
+            $documentation . PHP_EOL
+        );
+
+        /*
+         * Dependency-free PDF so compilation does not depend on a
+         * separate PDF package being installed on the Central server.
+         */
+        $pdfLines = [
+            'ESUBIZ CENTRAL LICENSE',
+            '',
+            'Project: ' . $build->project_name,
+            'Build ID: ' . $build->build_id,
+            'License Key: ' . $build->license_key,
+            'License Type: Developer Build',
+            'Scope: Compiled Website/Core',
+            'Domains Per License: 1',
+            'Status: ' . $licenseRegistration->status,
+            '',
+            'This license covers the Website/Core and all genuine',
+            'Esubiz products attached during compilation.',
+            '',
+            'First legitimate activation permanently binds this',
+            'license and its attached products to one domain.',
+        ];
+
+        $escapePdf = static function (string $value): string {
+            return str_replace(
+                ['\\', '(', ')'],
+                ['\\\\', '\\(', '\\)'],
+                $value
+            );
+        };
+
+        $stream = "BT\n/F1 11 Tf\n50 790 Td\n";
+
+        foreach ($pdfLines as $index => $line) {
+            if ($index > 0) {
+                $stream .= "0 -18 Td\n";
+            }
+
+            $stream .= '(' . $escapePdf($line) . ") Tj\n";
+        }
+
+        $stream .= "ET\n";
+
+        $objects = [];
+
+        $objects[] =
+            "<< /Type /Catalog /Pages 2 0 R >>";
+
+        $objects[] =
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>";
+
+        $objects[] =
+            "<< /Type /Page /Parent 2 0 R "
+            . "/MediaBox [0 0 595 842] "
+            . "/Resources << /Font << /F1 5 0 R >> >> "
+            . "/Contents 4 0 R >>";
+
+        $objects[] =
+            "<< /Length " . strlen($stream) . " >>\n"
+            . "stream\n"
+            . $stream
+            . "endstream";
+
+        $objects[] =
+            "<< /Type /Font /Subtype /Type1 "
+            . "/BaseFont /Helvetica >>";
+
+        $pdf = "%PDF-1.4\n";
+        $offsets = [0];
+
+        foreach ($objects as $number => $object) {
+            $offsets[] = strlen($pdf);
+
+            $pdf .= ($number + 1)
+                . " 0 obj\n"
+                . $object
+                . "\nendobj\n";
+        }
+
+        $xref = strlen($pdf);
+
+        $pdf .= "xref\n";
+        $pdf .= "0 " . (count($objects) + 1) . "\n";
+        $pdf .= "0000000000 65535 f \n";
+
+        for ($i = 1; $i <= count($objects); $i++) {
+            $pdf .= sprintf(
+                "%010d 00000 n \n",
+                $offsets[$i]
+            );
+        }
+
+        $pdf .= "trailer\n";
+        $pdf .= "<< /Size "
+            . (count($objects) + 1)
+            . " /Root 1 0 R >>\n";
+        $pdf .= "startxref\n";
+        $pdf .= $xref . "\n";
+        $pdf .= "%%EOF\n";
+
+        File::put(
+            $licenseDirectory . '/License.pdf',
+            $pdf
+        );
+
+        $this->updateBuildProgress(
+            $build,
+            80,
+            'license_documentation_ready'
+        );
+
+        $manifest = $root . '/project.json';
+
+        if (!File::exists($manifest)) {
+            // ESUBIZ_DEVELOPER_CANONICAL_PROJECT_MANIFEST_V1
+            //
+            // Developer compilation now starts from the canonical
+            // prepared Website Type distribution. Its manifest.json is
+            // therefore authoritative when the legacy temporary project
+            // manifest is absent.
+            //
+            // Do not manufacture a second project manifest here.
+            $preparedManifestPath =
+                $dist
+                . DIRECTORY_SEPARATOR
+                . 'manifest.json';
+
+            if (!is_file($preparedManifestPath)) {
+                throw new RuntimeException(
+                    'Prepared Website Type manifest not found.'
+                );
+            }
+
+            $manifest = $preparedManifestPath;
+        }
+
+        $zipDirectory = storage_path('app/developer-builds/packages');
+
+        File::makeDirectory($zipDirectory, 0755, true);
+
+        $zipPath = $zipDirectory . '/' . $buildId . '.zip';
+
+        if (File::exists($zipPath)) {
+            File::delete($zipPath);
+        }
+
+        $zip = new \ZipArchive();
+
+        if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            throw new RuntimeException('Unable to create build package.');
+        }
+
+        $files = File::allFiles($dist);
+
+        foreach ($files as $file) {
+            $relativePath = str_replace(
+                $dist . DIRECTORY_SEPARATOR,
+                '',
+                $file->getPathname()
+            );
+
+            $zip->addFile($file->getPathname(), $relativePath);
+        }
+
+        $zip->close();
+
+        $build = DeveloperBuild::where('build_id', $buildId)->first();
+
+        if ($build) {
+            $build->update([
+                'status' => 'success',
+                'files_count' => count($files),
+                'package_size' => File::size($zipPath),
+                'package_reference' => $zipPath,
+                'completed_at' => now(),
+            ]);
+
+            $this->updateBuildProgress(
+                $build,
+                100,
+                'completed'
+            );
+        }
+
+        return [
+            'build_id' => $buildId,
+            'dist' => $dist,
+            'package' => $zipPath,
+            'files' => count($files),
+            'size' => File::size($zipPath),
+        ];
+    }
+}

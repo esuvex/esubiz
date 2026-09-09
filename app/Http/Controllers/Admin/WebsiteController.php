@@ -399,6 +399,18 @@ class WebsiteController extends Controller
                     'email',
                     'max:255',
                 ],
+                'admin_country_code' => [
+                    'required',
+                    'string',
+                    'size:2',
+                    'regex:/^[A-Za-z]{2}$/',
+                ],
+                'admin_phone' => [
+                    'nullable',
+                    'string',
+                    'max:50',
+                    'regex:/^[0-9]+$/',
+                ],
                 'admin_password' => [
                     'nullable',
                     'string',
@@ -429,7 +441,21 @@ class WebsiteController extends Controller
                     trim((string) ($validated['admin_name'] ?? '')),
                 'admin_email' =>
                     strtolower(trim($validated['admin_email'])),
-            ];
+            
+                'admin_country_code' =>
+                    strtoupper(
+                        trim(
+                            (string) $validated['admin_country_code']
+                        )
+                    ),
+
+                'admin_phone' =>
+                    isset($validated['admin_phone'])
+                        ? trim(
+                            (string) $validated['admin_phone']
+                        )
+                        : null,
+];
 
             if (!empty($validated['admin_password'])) {
                 $updates['admin_password'] =

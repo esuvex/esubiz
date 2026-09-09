@@ -1,372 +1,381 @@
 @extends('tenant.admin.layouts.app')
 
-@section('title', 'Partners / Investors')
+@section('title', 'Investors / Partners')
 
 @section('content')
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8"
+     data-core-partners-v84>
 
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
+    <div>
+        <h1 class="text-2xl font-black text-slate-900">
+            Investors / Partners
+        </h1>
 
-        <div>
-            <h1 class="text-2xl font-bold text-gray-900">
-                Partners / Investors
-            </h1>
-
-            <p class="mt-1 text-sm text-gray-500">
-                Configure each Partner or Investor's investment
-                share and Profit / Loss calculation basis.
-            </p>
-        </div>
-
-        <a
-            href="/admin/users"
-            class="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
-        >
-            Back to Users
-        </a>
-
+        <p class="mt-1 text-sm text-slate-500">
+            Manage Core investors, partners and investment configurations.
+        </p>
     </div>
 
+    <div class="overflow-x-auto">
+        <div class="flex min-w-max gap-2 border-b border-slate-200">
+
+            @coreCan('users.view')
+                <a
+                    href="/admin/users"
+                    class="border-b-2 border-transparent px-4 py-3 text-sm font-bold text-slate-500 hover:text-slate-900"
+                >
+                    Users
+                </a>
+            @endcoreCan
+
+            <a
+                href="/admin/users/partners"
+                class="border-b-2 border-slate-900 px-4 py-3 text-sm font-black text-slate-900"
+            >
+                Investors / Partners
+            </a>
+
+            @coreCan('roles.view')
+                <a
+                    href="/admin/users/roles"
+                    class="border-b-2 border-transparent px-4 py-3 text-sm font-bold text-slate-500 hover:text-slate-900"
+                >
+                    Roles &amp; Permissions
+                </a>
+            @endcoreCan
+
+        </div>
+    </div>
 
     @if(session('success'))
-        <div class="mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
             {{ session('success') }}
         </div>
     @endif
 
-
     @if($errors->any())
-        <div class="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-            <ul class="list-disc pl-5 space-y-1">
-                @foreach($errors->all() as $error)
-                    <li>
-                        {{ $error }}
-                    </li>
-                @endforeach
-            </ul>
+        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            @foreach($errors->all() as $error)
+                <div>{{ $error }}</div>
+            @endforeach
         </div>
     @endif
 
+    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 
-    <div class="mb-7 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="overflow-x-auto">
 
-        <div class="rounded-2xl border border-blue-100 bg-blue-50 p-5">
-            <div class="text-xs font-bold uppercase tracking-wide text-blue-700">
-                Partners / Investors
-            </div>
+            <table class="min-w-full divide-y divide-slate-200">
 
-            <div class="mt-2 text-3xl font-black text-blue-950">
-                {{ $partners->count() }}
-            </div>
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th class="px-5 py-4 text-left text-xs font-black uppercase tracking-wide text-slate-500">
+                            Name
+                        </th>
+                        <th class="px-5 py-4 text-left text-xs font-black uppercase tracking-wide text-slate-500">
+                            Email
+                        </th>
+                        <th class="px-5 py-4 text-left text-xs font-black uppercase tracking-wide text-slate-500">
+                            Investment
+                        </th>
+                        <th class="px-5 py-4 text-left text-xs font-black uppercase tracking-wide text-slate-500">
+                            Basis
+                        </th>
+                        <th class="px-5 py-4 text-left text-xs font-black uppercase tracking-wide text-slate-500">
+                            Status
+                        </th>
+                        <th class="px-5 py-4 text-left text-xs font-black uppercase tracking-wide text-slate-500">
+                            Created
+                        </th>
+                        <th class="px-5 py-4 text-right text-xs font-black uppercase tracking-wide text-slate-500">
+                            Actions
+                        </th>
+                    </tr>
+                </thead>
 
-            <div class="mt-2 text-xs text-blue-700">
-                Users currently assigned the Partner / Investor role.
-            </div>
-        </div>
+                <tbody class="divide-y divide-slate-100"
+                       data-partners-table-body>
 
-        <div class="rounded-2xl border border-emerald-100 bg-emerald-50 p-5">
-            <div class="text-xs font-bold uppercase tracking-wide text-emerald-700">
-                Active Investments
-            </div>
+                    @foreach($partners as $partner)
+                        @php
+                            $createdV84 =
+                                !empty($partner->investment_created_at)
+                                    ? \Illuminate\Support\Carbon::parse(
+                                        $partner->investment_created_at
+                                    )->format('d M Y')
+                                    : '—';
 
-            <div class="mt-2 text-3xl font-black text-emerald-950">
-                {{
-                    $partners
-                        ->filter(
-                            fn ($partner) =>
+                            $percentageV84 =
+                                $partner->investment_percentage
+                                ?? 0;
+
+                            $activeV84 =
                                 (bool) (
                                     $partner->investment_is_active
                                     ?? false
-                                )
-                        )
-                        ->count()
-                }}
-            </div>
+                                );
+                        @endphp
 
-            <div class="mt-2 text-xs text-emerald-700">
-                Partner investment configurations currently active.
-            </div>
+                        <tr data-partner-row class="hover:bg-slate-50">
+
+                            <td class="whitespace-nowrap px-5 py-4 font-bold text-slate-900">
+                                {{ $partner->name }}
+                            </td>
+
+                            <td class="whitespace-nowrap px-5 py-4 text-sm text-slate-600">
+                                {{ $partner->email }}
+                            </td>
+
+                            <td class="whitespace-nowrap px-5 py-4 text-sm font-bold text-slate-700">
+                                {{ number_format((float) $percentageV84, 2) }}%
+                            </td>
+
+                            <td class="whitespace-nowrap px-5 py-4 text-sm text-slate-600">
+                                {{ ucfirst($partner->profit_basis ?? 'net') }}
+                            </td>
+
+                            <td class="whitespace-nowrap px-5 py-4">
+                                @if($activeV84)
+                                    <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
+                                        Active
+                                    </span>
+                                @else
+                                    <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
+                                        Inactive
+                                    </span>
+                                @endif
+                            </td>
+
+                            <td class="whitespace-nowrap px-5 py-4 text-sm text-slate-500">
+                                {{ $createdV84 }}
+                            </td>
+
+                            <td class="relative whitespace-nowrap px-5 py-4 text-right">
+
+                                <button
+                                    type="button"
+                                    data-partner-action-toggle
+                                    aria-label="Partner actions"
+                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-xl font-black leading-none text-slate-600 hover:bg-slate-50"
+                                >
+                                    ⋮
+                                </button>
+
+                                <div
+                                    data-partner-action-menu
+                                    class="absolute right-5 z-50 mt-2 hidden w-40 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 text-left shadow-xl"
+                                >
+                                    @coreCan('users.view')
+                                        <a
+                                            href="/admin/users/{{ $partner->id }}"
+                                            class="block px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                                        >
+                                            View
+                                        </a>
+                                    @endcoreCan
+
+                                    @coreCan('users.edit')
+                                        <a
+                                            href="/admin/users/{{ $partner->id }}/edit"
+                                            class="block px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                                        >
+                                            Edit
+                                        </a>
+                                    @endcoreCan
+
+                                    @coreCan('users.delete')
+                                        <form
+                                            method="POST"
+                                            action="/admin/users/{{ $partner->id }}"
+                                            onsubmit="return confirm('Delete this Core user permanently?');"
+                                        >
+                                            @csrf
+                                            @method('DELETE')
+
+                                            <button
+                                                type="submit"
+                                                class="block w-full px-4 py-2.5 text-left text-sm font-semibold text-red-600 hover:bg-red-50"
+                                            >
+                                                Delete
+                                            </button>
+                                        </form>
+                                    @endcoreCan
+                                </div>
+
+                            </td>
+                        </tr>
+                    @endforeach
+
+                </tbody>
+            </table>
+
         </div>
 
-        <div class="rounded-2xl border border-amber-100 bg-amber-50 p-5">
-            <div class="text-xs font-bold uppercase tracking-wide text-amber-700">
-                Calculation
+        @if($partners->isEmpty())
+            <div class="px-6 py-14 text-center">
+                <div class="font-black text-slate-900">
+                    No Investors / Partners
+                </div>
+
+                <p class="mt-2 text-sm text-slate-500">
+                    Assign the Investors / Partners role to a Core user first.
+                </p>
+            </div>
+        @endif
+
+        <div class="flex items-center justify-between border-t border-slate-200 px-5 py-4">
+
+            <div
+                data-partners-page-info
+                class="text-sm font-semibold text-slate-500"
+            ></div>
+
+            <div class="flex gap-2">
+                <button
+                    type="button"
+                    data-partners-prev
+                    class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                    Previous
+                </button>
+
+                <button
+                    type="button"
+                    data-partners-next
+                    class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                    Next
+                </button>
             </div>
 
-            <div class="mt-2 text-lg font-black text-amber-950">
-                Gross or Net
-            </div>
-
-            <div class="mt-2 text-xs text-amber-700">
-                Profit / Loss basis is configured separately for each Partner.
-            </div>
         </div>
 
     </div>
 
-
-    @if($partners->isEmpty())
-
-        <div class="rounded-2xl border border-gray-200 bg-white p-10 text-center shadow-sm">
-
-            <h2 class="text-lg font-bold text-gray-900">
-                No Partners / Investors
-            </h2>
-
-            <p class="mt-2 text-sm text-gray-500">
-                Assign the Partners / Investors role to a Core user
-                before configuring an investment share.
-            </p>
-
-            <a
-                href="/admin/users"
-                class="mt-5 inline-flex items-center justify-center rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-gray-800"
-            >
-                Manage Users
-            </a>
-
-        </div>
-
-    @else
-
-        <div class="space-y-5">
-
-            @foreach($partners as $partner)
-
-                @php
-                    $percentage =
-                        old(
-                            'partner_investment_percentage',
-                            $partner->investment_percentage
-                            ?? '0.0000'
-                        );
-
-                    $basis =
-                        old(
-                            'partner_profit_basis',
-                            $partner->profit_basis
-                            ?? 'net'
-                        );
-
-                    $active =
-                        (bool) old(
-                            'partner_is_active',
-                            $partner->investment_is_active
-                            ?? false
-                        );
-
-                    $notes =
-                        old(
-                            'partner_notes',
-                            $partner->notes
-                            ?? ''
-                        );
-                @endphp
-
-                <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-
-                    <div class="flex flex-col gap-3 border-b border-gray-100 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
-
-                        <div class="min-w-0">
-
-                            <h2 class="truncate text-base font-bold text-gray-900">
-                                {{ $partner->name }}
-                            </h2>
-
-                            <p class="mt-1 truncate text-xs text-gray-500">
-                                {{ $partner->email }}
-                            </p>
-
-                        </div>
-
-                        <div class="flex flex-wrap items-center gap-2">
-
-                            @if((bool) $partner->user_is_active)
-                                <span class="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
-                                    Account Active
-                                </span>
-                            @else
-                                <span class="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-700">
-                                    Account Inactive
-                                </span>
-                            @endif
-
-                            @if($active)
-                                <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-                                    Investment Active
-                                </span>
-                            @else
-                                <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-600">
-                                    Investment Inactive
-                                </span>
-                            @endif
-
-                        </div>
-
-                    </div>
-
-
-                    <form
-                        method="POST"
-                        action="/admin/users/partners/{{ $partner->id }}"
-                        class="p-6"
-                    >
-                        @csrf
-                        @method('PUT')
-
-                        <div class="grid grid-cols-1 lg:grid-cols-4 gap-5">
-
-                            <div>
-
-                                <label
-                                    class="block text-sm font-semibold text-gray-700"
-                                >
-                                    Investment Share
-                                </label>
-
-                                <div class="relative mt-2">
-
-                                    <input
-                                        type="number"
-                                        name="partner_investment_percentage"
-                                        min="0"
-                                        max="100"
-                                        step="0.0001"
-                                        value="{{ $percentage }}"
-                                        required
-                                        class="block w-full rounded-lg border-gray-300 pr-10 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                    >
-
-                                    <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm font-bold text-gray-400">
-                                        %
-                                    </span>
-
-                                </div>
-
-                                <p class="mt-2 text-xs text-gray-500">
-                                    Share applied to the selected
-                                    Profit / Loss basis.
-                                </p>
-
-                            </div>
-
-
-                            <div>
-
-                                <label
-                                    class="block text-sm font-semibold text-gray-700"
-                                >
-                                    Profit / Loss Basis
-                                </label>
-
-                                <select
-                                    name="partner_profit_basis"
-                                    required
-                                    class="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                >
-                                    <option
-                                        value="gross"
-                                        @selected($basis === 'gross')
-                                    >
-                                        Gross
-                                    </option>
-
-                                    <option
-                                        value="net"
-                                        @selected($basis === 'net')
-                                    >
-                                        Net
-                                    </option>
-                                </select>
-
-                                <p class="mt-2 text-xs text-gray-500">
-                                    Determines which signed business
-                                    result is used for this Partner.
-                                </p>
-
-                            </div>
-
-
-                            <div>
-
-                                <label
-                                    class="block text-sm font-semibold text-gray-700"
-                                >
-                                    Investment Status
-                                </label>
-
-                                <input
-                                    type="hidden"
-                                    name="partner_is_active"
-                                    value="0"
-                                >
-
-                                <label class="mt-3 inline-flex items-center gap-3">
-
-                                    <input
-                                        type="checkbox"
-                                        name="partner_is_active"
-                                        value="1"
-                                        @checked($active)
-                                        class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
-                                    >
-
-                                    <span class="text-sm font-medium text-gray-700">
-                                        Active
-                                    </span>
-
-                                </label>
-
-                                <p class="mt-3 text-xs text-gray-500">
-                                    Inactive investments do not receive
-                                    new Partner share postings.
-                                </p>
-
-                            </div>
-
-
-                            <div>
-
-                                <label
-                                    class="block text-sm font-semibold text-gray-700"
-                                >
-                                    Notes
-                                </label>
-
-                                <textarea
-                                    name="partner_notes"
-                                    rows="3"
-                                    maxlength="2000"
-                                    class="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                >{{ $notes }}</textarea>
-
-                            </div>
-
-                        </div>
-
-
-                        <div class="mt-6 flex justify-end">
-
-                            <button
-                                type="submit"
-                                class="inline-flex items-center justify-center rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-800"
-                            >
-                                Save Investment Configuration
-                            </button>
-
-                        </div>
-
-                    </form>
-
-                </section>
-
-            @endforeach
-
-        </div>
-
-    @endif
-
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const root = document.querySelector(
+        '[data-core-partners-v84]'
+    );
+
+    if (!root) {
+        return;
+    }
+
+    const rows = Array.from(
+        root.querySelectorAll('[data-partner-row]')
+    );
+
+    const prev = root.querySelector(
+        '[data-partners-prev]'
+    );
+
+    const next = root.querySelector(
+        '[data-partners-next]'
+    );
+
+    const info = root.querySelector(
+        '[data-partners-page-info]'
+    );
+
+    const perPage = 10;
+    let page = 1;
+
+    function render() {
+        const totalPages = Math.max(
+            1,
+            Math.ceil(rows.length / perPage)
+        );
+
+        if (page > totalPages) {
+            page = totalPages;
+        }
+
+        rows.forEach(function (row) {
+            row.classList.add('hidden');
+        });
+
+        const start = (page - 1) * perPage;
+
+        rows.slice(
+            start,
+            start + perPage
+        ).forEach(function (row) {
+            row.classList.remove('hidden');
+        });
+
+        info.textContent = rows.length
+            ? 'Page ' + page + ' of ' + totalPages
+                + ' · ' + rows.length + ' partners'
+            : '0 partners';
+
+        prev.disabled = page <= 1;
+        next.disabled =
+            page >= totalPages
+            || rows.length === 0;
+    }
+
+    prev.addEventListener('click', function () {
+        if (page > 1) {
+            page--;
+            render();
+        }
+    });
+
+    next.addEventListener('click', function () {
+        const totalPages = Math.ceil(
+            rows.length / perPage
+        );
+
+        if (page < totalPages) {
+            page++;
+            render();
+        }
+    });
+
+    root.addEventListener('click', function (event) {
+        const toggle = event.target.closest(
+            '[data-partner-action-toggle]'
+        );
+
+        const clickedMenu = event.target.closest(
+            '[data-partner-action-menu]'
+        );
+
+        if (toggle) {
+            event.stopPropagation();
+
+            const cell = toggle.closest('td');
+            const menu = cell?.querySelector(
+                '[data-partner-action-menu]'
+            );
+
+            root.querySelectorAll(
+                '[data-partner-action-menu]'
+            ).forEach(function (other) {
+                if (other !== menu) {
+                    other.classList.add('hidden');
+                }
+            });
+
+            menu?.classList.toggle('hidden');
+            return;
+        }
+
+        if (!clickedMenu) {
+            root.querySelectorAll(
+                '[data-partner-action-menu]'
+            ).forEach(function (menu) {
+                menu.classList.add('hidden');
+            });
+        }
+    });
+
+    render();
+});
+</script>
 
 @endsection

@@ -1513,7 +1513,34 @@ return view(
 
             'timezone' =>
                 $settings['timezone']
-                ?? config('app.timezone', 'UTC'),
+                ?? 'Africa/Lagos',
+
+            'default_country_code' =>
+                strtoupper(
+                    $settings['default_country_code']
+                    ?? 'NG'
+                ),
+
+            'allowed_country_codes' =>
+                !empty($settings['allowed_country_codes'])
+                    ? (
+                        json_decode(
+                            (string) $settings['allowed_country_codes'],
+                            true
+                        ) ?: ['NG']
+                    )
+                    : ['NG'],
+
+            /*
+             * Native Core registration role.
+             *
+             * "user" is the safe Core default. Authentication
+             * settings may override this with another valid
+             * role from the live Core roles registry.
+             */
+            'default_registration_role' =>
+                $settings['default_registration_role']
+                ?? 'user',
 
             'language' =>
                 $settings['language']
@@ -1545,6 +1572,20 @@ return view(
         ];
 
         $timezones = timezone_identifiers_list();
+
+        try {
+            $phoneCountries = app(
+                \App\Services\Core\CorePhoneCountryCatalog::class
+            )->all();
+        } catch (\Throwable $e) {
+            $phoneCountries = [
+                [
+                    'country_code' => 'NG',
+                    'country' => 'Nigeria',
+                    'dial_code' => '+234',
+                ],
+            ];
+        }
 
         $languages = [
             'en' => 'English',
@@ -1602,6 +1643,7 @@ return view(
                 'website',
                 'siteConfig',
                 'timezones',
+                'phoneCountries',
                 'languages',
                 'dateFormats',
                 'currencies'
@@ -1649,6 +1691,31 @@ return view(
 
             'timezone' => [
                 'required',
+                'string',
+                'max:100',
+            ],
+
+            'default_country_code' => [
+                'required',
+                'string',
+                'size:2',
+                'regex:/^[A-Za-z]{2}$/',
+            ],
+
+            'allowed_country_codes' => [
+                'required',
+                'array',
+                'min:1',
+            ],
+
+            'allowed_country_codes.*' => [
+                'required',
+                'string',
+                'max:3',
+            ],
+
+            'default_registration_role' => [
+                'nullable',
                 'string',
                 'max:100',
             ],
@@ -1706,6 +1773,68 @@ return view(
             422,
             'Invalid timezone.'
         );
+
+        $countryCatalog = app(
+            \App\Services\Core\CorePhoneCountryCatalog::class
+        );
+
+        $validCountryCodes = array_column(
+            $countryCatalog->all(),
+            'country_code'
+        );
+
+        $defaultCountryCode = strtoupper(
+            trim($data['default_country_code'])
+        );
+
+        abort_unless(
+            in_array(
+                $defaultCountryCode,
+                $validCountryCodes,
+                true
+            ),
+            422,
+            'Invalid default country.'
+        );
+
+        $allowedCountryCodes = array_values(
+            array_unique(
+                array_map(
+                    fn ($code) => strtoupper(trim((string) $code)),
+                    $data['allowed_country_codes']
+                )
+            )
+        );
+
+        if (!in_array('ALL', $allowedCountryCodes, true)) {
+            foreach ($allowedCountryCodes as $countryCode) {
+                abort_unless(
+                    in_array(
+                        $countryCode,
+                        $validCountryCodes,
+                        true
+                    ),
+                    422,
+                    'Invalid allowed country.'
+                );
+            }
+
+            if (!in_array(
+                $defaultCountryCode,
+                $allowedCountryCodes,
+                true
+            )) {
+                $allowedCountryCodes[] = $defaultCountryCode;
+            }
+        } else {
+            $allowedCountryCodes = ['ALL'];
+        }
+
+        $data['default_country_code'] =
+            $defaultCountryCode;
+
+        $data['allowed_country_codes'] =
+            $allowedCountryCodes;
 
         $db = DB::connection('tenant');
 
@@ -1775,6 +1904,23 @@ return view(
 
                 'timezone' =>
                     trim($data['timezone']),
+
+                'default_country_code' =>
+                    $data['default_country_code'],
+
+                'default_registration_role' =>
+                    trim(
+                        (string) (
+                            $data['default_registration_role']
+                            ?? 'user'
+                        )
+                    ) ?: 'user',
+
+                'allowed_country_codes' =>
+                    json_encode(
+                        $data['allowed_country_codes'],
+                        JSON_UNESCAPED_SLASHES
+                    ),
 
                 'language' =>
                     trim($data['language']),
@@ -2196,11 +2342,18 @@ return view(
                 'email',
                 'max:255',
             ],
+            'country_code' => [
+                'sometimes',
+                'required',
+                'string',
+                'size:2',
+            ],
             'phone' => [
                 'sometimes',
                 'nullable',
                 'string',
                 'max:50',
+                'regex:/^[0-9]+$/',
             ],
 
             /*
@@ -2228,6 +2381,77 @@ return view(
             : strtolower(
                 trim((string) ($profileUser->email ?? ''))
             );
+
+        $countryCode =
+            array_key_exists('country_code', $validated)
+                ? strtoupper(
+                    trim(
+                        (string) $validated['country_code']
+                    )
+                )
+                : strtoupper(
+                    trim(
+                        (string) (
+                            $profileUser->country_code
+                            ?? 'NG'
+                        )
+                    )
+                );
+
+        if ($countryCode === '') {
+            $countryCode = 'NG';
+        }
+
+        $countryCatalog = app(
+            \App\Services\Core\CorePhoneCountryCatalog::class
+        );
+
+        if (!$countryCatalog->findByCountryCode($countryCode)) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'country_code' =>
+                        'Please select a valid country.',
+                ]);
+        }
+
+        $allowedCountryCodes =
+            $website->allowed_country_codes
+                ?? ['ALL'];
+
+        if (is_string($allowedCountryCodes)) {
+            $decodedAllowedCountries =
+                json_decode(
+                    $allowedCountryCodes,
+                    true
+                );
+
+            $allowedCountryCodes =
+                is_array($decodedAllowedCountries)
+                    ? $decodedAllowedCountries
+                    : ['ALL'];
+        }
+
+        if (
+            is_array($allowedCountryCodes)
+            && !in_array(
+                'ALL',
+                $allowedCountryCodes,
+                true
+            )
+            && !in_array(
+                $countryCode,
+                $allowedCountryCodes,
+                true
+            )
+        ) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'country_code' =>
+                        'The selected country is not available for this website.',
+                ]);
+        }
 
         $phone = array_key_exists('phone', $validated)
             ? (
@@ -2367,6 +2591,7 @@ return view(
             ->update([
                 'name' => $name,
                 'email' => $email,
+                'country_code' => $countryCode,
                 'phone' => $phone,
                 'avatar_path' => $avatarPath,
                 'updated_at' => now(),
@@ -3146,6 +3371,49 @@ return view(
                     strlen('authentication.')
                 );
 
+                /*
+                 * ESUBIZ_AUTH_FORM_MODAL_FIELDS_V74
+                 *
+                 * Supply the canonical form_fields records directly
+                 * with each Authentication Form so the Authentication
+                 * settings page can edit the authoritative Core form
+                 * in-place without redirecting to another page.
+                 */
+                $authFormFieldsV74 = $coreDb
+                    ->table('form_fields')
+                    ->where(
+                        'form_id',
+                        (int) $formRecord->id
+                    )
+                    ->orderBy('sort_order')
+                    ->orderBy('id')
+                    ->get()
+                    ->map(
+                        static function ($field) {
+                            $options = json_decode(
+                                (string) ($field->options ?? ''),
+                                true
+                            );
+
+                            return [
+                                'id' => (int) $field->id,
+                                'name' => (string) $field->name,
+                                'label' => (string) $field->label,
+                                'type' => (string) $field->type,
+                                'required' =>
+                                    (bool) $field->required,
+                                'options' =>
+                                    is_array($options)
+                                        ? $options
+                                        : [],
+                                'sort_order' =>
+                                    (int) $field->sort_order,
+                            ];
+                        }
+                    )
+                    ->values()
+                    ->all();
+
                 $authForms[] = [
                     'id' => (int) $formRecord->id,
                     'name' => (string) $formRecord->name,
@@ -3165,6 +3433,11 @@ return view(
                         )
                             ? $formSettings['auth_config']
                             : [],
+
+                    /*
+                     * Canonical Core form fields.
+                     */
+                    'fields' => $authFormFieldsV74,
 
 'edit_url' => route(
                         'tenant.cms.forms.edit',
@@ -3210,6 +3483,208 @@ return view(
                             $registrationForm->id
                         )
                         ->count();
+
+                /*
+                 * ESUBIZ_DEFAULT_AUTH_COUNTRY_PHONE_V77B
+                 */
+                $identityFieldsV77 = [
+                    [
+                        'name' => 'country_code',
+                        'label' => 'Country',
+                        'type' => 'country',
+                        'required' => true,
+                    ],
+                    [
+                        'name' => 'phone',
+                        'label' => 'Phone',
+                        'type' => 'tel',
+                        'required' => true,
+                    ],
+                    [
+                        'name' => 'password_confirmation',
+                        'label' => 'Confirm Password',
+                        'type' => 'password',
+                        'required' => true,
+                    ],
+                ];
+
+                $maxSortV77 =
+                    (int) (
+                        $coreDb
+                            ->table('form_fields')
+                            ->where(
+                                'form_id',
+                                $registrationForm->id
+                            )
+                            ->max('sort_order')
+                        ?? -1
+                    );
+
+                foreach (
+                    $identityFieldsV77
+                    as $identityFieldV77
+                ) {
+                    $existsV77 =
+                        $coreDb
+                            ->table('form_fields')
+                            ->where(
+                                'form_id',
+                                $registrationForm->id
+                            )
+                            ->where(
+                                'name',
+                                $identityFieldV77['name']
+                            )
+                            ->exists();
+
+                    if ($existsV77) {
+                        continue;
+                    }
+
+                    $maxSortV77++;
+
+                    $coreDb
+                        ->table('form_fields')
+                        ->insert([
+                            'form_id' =>
+                                (int) $registrationForm->id,
+                            'name' =>
+                                $identityFieldV77['name'],
+                            'label' =>
+                                $identityFieldV77['label'],
+                            'type' =>
+                                $identityFieldV77['type'],
+                            'required' =>
+                                $identityFieldV77['required'],
+                            'options' => null,
+                            'sort_order' =>
+                                $maxSortV77,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+                }
+
+                /*
+                 * ESUBIZ_DEFAULT_AUTH_IDENTITY_ORDER_V79
+                 *
+                 * Match the Website Wizard identity sequence:
+                 *
+                 * Name / Email
+                 * Country / Phone
+                 * Password / Confirm Password
+                 *
+                 * Existing additional fields remain after the
+                 * protected identity/password group.
+                 */
+                $registrationFieldsV79 =
+                    $coreDb
+                        ->table('form_fields')
+                        ->where(
+                            'form_id',
+                            $registrationForm->id
+                        )
+                        ->orderBy('sort_order')
+                        ->orderBy('id')
+                        ->get();
+
+                $priorityNamesV79 = [
+                    'name',
+                    'full_name',
+                    'first_name',
+                    'last_name',
+                    'email',
+                    'country_code',
+                    'phone',
+                    'password',
+                    'password_confirmation',
+                    'confirm_password',
+                ];
+
+                $priorityMapV79 = [];
+
+                foreach (
+                    $priorityNamesV79
+                    as $priorityIndexV79
+                    => $priorityNameV79
+                ) {
+                    $priorityMapV79[
+                        $priorityNameV79
+                    ] = $priorityIndexV79;
+                }
+
+                $registrationFieldsV79 =
+                    $registrationFieldsV79
+                        ->sort(
+                            static function (
+                                $leftV79,
+                                $rightV79
+                            ) use ($priorityMapV79) {
+                                $leftNameV79 =
+                                    (string) $leftV79->name;
+
+                                $rightNameV79 =
+                                    (string) $rightV79->name;
+
+                                $leftPriorityV79 =
+                                    $priorityMapV79[
+                                        $leftNameV79
+                                    ] ?? 1000;
+
+                                $rightPriorityV79 =
+                                    $priorityMapV79[
+                                        $rightNameV79
+                                    ] ?? 1000;
+
+                                if (
+                                    $leftPriorityV79
+                                    !== $rightPriorityV79
+                                ) {
+                                    return
+                                        $leftPriorityV79
+                                        <=> $rightPriorityV79;
+                                }
+
+                                $leftSortV79 =
+                                    (int) $leftV79->sort_order;
+
+                                $rightSortV79 =
+                                    (int) $rightV79->sort_order;
+
+                                if (
+                                    $leftSortV79
+                                    !== $rightSortV79
+                                ) {
+                                    return
+                                        $leftSortV79
+                                        <=> $rightSortV79;
+                                }
+
+                                return
+                                    (int) $leftV79->id
+                                    <=> (int) $rightV79->id;
+                            }
+                        )
+                        ->values();
+
+                foreach (
+                    $registrationFieldsV79
+                    as $sortIndexV79
+                    => $registrationFieldV79
+                ) {
+                    $coreDb
+                        ->table('form_fields')
+                        ->where(
+                            'id',
+                            $registrationFieldV79->id
+                        )
+                        ->update([
+                            'sort_order' =>
+                                $sortIndexV79,
+                            'updated_at' => now(),
+                        ]);
+                }
+
+
 
                 if ($existingFieldCount === 0) {
                     $legacyFields =
@@ -3342,6 +3817,86 @@ return view(
                     }
                 }
             }
+        }
+
+
+        /*
+         * ESUBIZ_AUTH_LIVE_IDENTITY_REFRESH_V80
+         *
+         * V79 normalizes the protected Registration identity
+         * fields in the database. Refresh the Registration
+         * entry already prepared in $authForms so the current
+         * page request receives the authoritative order and
+         * fields immediately.
+         */
+        if (
+            isset($registrationForm)
+            && $registrationForm
+            && !empty($authForms)
+        ) {
+            $registrationFormIdV80 =
+                (int) $registrationForm->id;
+
+            $registrationFieldsV80 =
+                $coreDb
+                    ->table('form_fields')
+                    ->where(
+                        'form_id',
+                        $registrationFormIdV80
+                    )
+                    ->orderBy('sort_order')
+                    ->orderBy('id')
+                    ->get()
+                    ->map(
+                        static function ($fieldV80) {
+                            $optionsV80 = json_decode(
+                                (string) (
+                                    $fieldV80->options ?? ''
+                                ),
+                                true
+                            );
+
+                            return [
+                                'id' =>
+                                    (int) $fieldV80->id,
+                                'name' =>
+                                    (string) $fieldV80->name,
+                                'label' =>
+                                    (string) $fieldV80->label,
+                                'type' =>
+                                    (string) $fieldV80->type,
+                                'required' =>
+                                    (bool) $fieldV80->required,
+                                'options' =>
+                                    is_array($optionsV80)
+                                        ? $optionsV80
+                                        : [],
+                                'sort_order' =>
+                                    (int) $fieldV80->sort_order,
+                            ];
+                        }
+                    )
+                    ->values()
+                    ->all();
+
+            foreach (
+                $authForms as &$authFormV80
+            ) {
+                if (
+                    (int) (
+                        $authFormV80['id'] ?? 0
+                    ) !== $registrationFormIdV80
+                ) {
+                    continue;
+                }
+
+                $authFormV80['fields'] =
+                    $registrationFieldsV80;
+
+                break;
+            }
+
+            unset($authFormV80);
         }
 
 
@@ -3500,6 +4055,42 @@ return view(
             'auth_form_config.*.role_id' => [
                 'nullable',
                 'integer',
+            ],
+
+            /*
+             * ESUBIZ_PER_FORM_AUTH_REGISTRATION_CONFIG_V73
+             *
+             * Registration URL belongs to the individual
+             * authentication form.
+             *
+             * Core /register is protected and is assigned
+             * automatically to the default Registration form.
+             */
+            'auth_form_config.*.page_url' => [
+                'nullable',
+                'string',
+                'max:200',
+                'regex:/^\/[A-Za-z0-9\-_\/]*$/',
+            ],
+
+            'auth_form_config.*.registration_enabled' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'auth_form_config.*.auto_login' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'auth_form_config.*.require_email_verification' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'auth_form_config.*.require_sms_verification' => [
+                'nullable',
+                'boolean',
             ],
 
 
@@ -4381,7 +4972,177 @@ return view(
                 ];
 
                 if ($authPurpose === 'registration') {
+
                     $authConfig['role_id'] = $roleId;
+
+                    /*
+                     * ESUBIZ_PER_FORM_AUTH_REGISTRATION_CONFIG_V73
+                     *
+                     * Default Core Registration is permanently
+                     * available at /register.
+                     *
+                     * Additional Registration forms may own their
+                     * own public registration path.
+                     *
+                     * Login and Password Reset never receive
+                     * alternate public URLs here.
+                     */
+                    $isDefaultRegistration =
+                        $coreDefault === 'registration';
+
+                    if ($isDefaultRegistration) {
+
+                        $authConfig['page_url'] = '/register';
+
+                    } else {
+
+                        $pageUrl = trim(
+                            (string) (
+                                $submittedConfig['page_url']
+                                ?? ''
+                            )
+                        );
+
+                        if ($pageUrl !== '') {
+
+                            if (!str_starts_with($pageUrl, '/')) {
+                                $pageUrl = '/' . $pageUrl;
+                            }
+
+                            $pageUrl = '/' . ltrim(
+                                preg_replace(
+                                    '#/+#',
+                                    '/',
+                                    $pageUrl
+                                ),
+                                '/'
+                            );
+
+                            $reservedAuthUrls = [
+                                '/login',
+                                '/register',
+                                '/logout',
+                                '/password',
+                                '/password/reset',
+                                '/forgot-password',
+                                '/reset-password',
+                            ];
+
+                            if (
+                                in_array(
+                                    strtolower(
+                                        rtrim($pageUrl, '/')
+                                        ?: '/'
+                                    ),
+                                    $reservedAuthUrls,
+                                    true
+                                )
+                            ) {
+                                throw \Illuminate\Validation\ValidationException
+                                    ::withMessages([
+                                        'auth_form_config' =>
+                                            'That Registration Page URL is reserved by Core authentication.',
+                                    ]);
+                            }
+
+                            /*
+                             * Prevent two Registration forms from
+                             * claiming the same public URL.
+                             */
+                            $duplicateUrl = $db
+                                ->table('forms')
+                                ->where('id', '!=', $submittedFormId)
+                                ->get([
+                                    'id',
+                                    'settings',
+                                ])
+                                ->contains(
+                                    function ($otherForm) use ($pageUrl) {
+
+                                        $otherSettings =
+                                            json_decode(
+                                                (string) (
+                                                    $otherForm->settings
+                                                    ?? ''
+                                                ),
+                                                true
+                                            );
+
+                                        if (!is_array($otherSettings)) {
+                                            return false;
+                                        }
+
+                                        $otherUrl = trim(
+                                            (string) (
+                                                $otherSettings[
+                                                    'auth_config'
+                                                ][
+                                                    'page_url'
+                                                ]
+                                                ?? ''
+                                            )
+                                        );
+
+                                        return $otherUrl !== ''
+                                            && strtolower(
+                                                rtrim(
+                                                    $otherUrl,
+                                                    '/'
+                                                )
+                                            )
+                                            === strtolower(
+                                                rtrim(
+                                                    $pageUrl,
+                                                    '/'
+                                                )
+                                            );
+                                    }
+                                );
+
+                            if ($duplicateUrl) {
+                                throw \Illuminate\Validation\ValidationException
+                                    ::withMessages([
+                                        'auth_form_config' =>
+                                            'Another Registration form already uses that Page URL.',
+                                    ]);
+                            }
+                        }
+
+                        $authConfig['page_url'] =
+                            $pageUrl ?: null;
+                    }
+
+                    $authConfig['registration_enabled'] =
+                        !empty(
+                            $submittedConfig[
+                                'registration_enabled'
+                            ]
+                        );
+
+                    $authConfig['auto_login'] =
+                        !empty(
+                            $submittedConfig[
+                                'auto_login'
+                            ]
+                        );
+
+                    $authConfig[
+                        'require_email_verification'
+                    ] =
+                        !empty(
+                            $submittedConfig[
+                                'require_email_verification'
+                            ]
+                        );
+
+                    $authConfig[
+                        'require_sms_verification'
+                    ] =
+                        !empty(
+                            $submittedConfig[
+                                'require_sms_verification'
+                            ]
+                        );
                 }
 
                 $formSettings['auth_config'] = $authConfig;

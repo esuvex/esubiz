@@ -1,0 +1,756 @@
+@php
+    /*
+     * ESUBIZ_CENTRAL_SSO_CONTROLS_UI_V1
+     */
+    $esubizSsoSettings = \Illuminate\Support\Facades\DB::table('site_settings')
+        ->whereNull('workspace_id')
+        ->whereIn('key', [
+            'auth.esubiz_sso.enabled',
+            'auth.esubiz_sso.core_enabled',
+            'auth.esubiz_sso.external_enabled',
+        ])
+        ->pluck('value', 'key');
+
+    $esubizSsoEnabled =
+        ($esubizSsoSettings['auth.esubiz_sso.enabled'] ?? '1') === '1';
+
+    $esubizSsoCoreEnabled =
+        ($esubizSsoSettings['auth.esubiz_sso.core_enabled'] ?? '1') === '1';
+
+    $esubizSsoExternalEnabled =
+        ($esubizSsoSettings['auth.esubiz_sso.external_enabled'] ?? '1') === '1';
+@endphp
+
+@extends('admin.layouts.app')
+
+@section('title', 'Site Settings')
+
+@section('content')
+<style>
+    /* ESUBIZ_CENTRAL_SETTINGS_SUBTABS_V2 */
+
+    /* ESUBIZ_CENTRAL_SSO_TOGGLE_UI_V3 */
+    /* ESUBIZ_CENTRAL_SSO_GRID_V4 */
+    .es-sso-toggle-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+        margin-bottom: 18px;
+    }
+
+    .es-sso-toggle-grid .es-sso-toggle-card {
+        margin-bottom: 0;
+        height: 100%;
+    }
+
+    @media (max-width: 767.98px) {
+        .es-sso-toggle-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .es-sso-toggle-card {
+        padding: 17px 18px;
+        margin-bottom: 14px;
+        background: #fff;
+        border: 1px solid var(--es-border);
+        border-radius: 12px;
+    }
+
+    .es-sso-toggle-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+    }
+
+    .es-sso-toggle-copy {
+        min-width: 0;
+    }
+
+    .es-sso-toggle-title {
+        margin: 0 0 4px;
+        color: var(--es-text);
+        font-size: 14px;
+        font-weight: 700;
+    }
+
+    .es-sso-toggle-description {
+        margin: 0;
+        color: var(--es-muted);
+        font-size: 12px;
+        line-height: 1.5;
+    }
+
+    .es-sso-switch {
+        position: relative;
+        flex: 0 0 auto;
+        width: 48px;
+        height: 26px;
+        margin: 0;
+    }
+
+    .es-sso-switch input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .es-sso-switch-track {
+        position: absolute;
+        inset: 0;
+        cursor: pointer;
+        background: #fff;
+        border: 2px solid #344054;
+        border-radius: 999px;
+        transition: .18s ease;
+    }
+
+    .es-sso-switch-track::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 16px;
+        height: 16px;
+        background: #344054;
+        border-radius: 50%;
+        transition: .18s ease;
+    }
+
+    .es-sso-switch input:checked + .es-sso-switch-track {
+        background: var(--es-blue);
+        border-color: var(--es-blue);
+    }
+
+    .es-sso-switch input:checked + .es-sso-switch-track::after {
+        left: 25px;
+        background: #fff;
+    }
+
+    .es-sso-switch input:focus-visible + .es-sso-switch-track {
+        outline: 3px solid rgba(21, 94, 239, .18);
+        outline-offset: 2px;
+    }
+
+    .es-settings {
+        --es-blue: #155eef;
+        --es-blue-dark: #0b3ea8;
+        --es-blue-soft: #eff4ff;
+        --es-blue-border: #b2ccff;
+        --es-border: #e4e7ec;
+        --es-text: #101828;
+        --es-muted: #667085;
+    }
+
+    .es-settings-header {
+        margin-bottom: 24px;
+    }
+
+    .es-settings-header h1 {
+        margin: 0 0 6px;
+        color: var(--es-text);
+        font-size: 28px;
+        font-weight: 700;
+    }
+
+    .es-settings-header p {
+        margin: 0;
+        color: var(--es-muted);
+        font-size: 14px;
+    }
+
+    .es-settings-shell {
+        overflow: hidden;
+        background: #fff;
+        border: 1px solid var(--es-border);
+        border-radius: 16px;
+        box-shadow: 0 8px 28px rgba(16, 24, 40, .06);
+    }
+
+    .es-main-tabs {
+        display: flex;
+        gap: 6px;
+        padding: 12px;
+        overflow-x: auto;
+        background: linear-gradient(135deg, #0b3ea8 0%, #155eef 100%);
+        scrollbar-width: thin;
+    }
+
+    .es-main-tab {
+        flex: 0 0 auto;
+        padding: 11px 15px;
+        color: rgba(255,255,255,.84);
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 600;
+        border: 1px solid transparent;
+        border-radius: 9px;
+        white-space: nowrap;
+        transition: .18s ease;
+    }
+
+    .es-main-tab:hover {
+        color: #fff;
+        background: rgba(255,255,255,.12);
+        text-decoration: none;
+    }
+
+    .es-main-tab.active {
+        color: var(--es-blue-dark);
+        background: #fff;
+        box-shadow: 0 4px 12px rgba(0,0,0,.13);
+    }
+
+    .es-subtabs-wrap {
+        padding: 13px 18px;
+        background: #f8faff;
+        border-bottom: 1px solid var(--es-border);
+    }
+
+    .es-subtabs {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        scrollbar-width: thin;
+    }
+
+    .es-subtab {
+        flex: 0 0 auto;
+        padding: 8px 13px;
+        color: #344054;
+        background: #fff;
+        border: 1px solid #d0d5dd;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
+        transition: .18s ease;
+    }
+
+    .es-subtab:hover {
+        color: var(--es-blue-dark);
+        border-color: var(--es-blue-border);
+        background: var(--es-blue-soft);
+        text-decoration: none;
+    }
+
+    .es-subtab.active {
+        color: #fff;
+        background: var(--es-blue);
+        border-color: var(--es-blue);
+    }
+
+    .es-settings-body {
+        padding: 28px;
+    }
+
+    .es-settings-section-title {
+        margin: 0 0 6px;
+        color: var(--es-text);
+        font-size: 21px;
+        font-weight: 700;
+    }
+
+    .es-settings-section-copy {
+        margin: 0 0 22px;
+        color: var(--es-muted);
+        font-size: 14px;
+    }
+
+    .es-settings-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+    }
+
+    .es-setting-card {
+        display: flex;
+        flex-direction: column;
+        min-height: 155px;
+        padding: 20px;
+        color: inherit;
+        text-decoration: none;
+        background: #fff;
+        border: 1px solid var(--es-border);
+        border-radius: 13px;
+        transition: .18s ease;
+    }
+
+    a.es-setting-card:hover {
+        border-color: var(--es-blue-border);
+        box-shadow: 0 8px 20px rgba(21,94,239,.10);
+        transform: translateY(-2px);
+        text-decoration: none;
+    }
+
+    .es-setting-card h3 {
+        margin: 0 0 8px;
+        color: var(--es-text);
+        font-size: 15px;
+        font-weight: 700;
+    }
+
+    .es-setting-card p {
+        margin: 0;
+        color: var(--es-muted);
+        font-size: 13px;
+        line-height: 1.55;
+    }
+
+    .es-setting-card .es-open {
+        margin-top: auto;
+        padding-top: 18px;
+        color: var(--es-blue);
+        font-size: 13px;
+        font-weight: 700;
+    }
+
+    .es-coming {
+        background: #f9fafb;
+    }
+
+    .es-coming-badge {
+        align-self: flex-start;
+        margin-top: auto;
+        padding: 5px 9px;
+        color: #475467;
+        background: #eaecf0;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    @media (max-width: 1100px) {
+        .es-settings-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 680px) {
+        .es-settings-body {
+            padding: 18px;
+        }
+
+        .es-settings-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+@php
+    $tab = request('tab', 'main');
+    $sub = request('sub', 'general');
+
+    $tabs = [
+        'main'       => 'Main Settings',
+        'email'      => 'Email Settings',
+        'auth'       => 'Auth Settings',
+        'payments'   => 'Payment Gateways',
+        'themes'     => 'Theme Manager',
+        'pages'      => 'Site Pages',
+        'ai'         => 'Esubiz AI',
+        'sms'        => 'Esubiz SMS',
+        'esubizmail' => 'Esubiz Email',
+        'whatsapp'   => 'Esubiz WhatsApp',
+        'marketing'  => 'Marketing & Ads',
+        'api'        => 'API',
+    ];
+
+    $subTabs = [
+        'main' => [
+            'general'   => 'General',
+            'branding'  => 'Branding',
+            'regional'  => 'Regional',
+            'system'    => 'System',
+        ],
+
+        'email' => [
+            'general'   => 'General',
+            'smtp'      => 'SMTP',
+            'sender'    => 'Sender Identity',
+            'templates' => 'Templates',
+        ],
+
+        'auth' => [
+            'general'   => 'General',
+            'esubiz-sso'=> 'Esubiz SSO',
+            'google'    => 'Google',
+            'facebook'  => 'Facebook',
+            'instagram' => 'Instagram',
+            'tiktok'    => 'TikTok',
+            'x'         => 'X',
+        ],
+
+        'payments' => [
+            'overview'  => 'Overview',
+            'online'    => 'Online',
+            'offline'   => 'Offline',
+            'reviews'   => 'Offline Payments',
+            'wallet'    => 'Wallet',
+            'giftcard'  => 'Gift Cards',
+            'payout'    => 'Payout',
+        ],
+
+        'themes' => [
+            'overview'  => 'Overview',
+            'manager'   => 'Theme Manager',
+        ],
+
+        'pages' => [
+            'general'   => 'Pages',
+            'terms'     => 'Terms & Conditions',
+            'privacy'   => 'Privacy Policy',
+        ],
+
+        'ai' => [
+            'overview'  => 'Overview',
+            'management'=> 'AI Management',
+            'settings'  => 'AI Settings',
+        ],
+
+        'sms' => [
+            'general'   => 'General',
+            'providers' => 'Providers',
+            'pricing'   => 'Pricing',
+            'usage'     => 'Usage',
+        ],
+
+        'esubizmail' => [
+            'general'   => 'General',
+            'providers' => 'Providers',
+            'pricing'   => 'Pricing',
+            'usage'     => 'Usage',
+        ],
+
+        'whatsapp' => [
+            'general'   => 'General',
+            'providers' => 'Providers',
+            'pricing'   => 'Pricing',
+            'usage'     => 'Usage',
+        ],
+
+        'marketing' => [
+            'general'   => 'General',
+            'ads'       => 'Ads',
+            'tracking'  => 'Tracking',
+            'social'    => 'Social Platforms',
+        ],
+
+        'api' => [
+            'general'   => 'General',
+            'keys'      => 'API Keys',
+            'webhooks'  => 'Webhooks',
+            'logs'      => 'Logs',
+        ],
+    ];
+
+    if (!isset($tabs[$tab])) {
+        $tab = 'main';
+    }
+
+    $currentSubs = $subTabs[$tab] ?? [];
+
+    if (!isset($currentSubs[$sub])) {
+        $sub = array_key_first($currentSubs) ?? 'general';
+    }
+@endphp
+
+<div class="es-settings">
+
+    <div class="es-settings-header">
+        <h1>Site Settings</h1>
+        <p>Manage Central Esubiz configuration, services and platform integrations from one place.</p>
+    </div>
+
+    <div class="es-settings-shell">
+
+        <nav class="es-main-tabs">
+            @foreach($tabs as $key => $label)
+                <a
+                    href="{{ route('admin.site-settings.index', [
+                        'tab' => $key,
+                        'sub' => array_key_first($subTabs[$key] ?? []) ?? 'general'
+                    ]) }}"
+                    class="es-main-tab {{ $tab === $key ? 'active' : '' }}"
+                >
+                    {{ $label }}
+                </a>
+            @endforeach
+        </nav>
+
+        <div class="es-subtabs-wrap">
+            <nav class="es-subtabs">
+                @foreach($currentSubs as $key => $label)
+
+                    @php
+                        $href = route('admin.site-settings.index', [
+                            'tab' => $tab,
+                            'sub' => $key,
+                        ]);
+
+                        if ($tab === 'payments') {
+                            $href = match($key) {
+                                'online'   => route('admin.payment-gateways.online.index'),
+                                'offline'  => route('admin.payment-gateways.offline.index'),
+                                'reviews'  => route('admin.payment-gateways.offline-payments.index'),
+                                'wallet'   => route('admin.payment-gateways.wallet'),
+                                'giftcard' => route('admin.payment-gateways.gift-card'),
+                                'payout'   => route('admin.site-settings.payout.index'),
+                                default    => $href,
+                            };
+                        }
+
+                        if ($tab === 'ai') {
+                            $href = match($key) {
+                                'management' => route('admin.ai.index'),
+                                'settings'   => route('admin.ai.settings'),
+                                default      => $href,
+                            };
+                        }
+
+                        if ($tab === 'themes' && $key === 'manager') {
+                            $href = route('admin.themes.index');
+                        }
+                    @endphp
+
+                    <a
+                        href="{{ $href }}"
+                        class="es-subtab {{ $sub === $key ? 'active' : '' }}"
+                    >
+                        {{ $label }}
+                    </a>
+
+                @endforeach
+            </nav>
+        </div>
+
+        <div class="es-settings-body">
+
+            <h2 class="es-settings-section-title">
+                {{ $currentSubs[$sub] ?? $tabs[$tab] }}
+            </h2>
+
+            @if($tab === 'payments' && $sub === 'overview')
+
+                <p class="es-settings-section-copy">
+                    Manage Central payment collection, wallet, gift cards and payout infrastructure.
+                </p>
+
+                <div class="es-settings-grid">
+
+                    <a class="es-setting-card" href="{{ route('admin.payment-gateways.online.index') }}">
+                        <h3>Online Payment Gateways</h3>
+                        <p>Manage Central online payment providers and their configuration.</p>
+                        <span class="es-open">Open Online Gateways →</span>
+                    </a>
+
+                    <a class="es-setting-card" href="{{ route('admin.payment-gateways.offline.index') }}">
+                        <h3>Offline Payment Gateways</h3>
+                        <p>Manage Central offline payment methods.</p>
+                        <span class="es-open">Open Offline Gateways →</span>
+                    </a>
+
+                    <a class="es-setting-card" href="{{ route('admin.payment-gateways.offline-payments.index') }}">
+                        <h3>Offline Payments</h3>
+                        <p>Review submitted offline payment attempts.</p>
+                        <span class="es-open">Open Payments →</span>
+                    </a>
+
+                    <a class="es-setting-card" href="{{ route('admin.payment-gateways.wallet') }}">
+                        <h3>Wallet</h3>
+                        <p>Manage the Central wallet payment system.</p>
+                        <span class="es-open">Open Wallet →</span>
+                    </a>
+
+                    <a class="es-setting-card" href="{{ route('admin.payment-gateways.gift-card') }}">
+                        <h3>Gift Cards</h3>
+                        <p>Manage gift cards and wallet funding codes.</p>
+                        <span class="es-open">Open Gift Cards →</span>
+                    </a>
+
+                    <a class="es-setting-card" href="{{ route('admin.site-settings.payout.index') }}">
+                        <h3>Payout</h3>
+                        <p>Manage Central payout methods and requests.</p>
+                        <span class="es-open">Open Payout →</span>
+                    </a>
+
+                </div>
+
+            @elseif($tab === 'ai' && $sub === 'overview')
+
+                <p class="es-settings-section-copy">
+                    Manage the existing Central Esubiz AI infrastructure.
+                </p>
+
+                <div class="es-settings-grid">
+
+                    <a class="es-setting-card" href="{{ route('admin.ai.index') }}">
+                        <h3>AI Management</h3>
+                        <p>Providers, models, credits, pricing, routing and commercial AI configuration.</p>
+                        <span class="es-open">Open AI Management →</span>
+                    </a>
+
+                    <a class="es-setting-card" href="{{ route('admin.ai.settings') }}">
+                        <h3>AI Settings</h3>
+                        <p>Manage global Esubiz AI settings and chat configuration.</p>
+                        <span class="es-open">Open AI Settings →</span>
+                    </a>
+
+                </div>
+
+            @elseif($tab === 'auth' && $sub === 'esubiz-sso')
+
+                {{-- ESUBIZ_CENTRAL_SSO_AUTH_TAB_V1 --}}
+                <p class="es-settings-section-copy">
+                    Control whether Esubiz SSO is available to websites connected to the Central Esubiz platform.
+                </p>
+
+                <div class="es-settings-grid">
+
+                    
+{{-- ESUBIZ_CENTRAL_SSO_UI_CLEANUP_V2 --}}
+<div>
+                <h5 class="mb-1">Esubiz SSO Control</h5>
+                <p class="text-muted mb-0">
+                    Control Esubiz account authentication across Core and external applications.
+                </p>
+            </div>
+        </div>
+
+        <form
+            method="POST"
+            action="{{ route('admin.site-settings.auth.esubiz-sso.update') }}"
+        >
+            @csrf
+
+            <div class="es-sso-toggle-grid">
+            <div class="es-sso-toggle-card">
+                <div class="es-sso-toggle-row">
+                    <div class="es-sso-toggle-copy">
+                        <div class="es-sso-toggle-title">Enable Esubiz SSO</div>
+                        <p class="es-sso-toggle-description">
+                            Master authentication switch for Continue with Esubiz.
+                        </p>
+                    </div>
+
+                    <label class="es-sso-switch" for="esubiz_sso_enabled">
+                        <input
+                            type="checkbox"
+                            role="switch"
+                            id="esubiz_sso_enabled"
+                            name="enabled"
+                            value="1"
+                            {{ $esubizSsoEnabled ? 'checked' : '' }}
+                        >
+                        <span class="es-sso-switch-track"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="es-sso-toggle-card">
+                <div class="es-sso-toggle-row">
+                    <div class="es-sso-toggle-copy">
+                        <div class="es-sso-toggle-title">Core Applications</div>
+                        <p class="es-sso-toggle-description">
+                            Allow Esubiz SSO for Esubiz Core installations.
+                        </p>
+                    </div>
+
+                    <label class="es-sso-switch" for="esubiz_sso_core_enabled">
+                        <input
+                            type="checkbox"
+                            role="switch"
+                            id="esubiz_sso_core_enabled"
+                            name="core_enabled"
+                            value="1"
+                            {{ $esubizSsoCoreEnabled ? 'checked' : '' }}
+                        >
+                        <span class="es-sso-switch-track"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="es-sso-toggle-card">
+                <div class="es-sso-toggle-row">
+                    <div class="es-sso-toggle-copy">
+                        <div class="es-sso-toggle-title">External Applications</div>
+                    </div>
+
+                    <label class="es-sso-switch" for="esubiz_sso_external_enabled">
+                        <input
+                            type="checkbox"
+                            role="switch"
+                            id="esubiz_sso_external_enabled"
+                            name="external_enabled"
+                            value="1"
+                            {{ $esubizSsoExternalEnabled ? 'checked' : '' }}
+                        >
+                        <span class="es-sso-switch-track"></span>
+                    </label>
+                </div>
+
+                <div class="small text-muted mt-1">
+                    Allow developer-owned applications to authenticate Esubiz users.
+                </div>
+            </div>
+
+            </div>
+
+            <button
+                type="submit"
+                class="btn px-4 fw-semibold"
+                style="background:#1464f4;color:#ffffff;border-color:#1464f4;border-radius:10px;"
+            >
+                Save SSO Settings
+            </button>
+        </form>
+    </div>
+</div>
+
+@elseif($tab === 'themes' && $sub === 'overview')
+
+                <p class="es-settings-section-copy">
+                    Manage Central marketplace theme administration.
+                </p>
+
+                <div class="es-settings-grid">
+                    <a class="es-setting-card" href="{{ route('admin.themes.index') }}">
+                        <h3>Theme Manager</h3>
+                        <p>Open the existing Central marketplace theme management interface.</p>
+                        <span class="es-open">Open Theme Manager →</span>
+                    </a>
+                </div>
+
+            @else
+
+                <p class="es-settings-section-copy">
+                    {{ $tabs[$tab] }} / {{ $currentSubs[$sub] ?? 'Settings' }}
+                </p>
+
+                <div class="es-settings-grid">
+
+                    <div class="es-setting-card es-coming">
+                        <h3>{{ $currentSubs[$sub] ?? $tabs[$tab] }}</h3>
+
+                        <p>
+                            This section is positioned inside the Central Settings architecture.
+                            Its existing configuration contract will be connected here before
+                            any storage or provider implementation is added.
+                        </p>
+
+                        <span class="es-coming-badge">Coming Soon</span>
+                    </div>
+
+                </div>
+
+            @endif
+
+        </div>
+
+    </div>
+</div>
+@endsection

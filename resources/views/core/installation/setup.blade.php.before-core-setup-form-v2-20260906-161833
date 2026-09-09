@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Esubiz Core Setup</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            font-family: Arial, sans-serif;
+            background: #f5f7fa;
+            color: #172033;
+        }
+
+        .setup-shell {
+            width: 100%;
+            max-width: 760px;
+            background: #ffffff;
+            border: 1px solid #e5e9f0;
+            border-radius: 18px;
+            padding: 32px;
+            box-shadow: 0 18px 50px rgba(20, 31, 51, 0.08);
+        }
+
+        h1 {
+            margin: 0 0 10px;
+            font-size: 28px;
+        }
+
+        p {
+            margin: 0;
+            line-height: 1.65;
+            color: #5b6475;
+        }
+
+        .status {
+            margin-top: 24px;
+            padding: 16px 18px;
+            border-radius: 12px;
+            background: #f7f9fc;
+            border: 1px solid #e7ebf1;
+        }
+    </style>
+</head>
+<body>
+    <main class="setup-shell">
+        <h1>Esubiz Core Setup</h1>
+
+        <p>
+            This website has not been configured yet.
+            Complete the first-time setup to begin using Esubiz Core.
+        </p>
+
+        <div class="status">
+            First-run setup is ready. Database, license, website and
+            administrator configuration will be connected next.
+        </div>
+    </main>
+</body>
+</html>

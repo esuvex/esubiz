@@ -1,0 +1,480 @@
+<?php
+
+namespace App\Services\Core;
+
+use InvalidArgumentException;
+
+/**
+ * ESUBIZ_CORE_CAPABILITY_REGISTRY_V1
+ *
+ * Universal plug-and-play registry for everything exposed inside Core.
+ *
+ * A capability may come from:
+ *
+ * - Core
+ * - Add-on
+ * - Bundle
+ * - Theme
+ * - Module
+ * - Product
+ * - Site function
+ * - Future Core-powered feature
+ *
+ * A capability can declare:
+ *
+ * - permissions
+ * - admin navigation
+ * - sub-navigation
+ * - dashboard widgets
+ * - URLs
+ * - actions
+ *
+ * Core authorization/navigation/dashboard consumers read this registry.
+ *
+ * NO SaaS/off-server branching belongs here.
+ */
+class CoreCapabilityRegistry
+{
+    /**
+     * Request-wide capability registrations.
+     */
+    protected static array $registered = [];
+
+    /**
+     * Register a Core-powered capability.
+     *
+     * Example:
+     *
+     * register([
+     *     'key' => 'orders',
+     *     'label' => 'Orders',
+     *     'source_type' => 'module',
+     *     'source_key' => 'ecommerce',
+     *
+     *     'permissions' => [
+     *         'view' => 'View Orders',
+     *         'create' => 'Create Orders',
+     *         'edit' => 'Edit Orders',
+     *         'delete' => 'Delete Orders',
+     *         'refund' => 'Refund Orders',
+     *     ],
+     *
+     *     'navigation' => [
+     *         'label' => 'Orders',
+     *         'url' => '/admin/orders',
+     *         'permission' => 'orders.view',
+     *         'order' => 100,
+     *     ],
+     *
+     *     'dashboard' => [
+     *         'permission' => 'orders.view',
+     *     ],
+     * ]);
+     */
+    public function register(array $definition): void
+    {
+        $key = trim((string) ($definition['key'] ?? ''));
+
+        if ($key === '') {
+            throw new InvalidArgumentException(
+                'A Core capability requires a key.'
+            );
+        }
+
+        if (!preg_match('/^[a-z0-9._-]+$/', $key)) {
+            throw new InvalidArgumentException(
+                "Invalid Core capability key [{$key}]."
+            );
+        }
+
+        $permissions = $definition['permissions'] ?? [];
+
+        if (!is_array($permissions)) {
+            throw new InvalidArgumentException(
+                "Capability [{$key}] permissions must be an array."
+            );
+        }
+
+        $normalized = [
+            'key' => $key,
+
+            'label' => (string) (
+                $definition['label']
+                ?? ucwords(
+                    str_replace(
+                        ['_', '-', '.'],
+                        ' ',
+                        $key
+                    )
+                )
+            ),
+
+            /*
+             * Describes where the capability originated.
+             * It never determines deployment authorization.
+             */
+            'source_type' => (string) (
+                $definition['source_type'] ?? 'core'
+            ),
+
+            'source_key' => $definition['source_key'] ?? null,
+
+            'permissions' => $permissions,
+
+            'navigation' => $this->normalizeNavigation(
+                $key,
+                $definition['navigation'] ?? null
+            ),
+
+            'dashboard' => is_array(
+                $definition['dashboard'] ?? null
+            )
+                ? $definition['dashboard']
+                : null,
+
+            'meta' => is_array($definition['meta'] ?? null)
+                ? $definition['meta']
+                : [],
+        ];
+
+        self::$registered[$key] = $normalized;
+    }
+
+    /**
+     * Convenience registration for CRUD capabilities.
+     */
+    public function registerCrud(
+        string $key,
+        string $label,
+        string $url,
+        string $sourceType = 'core',
+        ?string $sourceKey = null,
+        array $extraPermissions = [],
+        array $navigation = []
+    ): void {
+        $permissions = array_merge([
+            'view' => 'View ' . $label,
+            'create' => 'Create ' . $label,
+            'edit' => 'Edit ' . $label,
+            'delete' => 'Delete ' . $label,
+        ], $extraPermissions);
+
+        $this->register([
+            'key' => $key,
+            'label' => $label,
+            'source_type' => $sourceType,
+            'source_key' => $sourceKey,
+            'permissions' => $permissions,
+
+            'navigation' => array_merge([
+                'label' => $label,
+                'url' => $url,
+                'permission' => $key . '.view',
+            ], $navigation),
+
+            'dashboard' => [
+                'permission' => $key . '.view',
+            ],
+        ]);
+    }
+
+    /**
+     * All currently registered capabilities.
+     */
+    public function all(): array
+    {
+        $capabilities = self::$registered;
+
+        uasort(
+            $capabilities,
+            function (array $a, array $b): int {
+                $aOrder = (int) (
+                    $a['navigation']['order'] ?? PHP_INT_MAX
+                );
+
+                $bOrder = (int) (
+                    $b['navigation']['order'] ?? PHP_INT_MAX
+                );
+
+                if ($aOrder === $bOrder) {
+                    return strcmp(
+                        (string) $a['label'],
+                        (string) $b['label']
+                    );
+                }
+
+                return $aOrder <=> $bOrder;
+            }
+        );
+
+        return $capabilities;
+    }
+
+    public function get(string $key): ?array
+    {
+        return self::$registered[$key] ?? null;
+    }
+
+    public function has(string $key): bool
+    {
+        return isset(self::$registered[$key]);
+    }
+
+    /**
+     * Flatten capability permission declarations into the same
+     * definition format consumed by CorePermissionRegistry.
+     */
+    public function permissionGroups(): array
+    {
+        $groups = [];
+
+        foreach ($this->all() as $key => $capability) {
+            if (($capability['permissions'] ?? []) === []) {
+                continue;
+            }
+
+            $groups[$key] = [
+                'label' => $capability['label'],
+                'source_type' => $capability['source_type'],
+                'source_key' => $capability['source_key'],
+                'actions' => $capability['permissions'],
+            ];
+        }
+
+        return $groups;
+    }
+
+    /**
+     * Navigation tree.
+     *
+     * Parent visibility is automatic:
+     * a parent with children is omitted when no child is accessible.
+     *
+     * Actual permission filtering is performed by navigation().
+     */
+    public function navigation(
+        CorePermissionService $permissions
+    ): array {
+        $items = [];
+
+        foreach ($this->all() as $capability) {
+            $navigation = $capability['navigation'];
+
+            if (!$navigation) {
+                continue;
+            }
+
+            $item = $this->filterNavigationItem(
+                $navigation,
+                $permissions
+            );
+
+            if ($item !== null) {
+                $items[] = $item;
+            }
+        }
+
+        usort(
+            $items,
+            fn (array $a, array $b): int =>
+                ((int) ($a['order'] ?? PHP_INT_MAX))
+                <=>
+                ((int) ($b['order'] ?? PHP_INT_MAX))
+        );
+
+        return $items;
+    }
+
+    /**
+     * Dashboard-capable registrations visible to current user.
+     */
+    public function dashboard(
+        CorePermissionService $permissions
+    ): array {
+        $items = [];
+
+        foreach ($this->all() as $key => $capability) {
+            $dashboard = $capability['dashboard'];
+
+            if (!$dashboard) {
+                continue;
+            }
+
+            $permission = $dashboard['permission'] ?? null;
+
+            if (
+                $permission &&
+                !$permissions->can((string) $permission)
+            ) {
+                continue;
+            }
+
+            $items[$key] = $capability;
+        }
+
+        return $items;
+    }
+
+    /**
+     * Normalize navigation recursively.
+     */
+    protected function normalizeNavigation(
+        string $capabilityKey,
+        mixed $navigation
+    ): ?array {
+        if (!is_array($navigation)) {
+            return null;
+        }
+
+        $children = [];
+
+        foreach (($navigation['children'] ?? []) as $child) {
+            if (!is_array($child)) {
+                continue;
+            }
+
+            $children[] = $this->normalizeNavigationItem(
+                $capabilityKey,
+                $child
+            );
+        }
+
+        return [
+            'key' => (string) (
+                $navigation['key'] ?? $capabilityKey
+            ),
+
+            'label' => (string) (
+                $navigation['label']
+                ?? ucwords(
+                    str_replace(
+                        ['_', '-', '.'],
+                        ' ',
+                        $capabilityKey
+                    )
+                )
+            ),
+
+            'url' => $navigation['url'] ?? null,
+
+            'permission' => $navigation['permission'] ?? null,
+
+            'icon' => $navigation['icon'] ?? null,
+
+            'order' => (int) (
+                $navigation['order'] ?? PHP_INT_MAX
+            ),
+
+            'children' => array_values(
+                array_filter($children)
+            ),
+
+            'meta' => is_array($navigation['meta'] ?? null)
+                ? $navigation['meta']
+                : [],
+        ];
+    }
+
+    protected function normalizeNavigationItem(
+        string $capabilityKey,
+        array $item
+    ): array {
+        $children = [];
+
+        foreach (($item['children'] ?? []) as $child) {
+            if (!is_array($child)) {
+                continue;
+            }
+
+            $children[] = $this->normalizeNavigationItem(
+                $capabilityKey,
+                $child
+            );
+        }
+
+        return [
+            'key' => (string) (
+                $item['key']
+                ?? $capabilityKey . '.item'
+            ),
+
+            'label' => (string) (
+                $item['label'] ?? 'Menu Item'
+            ),
+
+            'url' => $item['url'] ?? null,
+
+            'permission' => $item['permission'] ?? null,
+
+            'icon' => $item['icon'] ?? null,
+
+            'order' => (int) (
+                $item['order'] ?? PHP_INT_MAX
+            ),
+
+            'children' => array_values(
+                array_filter($children)
+            ),
+
+            'meta' => is_array($item['meta'] ?? null)
+                ? $item['meta']
+                : [],
+        ];
+    }
+
+    /**
+     * Remove inaccessible navigation recursively.
+     *
+     * Important:
+     *
+     * - inaccessible child -> invisible
+     * - parent with no accessible children -> invisible
+     * - direct item permission -> enforced
+     */
+    protected function filterNavigationItem(
+        array $item,
+        CorePermissionService $permissions
+    ): ?array {
+        $children = [];
+
+        foreach (($item['children'] ?? []) as $child) {
+            $visible = $this->filterNavigationItem(
+                $child,
+                $permissions
+            );
+
+            if ($visible !== null) {
+                $children[] = $visible;
+            }
+        }
+
+        $item['children'] = $children;
+
+        $permission = $item['permission'] ?? null;
+
+        $directlyAllowed = !$permission
+            || $permissions->can((string) $permission);
+
+        /*
+         * A container with children survives only when at least one
+         * permitted child survives.
+         */
+        $isContainer = !empty($item['meta']['container'])
+            || (
+                empty($item['url'])
+                && array_key_exists('children', $item)
+            );
+
+        if ($isContainer) {
+            return $children !== []
+                ? $item
+                : null;
+        }
+
+        if (!$directlyAllowed) {
+            return null;
+        }
+
+        return $item;
+    }
+}

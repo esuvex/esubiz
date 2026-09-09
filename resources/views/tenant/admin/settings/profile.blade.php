@@ -217,22 +217,58 @@
                 </div>
 
 
-                <div>
-                    <label
-                        for="profile-phone"
-                        class="block text-sm font-medium text-gray-700"
-                    >
-                        Phone Number
-                    </label>
+                @php
+                    $coreCountryV82 =
+                        strtoupper(
+                            trim(
+                                (string) old(
+                                    'country_code',
+                                    $profileUser->country_code
+                                        ?? 'NG'
+                                )
+                            )
+                        );
 
-                    <input
-                        id="profile-phone"
-                        type="text"
-                        name="phone"
-                        value="{{ old('phone', $profileUser->phone ?? '') }}"
-                        class="mt-2 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                    >
-                </div>
+                    if ($coreCountryV82 === '') {
+                        $coreCountryV82 = 'NG';
+                    }
+
+                    $coreAllowedCountriesV82 =
+                        $website->allowed_country_codes
+                            ?? ['ALL'];
+
+                    if (is_string($coreAllowedCountriesV82)) {
+                        $decodedCountriesV82 =
+                            json_decode(
+                                $coreAllowedCountriesV82,
+                                true
+                            );
+
+                        $coreAllowedCountriesV82 =
+                            is_array($decodedCountriesV82)
+                                ? $decodedCountriesV82
+                                : ['ALL'];
+                    }
+
+                    if (
+                        !is_array($coreAllowedCountriesV82)
+                        || empty($coreAllowedCountriesV82)
+                    ) {
+                        $coreAllowedCountriesV82 = ['ALL'];
+                    }
+                @endphp
+
+                <x-core.country-phone
+                    country-field="country_code"
+                    phone-field="phone"
+                    :selected-country="$coreCountryV82"
+                    :phone-value="old(
+                        'phone',
+                        $profileUser->phone ?? ''
+                    )"
+                    :allowed-countries="$coreAllowedCountriesV82"
+                    layout="two-column"
+                />
 
 
                 <div class="pt-2">

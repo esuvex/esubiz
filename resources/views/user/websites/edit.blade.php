@@ -578,6 +578,18 @@
 
 
                     <div>
+                        <x-core.country-phone
+                            country-field="admin_country_code"
+                            phone-field="admin_phone"
+                            :selected-country="$website->admin_country_code ?? 'NG'"
+                            :phone-value="$website->admin_phone ?? ''"
+                            :allowed-countries="['ALL']"
+                            layout="two-column"
+                        />
+                    </div>
+
+
+                    <div>
 
                         <label
                             class="text-sm font-black text-slate-700"

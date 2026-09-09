@@ -1,0 +1,452 @@
+<?php
+
+namespace App\Services\Core;
+
+use InvalidArgumentException;
+
+/**
+ * ESUBIZ_CORE_FEATURE_REGISTRY_V1
+ *
+ * Universal plug-and-play registry for Core-accessible features.
+ *
+ * This registry is deliberately separate from CoreCapabilityRegistry.
+ *
+ * CoreCapabilityRegistry retains its existing product/capability contracts.
+ * CoreFeatureRegistry owns:
+ *
+ * - RBAC permission declarations
+ * - admin navigation declarations
+ * - dashboard visibility declarations
+ * - feature actions
+ *
+ * Sources can include:
+ *
+ * - core
+ * - addon
+ * - bundle
+ * - theme
+ * - module
+ * - product
+ * - site_function
+ *
+ * There is no SaaS/off-server branching.
+ */
+class CoreFeatureRegistry
+{
+    protected static array $registered = [];
+
+    public function register(array $definition): void
+    {
+        $key = trim((string) ($definition['key'] ?? ''));
+
+        if ($key === '') {
+            throw new InvalidArgumentException(
+                'A Core feature requires a key.'
+            );
+        }
+
+        if (!preg_match('/^[a-z0-9._-]+$/', $key)) {
+            throw new InvalidArgumentException(
+                "Invalid Core feature key [{$key}]."
+            );
+        }
+
+        $permissions = $definition['permissions'] ?? [];
+
+        if (!is_array($permissions)) {
+            throw new InvalidArgumentException(
+                "Feature [{$key}] permissions must be an array."
+            );
+        }
+
+        self::$registered[$key] = [
+            'key' => $key,
+
+            'label' => (string) (
+                $definition['label']
+                ?? ucwords(
+                    str_replace(
+                        ['_', '-', '.'],
+                        ' ',
+                        $key
+                    )
+                )
+            ),
+
+            'source_type' => (string) (
+                $definition['source_type'] ?? 'core'
+            ),
+
+            'source_key' => $definition['source_key'] ?? null,
+
+            /*
+             * Registration does NOT mean installation/availability.
+             *
+             * true:
+             *   Always part of this Core build.
+             *
+             * callable:
+             *   Runtime resolver determines whether this feature is
+             *   actually available in the current Core installation.
+             *
+             * false/null:
+             *   Registered capability only; not exposed until an
+             *   installer/add-on/module/product integration supplies
+             *   an availability resolver.
+             */
+            'availability' => $definition['availability'] ?? false,
+
+            'permissions' => $permissions,
+
+            'navigation' => $this->normalizeNavigation(
+                $key,
+                $definition['navigation'] ?? null
+            ),
+
+            'dashboard' => is_array(
+                $definition['dashboard'] ?? null
+            )
+                ? $definition['dashboard']
+                : null,
+
+            'meta' => is_array($definition['meta'] ?? null)
+                ? $definition['meta']
+                : [],
+        ];
+    }
+
+    public function registerCrud(
+        string $key,
+        string $label,
+        string $url,
+        string $sourceType = 'core',
+        ?string $sourceKey = null,
+        array $extraPermissions = [],
+        array $navigation = [],
+        mixed $availability = false
+    ): void {
+        $this->register([
+            'key' => $key,
+
+            'label' => $label,
+
+            'source_type' => $sourceType,
+
+            'source_key' => $sourceKey,
+
+            'availability' => $availability,
+
+            'permissions' => array_merge([
+                'view' => 'View ' . $label,
+                'create' => 'Create ' . $label,
+                'edit' => 'Edit ' . $label,
+                'delete' => 'Delete ' . $label,
+            ], $extraPermissions),
+
+            'navigation' => array_merge([
+                'label' => $label,
+                'url' => $url,
+                'permission' => $key . '.view',
+            ], $navigation),
+
+            'dashboard' => [
+                'permission' => $key . '.view',
+            ],
+        ]);
+    }
+
+    /**
+     * All registered Core features.
+     */
+    public function features(): array
+    {
+        $features = self::$registered;
+
+        uasort(
+            $features,
+            function (array $a, array $b): int {
+                $aOrder = (int) (
+                    $a['navigation']['order'] ?? PHP_INT_MAX
+                );
+
+                $bOrder = (int) (
+                    $b['navigation']['order'] ?? PHP_INT_MAX
+                );
+
+                if ($aOrder === $bOrder) {
+                    return strcmp(
+                        (string) $a['label'],
+                        (string) $b['label']
+                    );
+                }
+
+                return $aOrder <=> $bOrder;
+            }
+        );
+
+        return $features;
+    }
+
+    public function get(string $key): ?array
+    {
+        return self::$registered[$key] ?? null;
+    }
+
+    public function has(string $key): bool
+    {
+        return isset(self::$registered[$key]);
+    }
+
+    /**
+     * Whether a registered feature is actually available in the
+     * current Core installation.
+     *
+     * Registration alone never grants availability.
+     */
+    public function isAvailable(string $key): bool
+    {
+        $feature = $this->get($key);
+
+        if (!$feature) {
+            return false;
+        }
+
+        $resolver = $feature['availability'] ?? false;
+
+        if ($resolver === true) {
+            return true;
+        }
+
+        if ($resolver === false || $resolver === null) {
+            return false;
+        }
+
+        if (is_callable($resolver)) {
+            return (bool) app()->call(
+                $resolver,
+                ['feature' => $feature]
+            );
+        }
+
+        return false;
+    }
+
+    /**
+     * Only features actually present/enabled for this Core.
+     */
+    public function availableFeatures(): array
+    {
+        $available = [];
+
+        foreach ($this->features() as $key => $feature) {
+            if (!$this->isAvailable($key)) {
+                continue;
+            }
+
+            $available[$key] = $feature;
+        }
+
+        return $available;
+    }
+
+    /**
+     * Permission groups in the same shape consumed by Core RBAC.
+     *
+     * IMPORTANT:
+     * Only AVAILABLE features contribute permissions.
+     */
+    public function permissionGroups(): array
+    {
+        $groups = [];
+
+        foreach ($this->availableFeatures() as $key => $feature) {
+            if (($feature['permissions'] ?? []) === []) {
+                continue;
+            }
+
+            $groups[$key] = [
+                'label' => $feature['label'],
+                'source_type' => $feature['source_type'],
+                'source_key' => $feature['source_key'],
+                'actions' => $feature['permissions'],
+            ];
+        }
+
+        return $groups;
+    }
+
+    /**
+     * Permission-filtered admin navigation.
+     */
+    public function navigation(
+        CorePermissionService $permissions
+    ): array {
+        $items = [];
+
+        foreach ($this->availableFeatures() as $feature) {
+            $navigation = $feature['navigation'];
+
+            if (!$navigation) {
+                continue;
+            }
+
+            $visible = $this->filterNavigationItem(
+                $navigation,
+                $permissions
+            );
+
+            if ($visible !== null) {
+                $items[] = $visible;
+            }
+        }
+
+        usort(
+            $items,
+            fn (array $a, array $b): int =>
+                ((int) ($a['order'] ?? PHP_INT_MAX))
+                <=>
+                ((int) ($b['order'] ?? PHP_INT_MAX))
+        );
+
+        return $items;
+    }
+
+    /**
+     * Dashboard registrations visible to current Core user.
+     */
+    public function dashboard(
+        CorePermissionService $permissions
+    ): array {
+        $visible = [];
+
+        foreach ($this->availableFeatures() as $key => $feature) {
+            $dashboard = $feature['dashboard'];
+
+            if (!$dashboard) {
+                continue;
+            }
+
+            $permission = $dashboard['permission'] ?? null;
+
+            if (
+                $permission !== null
+                && !$permissions->can((string) $permission)
+            ) {
+                continue;
+            }
+
+            $visible[$key] = $feature;
+        }
+
+        return $visible;
+    }
+
+    protected function normalizeNavigation(
+        string $featureKey,
+        mixed $navigation
+    ): ?array {
+        if (!is_array($navigation)) {
+            return null;
+        }
+
+        return $this->normalizeNavigationItem(
+            $featureKey,
+            $navigation
+        );
+    }
+
+    protected function normalizeNavigationItem(
+        string $featureKey,
+        array $item
+    ): array {
+        $children = [];
+
+        foreach (($item['children'] ?? []) as $child) {
+            if (!is_array($child)) {
+                continue;
+            }
+
+            $children[] = $this->normalizeNavigationItem(
+                $featureKey,
+                $child
+            );
+        }
+
+        return [
+            'key' => (string) (
+                $item['key'] ?? $featureKey
+            ),
+
+            'label' => (string) (
+                $item['label']
+                ?? ucwords(
+                    str_replace(
+                        ['_', '-', '.'],
+                        ' ',
+                        $featureKey
+                    )
+                )
+            ),
+
+            'url' => $item['url'] ?? null,
+
+            'permission' => $item['permission'] ?? null,
+
+            'icon' => $item['icon'] ?? null,
+
+            'order' => (int) (
+                $item['order'] ?? PHP_INT_MAX
+            ),
+
+            'children' => $children,
+
+            'meta' => is_array($item['meta'] ?? null)
+                ? $item['meta']
+                : [],
+        ];
+    }
+
+    protected function filterNavigationItem(
+        array $item,
+        CorePermissionService $permissions
+    ): ?array {
+        $children = [];
+
+        foreach (($item['children'] ?? []) as $child) {
+            $visible = $this->filterNavigationItem(
+                $child,
+                $permissions
+            );
+
+            if ($visible !== null) {
+                $children[] = $visible;
+            }
+        }
+
+        $item['children'] = $children;
+
+        $permission = $item['permission'] ?? null;
+
+        $allowed = $permission === null
+            || $permissions->can((string) $permission);
+
+        $isContainer =
+            !empty($item['meta']['container'])
+            || (
+                empty($item['url'])
+                && !empty($item['children'])
+            );
+
+        if ($isContainer) {
+            return $children !== []
+                ? $item
+                : null;
+        }
+
+        if (!$allowed) {
+            return null;
+        }
+
+        return $item;
+    }
+}

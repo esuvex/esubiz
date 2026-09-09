@@ -1,0 +1,200 @@
+<?php
+
+namespace App\Services\Marketplace;
+
+use App\Models\DeveloperBuild;
+use App\Models\WebsiteType;
+use App\Services\Marketplace\Licensing\MarketplaceLicenseService;
+use Illuminate\Support\Facades\DB;
+use RuntimeException;
+
+class DeveloperBuildPaymentFulfilmentService
+{
+    /**
+     * ESUBIZ_DEVELOPER_BUILD_POST_PAYMENT_FULFILMENT_V1
+     *
+     * A Developer Build checkout is only the transaction/build artifact.
+     *
+     * The commercial product delivered after payment is the Website Type:
+     *
+     * Website Type -> canonical catalog product
+     *              -> Marketplace entitlement
+     *              -> off-server Marketplace license
+     *
+     * No plaintext license is stored on DeveloperBuild and no legacy
+     * off_server_license_registrations/product_entitlements record is
+     * created for new Developer Build purchases.
+     */
+    public function __construct(
+        protected WebsiteTypeCatalogService $websiteTypeCatalog,
+        protected MarketplaceLicenseService $licenses
+    ) {
+    }
+
+    public function fulfil(object $order, DeveloperBuild $developerBuild, int $userId): array
+    {
+        if ($userId <= 0) {
+            throw new RuntimeException('A valid purchaser is required for Developer Build fulfilment.');
+        }
+
+        return DB::transaction(function () use ($order, $developerBuild, $userId): array {
+            $lockedBuild = DeveloperBuild::query()
+                ->whereKey($developerBuild->getKey())
+                ->lockForUpdate()
+                ->first();
+
+            if (!$lockedBuild) {
+                throw new RuntimeException('Developer Build could not be found.');
+            }
+
+            if ((int) $lockedBuild->developer_id !== $userId) {
+                throw new RuntimeException('Developer Build does not belong to the purchaser.');
+            }
+
+            if (!$lockedBuild->package_path || !$lockedBuild->package_reference) {
+                throw new RuntimeException('Developer Build package is not ready for fulfilment.');
+            }
+
+            $websiteType = WebsiteType::query()
+                ->where('slug', $lockedBuild->website_type)
+                ->where('is_active', true)
+                ->first();
+
+            if (!$websiteType) {
+                throw new RuntimeException('The Website Type for this Developer Build is unavailable.');
+            }
+
+            // Resolve also guarantees future Website Types have their
+            // canonical Marketplace catalog identity.
+            $catalogProduct = $this->websiteTypeCatalog->resolve($websiteType);
+
+            if (($catalogProduct->product_type ?? null) !== 'website_type') {
+                throw new RuntimeException('Invalid Website Type Marketplace catalog identity.');
+            }
+
+            $orderId = (int) ($order->id ?? 0);
+
+            if ($orderId <= 0) {
+                throw new RuntimeException('A valid Marketplace order is required for fulfilment.');
+            }
+
+            /*
+             * Idempotency:
+             * repeated payment callbacks/status checks must reuse the same
+             * Website Type entitlement rather than issue duplicate licenses.
+             */
+            $entitlement = DB::table('marketplace_entitlements')
+                ->where('order_id', $orderId)
+                ->where('product_type', 'website_type')
+                ->where('product_id', (int) $catalogProduct->id)
+                ->where('user_id', $userId)
+                ->where('deployment', 'off_server')
+                ->orderBy('id')
+                ->first();
+
+            if (!$entitlement) {
+                $configuration = is_array($lockedBuild->configuration)
+                    ? $lockedBuild->configuration
+                    : (json_decode((string) $lockedBuild->configuration, true) ?: []);
+
+                $packageVersion =
+                    data_get($configuration, 'website_type_package.package_version')
+                    ?: $websiteType->package_version
+                    ?: null;
+
+                $this->licenses->createEntitlement([
+                    'order_id' => $orderId,
+                    'product_type' => 'website_type',
+                    'product_id' => (int) $catalogProduct->id,
+                    'product_slug' => (string) $websiteType->slug,
+                    'product_version' => $packageVersion,
+                    'user_id' => $userId,
+                    'website_id' => null,
+                    'deployment' => 'off_server',
+                    'quantity' => 1,
+                    'activation_limit' => 1,
+                    'metadata' => [
+                        'source_module' => 'developer_builder',
+                        'developer_build_id' => (int) $lockedBuild->id,
+                        'build_id' => $lockedBuild->build_id,
+                        'website_type_id' => (int) $websiteType->id,
+                        'website_type_slug' => (string) $websiteType->slug,
+                        'package_reference' => $lockedBuild->package_reference,
+                        'marketplace_order_reference' => $order->reference ?? null,
+                        'currency' => isset($order->currency)
+                            ? strtoupper((string) $order->currency)
+                            : null,
+                        'amount' => isset($order->amount)
+                            ? (float) $order->amount
+                            : null,
+                    ],
+                ]);
+
+                $entitlement = DB::table('marketplace_entitlements')
+                    ->where('order_id', $orderId)
+                    ->where('product_type', 'website_type')
+                    ->where('product_id', (int) $catalogProduct->id)
+                    ->where('user_id', $userId)
+                    ->where('deployment', 'off_server')
+                    ->orderBy('id')
+                    ->first();
+            }
+
+            if (!$entitlement) {
+                throw new RuntimeException('Website Type entitlement could not be created.');
+            }
+
+            $license = DB::table('marketplace_licenses')
+                ->where('entitlement_id', (int) $entitlement->id)
+                ->orderBy('id')
+                ->first();
+
+            if (!$license) {
+                /*
+                 * issueLicense() returns plaintext at issuance time, but we
+                 * deliberately do not persist that plaintext on the build.
+                 * MarketplaceLicenseService keeps the recoverable encrypted
+                 * copy centrally for the purchaser/Admin to reveal later.
+                 */
+                $this->licenses->issueLicense((int) $entitlement->id);
+
+                $license = DB::table('marketplace_licenses')
+                    ->where('entitlement_id', (int) $entitlement->id)
+                    ->orderBy('id')
+                    ->first();
+            }
+
+            if (!$license) {
+                throw new RuntimeException('Website Type license could not be issued.');
+            }
+
+            $buildUpdate = [
+                'payment_status' => 'paid',
+                'updated_at' => now(),
+            ];
+
+            if (!$lockedBuild->paid_at) {
+                $buildUpdate['paid_at'] = now();
+            }
+
+            DB::table($lockedBuild->getTable())
+                ->where('id', $lockedBuild->id)
+                ->update($buildUpdate);
+
+            /*
+             * The package stays private until this entitlement/license exists.
+             * Download authorization will be wired to these canonical records.
+             */
+            return [
+                'build_id' => (int) $lockedBuild->id,
+                'website_type_id' => (int) $websiteType->id,
+                'catalog_product_id' => (int) $catalogProduct->id,
+                'entitlement_id' => (int) $entitlement->id,
+                'license_id' => (int) $license->id,
+                'product_type' => 'website_type',
+                'product_slug' => (string) $websiteType->slug,
+                'deployment' => 'off_server',
+            ];
+        });
+    }
+}

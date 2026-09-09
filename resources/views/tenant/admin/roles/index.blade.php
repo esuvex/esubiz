@@ -33,6 +33,15 @@
         </a>
 @endcoreCan
 
+        @coreCan('partners.manage')
+<a
+    href="/admin/users/partners"
+    style="display:inline-flex;align-items:center;padding:9px 14px;border:1px solid #d1d5db;border-radius:8px;text-decoration:none;color:#111827;background:#fff;"
+>
+    Investors / Partners
+</a>
+@endcoreCan
+
         @coreCan('users.view')
 <a
             href="/admin/users/roles"

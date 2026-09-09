@@ -1,0 +1,301 @@
+<?php
+
+namespace App\Services\Core;
+
+/**
+ * ESUBIZ_CORE_PERMISSION_REGISTRY_V1
+ *
+ * Universal Core authorization registry.
+ *
+ * This registry belongs to Core itself.
+ *
+ * It is NOT tied to:
+ * - SaaS
+ * - off-server installation
+ * - a particular website
+ * - a particular website type
+ *
+ * Anything operating inside Core can register permissions:
+ *
+ * - Core features
+ * - Add-ons
+ * - Bundles
+ * - Themes
+ * - Modules
+ * - Products
+ * - Website/site functions
+ * - Future Core capabilities
+ *
+ * Permission format:
+ *
+ *     resource.action
+ *
+ * Examples:
+ *
+ *     forms.view
+ *     forms.create
+ *     forms.edit
+ *     forms.delete
+ *
+ *     orders.view
+ *     orders.refund
+ *
+ *     blog.publish
+ *
+ * The registry describes AVAILABLE permissions.
+ *
+ * site_permissions stores the installed permission catalogue.
+ * site_roles defines roles.
+ * site_role_permissions grants permissions to roles.
+ * site_user_roles assigns roles to Core users.
+ */
+class CorePermissionRegistry
+{
+    /**
+     * Standard actions available to any compatible Core resource.
+     *
+     * Features are free to expose only the actions they support and
+     * may add feature-specific actions through register().
+     */
+    public const STANDARD_ACTIONS = [
+        'view' => 'View',
+        'create' => 'Create',
+        'edit' => 'Edit',
+        'delete' => 'Delete',
+    ];
+
+    /**
+     * Runtime registrations from Core products/features.
+     */
+    protected static array $registered = [];
+
+    /**
+     * Built-in Core permission groups.
+     *
+     * This is the bootstrap catalogue. Future features should register
+     * themselves rather than requiring modifications to Roles UI.
+     */
+    protected array $core = [
+        'dashboard' => [
+            'label' => 'Dashboard',
+            'source_type' => 'core',
+            'actions' => [
+                'view' => 'View Dashboard',
+            ],
+        ],
+
+        'users' => [
+            'label' => 'Users',
+            'source_type' => 'core',
+            'actions' => [
+                'view' => 'View Users',
+                'create' => 'Create Users',
+                'edit' => 'Edit Users',
+                'delete' => 'Delete Users',
+            ],
+        ],
+
+        'roles' => [
+            'label' => 'Roles & Permissions',
+            'source_type' => 'core',
+            'actions' => [
+                'view' => 'View Roles & Permissions',
+                'create' => 'Create Roles',
+                'edit' => 'Edit Roles & Permissions',
+                'delete' => 'Delete Roles',
+            ],
+        ],
+
+        'settings' => [
+            'label' => 'Settings',
+            'source_type' => 'core',
+            'actions' => [
+                'view' => 'View Settings',
+                'edit' => 'Edit Settings',
+            ],
+        ],
+
+        'forms' => [
+            'label' => 'Forms',
+            'source_type' => 'core',
+            'actions' => [
+                'view' => 'View Forms',
+                'create' => 'Create Forms',
+                'edit' => 'Edit Forms',
+                'delete' => 'Delete Forms',
+            ],
+        ],
+
+        'submissions' => [
+            'label' => 'Form Submissions',
+            'source_type' => 'core',
+            'actions' => [
+                'view' => 'View Submissions',
+                'edit' => 'Update Submissions',
+                'delete' => 'Delete Submissions',
+            ],
+        ],
+
+        'partners.dashboard' => [
+            'label' => 'Partner / Investor Dashboard',
+            'source_type' => 'core',
+            'actions' => [
+                'view' => 'View Partner Dashboard',
+            ],
+        ],
+
+        'partners' => [
+            'label' => 'Partners / Investors',
+            'source_type' => 'core',
+            'actions' => [
+                'manage' => 'Manage Partner Investments',
+            ],
+        ],
+    ];
+
+    /**
+     * Register a permission group from any Core-powered feature.
+     *
+     * Example:
+     *
+     * CorePermissionRegistry::register([
+     *     'key' => 'orders',
+     *     'label' => 'Orders',
+     *     'source_type' => 'module',
+     *     'source_key' => 'ecommerce',
+     *     'actions' => [
+     *         'view' => 'View Orders',
+     *         'edit' => 'Edit Orders',
+     *         'refund' => 'Refund Orders',
+     *     ],
+     * ]);
+     */
+    public function register(array $definition): void
+    {
+        $key = trim((string) ($definition['key'] ?? ''));
+
+        if ($key === '') {
+            throw new \InvalidArgumentException(
+                'A Core permission group requires a key.'
+            );
+        }
+
+        $actions = $definition['actions'] ?? [];
+
+        if (!is_array($actions) || $actions === []) {
+            throw new \InvalidArgumentException(
+                "Core permission group [{$key}] requires actions."
+            );
+        }
+
+        self::$registered[$key] = [
+            'label' => (string) (
+                $definition['label']
+                ?? ucwords(str_replace(['_', '-'], ' ', $key))
+            ),
+
+            /*
+             * Informational only.
+             * Authorization never branches on deployment type.
+             */
+            'source_type' => (string) (
+                $definition['source_type'] ?? 'core'
+            ),
+
+            'source_key' => $definition['source_key'] ?? null,
+            'actions' => $actions,
+        ];
+    }
+
+    /**
+     * Convenience registration for standard CRUD resources.
+     */
+    public function registerCrud(
+        string $key,
+        string $label,
+        string $sourceType = 'core',
+        ?string $sourceKey = null,
+        array $extraActions = []
+    ): void {
+        $this->register([
+            'key' => $key,
+            'label' => $label,
+            'source_type' => $sourceType,
+            'source_key' => $sourceKey,
+            'actions' => array_merge(
+                self::STANDARD_ACTIONS,
+                $extraActions
+            ),
+        ]);
+    }
+
+    /**
+     * Complete permission catalogue available to Core.
+     */
+    public function groups(): array
+    {
+        return array_replace_recursive(
+            $this->core,
+            self::$registered
+        );
+    }
+
+    /**
+     * Flatten all registered permissions.
+     *
+     * Returned key example:
+     *
+     *     forms.delete
+     */
+    public function permissions(): array
+    {
+        $permissions = [];
+
+        foreach ($this->groups() as $resource => $group) {
+            foreach ($group['actions'] as $action => $label) {
+                $key = $resource . '.' . $action;
+
+                $permissions[$key] = [
+                    'key' => $key,
+                    'resource' => $resource,
+                    'action' => $action,
+                    'name' => $label,
+                    'group_label' => $group['label'],
+                    'source_type' => $group['source_type'] ?? 'core',
+                    'source_key' => $group['source_key'] ?? null,
+                ];
+            }
+        }
+
+        ksort($permissions);
+
+        return $permissions;
+    }
+
+    /**
+     * Determine whether a permission is registered in Core.
+     */
+    public function has(string $permission): bool
+    {
+        return array_key_exists(
+            $permission,
+            $this->permissions()
+        );
+    }
+
+    /**
+     * Permission definition lookup.
+     */
+    public function get(string $permission): ?array
+    {
+        return $this->permissions()[$permission] ?? null;
+    }
+
+    /**
+     * Build a permission key consistently.
+     */
+    public function key(string $resource, string $action): string
+    {
+        return trim($resource) . '.' . trim($action);
+    }
+}

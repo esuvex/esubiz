@@ -1,0 +1,241 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        /*
+         * ESUBIZ_CORE_USERS_RBAC_SCHEMA_V1
+         *
+         * Core-only user/role/permission architecture.
+         * site_users remains the canonical Core account table.
+         */
+
+        if (!Schema::connection('tenant')->hasTable('site_roles')) {
+            Schema::connection('tenant')->create('site_roles', function (Blueprint $table) {
+                $table->id();
+                $table->string('name');
+                $table->string('slug')->unique('uq_site_roles_slug');
+                $table->text('description')->nullable();
+                $table->boolean('is_system')->default(false);
+                $table->timestamps();
+            });
+        }
+
+        if (!Schema::connection('tenant')->hasTable('site_permissions')) {
+            Schema::connection('tenant')->create('site_permissions', function (Blueprint $table) {
+                $table->id();
+                $table->string('name');
+                $table->string('key')->unique('uq_site_permissions_key');
+                $table->text('description')->nullable();
+                $table->timestamps();
+            });
+        }
+
+        if (!Schema::connection('tenant')->hasTable('site_role_permissions')) {
+            Schema::connection('tenant')->create('site_role_permissions', function (Blueprint $table) {
+                $table->id();
+
+                $table->foreignId('role_id')
+                    ->constrained(
+                        'site_roles',
+                        'id',
+                        'fk_srp_role'
+                    )
+                    ->cascadeOnDelete();
+
+                $table->foreignId('permission_id')
+                    ->constrained(
+                        'site_permissions',
+                        'id',
+                        'fk_srp_permission'
+                    )
+                    ->cascadeOnDelete();
+
+                $table->timestamps();
+
+                $table->unique(
+                    ['role_id', 'permission_id'],
+                    'uq_site_role_permission'
+                );
+            });
+        }
+
+        /*
+         * MySQL may leave site_user_roles behind when a previous
+         * CREATE/ALTER attempt failed while adding its foreign key.
+         * At this point the migration has never completed or seeded
+         * RBAC data, so an empty partial pivot can be rebuilt safely.
+         */
+        if (Schema::connection('tenant')->hasTable('site_user_roles')
+            && DB::connection('tenant')->table('site_user_roles')->count() === 0
+        ) {
+            $columns = Schema::connection('tenant')->getColumnListing('site_user_roles');
+
+            if (
+                in_array('user_id', $columns, true)
+                && in_array('role_id', $columns, true)
+            ) {
+                Schema::connection('tenant')->drop('site_user_roles');
+            }
+        }
+
+        if (!Schema::connection('tenant')->hasTable('site_user_roles')) {
+            Schema::connection('tenant')->create('site_user_roles', function (Blueprint $table) {
+                $table->id();
+
+                /*
+                 * ESUBIZ_CORE_USER_ROLE_PORTABLE_REFERENCE_V1
+                 *
+                 * site_users is an existing Core table and remains the
+                 * canonical user store. Keep this pivot portable across
+                 * existing Core installations without forcing a legacy
+                 * database-level FK onto site_users.
+                 */
+                $table->unsignedBigInteger('user_id');
+
+                $table->foreignId('role_id')
+                    ->constrained(
+                        'site_roles',
+                        'id',
+                        'fk_sur_role'
+                    )
+                    ->cascadeOnDelete();
+
+                $table->timestamps();
+
+                $table->unique(
+                    ['user_id', 'role_id'],
+                    'uq_site_user_role'
+                );
+            });
+        }
+
+        $now = now();
+
+        foreach ([
+            [
+                'name' => 'Administrator',
+                'slug' => 'administrator',
+                'description' => 'Full administrative access to Core.',
+            ],
+            [
+                'name' => 'Staff',
+                'slug' => 'staff',
+                'description' => 'Website staff account.',
+            ],
+            [
+                'name' => 'User',
+                'slug' => 'user',
+                'description' => 'Standard website user account.',
+            ],
+        ] as $role) {
+            DB::connection('tenant')->table('site_roles')->updateOrInsert(
+                ['slug' => $role['slug']],
+                [
+                    'name' => $role['name'],
+                    'description' => $role['description'],
+                    'is_system' => true,
+                    'updated_at' => $now,
+                    'created_at' => $now,
+                ]
+            );
+        }
+
+        foreach ([
+            [
+                'name' => 'View Users',
+                'key' => 'users.view',
+                'description' => 'View Core website users.',
+            ],
+            [
+                'name' => 'Manage Users',
+                'key' => 'users.manage',
+                'description' => 'Create, edit and manage Core users.',
+            ],
+            [
+                'name' => 'Manage Roles',
+                'key' => 'roles.manage',
+                'description' => 'Manage Core roles and permissions.',
+            ],
+            [
+                'name' => 'Manage Settings',
+                'key' => 'settings.manage',
+                'description' => 'Manage Core website settings.',
+            ],
+            [
+                'name' => 'Manage Forms',
+                'key' => 'forms.manage',
+                'description' => 'Manage Core forms and submissions.',
+            ],
+        ] as $permission) {
+            DB::connection('tenant')->table('site_permissions')->updateOrInsert(
+                ['key' => $permission['key']],
+                [
+                    'name' => $permission['name'],
+                    'description' => $permission['description'],
+                    'updated_at' => $now,
+                    'created_at' => $now,
+                ]
+            );
+        }
+
+        $administratorRoleId = DB::connection('tenant')->table('site_roles')
+            ->where('slug', 'administrator')
+            ->value('id');
+
+        if ($administratorRoleId) {
+            foreach (
+                DB::connection('tenant')->table('site_permissions')->pluck('id')
+                as $permissionId
+            ) {
+                DB::connection('tenant')->table('site_role_permissions')
+                    ->updateOrInsert(
+                        [
+                            'role_id' => $administratorRoleId,
+                            'permission_id' => $permissionId,
+                        ],
+                        [
+                            'updated_at' => $now,
+                            'created_at' => $now,
+                        ]
+                    );
+            }
+        }
+
+        /*
+         * Safe legacy Core backfill.
+         * Only infer Administrator when there is exactly one
+         * pre-existing Core account and no role assignments.
+         */
+        if (
+            DB::connection('tenant')->table('site_users')->count() === 1
+            && DB::connection('tenant')->table('site_user_roles')->count() === 0
+            && $administratorRoleId
+        ) {
+            $userId = DB::connection('tenant')->table('site_users')->value('id');
+
+            if ($userId) {
+                DB::connection('tenant')->table('site_user_roles')->insert([
+                    'user_id' => $userId,
+                    'role_id' => $administratorRoleId,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
+        }
+    }
+
+    public function down(): void
+    {
+        Schema::connection('tenant')->dropIfExists('site_user_roles');
+        Schema::connection('tenant')->dropIfExists('site_role_permissions');
+        Schema::connection('tenant')->dropIfExists('site_permissions');
+        Schema::connection('tenant')->dropIfExists('site_roles');
+    }
+};

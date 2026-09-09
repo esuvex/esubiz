@@ -1,0 +1,864 @@
+<?php
+
+namespace App\Services\Core\Installation;
+
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use RuntimeException;
+use Throwable;
+
+/**
+ * ESUBIZ_CORE_REAL_INSTALLATION_ENGINE_V1
+ *
+ * Final first-run installer engine for a manually uploaded
+ * OFF-SERVER Esubiz Core package.
+ *
+ * The controller owns HTTP/session concerns.
+ * This service owns installation orchestration.
+ *
+ * Installation order:
+ *
+ * 1. validate staged installer data;
+ * 2. write the validated .env configuration;
+ * 3. configure the website_tenant connection;
+ * 4. prove the configured database is reachable;
+ * 5. run Core tenant migrations;
+ * 6. initialize website settings;
+ * 7. create/update the local Core Administrator;
+ * 8. assign the protected Administrator role;
+ * 9. persist the local Core licence record;
+ * 10. persist the Core instance identity;
+ * 11. write the installation lock LAST.
+ *
+ * The lock is never written before all required installation
+ * work succeeds.
+ */
+class CoreInstallationService
+{
+    public function __construct(
+        protected CoreEnvironmentWriter $environment,
+        protected CoreInstallationState $state
+    ) {
+    }
+
+    /**
+     * @param array<string,mixed> $website
+     * @param array<string,mixed> $database
+     * @param array<string,mixed> $administrator
+     * @param array<string,mixed> $license
+     *
+     * @return array<string,mixed>
+     */
+    public function install(
+        array $website,
+        array $database,
+        array $administrator,
+        array $license,
+        string $instanceUuid
+    ): array {
+        if ($this->state->isInstalled()) {
+            throw new RuntimeException(
+                'Esubiz Core is already installed.'
+            );
+        }
+
+        $this->assertInput(
+            $website,
+            $database,
+            $administrator,
+            $license,
+            $instanceUuid
+        );
+
+        $environmentWritten = false;
+
+        try {
+            /*
+             * ---------------------------------------------------------
+             * 1. Write .env
+             * ---------------------------------------------------------
+             */
+            $environmentResult =
+                $this->environment->write(
+                    $website,
+                    $database
+                );
+
+            $environmentWritten = true;
+
+            /*
+             * ---------------------------------------------------------
+             * 2. Configure runtime tenant connection immediately.
+             *
+             * Laravel does not automatically reload the newly written
+             * .env during this same HTTP request, so installation must
+             * explicitly point website_tenant at the validated DB.
+             * ---------------------------------------------------------
+             */
+            $this->configureTenantConnection(
+                $database
+            );
+
+            $db =
+                DB::connection(
+                    'website_tenant'
+                );
+
+            /*
+             * Force real authentication/connection.
+             */
+            $db->getPdo();
+
+            $db->select(
+                'SELECT 1 AS esubiz_install_connection'
+            );
+
+            /*
+             * ---------------------------------------------------------
+             * 3. Run Core migrations against website_tenant.
+             *
+             * These are the same portable Core migrations used by
+             * hosted tenant deployment.
+             * ---------------------------------------------------------
+             */
+            $migrationPath =
+                database_path(
+                    'migrations/tenant/core'
+                );
+
+            if (!is_dir($migrationPath)) {
+                throw new RuntimeException(
+                    'Core migration directory is unavailable.'
+                );
+            }
+
+            $exitCode =
+                Artisan::call(
+                    'migrate',
+                    [
+                        '--database' =>
+                            'website_tenant',
+
+                        '--path' =>
+                            'database/migrations/tenant/core',
+
+                        '--force' =>
+                            true,
+                    ]
+                );
+
+            if ($exitCode !== 0) {
+                throw new RuntimeException(
+                    'Core database migrations failed.'
+                );
+            }
+
+            /*
+             * Re-resolve after migrations.
+             */
+            DB::purge(
+                'website_tenant'
+            );
+
+            $this->configureTenantConnection(
+                $database
+            );
+
+            $db =
+                DB::connection(
+                    'website_tenant'
+                );
+
+            $db->getPdo();
+
+            /*
+             * ---------------------------------------------------------
+             * 4. Core website settings.
+             * ---------------------------------------------------------
+             */
+            $this->initializeWebsiteSettings(
+                $db,
+                $website,
+                $instanceUuid
+            );
+
+            /*
+             * ---------------------------------------------------------
+             * 5. Local Administrator.
+             * ---------------------------------------------------------
+             */
+            $administratorUserId =
+                $this->initializeAdministrator(
+                    $db,
+                    $administrator
+                );
+
+            /*
+             * ---------------------------------------------------------
+             * 6. Persist local licence state.
+             * ---------------------------------------------------------
+             */
+            $this->initializeLicense(
+                $db,
+                $license
+            );
+
+            /*
+             * ---------------------------------------------------------
+             * 7. Persist private Core instance identity.
+             * ---------------------------------------------------------
+             */
+            $identityPath =
+                $this->writeInstanceIdentity(
+                    $instanceUuid,
+                    $website,
+                    $license
+                );
+
+            /*
+             * ---------------------------------------------------------
+             * 8. Installation lock LAST.
+             *
+             * From this point the root domain becomes the normal site.
+             * ---------------------------------------------------------
+             */
+            $this->state->markInstalled();
+
+            return [
+                'ok' =>
+                    true,
+
+                'site_name' =>
+                    (string) $website['site_name'],
+
+                'domain' =>
+                    (string) $website['domain'],
+
+                'app_url' =>
+                    $environmentResult['app_url']
+                    ?? null,
+
+                'administrator_user_id' =>
+                    $administratorUserId,
+
+                'administrator_email' =>
+                    strtolower(
+                        trim(
+                            (string) $administrator['email']
+                        )
+                    ),
+
+                'instance_uuid' =>
+                    $instanceUuid,
+
+                'identity_path' =>
+                    $identityPath,
+
+                'installed' =>
+                    true,
+            ];
+        } catch (Throwable $e) {
+            /*
+             * A failed installation must NEVER leave the application
+             * marked as installed.
+             *
+             * Database migrations may already have executed. They are
+             * intentionally not automatically rolled back here because
+             * rolling down an unknown partially migrated application can
+             * be more destructive than leaving an incomplete DB that can
+             * be repaired/retried.
+             *
+             * The environment file, however, can be restored safely from
+             * the exact pre-install backup made by CoreEnvironmentWriter.
+             */
+            if ($environmentWritten) {
+                try {
+                    $this->environment->rollback();
+                } catch (Throwable $rollbackError) {
+                    report(
+                        $rollbackError
+                    );
+                }
+            }
+
+            report(
+                $e
+            );
+
+            throw $e;
+        } finally {
+            try {
+                DB::disconnect(
+                    'website_tenant'
+                );
+
+                DB::purge(
+                    'website_tenant'
+                );
+            } catch (Throwable $e) {
+                report(
+                    $e
+                );
+            }
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $website
+     * @param array<string,mixed> $database
+     * @param array<string,mixed> $administrator
+     * @param array<string,mixed> $license
+     */
+    protected function assertInput(
+        array $website,
+        array $database,
+        array $administrator,
+        array $license,
+        string $instanceUuid
+    ): void {
+        foreach (
+            [
+                'site_name',
+                'domain',
+            ] as $key
+        ) {
+            if (
+                trim(
+                    (string) (
+                        $website[$key]
+                        ?? ''
+                    )
+                ) === ''
+            ) {
+                throw new RuntimeException(
+                    "Missing installer website value: {$key}."
+                );
+            }
+        }
+
+        foreach (
+            [
+                'host',
+                'port',
+                'database',
+                'username',
+            ] as $key
+        ) {
+            if (
+                trim(
+                    (string) (
+                        $database[$key]
+                        ?? ''
+                    )
+                ) === ''
+            ) {
+                throw new RuntimeException(
+                    "Missing installer database value: {$key}."
+                );
+            }
+        }
+
+        foreach (
+            [
+                'name',
+                'email',
+                'password',
+            ] as $key
+        ) {
+            if (
+                trim(
+                    (string) (
+                        $administrator[$key]
+                        ?? ''
+                    )
+                ) === ''
+            ) {
+                throw new RuntimeException(
+                    "Missing installer administrator value: {$key}."
+                );
+            }
+        }
+
+        if (
+            trim(
+                (string) (
+                    $license['license_key']
+                    ?? ''
+                )
+            ) === ''
+        ) {
+            throw new RuntimeException(
+                'The validated Esubiz licence is unavailable.'
+            );
+        }
+
+        if (
+            !Str::isUuid(
+                $instanceUuid
+            )
+        ) {
+            throw new RuntimeException(
+                'The Core instance identity is invalid.'
+            );
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $database
+     */
+    protected function configureTenantConnection(
+        array $database
+    ): void {
+        DB::purge(
+            'website_tenant'
+        );
+
+        config([
+            'database.connections.website_tenant' => [
+                'driver' =>
+                    'mysql',
+
+                'host' =>
+                    (string) $database['host'],
+
+                'port' =>
+                    (int) $database['port'],
+
+                'database' =>
+                    (string) $database['database'],
+
+                'username' =>
+                    (string) $database['username'],
+
+                'password' =>
+                    (string) (
+                        $database['password']
+                        ?? ''
+                    ),
+
+                'unix_socket' =>
+                    '',
+
+                'charset' =>
+                    'utf8mb4',
+
+                'collation' =>
+                    'utf8mb4_unicode_ci',
+
+                'prefix' =>
+                    '',
+
+                'prefix_indexes' =>
+                    true,
+
+                'strict' =>
+                    true,
+
+                'engine' =>
+                    null,
+
+                'options' =>
+                    extension_loaded(
+                        'pdo_mysql'
+                    )
+                        ? array_filter([
+                            \PDO::ATTR_TIMEOUT =>
+                                10,
+                        ])
+                        : [],
+            ],
+        ]);
+    }
+
+    /**
+     * @param mixed $db
+     * @param array<string,mixed> $website
+     */
+    protected function initializeWebsiteSettings(
+        $db,
+        array $website,
+        string $instanceUuid
+    ): void {
+        $settings = [
+            'site_name' =>
+                trim(
+                    (string) $website['site_name']
+                ),
+
+            'site_domain' =>
+                strtolower(
+                    trim(
+                        (string) $website['domain']
+                    )
+                ),
+
+            'deployment' =>
+                'off_server',
+
+            'core_instance_uuid' =>
+                $instanceUuid,
+        ];
+
+        foreach (
+            $settings as $key => $value
+        ) {
+            $db
+                ->table(
+                    'site_settings'
+                )
+                ->updateOrInsert(
+                    [
+                        'key' =>
+                            $key,
+                    ],
+                    [
+                        'value' =>
+                            $value,
+
+                        'updated_at' =>
+                            now(),
+
+                        'created_at' =>
+                            now(),
+                    ]
+                );
+        }
+    }
+
+    /**
+     * Create/update the canonical local Core administrator and
+     * guarantee the protected Administrator role assignment.
+     *
+     * @param mixed $db
+     * @param array<string,mixed> $administrator
+     */
+    protected function initializeAdministrator(
+        $db,
+        array $administrator
+    ): int {
+        $email =
+            strtolower(
+                trim(
+                    (string) $administrator['email']
+                )
+            );
+
+        /*
+         * Off-server first-run receives the human-entered plaintext
+         * password, unlike SaaS deployment where Central already holds
+         * a Laravel password hash.
+         *
+         * Therefore hash exactly once here.
+         */
+        $passwordHash =
+            Hash::make(
+                (string) $administrator['password']
+            );
+
+        $db
+            ->table(
+                'site_users'
+            )
+            ->updateOrInsert(
+                [
+                    'email' =>
+                        $email,
+                ],
+                [
+                    'name' =>
+                        trim(
+                            (string) $administrator['name']
+                        ),
+
+                    'phone' =>
+                        isset(
+                            $administrator['phone']
+                        )
+                        && trim(
+                            (string) $administrator['phone']
+                        ) !== ''
+                            ? trim(
+                                (string) $administrator['phone']
+                            )
+                            : null,
+
+                    'password' =>
+                        $passwordHash,
+
+                    'is_active' =>
+                        true,
+
+                    'updated_at' =>
+                        now(),
+
+                    'created_at' =>
+                        now(),
+                ]
+            );
+
+        $administratorUserId =
+            $db
+                ->table(
+                    'site_users'
+                )
+                ->whereRaw(
+                    'LOWER(email) = ?',
+                    [
+                        $email,
+                    ]
+                )
+                ->value(
+                    'id'
+                );
+
+        $administratorRoleId =
+            $db
+                ->table(
+                    'site_roles'
+                )
+                ->where(
+                    'slug',
+                    'administrator'
+                )
+                ->value(
+                    'id'
+                );
+
+        if (
+            !$administratorUserId
+            || !$administratorRoleId
+        ) {
+            throw new RuntimeException(
+                'Core Administrator user or role could not be resolved during installation.'
+            );
+        }
+
+        $db
+            ->table(
+                'site_user_roles'
+            )
+            ->updateOrInsert(
+                [
+                    'user_id' =>
+                        (int) $administratorUserId,
+
+                    'role_id' =>
+                        (int) $administratorRoleId,
+                ],
+                [
+                    'updated_at' =>
+                        now(),
+
+                    'created_at' =>
+                        now(),
+                ]
+            );
+
+        return (int)
+            $administratorUserId;
+    }
+
+    /**
+     * @param mixed $db
+     * @param array<string,mixed> $license
+     */
+    protected function initializeLicense(
+        $db,
+        array $license
+    ): void {
+        $licenseKey =
+            trim(
+                (string) $license['license_key']
+            );
+
+        $db
+            ->table(
+                'core_licenses'
+            )
+            ->updateOrInsert(
+                [
+                    'license_key' =>
+                        $licenseKey,
+                ],
+                [
+                    'product_type' =>
+                        (string) (
+                            $license['product_type']
+                            ?? 'core'
+                        ),
+
+                    'product_name' =>
+                        (string) (
+                            $license['product_slug']
+                            ?? $license['product_name']
+                            ?? 'core'
+                        ),
+
+                    'product_version' =>
+                        (string) (
+                            $license['product_version']
+                            ?? config(
+                                'app.version',
+                                '1.0.0'
+                            )
+                        ),
+
+                    'status' =>
+                        'active',
+
+                    'issued_at' =>
+                        now(),
+
+                    'updated_at' =>
+                        now(),
+
+                    'created_at' =>
+                        now(),
+                ]
+            );
+    }
+
+    /**
+     * Persist the instance UUID outside the public directory.
+     *
+     * This identity survives sessions and is used for future
+     * licensing, Marketplace fulfilment and Core updates.
+     *
+     * @param array<string,mixed> $website
+     * @param array<string,mixed> $license
+     */
+    protected function writeInstanceIdentity(
+        string $instanceUuid,
+        array $website,
+        array $license
+    ): string {
+        $directory =
+            storage_path(
+                'app/core'
+            );
+
+        if (
+            !is_dir($directory)
+            && !mkdir(
+                $directory,
+                0750,
+                true
+            )
+            && !is_dir($directory)
+        ) {
+            throw new RuntimeException(
+                'Unable to create the private Core identity directory.'
+            );
+        }
+
+        $path =
+            $directory
+            . DIRECTORY_SEPARATOR
+            . 'instance.json';
+
+        $payload = [
+            'schema' =>
+                'esubiz-core-instance',
+
+            'schema_version' =>
+                1,
+
+            'instance_uuid' =>
+                $instanceUuid,
+
+            'deployment' =>
+                'off_server',
+
+            'domain' =>
+                strtolower(
+                    trim(
+                        (string) $website['domain']
+                    )
+                ),
+
+            /*
+             * Do not put the human-readable licence key into
+             * instance.json. The database owns licence storage.
+             */
+            'product_type' =>
+                (string) (
+                    $license['product_type']
+                    ?? 'core'
+                ),
+
+            'product_slug' =>
+                (string) (
+                    $license['product_slug']
+                    ?? 'core'
+                ),
+
+            'product_version' =>
+                (string) (
+                    $license['product_version']
+                    ?? config(
+                        'app.version',
+                        '1.0.0'
+                    )
+                ),
+
+            'installed_at' =>
+                now()->toIso8601String(),
+        ];
+
+        $json =
+            json_encode(
+                $payload,
+                JSON_PRETTY_PRINT
+                | JSON_UNESCAPED_SLASHES
+                | JSON_THROW_ON_ERROR
+            );
+
+        $temporary =
+            $path
+            . '.tmp-'
+            . bin2hex(
+                random_bytes(6)
+            );
+
+        if (
+            file_put_contents(
+                $temporary,
+                $json . PHP_EOL,
+                LOCK_EX
+            ) === false
+        ) {
+            throw new RuntimeException(
+                'Unable to write the private Core instance identity.'
+            );
+        }
+
+        @chmod(
+            $temporary,
+            0640
+        );
+
+        if (
+            !rename(
+                $temporary,
+                $path
+            )
+        ) {
+            @unlink(
+                $temporary
+            );
+
+            throw new RuntimeException(
+                'Unable to finalize the private Core instance identity.'
+            );
+        }
+
+        @chmod(
+            $path,
+            0640
+        );
+
+        return $path;
+    }
+}

@@ -1,0 +1,164 @@
+@extends('tenant.admin.layouts.app')
+
+@section('content')
+@php
+    $editing = (bool) $role;
+    $isSystem = $editing && (bool) $role->is_system;
+    $isAdministrator = $editing && $role->slug === 'administrator';
+@endphp
+
+<div style="max-width:900px;margin:0 auto;padding:24px;">
+    <div style="margin-bottom:20px;">
+        <a
+            href="/admin/users/roles"
+            style="text-decoration:none;color:#6b7280;font-size:14px;"
+        >
+            ← Roles &amp; Permissions
+        </a>
+
+        <h1 style="margin:10px 0 4px;font-size:28px;font-weight:700;color:#111827;">
+            {{ $editing ? 'Edit Role' : 'Create Role' }}
+        </h1>
+
+        <p style="margin:0;color:#6b7280;">
+            Define what users assigned to this role can access in Core.
+        </p>
+    </div>
+
+    @if($errors->any())
+        <div style="padding:12px 14px;margin-bottom:16px;border-radius:8px;background:#fef2f2;color:#991b1b;">
+            @foreach($errors->all() as $error)
+                <div>{{ $error }}</div>
+            @endforeach
+        </div>
+    @endif
+
+    <form
+        method="POST"
+        action="{{ $editing ? route('tenant.cms.roles.update', $role->id) : route('tenant.cms.roles.store') }}"
+    >
+        @csrf
+
+        @if($editing)
+            @method('PUT')
+        @endif
+
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px;margin-bottom:18px;">
+            <div style="margin-bottom:18px;">
+                <label style="display:block;font-weight:600;color:#111827;margin-bottom:6px;">
+                    Role Name
+                </label>
+
+                @if($isSystem)
+                    <input
+                        type="text"
+                        value="{{ $role->name }}"
+                        disabled
+                        style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;background:#f9fafb;color:#6b7280;"
+                    >
+
+                    <div style="font-size:12px;color:#6b7280;margin-top:6px;">
+                        Core system role names cannot be changed.
+                    </div>
+                @else
+                    <input
+                        type="text"
+                        name="name"
+                        value="{{ old('name', $role->name ?? '') }}"
+                        required
+                        maxlength="100"
+                        style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;"
+                    >
+                @endif
+            </div>
+
+            <div>
+                <label style="display:block;font-weight:600;color:#111827;margin-bottom:6px;">
+                    Description
+                </label>
+
+                <textarea
+                    name="description"
+                    rows="3"
+                    maxlength="1000"
+                    style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;"
+                >{{ old('description', $role->description ?? '') }}</textarea>
+            </div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:20px;margin-bottom:18px;">
+            <div style="margin-bottom:16px;">
+                <h2 style="margin:0;font-size:18px;color:#111827;">
+                    Permissions
+                </h2>
+
+                @if($isAdministrator)
+                    <p style="margin:6px 0 0;color:#6b7280;font-size:13px;">
+                        Administrator is the Core super-role and always receives every permission.
+                    </p>
+                @else
+                    <p style="margin:6px 0 0;color:#6b7280;font-size:13px;">
+                        Select the Core capabilities this role can manage.
+                    </p>
+                @endif
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;">
+                @foreach($permissions as $permission)
+                    @php
+                        $checked = $isAdministrator
+                            || in_array(
+                                (int) $permission->id,
+                                array_map('intval', old('permission_ids', $selectedPermissions)),
+                                true
+                            );
+                    @endphp
+
+                    <label style="display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid #e5e7eb;border-radius:9px;cursor:pointer;">
+                        <input
+                            type="checkbox"
+                            name="permission_ids[]"
+                            value="{{ $permission->id }}"
+                            {{ $checked ? 'checked' : '' }}
+                            {{ $isAdministrator ? 'disabled' : '' }}
+                            style="margin-top:3px;"
+                        >
+
+                        <span>
+                            <span style="display:block;font-weight:600;color:#111827;">
+                                {{ $permission->name }}
+                            </span>
+
+                            <span style="display:block;font-size:12px;color:#6b7280;margin-top:2px;">
+                                {{ $permission->key }}
+                            </span>
+
+                            @if($permission->description)
+                                <span style="display:block;font-size:12px;color:#9ca3af;margin-top:3px;">
+                                    {{ $permission->description }}
+                                </span>
+                            @endif
+                        </span>
+                    </label>
+                @endforeach
+            </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:10px;">
+            <a
+                href="/admin/users/roles"
+                style="display:inline-flex;padding:10px 16px;border:1px solid #d1d5db;border-radius:8px;text-decoration:none;color:#111827;background:#fff;"
+            >
+                Cancel
+            </a>
+
+            <button
+                type="submit"
+                style="padding:10px 18px;border:0;border-radius:8px;background:#111827;color:#fff;font-weight:600;cursor:pointer;"
+            >
+                {{ $editing ? 'Save Role' : 'Create Role' }}
+            </button>
+        </div>
+    </form>
+</div>
+@endsection

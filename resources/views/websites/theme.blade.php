@@ -223,7 +223,7 @@ $steps = 6;
         <div class="mt-10 flex flex-col gap-4 border-t border-slate-200 pt-8 sm:flex-row sm:items-center sm:justify-between">
 
             <a
-                href="{{ route('websites.administrator', $website) }}"
+                href="{{ route('websites.information', $website) }}"
                 class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-6 py-3 font-medium text-slate-700 hover:bg-slate-100">
 
                 ← Back

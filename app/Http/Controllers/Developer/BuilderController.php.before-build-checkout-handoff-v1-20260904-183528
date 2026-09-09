@@ -1,0 +1,373 @@
+<?php
+
+namespace App\Http\Controllers\Developer;
+
+use App\Models\WebsiteType;
+
+use App\Http\Controllers\Controller;
+use App\Models\AddonProduct;
+use App\Services\Developer\WebsiteCompilerService;
+use App\Models\DeveloperBuild;
+use Illuminate\Support\Str;
+use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\View\View;
+use Illuminate\Support\Facades\DB;
+
+class BuilderController extends Controller
+{
+    public function index(): View
+    {
+        $coreAddonBundles = DB::table('core_addon_bundles')
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->orderBy('name')
+            ->get();
+
+        $addonBundles = DB::table('core_addon_bundles')
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->orderBy('name')
+            ->get()
+            ->map(function ($bundle) {
+                $bundle->items = DB::table('core_addon_bundle_items as items')
+                    ->join(
+                        'core_addons as addons',
+                        'addons.id',
+                        '=',
+                        'items.addon_id'
+                    )
+                    ->where('items.bundle_id', $bundle->id)
+                    ->where('addons.is_active', true)
+                    ->whereNull('addons.deleted_at')
+                    ->select(
+                        'addons.id',
+                        'addons.name',
+                        'items.allocation',
+                        'items.is_unlimited'
+                    )
+                    ->orderBy('addons.name')
+                    ->get();
+
+                return $bundle;
+            });
+
+        $modules = \App\Models\CatalogProduct::query()
+            ->where('catalog_products.product_type', 'module')
+            ->where('catalog_products.is_active', true)
+            ->whereIn('catalog_products.audience', ['developer', 'both'])
+            ->join('marketplace_listings as marketplace_listing', function ($join) {
+                $join->on(
+                    'marketplace_listing.catalog_product_id',
+                    '=',
+                    'catalog_products.id'
+                )
+                ->where('marketplace_listing.status', 'published')
+                ->whereNull('marketplace_listing.deleted_at');
+            })
+            ->select(
+                'catalog_products.*',
+                'marketplace_listing.price as marketplace_price',
+                'marketplace_listing.currency as marketplace_currency',
+                'marketplace_listing.id as marketplace_listing_id'
+            )
+            ->orderBy('catalog_products.name')
+            ->get();
+
+        $websiteTypes = WebsiteType::query()
+            ->where('is_active', true)
+            ->where('show_in_developer_wizard', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+
+        $themes = \App\Models\CatalogProduct::query()
+            ->where('catalog_products.product_type', 'theme')
+            ->where('catalog_products.is_active', true)
+            ->whereIn('catalog_products.audience', ['developer', 'both'])
+            ->join('marketplace_listings as marketplace_listing', function ($join) {
+                $join->on(
+                    'marketplace_listing.catalog_product_id',
+                    '=',
+                    'catalog_products.id'
+                )
+                ->where('marketplace_listing.status', 'published')
+                ->whereNull('marketplace_listing.deleted_at');
+            })
+            ->select(
+                'catalog_products.*',
+                'marketplace_listing.price as marketplace_price',
+                'marketplace_listing.currency as marketplace_currency',
+                'marketplace_listing.id as marketplace_listing_id'
+            )
+            ->orderBy('catalog_products.name')
+            ->get();
+
+        return view('developer.builder.index', [
+            'addonBundles' => $addonBundles,
+            'coreAddonBundles' => $coreAddonBundles,
+            'modules' => $modules,
+            'themes' => $themes,
+            'websiteTypes' => $websiteTypes,
+        ]);
+    }
+
+    public function create(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'project_name' => ['required', 'string', 'max:100'],
+            'website_type' => [
+                'required',
+                'string',
+                function ($attribute, $value, $fail) {
+                    $available = WebsiteType::query()
+                        ->where('is_active', true)
+                        ->where('show_in_developer_wizard', true)
+                        ->where('slug', $value)
+                        ->exists();
+
+                    if (! $available) {
+                        $fail('The selected website type is not available for Developer Mode.');
+                    }
+                },
+            ],
+            'addon_bundle' => [
+                'nullable',
+                'integer',
+                'exists:core_addon_bundles,id',
+            ],
+            'theme' => [
+                'nullable',
+                'integer',
+                'exists:catalog_products,id',
+            ],
+            'modules' => ['nullable', 'array'],
+            'modules.*' => [
+                'integer',
+                'exists:catalog_products,id',
+            ],
+            'ai_theme' => ['nullable', 'boolean'],
+            'ai_theme_prompt' => ['nullable', 'string', 'max:5000'],
+            'ai_theme_reference_photos' => [
+                'nullable',
+                'array',
+                'max:10',
+            ],
+            'ai_theme_reference_photos.*' => [
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:10240',
+            ],
+            'ai_theme_preferences' => ['nullable', 'array'],
+            'ai_theme_preferences.mode' => [
+                'nullable',
+                'string',
+                'in:light,dark,mixed',
+            ],
+            'ai_theme_preferences.style' => [
+                'nullable',
+                'string',
+                'in:minimal,modern,corporate,bold,editorial',
+            ],
+            'ai_theme_preferences.animation' => [
+                'nullable',
+                'string',
+                'in:none,subtle,dynamic',
+            ],
+        ]);
+
+        // ESUBIZ_DEVELOPER_AUTHORITATIVE_PRICING_V1
+        $websiteType = WebsiteType::query()
+            ->where('is_active', true)
+            ->where('show_in_developer_wizard', true)
+            ->where('slug', $validated['website_type'])
+            ->first();
+
+        if (!$websiteType) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'website_type' => 'The selected website type is not available for Developer Mode.',
+            ]);
+        }
+
+        $websiteTypePrice = (float) ($websiteType->off_server_price ?? 0);
+
+        $selectedBundle = null;
+        $bundlePrice = 0.0;
+
+        if (!empty($validated['addon_bundle'])) {
+            $selectedBundle = DB::table('core_addon_bundles')
+                ->where('id', $validated['addon_bundle'])
+                ->where('is_active', true)
+                ->where('off_server_available', true)
+                ->whereNull('deleted_at')
+                ->first();
+
+            if (!$selectedBundle) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'addon_bundle' => 'The selected add-on bundle is not available for Developer Mode.',
+                ]);
+            }
+
+            $bundlePrice = (float) ($selectedBundle->off_server_price ?? 0);
+        }
+
+        $selectedTheme = null;
+        $themeListing = null;
+        $themePrice = 0.0;
+
+        if (!empty($validated['theme'])) {
+            $selectedTheme = \App\Models\CatalogProduct::query()
+                ->where('id', $validated['theme'])
+                ->where('product_type', 'theme')
+                ->where('is_active', true)
+                ->whereIn('audience', ['developer', 'both'])
+                ->first();
+
+            if (!$selectedTheme) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'theme' => 'The selected theme is not available for Developer Mode.',
+                ]);
+            }
+
+            $themeListing = DB::table('marketplace_listings')
+                ->where('catalog_product_id', $selectedTheme->id)
+                ->where('status', 'published')
+                ->whereNull('deleted_at')
+                ->orderByDesc('id')
+                ->first();
+
+            if (!$themeListing) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'theme' => 'The selected theme is not currently available for purchase.',
+                ]);
+            }
+
+            $themePrice = (float) ($themeListing->price ?? 0);
+        }
+
+        $selectedModules = collect();
+        $moduleManifest = [];
+        $modulesPrice = 0.0;
+
+        $moduleIds = collect($validated['modules'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($moduleIds->isNotEmpty()) {
+            $selectedModules = \App\Models\CatalogProduct::query()
+                ->whereIn('id', $moduleIds)
+                ->where('product_type', 'module')
+                ->where('is_active', true)
+                ->whereIn('audience', ['developer', 'both'])
+                ->get()
+                ->keyBy('id');
+
+            if ($selectedModules->count() !== $moduleIds->count()) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'modules' => 'One or more selected modules are not available for Developer Mode.',
+                ]);
+            }
+
+            foreach ($moduleIds as $moduleId) {
+                $module = $selectedModules->get($moduleId);
+
+                $listing = DB::table('marketplace_listings')
+                    ->where('catalog_product_id', $moduleId)
+                    ->where('status', 'published')
+                    ->whereNull('deleted_at')
+                    ->orderByDesc('id')
+                    ->first();
+
+                if (!$listing) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'modules' => "The module {$module->name} is not currently available for purchase.",
+                    ]);
+                }
+
+                $price = (float) ($listing->price ?? 0);
+                $modulesPrice += $price;
+
+                $moduleManifest[] = [
+                    'catalog_product_id' => $module->id,
+                    'listing_id' => $listing->id,
+                    'name' => $module->name,
+                    'price' => $price,
+                    'currency' => $listing->currency ?? 'NGN',
+                ];
+            }
+        }
+
+        $authoritativeSubtotal =
+            $websiteTypePrice
+            + $bundlePrice
+            + $themePrice
+            + $modulesPrice;
+
+        $pricingManifest = [
+            'currency' => 'NGN',
+
+            'website_type' => [
+                'id' => $websiteType->id,
+                'slug' => $websiteType->slug,
+                'name' => $websiteType->name,
+                'price' => $websiteTypePrice,
+            ],
+
+            'addon_bundle' => $selectedBundle ? [
+                'id' => $selectedBundle->id,
+                'name' => $selectedBundle->name,
+                'price' => $bundlePrice,
+                'currency' => $selectedBundle->off_server_currency ?? 'NGN',
+            ] : null,
+
+            'theme' => $selectedTheme ? [
+                'catalog_product_id' => $selectedTheme->id,
+                'listing_id' => $themeListing->id,
+                'name' => $selectedTheme->name,
+                'price' => $themePrice,
+                'currency' => $themeListing->currency ?? 'NGN',
+            ] : null,
+
+            'modules' => $moduleManifest,
+
+            'subtotal' => $authoritativeSubtotal,
+            'total' => $authoritativeSubtotal,
+        ];
+
+        $buildId = Str::slug($validated['project_name']) . '-' . Str::lower(Str::random(8));
+
+        $build = \App\Models\DeveloperBuild::create([
+            'uuid' => (string) Str::uuid(),
+            'developer_id' => auth()->id(),
+            'project_name' => $validated['project_name'],
+            'build_id' => $buildId,
+            'version' => '1.0.0',
+            'website_type' => $validated['website_type'],
+            'addon_bundle' => $selectedBundle?->id,
+            'theme' => $selectedTheme?->id,
+            'modules' => json_encode($moduleIds->all()),
+            'status' => 'queued',
+            'stage' => 'addon',
+            'build_type' => 'developer',
+            'subtotal' => $authoritativeSubtotal,
+            'total_cost' => $authoritativeSubtotal,
+            'payment_status' => 'unpaid',
+            'configuration' => [
+                'ai_theme' => false,
+                'pricing' => $pricingManifest,
+                'selections' => [
+                    'website_type' => $websiteType->slug,
+                    'addon_bundle' => $selectedBundle?->id,
+                    'theme' => $selectedTheme?->id,
+                    'modules' => $moduleIds->all(),
+                ],
+            ],
+        ]);
+
+        return redirect()
+            ->route('developer.builder')
+            ->with('build', $build);
+    }
+}
