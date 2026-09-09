@@ -452,6 +452,7 @@
         'marketing'  => 'Marketing & Ads',
         'api'        => 'API',
         'website-wizard' => 'Website Wizard',
+        'updates'    => 'Migration & Updates',
     ];
 
     $subTabs = [
@@ -540,6 +541,13 @@
             'webhooks'  => 'Webhooks',
             'logs'      => 'Logs',
         ],
+
+        'updates' => [
+            'overview' => 'Overview',
+            'updates'  => 'Updates',
+            'tenants'  => 'Tenants',
+            'history'  => 'History',
+        ],
     ];
 
     if (!isset($tabs[$tab])) {
@@ -547,6 +555,91 @@
     }
 
     $currentSubs = $subTabs[$tab] ?? [];
+
+    /* ESUBIZ_PLATFORM_UPDATES_V2 */
+    $platformUpdateStats = [
+        'updates' => 0,
+        'published' => 0,
+        'pending_runs' => 0,
+        'failed_runs' => 0,
+        'websites' => 0,
+    ];
+
+    $platformUpdates = collect();
+    $platformUpdateRuns = collect();
+    $platformUpdateTenants = collect();
+
+    if ($tab === 'updates') {
+        /*
+         * ESUBIZ_PLATFORM_UPDATE_AUTO_DISCOVERY_V4
+         *
+         * Opening Migration & Updates synchronizes the Central registry
+         * with canonical update sources only. Discovery never executes
+         * tenant migrations or modifies tenant databases/files.
+         */
+        $platformDiscoveryStats = [
+            'discovered' => 0,
+            'existing' => 0,
+        ];
+
+        if (\Illuminate\Support\Facades\Schema::hasTable('platform_updates')) {
+            try {
+                $platformDiscoveryStats = app(
+                    \App\Services\PlatformUpdates\PlatformUpdateDiscoveryService::class
+                )->sync();
+            } catch (\Throwable $e) {
+                report($e);
+            }
+
+            $platformUpdateStats['updates'] =
+                \Illuminate\Support\Facades\DB::table('platform_updates')->count();
+
+            $platformUpdateStats['published'] =
+                \Illuminate\Support\Facades\DB::table('platform_updates')
+                    ->where('status', 'published')
+                    ->count();
+
+            $platformUpdates =
+                \Illuminate\Support\Facades\DB::table('platform_updates')
+                    ->orderByDesc('id')
+                    ->limit(50)
+                    ->get();
+
+        } else {
+            $platformDiscoveryStats = [
+                'discovered' => 0,
+                'existing' => 0,
+            ];
+        }
+
+        /*
+         * The remainder of the existing V2 block starts with this
+         * condition. Keep its run/history handling intact.
+         */
+        if (\Illuminate\Support\Facades\Schema::hasTable('platform_update_runs')) {
+            $platformUpdateStats['pending_runs'] =
+                \Illuminate\Support\Facades\DB::table('platform_update_runs')
+                    ->where('status', 'pending')
+                    ->count();
+
+            $platformUpdateStats['failed_runs'] =
+                \Illuminate\Support\Facades\DB::table('platform_update_runs')
+                    ->where('status', 'failed')
+                    ->count();
+
+            $platformUpdateRuns =
+                \Illuminate\Support\Facades\DB::table('platform_update_runs')
+                    ->orderByDesc('id')
+                    ->limit(10)
+                    ->get();
+        }
+
+        $platformUpdateTenants = \App\Models\Website::query()
+            ->orderBy('id')
+            ->get();
+
+        $platformUpdateStats['websites'] = $platformUpdateTenants->count();
+    }
 
     if (!isset($currentSubs[$sub])) {
         $sub = array_key_first($currentSubs) ?? 'general';
@@ -1458,6 +1551,1791 @@
                         </button>
                     </div>
                 </form>
+
+            @elseif($tab === 'updates')
+
+                <div class="mb-4">
+                    <h2 class="es-settings-section-title">
+                        {{ $currentSubs[$sub] ?? 'Migration & Updates' }}
+                    </h2>
+
+                    <p class="es-settings-section-copy">
+                        Manage safe, versioned Core and product updates across existing Esubiz websites
+                        without rerunning tenant installers, seeders or initialization processes.
+                    </p>
+                </div>
+
+                @if($sub === 'overview')
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-12 col-md-6 col-xl">
+                            <div class="es-setting-card h-100">
+                                <div class="text-muted small">Registered Updates</div>
+                                <div class="fs-3 fw-bold mt-2">{{ $platformUpdateStats['updates'] }}</div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-6 col-xl">
+                            <div class="es-setting-card h-100">
+                                <div class="text-muted small">Published</div>
+                                <div class="fs-3 fw-bold mt-2">{{ $platformUpdateStats['published'] }}</div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-6 col-xl">
+                            <div class="es-setting-card h-100">
+                                <div class="text-muted small">Pending Runs</div>
+                                <div class="fs-3 fw-bold mt-2">{{ $platformUpdateStats['pending_runs'] }}</div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-6 col-xl">
+                            <div class="es-setting-card h-100">
+                                <div class="text-muted small">Failed Runs</div>
+                                <div class="fs-3 fw-bold mt-2">{{ $platformUpdateStats['failed_runs'] }}</div>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-6 col-xl">
+                            <div class="es-setting-card h-100">
+                                <div class="text-muted small">Websites</div>
+                                <div class="fs-3 fw-bold mt-2">{{ $platformUpdateStats['websites'] }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="es-setting-card">
+                        <h3>Safe Update Process</h3>
+
+                        <div class="row g-3 mt-1">
+                            <div class="col-12 col-lg-4">
+                                <div class="border rounded-3 p-3 h-100">
+                                    <div class="fw-bold mb-1">1. Preview / Dry Run</div>
+                                    <div class="text-muted small">
+                                        Detect eligible tenants, prerequisites and pending changes without modifying tenant data.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12 col-lg-4">
+                                <div class="border rounded-3 p-3 h-100">
+                                    <div class="fw-bold mb-1">2. Checkpoint</div>
+                                    <div class="text-muted small">
+                                        Record the tenant state and required backup information before an approved update.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12 col-lg-4">
+                                <div class="border rounded-3 p-3 h-100">
+                                    <div class="fw-bold mb-1">3. Update & Audit</div>
+                                    <div class="text-muted small">
+                                        Apply only controlled versioned changes and record each tenant result centrally.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                @elseif($sub === 'updates')
+
+                    <style>
+                        /* ESUBIZ_PLATFORM_UPDATE_TABLE_V8 */
+
+                        .es-upd-toolbar-v8 {
+                            display:flex;
+                            align-items:center;
+                            justify-content:space-between;
+                            flex-wrap:wrap;
+                            gap:14px;
+                            margin-bottom:18px;
+                        }
+
+                        .es-upd-toolbar-v8 h3 {
+                            margin:0 0 4px;
+                            color:#172033;
+                            font-size:18px;
+                            font-weight:800;
+                        }
+
+                        .es-upd-table-card-v8 {
+                            background:#fff;
+                            border:1px solid #e3e9f2;
+                            border-radius:16px;
+                            overflow:visible;
+                            box-shadow:0 8px 28px rgba(24,44,78,.045);
+                        }
+
+                        .es-upd-table-scroll-v8 {
+                            overflow-x:auto;
+                            overflow-y:visible;
+                        }
+
+                        .es-upd-table-v8 {
+                            width:100%;
+                            margin:0;
+                            border-collapse:collapse;
+                        }
+
+                        .es-upd-table-v8 th {
+                            padding:14px 16px;
+                            background:#f8fafc;
+                            border-bottom:1px solid #e5eaf1;
+                            color:#66758a;
+                            font-size:11px;
+                            font-weight:800;
+                            text-transform:uppercase;
+                            letter-spacing:.04em;
+                            white-space:nowrap;
+                        }
+
+                        .es-upd-table-v8 td {
+                            padding:15px 16px;
+                            border-bottom:1px solid #edf1f5;
+                            color:#253044;
+                            font-size:13px;
+                            vertical-align:middle;
+                        }
+
+                        .es-upd-table-v8 tbody tr:last-child td {
+                            border-bottom:0;
+                        }
+
+                        .es-upd-name-v8 {
+                            font-weight:800;
+                            color:#172033;
+                            margin-bottom:3px;
+                        }
+
+                        .es-upd-source-v8 {
+                            max-width:360px;
+                            overflow:hidden;
+                            text-overflow:ellipsis;
+                            white-space:nowrap;
+                            color:#8490a1;
+                            font-size:11px;
+                        }
+
+                        .es-upd-badge-v8 {
+                            display:inline-flex;
+                            align-items:center;
+                            min-height:26px;
+                            padding:4px 9px;
+                            border-radius:999px;
+                            background:#f1f4f8;
+                            color:#5c697c;
+                            font-size:11px;
+                            font-weight:750;
+                            white-space:nowrap;
+                        }
+
+                        .es-upd-badge-v8.blue {
+                            background:#eaf2ff;
+                            color:#1464f4;
+                        }
+
+                        .es-upd-badge-v8.green {
+                            background:#e9f8ef;
+                            color:#198754;
+                        }
+
+                        .es-upd-badge-v8.amber {
+                            background:#fff4dc;
+                            color:#966300;
+                        }
+
+                        .es-upd-badge-v8.red {
+                            background:#fff0f0;
+                            color:#c43737;
+                        }
+
+                        .es-upd-menu-wrap-v8 {
+                            position:relative;
+                            display:flex;
+                            justify-content:flex-end;
+                        }
+
+                        .es-upd-menu-btn-v8 {
+                            width:36px;
+                            height:36px;
+                            display:inline-flex;
+                            align-items:center;
+                            justify-content:center;
+                            border:1px solid #e1e7ef;
+                            border-radius:10px;
+                            background:#fff;
+                            color:#425066;
+                            font-size:20px;
+                            font-weight:800;
+                            line-height:1;
+                        }
+
+                        .es-upd-menu-v8 {
+                            display:none;
+                            position:absolute;
+                            z-index:1080;
+                            right:0;
+                            top:41px;
+                            width:190px;
+                            padding:7px;
+                            background:#fff;
+                            border:1px solid #dfe5ed;
+                            border-radius:12px;
+                            box-shadow:0 14px 38px rgba(22,37,63,.16);
+                        }
+
+                        .es-upd-menu-v8.active {
+                            display:block;
+                        }
+
+                        .es-upd-menu-v8 button {
+                            display:block;
+                            width:100%;
+                            padding:9px 10px;
+                            border:0;
+                            border-radius:8px;
+                            background:transparent;
+                            color:#344156;
+                            text-align:left;
+                            font-size:12px;
+                            font-weight:650;
+                        }
+
+                        .es-upd-menu-v8 button:hover {
+                            background:#f3f7fd;
+                            color:#1464f4;
+                        }
+
+                        .es-upd-menu-v8 button:disabled {
+                            opacity:.45;
+                            cursor:not-allowed;
+                        }
+
+                        .es-upd-pagination-v8 {
+                            display:flex;
+                            align-items:center;
+                            justify-content:space-between;
+                            flex-wrap:wrap;
+                            gap:12px;
+                            padding:14px 16px;
+                            border-top:1px solid #e8edf3;
+                        }
+
+                        .es-upd-page-buttons-v8 {
+                            display:flex;
+                            gap:8px;
+                        }
+
+                        .es-upd-page-buttons-v8 button {
+                            border:1px solid #dce3ec;
+                            background:#fff;
+                            color:#425066;
+                            border-radius:9px;
+                            padding:8px 13px;
+                            font-size:12px;
+                            font-weight:700;
+                        }
+
+                        .es-upd-page-buttons-v8 button:disabled {
+                            opacity:.45;
+                        }
+
+                        .es-upd-empty-v8 {
+                            padding:48px 20px;
+                            text-align:center;
+                            color:#78869a;
+                        }
+
+                        .es-upd-action-modal-v8 .modal-content {
+                            border:0;
+                            border-radius:17px;
+                            overflow:hidden;
+                        }
+
+                        /* ESUBIZ_PLATFORM_UPDATE_MODAL_V9 */
+                        #esUpdateActionModalV8,
+                        #esRegisterUpdateModalV8 {
+                            display:none !important;
+                            position:fixed;
+                            inset:0;
+                            z-index:9999;
+                            width:100%;
+                            height:100%;
+                            padding:24px;
+                            overflow-y:auto;
+                            background:rgba(15, 23, 42, .55);
+                            align-items:center;
+                            justify-content:center;
+                        }
+
+                        #esUpdateActionModalV8.es-upd-modal-open-v9,
+                        #esRegisterUpdateModalV8.es-upd-modal-open-v9 {
+                            display:flex !important;
+                        }
+
+                        #esUpdateActionModalV8 .modal-dialog,
+                        #esRegisterUpdateModalV8 .modal-dialog {
+                            width:min(760px, 100%);
+                            max-width:760px;
+                            margin:auto;
+                        }
+
+                        #esUpdateActionModalV8 .modal-content,
+                        #esRegisterUpdateModalV8 .modal-content {
+                            width:100%;
+                            max-height:calc(100vh - 48px);
+                            display:flex;
+                            flex-direction:column;
+                            background:#fff;
+                            border:0;
+                            border-radius:18px;
+                            overflow:hidden;
+                            box-shadow:0 24px 70px rgba(15, 23, 42, .24);
+                        }
+
+                        #esUpdateActionModalV8 .modal-header,
+                        #esRegisterUpdateModalV8 .modal-header {
+                            display:flex;
+                            align-items:flex-start;
+                            justify-content:space-between;
+                            gap:20px;
+                            padding:20px 22px;
+                            border-bottom:1px solid #e8edf4;
+                        }
+
+                        #esUpdateActionModalV8 .modal-body,
+                        #esRegisterUpdateModalV8 .modal-body {
+                            padding:22px;
+                            overflow-y:auto;
+                        }
+
+                        #esUpdateActionModalV8 .modal-footer,
+                        #esRegisterUpdateModalV8 .modal-footer {
+                            display:flex;
+                            align-items:center;
+                            justify-content:flex-end;
+                            gap:10px;
+                            padding:16px 22px;
+                            border-top:1px solid #e8edf4;
+                            background:#fff;
+                        }
+
+                        .es-upd-close-v9 {
+                            width:34px;
+                            height:34px;
+                            border:0;
+                            border-radius:9px;
+                            background:#f3f6fa;
+                            color:#475569;
+                            font-size:20px;
+                            line-height:1;
+                            display:inline-flex;
+                            align-items:center;
+                            justify-content:center;
+                            cursor:pointer;
+                        }
+
+                        .es-upd-close-v9:hover {
+                            background:#e9eef5;
+                        }
+
+                        body.es-upd-modal-lock-v9 {
+                            overflow:hidden;
+                        }
+
+                        @media(max-width:767.98px) {
+                            #esUpdateActionModalV8,
+                            #esRegisterUpdateModalV8 {
+                                padding:12px;
+                                align-items:flex-start;
+                            }
+
+                            #esUpdateActionModalV8 .modal-content,
+                            #esRegisterUpdateModalV8 .modal-content {
+                                max-height:calc(100vh - 24px);
+                            }
+                        }
+
+                        .es-upd-target-box-v8 {
+                            padding:15px;
+                            border:1px solid #e3e9f2;
+                            border-radius:13px;
+                            background:#f9fbfe;
+                        }
+
+                        .es-upd-results-v8 {
+                            margin-top:15px;
+                            border:1px solid #e1e7ef;
+                            border-radius:12px;
+                            overflow:hidden;
+                        }
+
+                        /* ESUBIZ_UPDATE_TARGET_LAYOUT_V11 */
+                        .es-upd-target-grid-v11 {
+                            display:grid;
+                            grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);
+                            gap:16px;
+                            align-items:start;
+                            width:100%;
+                        }
+
+                        .es-upd-target-field-v11 {
+                            min-width:0;
+                            width:100%;
+                        }
+
+                        .es-upd-target-field-v11 .form-select,
+                        .es-upd-target-field-v11 .es-upd-multi-v10 {
+                            width:100%;
+                        }
+
+                        @media (max-width: 767px) {
+                            .es-upd-target-grid-v11 {
+                                grid-template-columns:1fr;
+                            }
+                        }
+
+                        /* ESUBIZ_UPDATE_TENANT_MULTISELECT_V10 */
+                        .es-upd-multi-v10 {
+                            position:relative;
+                        }
+
+                        .es-upd-multi-button-v10 {
+                            width:100%;
+                            min-height:42px;
+                            display:flex;
+                            align-items:center;
+                            justify-content:space-between;
+                            gap:12px;
+                            padding:9px 12px;
+                            border:1px solid #d7dee8;
+                            border-radius:9px;
+                            background:#fff;
+                            color:#344156;
+                            text-align:left;
+                            font-size:13px;
+                        }
+
+                        .es-upd-multi-button-v10:focus {
+                            border-color:#86afff;
+                            box-shadow:0 0 0 3px rgba(20,100,244,.10);
+                            outline:0;
+                        }
+
+                        .es-upd-multi-arrow-v10 {
+                            color:#7a8799;
+                            transition:transform .18s ease;
+                        }
+
+                        .es-upd-multi-button-v10[aria-expanded="true"]
+                        .es-upd-multi-arrow-v10 {
+                            transform:rotate(180deg);
+                        }
+
+                        .es-upd-multi-menu-v10 {
+                            display:none;
+                            position:absolute;
+                            z-index:10050;
+                            top:calc(100% + 7px);
+                            left:0;
+                            right:0;
+                            background:#fff;
+                            border:1px solid #dce3ec;
+                            border-radius:12px;
+                            box-shadow:0 16px 38px rgba(22,37,63,.16);
+                            overflow:hidden;
+                        }
+
+                        .es-upd-multi-menu-v10.active {
+                            display:block;
+                        }
+
+                        .es-upd-multi-tools-v10 {
+                            display:flex;
+                            justify-content:space-between;
+                            gap:8px;
+                            padding:9px 11px;
+                            border-bottom:1px solid #edf1f5;
+                            background:#f8fafc;
+                        }
+
+                        .es-upd-multi-tools-v10 button {
+                            border:0;
+                            background:transparent;
+                            color:#1464f4;
+                            padding:3px 5px;
+                            font-size:11px;
+                            font-weight:750;
+                        }
+
+                        .es-upd-multi-list-v10 {
+                            max-height:250px;
+                            overflow-y:auto;
+                            padding:6px;
+                        }
+
+                        .es-upd-multi-option-v10 {
+                            display:flex;
+                            align-items:center;
+                            gap:10px;
+                            padding:9px 8px;
+                            margin:0;
+                            border-radius:8px;
+                            cursor:pointer;
+                        }
+
+                        .es-upd-multi-option-v10:hover {
+                            background:#f3f7fd;
+                        }
+
+                        .es-upd-multi-option-v10 input {
+                            width:16px;
+                            height:16px;
+                            flex:0 0 auto;
+                            accent-color:#1464f4;
+                        }
+
+                        .es-upd-multi-option-v10 span {
+                            min-width:0;
+                            display:flex;
+                            flex-direction:column;
+                        }
+
+                        .es-upd-multi-option-v10 strong {
+                            color:#344156;
+                            font-size:12px;
+                            font-weight:700;
+                            overflow:hidden;
+                            text-overflow:ellipsis;
+                            white-space:nowrap;
+                        }
+
+                        .es-upd-multi-option-v10 small {
+                            color:#8a96a7;
+                            font-size:10px;
+                        }
+
+                        .es-upd-result-v8 {
+                            display:flex;
+                            justify-content:space-between;
+                            gap:14px;
+                            padding:11px 13px;
+                            border-bottom:1px solid #edf1f5;
+                            font-size:12px;
+                        }
+
+                        .es-upd-result-v8:last-child {
+                            border-bottom:0;
+                        }
+
+                        @media(max-width:767.98px) {
+                            .es-upd-table-v8 {
+                                min-width:900px;
+                            }
+                        }
+                    </style>
+
+                    <div class="es-upd-toolbar-v8">
+                        <div>
+                            <h3>Available Updates</h3>
+                            <div class="text-muted small">
+                                Core updates are detected automatically. Review, dry-run and deploy them from here.
+                            </div>
+                        </div>
+
+                        <button
+                            type="button"
+                            class="btn px-4 fw-semibold"
+                            style="background:#1464f4;color:#fff;border-radius:10px;"
+                            id="esOpenRegisterUpdateV9"
+                        >
+                            Register Update
+                        </button>
+                    </div>
+
+                    <div class="es-upd-table-card-v8">
+
+                        @if($platformUpdates->isEmpty())
+
+                            <div class="es-upd-empty-v8">
+                                <div class="fw-bold mb-2">Everything is up to date</div>
+                                <div class="small">
+                                    No Core or product updates are currently registered.
+                                </div>
+                            </div>
+
+                        @else
+
+                            <div class="es-upd-table-scroll-v8">
+                                <table class="es-upd-table-v8">
+                                    <thead>
+                                        <tr>
+                                            <th>Update</th>
+                                            <th>Product</th>
+                                            <th>Version</th>
+                                            <th>Type</th>
+                                            <th>Status</th>
+                                            <th>Safety</th>
+                                            <th style="text-align:right;">Actions</th>
+                                        </tr>
+                                    </thead>
+
+                                    <tbody id="esUpdateTableBodyV8">
+                                        @foreach($platformUpdates as $update)
+
+                                            @php
+                                                $statusClass = match($update->status) {
+                                                    'published' => 'green',
+                                                    'disabled' => 'red',
+                                                    default => 'amber',
+                                                };
+
+                                                $canRun =
+                                                    $update->status === 'published'
+                                                    && !(bool)$update->is_destructive
+                                                    && !(bool)$update->requires_backup
+                                                    && $update->product_type === 'core';
+                                            @endphp
+
+                                            <tr
+                                                class="es-upd-row-v8"
+                                                data-update-id="{{ $update->id }}"
+                                                data-update-name="{{ e($update->name) }}"
+                                                data-update-version="{{ e($update->version) }}"
+                                                data-update-description="{{ e($update->description ?: '') }}"
+                                                data-update-source="{{ e($update->migration_path ?: $update->package_path ?: '') }}"
+                                                data-dry-url="{{ route('admin.site-settings.updates.dry-run', $update->id) }}"
+                                                data-run-url="{{ route('admin.site-settings.updates.execute', $update->id) }}"
+                                                data-status-url="{{ route('admin.site-settings.updates.status', $update->id) }}"
+                                                data-can-run="{{ $canRun ? '1' : '0' }}"
+                                                data-status="{{ $update->status }}"
+                                            >
+                                                <td>
+                                                    <div class="es-upd-name-v8">
+                                                        {{ $update->name }}
+                                                    </div>
+
+                                                    @if($update->migration_path || $update->package_path)
+                                                        <div
+                                                            class="es-upd-source-v8"
+                                                            title="{{ $update->migration_path ?: $update->package_path }}"
+                                                        >
+                                                            {{ $update->migration_path ?: $update->package_path }}
+                                                        </div>
+                                                    @endif
+                                                </td>
+
+                                                <td>
+                                                    <span class="es-upd-badge-v8">
+                                                        {{ ucwords(str_replace('_', ' ', $update->product_type)) }}
+                                                    </span>
+                                                </td>
+
+                                                <td>
+                                                    <span class="es-upd-badge-v8 blue">
+                                                        v{{ $update->version }}
+                                                    </span>
+                                                </td>
+
+                                                <td>
+                                                    {{ ucfirst($update->update_type) }}
+                                                </td>
+
+                                                <td>
+                                                    <span class="es-upd-badge-v8 {{ $statusClass }}">
+                                                        {{ ucfirst($update->status) }}
+                                                    </span>
+                                                </td>
+
+                                                <td>
+                                                    @if($update->is_destructive)
+                                                        <span class="es-upd-badge-v8 red">
+                                                            Destructive
+                                                        </span>
+                                                    @elseif($update->requires_backup)
+                                                        <span class="es-upd-badge-v8 amber">
+                                                            Backup Required
+                                                        </span>
+                                                    @else
+                                                        <span class="es-upd-badge-v8 green">
+                                                            Ready
+                                                        </span>
+                                                    @endif
+                                                </td>
+
+                                                <td>
+                                                    <div class="es-upd-menu-wrap-v8">
+                                                        <button
+                                                            type="button"
+                                                            class="es-upd-menu-btn-v8"
+                                                            aria-label="Update actions"
+                                                        >
+                                                            ⋮
+                                                        </button>
+
+                                                        <div class="es-upd-menu-v8">
+                                                            <button
+                                                                type="button"
+                                                                class="es-upd-view-v8"
+                                                            >
+                                                                View Details
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                class="es-upd-dry-open-v8"
+                                                            >
+                                                                Dry Run
+                                                            </button>
+
+                                                            @if($update->status === 'published')
+                                                                <button
+                                                                    type="button"
+                                                                    class="es-upd-status-v8"
+                                                                    data-next-status="disabled"
+                                                                >
+                                                                    Disable Update
+                                                                </button>
+                                                            @else
+                                                                <button
+                                                                    type="button"
+                                                                    class="es-upd-status-v8"
+                                                                    data-next-status="published"
+                                                                >
+                                                                    Publish Update
+                                                                </button>
+                                                            @endif
+
+                                                            <button
+                                                                type="button"
+                                                                class="es-upd-run-open-v8"
+                                                                @disabled(!$canRun)
+                                                            >
+                                                                Run Update
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="es-upd-pagination-v8">
+                                <div class="small text-muted" id="esUpdatePageInfoV8"></div>
+
+                                <div class="es-upd-page-buttons-v8">
+                                    <button type="button" id="esUpdatePrevV8">
+                                        Previous
+                                    </button>
+
+                                    <button type="button" id="esUpdateNextV8">
+                                        Next
+                                    </button>
+                                </div>
+                            </div>
+
+                        @endif
+                    </div>
+
+                    {{-- One focused action modal for all update rows --}}
+                    <div
+                        class="modal fade es-upd-action-modal-v8"
+                        id="esUpdateActionModalV8"
+                        tabindex="-1"
+                        aria-hidden="true"
+                    >
+                        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+                            <div class="modal-content">
+
+                                <div class="modal-header">
+                                    <div>
+                                        <h5 class="modal-title fw-bold" id="esUpdModalTitleV8">
+                                            Update
+                                        </h5>
+                                        <div class="small text-muted" id="esUpdModalVersionV8"></div>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        class="es-upd-close-v9"
+                                        data-es-upd-close-v9
+                                        aria-label="Close"
+                                    >×</button>
+                                </div>
+
+                                <div class="modal-body">
+
+                                    <div
+                                        id="esUpdDetailsV8"
+                                        class="mb-4"
+                                    ></div>
+
+                                    <div
+                                        id="esUpdTargetAreaV8"
+                                        class="es-upd-target-box-v8"
+                                    >
+                                        <div class="es-upd-target-grid-v11">
+                                            <div class="es-upd-target-field-v11">
+                                                <label class="form-label fw-semibold">
+                                                    Target
+                                                </label>
+
+                                                <select
+                                                    id="esUpdTargetModeV8"
+                                                    class="form-select"
+                                                >
+                                                    <option value="all">
+                                                        All Tenants
+                                                    </option>
+                                                    <option value="selected">
+                                                        Selected Tenants
+                                                    </option>
+                                                </select>
+                                            </div>
+
+                                            <div
+                                                class="es-upd-target-field-v11"
+                                                id="esUpdTenantFieldV10"
+                                                style="display:none;"
+                                            >
+                                                <label class="form-label fw-semibold">
+                                                    Select Tenants
+                                                </label>
+
+                                                <div class="es-upd-multi-v10">
+                                                    <button
+                                                        type="button"
+                                                        id="esUpdTenantDropdownV10"
+                                                        class="es-upd-multi-button-v10"
+                                                        aria-expanded="false"
+                                                    >
+                                                        <span id="esUpdTenantSummaryV10">
+                                                            Select tenants
+                                                        </span>
+
+                                                        <span class="es-upd-multi-arrow-v10">
+                                                            ▾
+                                                        </span>
+                                                    </button>
+
+                                                    <div
+                                                        id="esUpdTenantMenuV10"
+                                                        class="es-upd-multi-menu-v10"
+                                                    >
+                                                        <div class="es-upd-multi-tools-v10">
+                                                            <button
+                                                                type="button"
+                                                                id="esUpdSelectAllV10"
+                                                            >
+                                                                Select All
+                                                            </button>
+
+                                                            <button
+                                                                type="button"
+                                                                id="esUpdClearAllV10"
+                                                            >
+                                                                Clear
+                                                            </button>
+                                                        </div>
+
+                                                        <div class="es-upd-multi-list-v10">
+                                                            @foreach($platformUpdateTenants as $tenant)
+                                                                @php
+                                                                    $tenantLabel =
+                                                                        $tenant->name
+                                                                        ?? $tenant->site_name
+                                                                        ?? $tenant->domain
+                                                                        ?? ('Website #' . $tenant->id);
+                                                                @endphp
+
+                                                                <label class="es-upd-multi-option-v10">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        class="es-upd-tenant-check-v10"
+                                                                        value="{{ $tenant->id }}"
+                                                                    >
+
+                                                                    <span>
+                                                                        <strong>{{ $tenantLabel }}</strong>
+                                                                        <small>#{{ $tenant->id }}</small>
+                                                                    </span>
+                                                                </label>
+                                                            @endforeach
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="form-text">
+                                                    Select one or multiple tenants.
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div
+                                            id="esUpdResultsV8"
+                                            class="es-upd-results-v8 d-none"
+                                        ></div>
+                                    </div>
+
+                                </div>
+
+                                <div class="modal-footer">
+                                    <button
+                                        type="button"
+                                        class="btn btn-light"
+                                        data-es-upd-close-v9
+                                    >
+                                        Close
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        id="esUpdModalActionV8"
+                                        class="btn px-4 fw-semibold"
+                                        style="background:#1464f4;color:#fff;border-radius:10px;"
+                                    >
+                                        Dry Run
+                                    </button>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Manual registration remains modal-only; no duplicate bottom form --}}
+                    <div
+                        class="modal fade"
+                        id="esRegisterUpdateModalV8"
+                        tabindex="-1"
+                        aria-hidden="true"
+                    >
+                        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+                            <div class="modal-content"
+                                 style="border:0;border-radius:17px;overflow:hidden;">
+
+                                <form
+                                    method="POST"
+                                    action="{{ route('admin.site-settings.updates.store') }}"
+                                >
+                                    @csrf
+
+                                    <div class="modal-header">
+                                        <div>
+                                            <h5 class="modal-title fw-bold">
+                                                Register Update
+                                            </h5>
+                                            <div class="small text-muted">
+                                                Add an update that cannot be automatically discovered.
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            class="es-upd-close-v9"
+                                            data-es-upd-close-v9
+                                            aria-label="Close"
+                                        >×</button>
+                                    </div>
+
+                                    <div class="modal-body">
+                                        <div class="row g-3">
+
+                                            <div class="col-12 col-md-6">
+                                                <label class="form-label fw-semibold">
+                                                    Product Type
+                                                </label>
+
+                                                <select
+                                                    name="product_type"
+                                                    class="form-select"
+                                                    required
+                                                >
+                                                    <option value="core">Core</option>
+                                                    <option value="website_type">Website Type</option>
+                                                    <option value="module">Module</option>
+                                                    <option value="addon">Add-on</option>
+                                                    <option value="bundle">Bundle</option>
+                                                    <option value="theme">Theme</option>
+                                                </select>
+                                            </div>
+
+                                            <div class="col-12 col-md-6">
+                                                <label class="form-label fw-semibold">
+                                                    Product ID
+                                                </label>
+
+                                                <input
+                                                    type="number"
+                                                    name="product_id"
+                                                    min="1"
+                                                    class="form-control"
+                                                    placeholder="Leave blank for Core"
+                                                >
+                                            </div>
+
+                                            <div class="col-12 col-md-8">
+                                                <label class="form-label fw-semibold">
+                                                    Update Name
+                                                </label>
+
+                                                <input
+                                                    type="text"
+                                                    name="name"
+                                                    maxlength="150"
+                                                    class="form-control"
+                                                    required
+                                                >
+                                            </div>
+
+                                            <div class="col-12 col-md-4">
+                                                <label class="form-label fw-semibold">
+                                                    Version
+                                                </label>
+
+                                                <input
+                                                    type="text"
+                                                    name="version"
+                                                    maxlength="50"
+                                                    class="form-control"
+                                                    required
+                                                >
+                                            </div>
+
+                                            <div class="col-12">
+                                                <label class="form-label fw-semibold">
+                                                    Description
+                                                </label>
+
+                                                <textarea
+                                                    name="description"
+                                                    rows="3"
+                                                    class="form-control"
+                                                ></textarea>
+                                            </div>
+
+                                            <div class="col-12 col-md-6">
+                                                <label class="form-label fw-semibold">
+                                                    Update Type
+                                                </label>
+
+                                                <select
+                                                    name="update_type"
+                                                    class="form-select"
+                                                    required
+                                                >
+                                                    <option value="migration">Migration</option>
+                                                    <option value="package">Package</option>
+                                                    <option value="hybrid">Hybrid</option>
+                                                </select>
+                                            </div>
+
+                                            <div class="col-12 col-md-6">
+                                                <label class="form-label fw-semibold">
+                                                    Status
+                                                </label>
+
+                                                <select
+                                                    name="status"
+                                                    class="form-select"
+                                                    required
+                                                >
+                                                    <option value="draft">Draft</option>
+                                                    <option value="published">Published</option>
+                                                    <option value="disabled">Disabled</option>
+                                                </select>
+                                            </div>
+
+                                            <div class="col-12">
+                                                <label class="form-label fw-semibold">
+                                                    Migration Path
+                                                </label>
+
+                                                <input
+                                                    type="text"
+                                                    name="migration_path"
+                                                    maxlength="255"
+                                                    class="form-control"
+                                                >
+                                            </div>
+
+                                            <div class="col-12">
+                                                <label class="form-label fw-semibold">
+                                                    Package Path
+                                                </label>
+
+                                                <input
+                                                    type="text"
+                                                    name="package_path"
+                                                    maxlength="255"
+                                                    class="form-control"
+                                                >
+                                            </div>
+
+                                            <div class="col-12 col-md-6">
+                                                <div class="form-check">
+                                                    <input
+                                                        class="form-check-input"
+                                                        type="checkbox"
+                                                        name="requires_backup"
+                                                        value="1"
+                                                        id="esUpdateRequiresBackupV8"
+                                                        checked
+                                                    >
+
+                                                    <label
+                                                        class="form-check-label fw-semibold"
+                                                        for="esUpdateRequiresBackupV8"
+                                                    >
+                                                        Require Backup
+                                                    </label>
+                                                </div>
+                                            </div>
+
+                                            <div class="col-12 col-md-6">
+                                                <div class="form-check">
+                                                    <input
+                                                        class="form-check-input"
+                                                        type="checkbox"
+                                                        name="is_destructive"
+                                                        value="1"
+                                                        id="esUpdateDestructiveV8"
+                                                    >
+
+                                                    <label
+                                                        class="form-check-label fw-semibold"
+                                                        for="esUpdateDestructiveV8"
+                                                    >
+                                                        Destructive Update
+                                                    </label>
+                                                </div>
+                                            </div>
+
+                                        </div>
+                                    </div>
+
+                                    <div class="modal-footer">
+                                        <button
+                                            type="button"
+                                            class="btn btn-light"
+                                            data-es-upd-close-v9
+                                        >
+                                            Cancel
+                                        </button>
+
+                                        <button
+                                            type="submit"
+                                            class="btn px-4 fw-semibold"
+                                            style="background:#1464f4;color:#fff;border-radius:10px;"
+                                        >
+                                            Save Update
+                                        </button>
+                                    </div>
+
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <script>
+                    document.addEventListener('DOMContentLoaded', function () {
+                        const rows = Array.from(
+                            document.querySelectorAll('.es-upd-row-v8')
+                        );
+
+                        const pageSize = 10;
+                        let page = 1;
+
+                        const prev = document.getElementById('esUpdatePrevV8');
+                        const next = document.getElementById('esUpdateNextV8');
+                        const info = document.getElementById('esUpdatePageInfoV8');
+
+                        function renderPage() {
+                            const totalPages = Math.max(
+                                1,
+                                Math.ceil(rows.length / pageSize)
+                            );
+
+                            if (page > totalPages) page = totalPages;
+
+                            rows.forEach(function(row, index) {
+                                const start = (page - 1) * pageSize;
+                                const end = start + pageSize;
+                                row.style.display =
+                                    index >= start && index < end ? '' : 'none';
+                            });
+
+                            if (info) {
+                                const first = rows.length
+                                    ? ((page - 1) * pageSize) + 1
+                                    : 0;
+
+                                const last = Math.min(
+                                    page * pageSize,
+                                    rows.length
+                                );
+
+                                info.textContent =
+                                    first + '–' + last +
+                                    ' of ' + rows.length + ' updates';
+                            }
+
+                            if (prev) prev.disabled = page <= 1;
+                            if (next) next.disabled = page >= totalPages;
+                        }
+
+                        prev?.addEventListener('click', function() {
+                            if (page > 1) {
+                                page--;
+                                renderPage();
+                            }
+                        });
+
+                        next?.addEventListener('click', function() {
+                            const totalPages = Math.ceil(rows.length / pageSize);
+
+                            if (page < totalPages) {
+                                page++;
+                                renderPage();
+                            }
+                        });
+
+                        renderPage();
+
+                        document.addEventListener('click', function(event) {
+                            const menuButton =
+                                event.target.closest('.es-upd-menu-btn-v8');
+
+                            document
+                                .querySelectorAll('.es-upd-menu-v8.active')
+                                .forEach(function(menu) {
+                                    if (!menuButton ||
+                                        menu !== menuButton.nextElementSibling) {
+                                        menu.classList.remove('active');
+                                    }
+                                });
+
+                            if (menuButton) {
+                                event.preventDefault();
+                                event.stopPropagation();
+
+                                menuButton
+                                    .nextElementSibling
+                                    ?.classList.toggle('active');
+                            }
+                        });
+
+                        const modalEl =
+                            document.getElementById('esUpdateActionModalV8');
+
+                        const registerModalEl =
+                            document.getElementById('esRegisterUpdateModalV8');
+
+                        function openUpdateModalV9(element) {
+                            if (!element) return;
+
+                            element.classList.add('es-upd-modal-open-v9');
+                            document.body.classList.add('es-upd-modal-lock-v9');
+                        }
+
+                        function closeUpdateModalV9(element) {
+                            if (!element) return;
+
+                            element.classList.remove('es-upd-modal-open-v9');
+
+                            if (!document.querySelector(
+                                '.es-upd-modal-open-v9'
+                            )) {
+                                document.body.classList.remove(
+                                    'es-upd-modal-lock-v9'
+                                );
+                            }
+                        }
+
+                        document
+                            .getElementById('esOpenRegisterUpdateV9')
+                            ?.addEventListener('click', function () {
+                                openUpdateModalV9(registerModalEl);
+                            });
+
+                        document
+                            .querySelectorAll('[data-es-upd-close-v9]')
+                            .forEach(function(button) {
+                                button.addEventListener('click', function() {
+                                    closeUpdateModalV9(
+                                        this.closest(
+                                            '#esUpdateActionModalV8, #esRegisterUpdateModalV8'
+                                        )
+                                    );
+                                });
+                            });
+
+                        [modalEl, registerModalEl].forEach(function(element) {
+                            element?.addEventListener('click', function(event) {
+                                if (event.target === element) {
+                                    closeUpdateModalV9(element);
+                                }
+                            });
+                        });
+
+                        document.addEventListener('keydown', function(event) {
+                            if (event.key === 'Escape') {
+                                closeUpdateModalV9(modalEl);
+                                closeUpdateModalV9(registerModalEl);
+                            }
+                        });
+
+                        const modalTitle =
+                            document.getElementById('esUpdModalTitleV8');
+
+                        const modalVersion =
+                            document.getElementById('esUpdModalVersionV8');
+
+                        const details =
+                            document.getElementById('esUpdDetailsV8');
+
+                        const targetArea =
+                            document.getElementById('esUpdTargetAreaV8');
+
+                        const targetMode =
+                            document.getElementById('esUpdTargetModeV8');
+
+                        const tenantField =
+                            document.getElementById('esUpdTenantFieldV10');
+
+                        const tenantDropdown =
+                            document.getElementById('esUpdTenantDropdownV10');
+
+                        const tenantMenu =
+                            document.getElementById('esUpdTenantMenuV10');
+
+                        const tenantSummary =
+                            document.getElementById('esUpdTenantSummaryV10');
+
+                        const tenantChecks = Array.from(
+                            document.querySelectorAll('.es-upd-tenant-check-v10')
+                        );
+
+                        const results =
+                            document.getElementById('esUpdResultsV8');
+
+                        const actionButton =
+                            document.getElementById('esUpdModalActionV8');
+
+                        let activeRow = null;
+                        let activeMode = 'view';
+
+                        function updateTenantSummaryV10() {
+                            const selected = tenantChecks.filter(
+                                checkbox => checkbox.checked
+                            );
+
+                            if (!tenantSummary) return;
+
+                            if (!selected.length) {
+                                tenantSummary.textContent = 'Select tenants';
+                            } else if (selected.length === 1) {
+                                tenantSummary.textContent =
+                                    selected[0]
+                                        .closest('.es-upd-multi-option-v10')
+                                        ?.querySelector('strong')
+                                        ?.textContent
+                                        ?.trim()
+                                    || '1 tenant selected';
+                            } else {
+                                tenantSummary.textContent =
+                                    selected.length + ' tenants selected';
+                            }
+                        }
+
+                        function closeTenantDropdownV10() {
+                            tenantMenu?.classList.remove('active');
+                            tenantDropdown?.setAttribute(
+                                'aria-expanded',
+                                'false'
+                            );
+                        }
+
+                        targetMode?.addEventListener('change', function() {
+                            const selectedMode = this.value === 'selected';
+
+                            if (tenantField) {
+                                tenantField.style.display =
+                                    selectedMode ? '' : 'none';
+                            }
+
+                            if (!selectedMode) {
+                                tenantChecks.forEach(function(checkbox) {
+                                    checkbox.checked = false;
+                                });
+
+                                updateTenantSummaryV10();
+                                closeTenantDropdownV10();
+                            }
+                        });
+
+                        tenantDropdown?.addEventListener('click', function(event) {
+                            event.stopPropagation();
+
+                            const opening =
+                                !tenantMenu.classList.contains('active');
+
+                            tenantMenu.classList.toggle('active', opening);
+
+                            tenantDropdown.setAttribute(
+                                'aria-expanded',
+                                opening ? 'true' : 'false'
+                            );
+                        });
+
+                        tenantMenu?.addEventListener('click', function(event) {
+                            event.stopPropagation();
+                        });
+
+                        tenantChecks.forEach(function(checkbox) {
+                            checkbox.addEventListener(
+                                'change',
+                                updateTenantSummaryV10
+                            );
+                        });
+
+                        document
+                            .getElementById('esUpdSelectAllV10')
+                            ?.addEventListener('click', function() {
+                                tenantChecks.forEach(function(checkbox) {
+                                    checkbox.checked = true;
+                                });
+
+                                updateTenantSummaryV10();
+                            });
+
+                        document
+                            .getElementById('esUpdClearAllV10')
+                            ?.addEventListener('click', function() {
+                                tenantChecks.forEach(function(checkbox) {
+                                    checkbox.checked = false;
+                                });
+
+                                updateTenantSummaryV10();
+                            });
+
+                        document.addEventListener(
+                            'click',
+                            closeTenantDropdownV10
+                        );
+
+                        function openAction(row, mode) {
+                            document
+                                .querySelectorAll('.es-upd-menu-v8.active')
+                                .forEach(function(menu) {
+                                    menu.classList.remove('active');
+                                });
+
+                            activeRow = row;
+                            activeMode = mode;
+
+                            modalTitle.textContent =
+                                row.dataset.updateName || 'Update';
+
+                            modalVersion.textContent =
+                                'Version ' + (row.dataset.updateVersion || '');
+
+                            const description =
+                                row.dataset.updateDescription ||
+                                'No description provided.';
+
+                            const source = row.dataset.updateSource;
+
+                            details.innerHTML =
+                                '<p class="mb-2">' + description + '</p>' +
+                                (source
+                                    ? '<div class="small text-muted"><strong>Source:</strong> ' +
+                                      source + '</div>'
+                                    : '');
+
+                            results.innerHTML = '';
+                            results.classList.add('d-none');
+
+                            targetMode.value = 'all';
+
+                            if (tenantField) {
+                                tenantField.style.display = 'none';
+                            }
+
+                            tenantChecks.forEach(function(checkbox) {
+                                checkbox.checked = false;
+                            });
+
+                            updateTenantSummaryV10();
+                            closeTenantDropdownV10();
+
+                            if (mode === 'view') {
+                                targetArea.classList.add('d-none');
+                                actionButton.classList.add('d-none');
+                            } else {
+                                targetArea.classList.remove('d-none');
+                                actionButton.classList.remove('d-none');
+
+                                actionButton.textContent =
+                                    mode === 'run'
+                                        ? 'Run Update'
+                                        : 'Dry Run';
+                            }
+
+                            openUpdateModalV9(modalEl);
+                        }
+
+                        document.querySelectorAll('.es-upd-view-v8')
+                            .forEach(function(button) {
+                                button.addEventListener('click', function() {
+                                    openAction(
+                                        this.closest('.es-upd-row-v8'),
+                                        'view'
+                                    );
+                                });
+                            });
+
+                        document.querySelectorAll('.es-upd-dry-open-v8')
+                            .forEach(function(button) {
+                                button.addEventListener('click', function() {
+                                    openAction(
+                                        this.closest('.es-upd-row-v8'),
+                                        'dry'
+                                    );
+                                });
+                            });
+
+                        document.querySelectorAll('.es-upd-run-open-v8')
+                            .forEach(function(button) {
+                                button.addEventListener('click', function() {
+                                    if (this.disabled) return;
+
+                                    openAction(
+                                        this.closest('.es-upd-row-v8'),
+                                        'run'
+                                    );
+                                });
+                            });
+
+                        function requestPayload() {
+                            return {
+                                all_tenants: targetMode.value === 'all',
+                                website_ids:
+                                    targetMode.value === 'selected'
+                                        ? tenantChecks
+                                            .filter(checkbox => checkbox.checked)
+                                            .map(checkbox => Number(checkbox.value))
+                                        : []
+                            };
+                        }
+
+                        function renderResults(data) {
+                            if (!data.ok) {
+                                results.innerHTML =
+                                    '<div class="p-3 text-danger fw-semibold">' +
+                                    (data.message || 'Request failed.') +
+                                    '</div>';
+
+                                results.classList.remove('d-none');
+                                return;
+                            }
+
+                            const list = Array.isArray(data.results)
+                                ? data.results
+                                : [];
+
+                            results.innerHTML = list.length
+                                ? list.map(function(result) {
+                                    const name =
+                                        result.website_name ||
+                                        ('Website #' + result.website_id);
+
+                                    const status =
+                                        result.status || 'unknown';
+
+                                    return '<div class="es-upd-result-v8">' +
+                                        '<div><strong>' + name + '</strong>' +
+                                        '<div class="text-muted">' +
+                                        (result.message || '') +
+                                        '</div></div>' +
+                                        '<div class="fw-bold">' +
+                                        status.charAt(0).toUpperCase() +
+                                        status.slice(1) +
+                                        '</div></div>';
+                                }).join('')
+                                : '<div class="p-3 text-muted">No tenant results returned.</div>';
+
+                            results.classList.remove('d-none');
+                        }
+
+                        actionButton?.addEventListener('click', async function() {
+                            if (!activeRow) return;
+
+                            const payload = requestPayload();
+
+                            if (!payload.all_tenants &&
+                                !payload.website_ids.length) {
+                                renderResults({
+                                    ok:false,
+                                    message:'Select at least one tenant or choose All Tenants.'
+                                });
+                                return;
+                            }
+
+                            if (activeMode === 'run') {
+                                const message = payload.all_tenants
+                                    ? 'Run this update on ALL tenants?'
+                                    : 'Run this update on the selected tenant(s)?';
+
+                                if (!window.confirm(message)) return;
+                            }
+
+                            const url = activeMode === 'run'
+                                ? activeRow.dataset.runUrl
+                                : activeRow.dataset.dryUrl;
+
+                            const original = this.textContent;
+                            this.disabled = true;
+                            this.textContent =
+                                activeMode === 'run'
+                                    ? 'Updating...'
+                                    : 'Checking...';
+
+                            try {
+                                const response = await fetch(url, {
+                                    method:'POST',
+                                    headers:{
+                                        'Content-Type':'application/json',
+                                        'Accept':'application/json',
+                                        'X-CSRF-TOKEN':'{{ csrf_token() }}'
+                                    },
+                                    body:JSON.stringify(payload)
+                                });
+
+                                const data = await response.json();
+                                renderResults(data);
+                            } catch (error) {
+                                renderResults({
+                                    ok:false,
+                                    message:'Unable to contact the update service.'
+                                });
+                            } finally {
+                                this.disabled = false;
+                                this.textContent = original;
+                            }
+                        });
+
+                        document.querySelectorAll('.es-upd-status-v8')
+                            .forEach(function(button) {
+                                button.addEventListener('click', async function() {
+                                    const row =
+                                        this.closest('.es-upd-row-v8');
+
+                                    const status =
+                                        this.dataset.nextStatus;
+
+                                    const verb =
+                                        status === 'published'
+                                            ? 'publish'
+                                            : 'disable';
+
+                                    if (!window.confirm(
+                                        'Are you sure you want to ' +
+                                        verb + ' this update?'
+                                    )) {
+                                        return;
+                                    }
+
+                                    try {
+                                        const response = await fetch(
+                                            row.dataset.statusUrl,
+                                            {
+                                                method:'PATCH',
+                                                headers:{
+                                                    'Content-Type':'application/json',
+                                                    'Accept':'application/json',
+                                                    'X-CSRF-TOKEN':'{{ csrf_token() }}'
+                                                },
+                                                body:JSON.stringify({
+                                                    status:status
+                                                })
+                                            }
+                                        );
+
+                                        const data = await response.json();
+
+                                        if (data.ok) {
+                                            window.location.reload();
+                                        } else {
+                                            alert(
+                                                data.message ||
+                                                'Unable to change update status.'
+                                            );
+                                        }
+                                    } catch (error) {
+                                        alert('Unable to contact the update service.');
+                                    }
+                                });
+                            });
+                    });
+                    </script>
+
+                @elseif($sub === 'tenants')
+
+                    <div class="es-setting-card">
+                        <h3>Tenant Update Status</h3>
+                        <p class="text-muted">
+                            Provisioned, pending, updated, skipped and failed website states will be managed here.
+                        </p>
+
+                        <div class="border rounded-3 p-4">
+                            <span class="fw-bold">{{ $platformUpdateStats['websites'] }}</span>
+                            websites are currently registered with Central Esubiz.
+                        </div>
+                    </div>
+
+                @elseif($sub === 'history')
+
+                    <div class="es-setting-card">
+                        <h3>Migration History</h3>
+
+                        @if($platformUpdateRuns->isEmpty())
+                            <div class="border rounded-3 p-4 text-center text-muted">
+                                No managed update runs have been recorded yet.
+                            </div>
+                        @else
+                            <div class="table-responsive">
+                                <table class="table align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>Update</th>
+                                            <th>Website</th>
+                                            <th>Status</th>
+                                            <th>From</th>
+                                            <th>To</th>
+                                            <th>Finished</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($platformUpdateRuns as $run)
+                                            <tr>
+                                                <td>#{{ $run->platform_update_id }}</td>
+                                                <td>#{{ $run->website_id }}</td>
+                                                <td>{{ ucfirst($run->status) }}</td>
+                                                <td>{{ $run->from_version ?: '—' }}</td>
+                                                <td>{{ $run->to_version ?: '—' }}</td>
+                                                <td>{{ $run->finished_at ?: '—' }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @endif
+                    </div>
+
+                @endif
 
             @else
 

@@ -1839,6 +1839,45 @@ Route::get('/admin/site-settings', function () {
 
 /*
 |--------------------------------------------------------------------------
+| Central Platform Migration & Updates
+|--------------------------------------------------------------------------
+|
+| Existing Core tenant updates are controlled from:
+| Admin > Site Settings > Migration & Updates.
+|
+| These routes do not expose tenant installer/seeder operations.
+|
+*/
+
+Route::post(
+    '/admin/site-settings/updates',
+    [\App\Http\Controllers\Admin\PlatformUpdateController::class, 'store']
+)->middleware(['auth'])
+    ->name('admin.site-settings.updates.store');
+
+Route::patch(
+    '/admin/site-settings/updates/{updateId}/status',
+    [\App\Http\Controllers\Admin\PlatformUpdateController::class, 'status']
+)->middleware(['auth'])
+    ->whereNumber('updateId')
+    ->name('admin.site-settings.updates.status');
+
+Route::post(
+    '/admin/site-settings/updates/{updateId}/dry-run',
+    [\App\Http\Controllers\Admin\PlatformUpdateController::class, 'dryRun']
+)->middleware(['auth'])
+    ->whereNumber('updateId')
+    ->name('admin.site-settings.updates.dry-run');
+
+Route::post(
+    '/admin/site-settings/updates/{updateId}/execute',
+    [\App\Http\Controllers\Admin\PlatformUpdateController::class, 'execute']
+)->middleware(['auth'])
+    ->whereNumber('updateId')
+    ->name('admin.site-settings.updates.execute');
+
+/*
+|--------------------------------------------------------------------------
 | ESUBIZ_CENTRAL_SITE_PAGES_V1
 |--------------------------------------------------------------------------
 | Central Esubiz public-site page management only.
