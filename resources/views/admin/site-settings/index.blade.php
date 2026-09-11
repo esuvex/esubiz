@@ -1745,6 +1745,7 @@
                                         <div class="es-premium-field-v1">
                                             <label>Country</label>
                                             <select
+                                                id="es-main-country-v21"
                                                 name="country"
                                                 class="es-premium-select-v1"
                                             >
@@ -1767,6 +1768,7 @@
                                         <div class="es-premium-field-v1">
                                             <label>Default Timezone</label>
                                             <select
+                                                id="es-main-timezone-v21"
                                                 name="timezone"
                                                 class="es-premium-select-v1"
                                             >
@@ -1784,7 +1786,123 @@
                                                     </option>
                                                 @endforeach
                                             </select>
+
+                                            <small
+                                                style="
+                                                    display:block;
+                                                    margin-top:7px;
+                                                    color:#64748b;
+                                                    font-size:12px;
+                                                    line-height:1.5;
+                                                "
+                                            >
+                                                Automatically selected from the default country.
+                                                You can still choose another timezone when required.
+                                            </small>
                                         </div>
+
+                                        {{-- ESUBIZ_COUNTRY_TIMEZONE_SAFE_V21 --}}
+                                        <script>
+                                            document.addEventListener(
+                                                'DOMContentLoaded',
+                                                function () {
+                                                    const countrySelect =
+                                                        document.getElementById(
+                                                            'es-main-country-v21'
+                                                        );
+
+                                                    const timezoneSelect =
+                                                        document.getElementById(
+                                                            'es-main-timezone-v21'
+                                                        );
+
+                                                    if (
+                                                        !countrySelect ||
+                                                        !timezoneSelect
+                                                    ) {
+                                                        return;
+                                                    }
+
+                                                    const preferred = {
+                                                        NG: 'Africa/Lagos',
+                                                        GH: 'Africa/Accra',
+                                                        GB: 'Europe/London',
+                                                        AE: 'Asia/Dubai',
+                                                        JP: 'Asia/Tokyo',
+                                                        CN: 'Asia/Shanghai',
+                                                        IN: 'Asia/Kolkata',
+                                                        ZA: 'Africa/Johannesburg',
+                                                        KE: 'Africa/Nairobi',
+                                                        US: 'America/New_York',
+                                                        CA: 'America/Toronto',
+                                                        BR: 'America/Sao_Paulo',
+                                                        AU: 'Australia/Sydney',
+                                                        NZ: 'Pacific/Auckland',
+                                                        MX: 'America/Mexico_City',
+                                                        ID: 'Asia/Jakarta',
+                                                        RU: 'Europe/Moscow',
+                                                        UA: 'Europe/Kyiv',
+                                                        ES: 'Europe/Madrid',
+                                                        PT: 'Europe/Lisbon'
+                                                    };
+
+                                                    const countryTimezones =
+                                                        @json(
+                                                            config(
+                                                                'esubiz_country_timezones',
+                                                                []
+                                                            )
+                                                        );
+
+                                                    countrySelect.addEventListener(
+                                                        'change',
+                                                        function () {
+                                                            const country =
+                                                                String(
+                                                                    this.value || ''
+                                                                ).toUpperCase();
+
+                                                            const timezone =
+                                                                preferred[country]
+                                                                || countryTimezones[country]
+                                                                || null;
+
+                                                            if (!timezone) {
+                                                                return;
+                                                            }
+
+                                                            const exists =
+                                                                Array.from(
+                                                                    timezoneSelect.options
+                                                                ).some(
+                                                                    function (option) {
+                                                                        return (
+                                                                            option.value
+                                                                            === timezone
+                                                                        );
+                                                                    }
+                                                                );
+
+                                                            if (!exists) {
+                                                                return;
+                                                            }
+
+                                                            timezoneSelect.value =
+                                                                timezone;
+
+                                                            timezoneSelect.dispatchEvent(
+                                                                new Event(
+                                                                    'change',
+                                                                    {
+                                                                        bubbles: true
+                                                                    }
+                                                                )
+                                                            );
+                                                        }
+                                                    );
+                                                }
+                                            );
+                                        </script>
 
                                         <div class="es-premium-field-v1">
                                             <label>Default Language</label>
@@ -5141,6 +5259,7 @@
                                             </thead>
 
                                             <tbody>
+{{-- ESUBIZ_NOTICE_TABLE_CENTRAL_TIMEZONE_V23 --}}
                                                 @foreach($dashboardNotices as $notice)
                                                     @php
                                                         $noticeImageUrl =
@@ -5149,6 +5268,17 @@
                                                                     \App\Services\Media\CentralMediaService::class
                                                                 )->url($notice->image_path)
                                                                 : null;
+
+                                                        /*
+                                                         * ESUBIZ_NOTICE_CENTRAL_TIMEZONE_DISPLAY_V22
+                                                         *
+                                                         * Stored timestamps are UTC.
+                                                         * Convert only for Central Admin display/editing.
+                                                         */
+                                                        $noticeTimezoneV22 =
+                                                            app(
+                                                                \App\Services\Platform\CentralTimezoneService::class
+                                                            );
 
                                                         $noticePayload = [
                                                             'id' => (int) $notice->id,
@@ -5165,10 +5295,18 @@
                                                             'target_type' => (string) ($notice->target_type ?? 'all'),
                                                             'tenant_ids' => array_values($notice->tenant_ids ?? []),
                                                             'published_at' => $notice->published_at
-                                                                ? $notice->published_at->format('Y-m-d\TH:i')
+                                                                ? $noticeTimezoneV22
+                                                                    ->fromUtc(
+                                                                        $notice->published_at
+                                                                    )
+                                                                    ->format('Y-m-d\TH:i')
                                                                 : null,
                                                             'expires_at' => $notice->expires_at
-                                                                ? $notice->expires_at->format('Y-m-d\TH:i')
+                                                                ? $noticeTimezoneV22
+                                                                    ->fromUtc(
+                                                                        $notice->expires_at
+                                                                    )
+                                                                    ->format('Y-m-d\TH:i')
                                                                 : null,
                                                             'image_url' => $noticeImageUrl,
                                                             'rotation_enabled' => (bool) $notice->rotation_enabled,
@@ -5400,13 +5538,21 @@
 
                                                         <td>
                                                             {{ $notice->published_at
-                                                                ? $notice->published_at->format('d M Y, H:i')
+                                                                ? $noticeTimezoneV22
+                                                                        ->fromUtc(
+                                                                            $notice->published_at
+                                                                        )
+                                                                        ->format('d M Y, H:i')
                                                                 : 'Immediate' }}
                                                         </td>
 
                                                         <td>
                                                             {{ $notice->expires_at
-                                                                ? $notice->expires_at->format('d M Y, H:i')
+                                                                ? $noticeTimezoneV22
+                                                                        ->fromUtc(
+                                                                            $notice->expires_at
+                                                                        )
+                                                                        ->format('d M Y, H:i')
                                                                 : 'No expiry' }}
                                                         </td>
 
@@ -7636,56 +7782,15 @@
                                             );
 
                                         /*
-                                         * V41 TIMEZONE FIX
+                                         * ESUBIZ_NOTICE_CENTRAL_TIMEZONE_SUBMIT_V22
                                          *
-                                         * datetime-local contains no timezone.
-                                         * Treat the entered value as browser
-                                         * local time and send an ISO UTC value
-                                         * to Laravel.
+                                         * Do not let the browser reinterpret
+                                         * datetime-local values.
                                          *
-                                         * The application/database can remain
-                                         * safely standardized on UTC.
+                                         * Raw local values are submitted and the
+                                         * server converts them from the configured
+                                         * Central timezone to UTC.
                                          */
-                                        [
-                                            'published_at',
-                                            'expires_at'
-                                        ].forEach(
-                                            function (fieldName) {
-                                                const field =
-                                                    form.querySelector(
-                                                        '[name="'
-                                                        + fieldName
-                                                        + '"]'
-                                                    );
-
-                                                const value =
-                                                    field
-                                                        ?.value
-                                                        ?.trim();
-
-                                                if (!value) {
-                                                    return;
-                                                }
-
-                                                const localDate =
-                                                    new Date(
-                                                        value
-                                                    );
-
-                                                if (
-                                                    !Number.isNaN(
-                                                        localDate
-                                                            .getTime()
-                                                    )
-                                                ) {
-                                                    data.set(
-                                                        fieldName,
-                                                        localDate
-                                                            .toISOString()
-                                                    );
-                                                }
-                                            }
-                                        );
 
                                         /*
                                          * Disabled controls are omitted by

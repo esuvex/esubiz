@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\DashboardNotice;
 use App\Services\Media\CentralMediaService;
+use App\Services\Platform\CentralTimezoneService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -171,6 +172,56 @@ class DashboardNoticeController extends Controller
     }
 
     /*
+     * ESUBIZ_DASHBOARD_NOTICE_CENTRAL_TIMEZONE_V22
+     *
+     * Dashboard Notice datetime-local fields contain no timezone.
+     * Interpret them using the configured Central timezone, then
+     * convert to UTC before persistence.
+     *
+     * This does NOT change Laravel/server/database/cron/queue
+     * timezone configuration. UTC remains the backend source of truth.
+     */
+    private function normalizeNoticeTimesToUtc(
+        array $data,
+        CentralTimezoneService $timezone
+    ): array {
+        foreach (
+            ['published_at', 'expires_at']
+            as $field
+        ) {
+            $value = trim(
+                (string) (
+                    $data[$field]
+                    ?? ''
+                )
+            );
+
+            if ($value === '') {
+                $data[$field] = null;
+                continue;
+            }
+
+            $data[$field] =
+                $timezone->toUtc($value);
+        }
+
+        if (
+            !empty($data['published_at'])
+            && !empty($data['expires_at'])
+            && $data['expires_at']
+                <= $data['published_at']
+        ) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'expires_at' =>
+                    'Expiry date and time must be after the publish date and time.',
+            ]);
+        }
+
+        return $data;
+    }
+
+
+    /*
      * Normalize Dashboard Notice delivery from one authoritative
      * multi-channel request contract.
      *
@@ -323,12 +374,19 @@ class DashboardNoticeController extends Controller
 
     public function store(
         Request $request,
-        CentralMediaService $media
+        CentralMediaService $media,
+        CentralTimezoneService $timezone
     ): JsonResponse
     {
         $data = $request->validate(
             $this->noticeRules()
         );
+
+        $data =
+            $this->normalizeNoticeTimesToUtc(
+                $data,
+                $timezone
+            );
 
         $data =
             $this->normalizeDeliveryData(
@@ -388,7 +446,8 @@ class DashboardNoticeController extends Controller
     public function update(
         Request $request,
         int $noticeId,
-        CentralMediaService $media
+        CentralMediaService $media,
+        CentralTimezoneService $timezone
     ): JsonResponse
     {
         $notice =
@@ -398,6 +457,12 @@ class DashboardNoticeController extends Controller
         $data =
             $request->validate(
                 $this->noticeRules()
+            );
+
+        $data =
+            $this->normalizeNoticeTimesToUtc(
+                $data,
+                $timezone
             );
 
         $data =
