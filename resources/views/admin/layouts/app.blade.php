@@ -90,6 +90,23 @@
         }
     </style>
 
+
+    {{-- ESUBIZ_CENTRAL_CANONICAL_FAVICON_V6 --}}
+    <link
+        rel="icon"
+        href="{{ url('/media/branding/favicon.png') }}"
+    >
+    <link
+        rel="shortcut icon"
+        href="{{ url('/media/branding/favicon.png') }}"
+    >
+
+    {{-- ESUBIZ_INTERNAL_NOINDEX_V13 --}}
+    <meta
+        name="robots"
+        content="noindex,nofollow,noarchive"
+    >
+
 </head>
 
 <body class="bg-slate-100">
@@ -135,16 +152,14 @@
 
         <div class="flex items-center justify-between px-6 py-6 border-b border-slate-800">
 
-            <div>
-
-                <h1 class="text-3xl font-extrabold tracking-wide">
-                    ESUBIZ
-                </h1>
-
-                <p class="text-slate-400 text-sm mt-2">
-                    Business Operating System
-                </p>
-
+            <div class="min-w-0">
+                {{-- ESUBIZ_CANONICAL_WHITE_INTERNAL_LOGO_V11 --}}
+                <x-media.image
+                    src="{{ url('/media/branding/esubiz-logo.png') }}"
+                    alt="Esubiz"
+                    class="w-[180px] h-[60px] max-w-[180px] max-h-[60px] object-contain object-left"
+                    style="filter: brightness(0) invert(1);"
+                />
             </div>
 
             <button

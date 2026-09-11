@@ -6,10 +6,35 @@
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Esubiz - The Business Operating System</title>
+    {{-- ESUBIZ_CENTRAL_GLOBAL_SEO_HOME_V13 --}}
+    @php
+        $esHomeSettingsV10 = app(
+            \App\Services\Platform\CentralSiteSettingsService::class
+        );
+
+        $esHomeTitleV10 =
+            $esHomeSettingsV10->get(
+                'seo.site_title',
+                'Esubiz — Build, Manage & Grow Your Business Online'
+            );
+    @endphp
+
+    <title>{{ $esHomeTitleV10 }}</title>
+
+    @include('partials.central-seo')
 
     @vite(['resources/css/app.css','resources/js/app.js'])
 
+
+    {{-- ESUBIZ_CENTRAL_CANONICAL_FAVICON_V6 --}}
+    <link
+        rel="icon"
+        href="{{ url('/media/branding/favicon.png') }}"
+    >
+    <link
+        rel="shortcut icon"
+        href="{{ url('/media/branding/favicon.png') }}"
+    >
 </head>
 
 

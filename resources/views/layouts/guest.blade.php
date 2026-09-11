@@ -13,7 +13,24 @@
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
-    </head>
+
+    {{-- ESUBIZ_CENTRAL_CANONICAL_FAVICON_V6 --}}
+    <link
+        rel="icon"
+        href="{{ url('/media/branding/favicon.png') }}"
+    >
+    <link
+        rel="shortcut icon"
+        href="{{ url('/media/branding/favicon.png') }}"
+    >
+
+    {{-- ESUBIZ_INTERNAL_NOINDEX_V13 --}}
+    <meta
+        name="robots"
+        content="noindex,nofollow,noarchive"
+    >
+
+</head>
     <body class="font-sans text-gray-900 antialiased">
         <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 bg-gray-100">
             <div>

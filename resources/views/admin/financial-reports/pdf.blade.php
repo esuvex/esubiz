@@ -14,6 +14,16 @@
         .credit { color: #059669; }
         .debit { color: #dc2626; }
     </style>
+
+    {{-- ESUBIZ_CENTRAL_CANONICAL_FAVICON_V6 --}}
+    <link
+        rel="icon"
+        href="{{ url('/media/branding/favicon.png') }}"
+    >
+    <link
+        rel="shortcut icon"
+        href="{{ url('/media/branding/favicon.png') }}"
+    >
 </head>
 <body>
 

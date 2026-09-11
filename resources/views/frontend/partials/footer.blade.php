@@ -13,10 +13,12 @@
 
                 <a href="{{ route('home') }}" class="inline-flex">
 
-                    <x-media.image
+                    {{-- ESUBIZ_CANONICAL_WHITE_FOOTER_LOGO_V6 --}}
+<x-media.image
     src="{{ rtrim((string) config('services.esubiz.marketplace_url', config('app.url')), '/') . '/media/branding/esubiz-logo.png' }}"
     alt="Esubiz"
-    class="h-12 w-auto"
+    class="w-[180px] h-[60px] max-w-[180px] max-h-[60px] object-contain object-left"
+    style="filter: brightness(0) invert(1);"
 />
 
                 </a>

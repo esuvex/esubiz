@@ -461,6 +461,7 @@
             'general'   => 'General',
             'branding'  => 'Branding',
             'regional'  => 'Regional',
+            'seo'       => 'SEO',
             'system'    => 'System',
         ],
 
@@ -840,7 +841,1973 @@
                 {{ $currentSubs[$sub] ?? $tabs[$tab] }}
             </h2>
 
-            @if($tab === 'payments' && $sub === 'overview')
+            @if($tab === 'main')
+
+                {{-- ESUBIZ_MAIN_SETTINGS_PREMIUM_UI_V1 --}}
+
+                @php
+                    $esMainSettingsServiceV1 =
+                        app(
+                            \App\Services\Platform\CentralSiteSettingsService::class
+                        );
+
+                    $esMainSettingsV1 =
+                        $esMainSettingsServiceV1->all();
+
+                    $esSecondaryCurrenciesV1 =
+                        $esMainSettingsServiceV1
+                            ->secondaryCurrencies();
+
+                    $esSecondarySettingsV1 =
+                        $esMainSettingsServiceV1
+                            ->secondaryCurrencySettings();
+
+                    $esLogoPathV1 =
+                        $esMainSettingsServiceV1
+                            ->logoPath();
+
+                    $esFaviconPathV1 =
+                        $esMainSettingsServiceV1
+                            ->faviconPath();
+
+                    $esBrandingUrlV1 =
+                        function (?string $path) {
+                            if (!$path) {
+                                return null;
+                            }
+
+                            if (
+                                \Illuminate\Support\Str::startsWith(
+                                    $path,
+                                    [
+                                        'http://',
+                                        'https://',
+                                    ]
+                                )
+                            ) {
+                                return $path;
+                            }
+
+                            if (
+                                \Illuminate\Support\Str::startsWith(
+                                    $path,
+                                    '/storage/'
+                                )
+                            ) {
+                                return asset(
+                                    ltrim(
+                                        $path,
+                                        '/'
+                                    )
+                                );
+                            }
+
+                            return asset(
+                                'storage/'
+                                . ltrim(
+                                    $path,
+                                    '/'
+                                )
+                            );
+                        };
+
+                    /*
+                     * ESUBIZ_MAIN_SETTINGS_CANONICAL_BRANDING_V4
+                     *
+                     * Admin preview uses the exact same stable branding
+                     * URLs as the rest of Central Esubiz.
+                     */
+                    $esLogoUrlV1 =
+                        $esLogoPathV1
+                            ? url(
+                                '/media/branding/esubiz-logo.png'
+                            )
+                                . '?v='
+                                . md5($esLogoPathV1)
+                            : null;
+
+                    $esFaviconUrlV1 =
+                        $esFaviconPathV1
+                            ? url(
+                                '/media/branding/favicon.png'
+                            )
+                                . '?v='
+                                . md5($esFaviconPathV1)
+                            : null;
+
+                    /*
+                     * ESUBIZ_WORLD_CURRENCIES_V14
+                     *
+                     * One Central source feeds both:
+                     * - Primary Currency dropdown
+                     * - Secondary Currency multi-checkbox dropdown
+                     */
+                    $esCurrencyOptionsV1 =
+                        config(
+                            'esubiz_currencies',
+                            [
+                                'NGN' => 'Nigerian Naira',
+                                'USD' => 'US Dollar',
+                                'GBP' => 'British Pound Sterling',
+                                'EUR' => 'Euro',
+                            ]
+                        );
+
+                    /*
+                     * ESUBIZ_WORLD_COUNTRIES_V17
+                     *
+                     * One Central ISO country directory for
+                     * current and future Esubiz settings.
+                     */
+                    $esCountryOptionsV1 =
+                        config(
+                            'esubiz_countries',
+                            [
+                                'NG' => 'Nigeria',
+                            ]
+                        );
+                @endphp
+
+                <style>
+                    .es-main-premium-v1 {
+                        --es-navy: #0b1f3a;
+                        --es-gold: #c89b3c;
+                        --es-border: rgba(15, 23, 42, .10);
+                        --es-soft: #f8fafc;
+                        display: grid;
+                        gap: 18px;
+                        width: 100%;
+                        min-width: 0;
+                    }
+
+                    .es-main-premium-v1 *,
+                    .es-main-premium-v1 *::before,
+                    .es-main-premium-v1 *::after {
+                        box-sizing: border-box;
+                    }
+
+                    .es-main-hero-v1 {
+                        position: relative;
+                        overflow: hidden;
+                        border-radius: 20px;
+                        padding: 24px;
+                        background:
+                            linear-gradient(
+                                135deg,
+                                #0b1f3a,
+                                #16345f
+                            );
+                        color: #fff;
+                        box-shadow:
+                            0 14px 34px
+                            rgba(11,31,58,.16);
+                    }
+
+                    .es-main-hero-v1::after {
+                        content: "";
+                        position: absolute;
+                        width: 190px;
+                        height: 190px;
+                        border-radius: 50%;
+                        right: -55px;
+                        top: -70px;
+                        background:
+                            rgba(200,155,60,.17);
+                    }
+
+                    .es-main-eyebrow-v1 {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 7px;
+                        padding: 6px 10px;
+                        border-radius: 999px;
+                        background:
+                            rgba(255,255,255,.10);
+                        border:
+                            1px solid
+                            rgba(255,255,255,.14);
+                        font-size: 11px;
+                        font-weight: 800;
+                        letter-spacing: .08em;
+                        text-transform: uppercase;
+                    }
+
+                    .es-main-hero-v1 h3 {
+                        margin: 13px 0 6px;
+                        font-size: 22px;
+                        font-weight: 800;
+                        color: #fff;
+                    }
+
+                    .es-main-hero-v1 p {
+                        margin: 0;
+                        max-width: 730px;
+                        color:
+                            rgba(255,255,255,.78);
+                        line-height: 1.65;
+                        font-size: 13px;
+                    }
+
+                    .es-premium-card-v1 {
+                        background: #fff;
+                        border:
+                            1px solid
+                            var(--es-border);
+                        border-radius: 20px;
+                        box-shadow:
+                            0 8px 26px
+                            rgba(15,23,42,.05);
+                        overflow: hidden;
+                    }
+
+                    .es-premium-card-head-v1 {
+                        display: flex;
+                        align-items: flex-start;
+                        justify-content: space-between;
+                        gap: 15px;
+                        padding: 20px 22px;
+                        border-bottom:
+                            1px solid
+                            var(--es-border);
+                    }
+
+                    .es-premium-card-head-v1 h4 {
+                        margin: 0 0 5px;
+                        color: var(--es-navy);
+                        font-size: 15px;
+                        font-weight: 800;
+                    }
+
+                    .es-premium-card-head-v1 p {
+                        margin: 0;
+                        color: #64748b;
+                        font-size: 12px;
+                        line-height: 1.55;
+                    }
+
+                    .es-premium-body-v1 {
+                        padding: 22px;
+                    }
+
+                    .es-premium-grid-v1 {
+                        display: grid;
+                        grid-template-columns:
+                            repeat(2, minmax(0,1fr));
+                        gap: 18px;
+                    }
+
+                    .es-premium-full-v1 {
+                        grid-column: 1 / -1;
+                    }
+
+                    .es-premium-field-v1 {
+                        min-width: 0;
+                    }
+
+                    .es-premium-field-v1 label {
+                        display: block;
+                        margin-bottom: 7px;
+                        color: #334155;
+                        font-size: 12px;
+                        font-weight: 750;
+                    }
+
+                    .es-premium-field-v1 small {
+                        display: block;
+                        margin-top: 6px;
+                        color: #94a3b8;
+                        font-size: 11px;
+                        line-height: 1.45;
+                    }
+
+                    .es-premium-input-v1,
+                    .es-premium-select-v1,
+                    .es-premium-textarea-v1 {
+                        width: 100%;
+                        min-width: 0;
+                        border:
+                            1px solid #dce3ec;
+                        border-radius: 12px;
+                        background: #fff;
+                        color: #0f172a;
+                        outline: none;
+                        font-size: 13px;
+                        transition:
+                            border-color .18s,
+                            box-shadow .18s;
+                    }
+
+                    .es-premium-input-v1,
+                    .es-premium-select-v1 {
+                        height: 44px;
+                        padding: 0 12px;
+                    }
+
+                    .es-premium-textarea-v1 {
+                        min-height: 104px;
+                        padding: 11px 12px;
+                        resize: vertical;
+                    }
+
+                    .es-premium-input-v1:focus,
+                    .es-premium-select-v1:focus,
+                    .es-premium-textarea-v1:focus {
+                        border-color:
+                            rgba(200,155,60,.85);
+                        box-shadow:
+                            0 0 0 3px
+                            rgba(200,155,60,.10);
+                    }
+
+                    .es-premium-savebar-v1 {
+                        display: flex;
+                        align-items: center;
+                        justify-content: flex-end;
+                        gap: 10px;
+                        padding: 17px 22px;
+                        border-top:
+                            1px solid
+                            var(--es-border);
+                        background: #fbfcfe;
+                    }
+
+                    .es-premium-save-v1 {
+                        border: 0;
+                        border-radius: 11px;
+                        background: var(--es-navy);
+                        color: #fff;
+                        font-weight: 800;
+                        font-size: 12px;
+                        min-height: 42px;
+                        padding: 0 20px;
+                        cursor: pointer;
+                        box-shadow:
+                            0 7px 16px
+                            rgba(11,31,58,.14);
+                    }
+
+                    .es-brand-grid-v1 {
+                        display: grid;
+                        grid-template-columns:
+                            minmax(0,1.6fr)
+                            minmax(220px,.8fr);
+                        gap: 18px;
+                    }
+
+                    .es-brand-tile-v1 {
+                        border:
+                            1px solid
+                            var(--es-border);
+                        border-radius: 16px;
+                        background:
+                            linear-gradient(
+                                180deg,
+                                #fff,
+                                #fbfcfe
+                            );
+                        padding: 18px;
+                    }
+
+                    .es-brand-preview-v1 {
+                        min-height: 112px;
+                        border:
+                            1px dashed
+                            #d8e0ea;
+                        border-radius: 14px;
+                        background: #f8fafc;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        margin-bottom: 15px;
+                        padding: 18px;
+                    }
+
+                    .es-brand-preview-v1 img {
+                        display: block;
+                        max-width: 100%;
+                        max-height: 80px;
+                        object-fit: contain;
+                    }
+
+                    .es-brand-preview-v1.favicon {
+                        min-height: 112px;
+                    }
+
+                    .es-brand-preview-v1.favicon img {
+                        width: 64px;
+                        height: 64px;
+                    }
+
+                    .es-current-badge-v1 {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 6px;
+                        color: #166534;
+                        background: #f0fdf4;
+                        border:
+                            1px solid #bbf7d0;
+                        border-radius: 999px;
+                        padding: 5px 9px;
+                        font-size: 10px;
+                        font-weight: 800;
+                        margin-bottom: 12px;
+                    }
+
+                    .es-upload-v1 {
+                        width: 100%;
+                        border:
+                            1px solid #dce3ec;
+                        border-radius: 12px;
+                        background: #fff;
+                        padding: 9px;
+                        font-size: 12px;
+                    }
+
+                    .es-currency-shell-v1 {
+                        position: relative;
+                    }
+
+                    .es-currency-trigger-v1 {
+                        min-height: 44px;
+                        width: 100%;
+                        border:
+                            1px solid #dce3ec;
+                        border-radius: 12px;
+                        background: #fff;
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        gap: 12px;
+                        padding: 9px 12px;
+                        cursor: pointer;
+                    }
+
+                    .es-currency-tags-v1 {
+                        display: flex;
+                        flex-wrap: wrap;
+                        gap: 6px;
+                        min-width: 0;
+                    }
+
+                    .es-currency-tag-v1 {
+                        display: inline-flex;
+                        padding: 5px 8px;
+                        border-radius: 8px;
+                        background: #eef3f8;
+                        color: var(--es-navy);
+                        font-size: 10px;
+                        font-weight: 800;
+                    }
+
+                    .es-currency-placeholder-v1 {
+                        color: #94a3b8;
+                        font-size: 12px;
+                    }
+
+                    .es-currency-panel-v1 {
+                        display: none;
+                        position: absolute;
+                        z-index: 30;
+                        left: 0;
+                        right: 0;
+                        top: calc(100% + 7px);
+                        background: #fff;
+                        border:
+                            1px solid #dce3ec;
+                        border-radius: 14px;
+                        padding: 10px;
+                        box-shadow:
+                            0 18px 40px
+                            rgba(15,23,42,.13);
+                    }
+
+                    .es-currency-panel-v1.open {
+                        display: block;
+                    }
+
+                    .es-currency-search-v1 {
+                        width: 100%;
+                        height: 38px;
+                        border:
+                            1px solid #dce3ec;
+                        border-radius: 9px;
+                        padding: 0 10px;
+                        margin-bottom: 8px;
+                        font-size: 12px;
+                    }
+
+                    .es-currency-options-v1 {
+                        max-height: 220px;
+                        overflow-y: auto;
+                    }
+
+                    .es-currency-option-v1 {
+                        display: flex;
+                        align-items: center;
+                        gap: 9px;
+                        padding: 9px 8px;
+                        border-radius: 8px;
+                        font-size: 12px;
+                        cursor: pointer;
+                    }
+
+                    .es-currency-option-v1:hover {
+                        background: #f8fafc;
+                    }
+
+                    .es-currency-option-v1 input {
+                        width: 14px;
+                        height: 14px;
+                    }
+
+                    .es-markup-stack-v1 {
+                        display: grid;
+                        gap: 10px;
+                        margin-top: 15px;
+                    }
+
+                    .es-markup-row-v1 {
+                        display: none;
+                        grid-template-columns:
+                            minmax(0,1fr)
+                            minmax(140px,.7fr)
+                            minmax(140px,.7fr);
+                        gap: 12px;
+                        align-items: end;
+                        padding: 14px;
+                        border:
+                            1px solid
+                            var(--es-border);
+                        border-radius: 13px;
+                        background: #fafcff;
+                    }
+
+                    .es-markup-row-v1.active {
+                        display: grid;
+                    }
+
+                    .es-markup-code-v1 {
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        min-height: 44px;
+                    }
+
+                    .es-markup-symbol-v1 {
+                        width: 38px;
+                        height: 38px;
+                        border-radius: 10px;
+                        display: grid;
+                        place-items: center;
+                        background: var(--es-navy);
+                        color: #fff;
+                        font-size: 11px;
+                        font-weight: 800;
+                    }
+
+                    .es-system-status-v1 {
+                        display: grid;
+                        grid-template-columns:
+                            repeat(3, minmax(0,1fr));
+                        gap: 12px;
+                    }
+
+                    .es-system-chip-v1 {
+                        border:
+                            1px solid
+                            var(--es-border);
+                        border-radius: 14px;
+                        padding: 15px;
+                        background: #fbfcfe;
+                    }
+
+                    .es-system-chip-v1 strong {
+                        display: block;
+                        color: var(--es-navy);
+                        font-size: 12px;
+                        margin-bottom: 4px;
+                    }
+
+                    .es-system-chip-v1 span {
+                        color: #64748b;
+                        font-size: 11px;
+                        line-height: 1.45;
+                    }
+
+                    @media (max-width: 760px) {
+                        .es-premium-grid-v1,
+                        .es-brand-grid-v1,
+                        .es-system-status-v1 {
+                            grid-template-columns: 1fr;
+                        }
+
+                        .es-markup-row-v1.active {
+                            grid-template-columns: 1fr;
+                        }
+
+                        .es-main-hero-v1,
+                        .es-premium-body-v1,
+                        .es-premium-card-head-v1 {
+                            padding-left: 16px;
+                            padding-right: 16px;
+                        }
+
+                        .es-premium-savebar-v1 {
+                            padding:
+                                14px 16px;
+                        }
+
+                        .es-premium-save-v1 {
+                            width: 100%;
+                        }
+                    }
+                </style>
+
+                <div class="es-main-premium-v1">
+
+                    <div class="es-main-hero-v1">
+                        <span class="es-main-eyebrow-v1">
+                            Esubiz Platform
+                        </span>
+
+                        <h3>
+                            {{ $currentSubs[$sub] ?? 'Main Settings' }}
+                        </h3>
+
+                        <p>
+                            Central Esubiz is the source of truth for shared platform configuration used across Central, SaaS and connected off-server websites.
+                        </p>
+                    </div>
+
+                    @if(session('success'))
+                        <div class="alert alert-success mb-0">
+                            {{ session('success') }}
+                        </div>
+                    @endif
+
+                    @if($errors->any())
+                        <div class="alert alert-danger mb-0">
+                            {{ $errors->first() }}
+                        </div>
+                    @endif
+
+                    @if($sub === 'general')
+
+                        <form
+                            method="POST"
+                            action="{{ route('admin.site-settings.main.update') }}"
+                            class="es-premium-card-v1"
+                        >
+                            @csrf
+                            @method('PATCH')
+
+                            <input
+                                type="hidden"
+                                name="section"
+                                value="general"
+                            >
+
+                            <div class="es-premium-card-head-v1">
+                                <div>
+                                    <h4>Platform Identity</h4>
+                                    <p>
+                                        Core business information used across the Esubiz platform.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="es-premium-body-v1">
+                                <div class="es-premium-grid-v1">
+
+                                    <div class="es-premium-field-v1">
+                                        <label>Site Name</label>
+                                        <input
+                                            class="es-premium-input-v1"
+                                            type="text"
+                                            name="site_name"
+                                            value="{{ old('site_name', $esMainSettingsV1['platform.site_name'] ?? 'Esubiz') }}"
+                                            required
+                                        >
+                                    </div>
+
+                                    <div class="es-premium-field-v1">
+                                        <label>Registration Number</label>
+                                        <input
+                                            class="es-premium-input-v1"
+                                            type="text"
+                                            name="registration_number"
+                                            value="{{ old('registration_number', $esMainSettingsV1['platform.registration_number'] ?? '') }}"
+                                            placeholder="Company registration number"
+                                        >
+                                    </div>
+
+                                    <div class="es-premium-field-v1">
+                                        <label>Business Email</label>
+                                        <input
+                                            class="es-premium-input-v1"
+                                            type="email"
+                                            name="business_email"
+                                            value="{{ old('business_email', $esMainSettingsV1['platform.business_email'] ?? '') }}"
+                                        >
+                                    </div>
+
+                                    <div class="es-premium-field-v1">
+                                        <label>Support Email</label>
+                                        <input
+                                            class="es-premium-input-v1"
+                                            type="email"
+                                            name="support_email"
+                                            value="{{ old('support_email', $esMainSettingsV1['platform.support_email'] ?? '') }}"
+                                        >
+                                    </div>
+
+                                    <div class="es-premium-field-v1">
+                                        <label>Phone</label>
+                                        <input
+                                            class="es-premium-input-v1"
+                                            type="text"
+                                            name="phone"
+                                            value="{{ old('phone', $esMainSettingsV1['platform.phone'] ?? '') }}"
+                                        >
+                                    </div>
+
+                                    <div class="es-premium-field-v1 es-premium-full-v1">
+                                        <label>Business Address</label>
+                                        <textarea
+                                            class="es-premium-textarea-v1"
+                                            name="address"
+                                        >{{ old('address', $esMainSettingsV1['platform.address'] ?? '') }}</textarea>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            <div class="es-premium-savebar-v1">
+                                <button
+                                    type="submit"
+                                    class="es-premium-save-v1"
+                                >
+                                    Save General Settings
+                                </button>
+                            </div>
+                        </form>
+
+                    @elseif($sub === 'branding')
+
+                        <form
+                            method="POST"
+                            enctype="multipart/form-data"
+                            action="{{ route('admin.site-settings.main.update') }}"
+                            class="es-premium-card-v1"
+                        >
+                            @csrf
+                            @method('PATCH')
+
+                            <input
+                                type="hidden"
+                                name="section"
+                                value="branding"
+                            >
+
+                            <div class="es-premium-card-head-v1">
+                                <div>
+                                    <h4>Brand Assets</h4>
+                                    <p>
+                                        Existing Central branding appears automatically. Upload only when replacing an asset.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="es-premium-body-v1">
+                                <div class="es-brand-grid-v1">
+
+                                    <div class="es-brand-tile-v1">
+
+                                        @if($esLogoUrlV1)
+                                            <span class="es-current-badge-v1">
+                                                ● Current Logo
+                                            </span>
+                                        @endif
+
+                                        <div class="es-brand-preview-v1">
+                                            @if($esLogoUrlV1)
+                                                <img
+                                                    id="esMainLogoPreviewV1"
+                                                    src="{{ $esLogoUrlV1 }}"
+                                                    alt="Current Esubiz logo"
+                                                >
+                                            @else
+                                                <span class="text-muted">
+                                                    No logo saved
+                                                </span>
+                                            @endif
+                                        </div>
+
+                                        <div class="es-premium-field-v1">
+                                            <label>Replace Logo</label>
+
+                                            <input
+                                                id="esMainLogoInputV1"
+                                                class="es-upload-v1"
+                                                type="file"
+                                                name="logo"
+                                                accept=".png,.jpg,.jpeg,.webp,.svg,image/*"
+                                            >
+
+                                            <small>
+                                                Recommended: 180 × 60 px. PNG, JPG, WebP or SVG.
+                                            </small>
+                                        </div>
+                                    </div>
+
+                                    <div class="es-brand-tile-v1">
+
+                                        @if($esFaviconUrlV1)
+                                            <span class="es-current-badge-v1">
+                                                ● Current Favicon
+                                            </span>
+                                        @endif
+
+                                        <div class="es-brand-preview-v1 favicon">
+                                            @if($esFaviconUrlV1)
+                                                <img
+                                                    id="esMainFaviconPreviewV1"
+                                                    src="{{ $esFaviconUrlV1 }}"
+                                                    alt="Current Esubiz favicon"
+                                                >
+                                            @else
+                                                <span class="text-muted">
+                                                    No favicon saved
+                                                </span>
+                                            @endif
+                                        </div>
+
+                                        <div class="es-premium-field-v1">
+                                            <label>Replace Favicon</label>
+
+                                            <input
+                                                id="esMainFaviconInputV1"
+                                                class="es-upload-v1"
+                                                type="file"
+                                                name="favicon"
+                                                accept=".png,.jpg,.jpeg,.webp,.svg,.ico,image/*"
+                                            >
+
+                                            <small>
+                                                Recommended: 64 × 64 or 128 × 128 px.
+                                            </small>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            <div class="es-premium-savebar-v1">
+                                <button
+                                    type="submit"
+                                    class="es-premium-save-v1"
+                                >
+                                    Save Branding
+                                </button>
+                            </div>
+                        </form>
+
+                    @elseif($sub === 'regional')
+
+                        <form
+                            method="POST"
+                            action="{{ route('admin.site-settings.main.update') }}"
+                            class="es-main-premium-v1"
+                        >
+                            @csrf
+                            @method('PATCH')
+
+                            <input
+                                type="hidden"
+                                name="section"
+                                value="regional"
+                            >
+
+                            <div class="es-premium-card-v1">
+
+                                <div class="es-premium-card-head-v1">
+                                    <div>
+                                        <h4>Region & Localization</h4>
+                                        <p>
+                                            Authoritative timezone, country, language and display formats.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div class="es-premium-body-v1">
+                                    <div class="es-premium-grid-v1">
+
+                                        <div class="es-premium-field-v1">
+                                            <label>Country</label>
+                                            <select
+                                                name="country"
+                                                class="es-premium-select-v1"
+                                            >
+                                                @foreach($esCountryOptionsV1 as $code => $country)
+                                                    <option
+                                                        value="{{ $code }}"
+                                                        @selected(
+                                                            old(
+                                                                'country',
+                                                                $esMainSettingsV1['platform.country'] ?? 'NG'
+                                                            ) === $code
+                                                        )
+                                                    >
+                                                        {{ $country }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+
+                                        <div class="es-premium-field-v1">
+                                            <label>Default Timezone</label>
+                                            <select
+                                                name="timezone"
+                                                class="es-premium-select-v1"
+                                            >
+                                                @foreach(\DateTimeZone::listIdentifiers() as $timezone)
+                                                    <option
+                                                        value="{{ $timezone }}"
+                                                        @selected(
+                                                            old(
+                                                                'timezone',
+                                                                $esMainSettingsV1['platform.timezone'] ?? 'Africa/Lagos'
+                                                            ) === $timezone
+                                                        )
+                                                    >
+                                                        {{ $timezone }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+
+                                        <div class="es-premium-field-v1">
+                                            <label>Default Language</label>
+                                            <select
+                                                name="language"
+                                                class="es-premium-select-v1"
+                                            >
+                                                @foreach(
+                                                    config(
+                                                        'esubiz_languages',
+                                                        [
+                                                            'en' => 'English',
+                                                        ]
+                                                    )
+                                                    as $code => $language
+                                                )
+                                                    <option
+                                                        value="{{ $code }}"
+                                                        @selected(
+                                                            old(
+                                                                'language',
+                                                                $esMainSettingsV1['platform.language'] ?? 'en'
+                                                            ) === $code
+                                                        )
+                                                    >
+                                                        {{ $language }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+
+                                        <div class="es-premium-field-v1">
+                                            <label>Week Starts On</label>
+                                            <select
+                                                name="week_start"
+                                                class="es-premium-select-v1"
+                                            >
+                                                @foreach([
+                                                    'monday' => 'Monday',
+                                                    'sunday' => 'Sunday',
+                                                    'saturday' => 'Saturday'
+                                                ] as $value => $label)
+                                                    <option
+                                                        value="{{ $value }}"
+                                                        @selected(
+                                                            ($esMainSettingsV1['platform.week_start'] ?? 'monday')
+                                                            === $value
+                                                        )
+                                                    >
+                                                        {{ $label }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+
+                                        <div class="es-premium-field-v1">
+                                            <label>Date Format</label>
+                                            <select
+                                                name="date_format"
+                                                class="es-premium-select-v1"
+                                            >
+                                                @foreach([
+                                                    'd M Y' => '11 Sep 2026',
+                                                    'd/m/Y' => '11/09/2026',
+                                                    'm/d/Y' => '09/11/2026',
+                                                    'Y-m-d' => '2026-09-11',
+                                                    'F j, Y' => 'September 11, 2026'
+                                                ] as $value => $label)
+                                                    <option
+                                                        value="{{ $value }}"
+                                                        @selected(
+                                                            ($esMainSettingsV1['platform.date_format'] ?? 'd M Y')
+                                                            === $value
+                                                        )
+                                                    >
+                                                        {{ $label }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+
+                                        <div class="es-premium-field-v1">
+                                            <label>Time Format</label>
+                                            <select
+                                                name="time_format"
+                                                class="es-premium-select-v1"
+                                            >
+                                                <option
+                                                    value="H:i"
+                                                    @selected(($esMainSettingsV1['platform.time_format'] ?? 'H:i') === 'H:i')
+                                                >
+                                                    24-hour — 20:30
+                                                </option>
+
+                                                <option
+                                                    value="h:i A"
+                                                    @selected(($esMainSettingsV1['platform.time_format'] ?? '') === 'h:i A')
+                                                >
+                                                    12-hour — 08:30 PM
+                                                </option>
+                                            </select>
+                                        </div>
+
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="es-premium-card-v1">
+
+                                <div class="es-premium-card-head-v1">
+                                    <div>
+                                        <h4>Global Currency</h4>
+                                        <p>
+                                            Primary prices remain authoritative. Secondary prices are converted live and receive the configured markup automatically.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div class="es-premium-body-v1">
+
+                                    <div class="es-premium-grid-v1">
+
+                                        <div class="es-premium-field-v1">
+                                            <label>Primary Currency</label>
+
+                                            <select
+                                                id="esPrimaryCurrencyV1"
+                                                name="primary_currency"
+                                                class="es-premium-select-v1"
+                                            >
+                                                @foreach($esCurrencyOptionsV1 as $code => $name)
+                                                    <option
+                                                        value="{{ $code }}"
+                                                        @selected(
+                                                            ($esMainSettingsV1['platform.currency.primary'] ?? 'NGN')
+                                                            === $code
+                                                        )
+                                                    >
+                                                        {{ $code }} — {{ $name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+
+                                            <small>
+                                                Esubiz product prices are stored in this currency.
+                                            </small>
+                                        </div>
+
+                                        <div class="es-premium-field-v1">
+                                            <label>Secondary Currencies</label>
+
+                                            <div
+                                                class="es-currency-shell-v1"
+                                                id="esCurrencyShellV1"
+                                            >
+                                                <button
+                                                    type="button"
+                                                    class="es-currency-trigger-v1"
+                                                    id="esCurrencyTriggerV1"
+                                                >
+                                                    <span
+                                                        class="es-currency-tags-v1"
+                                                        id="esCurrencyTagsV1"
+                                                    ></span>
+
+                                                    <span>⌄</span>
+                                                </button>
+
+                                                <div
+                                                    class="es-currency-panel-v1"
+                                                    id="esCurrencyPanelV1"
+                                                >
+                                                    <input
+                                                        type="search"
+                                                        class="es-currency-search-v1"
+                                                        id="esCurrencySearchV1"
+                                                        placeholder="Search currency..."
+                                                    >
+
+                                                    <div class="es-currency-options-v1">
+                                                        @foreach($esCurrencyOptionsV1 as $code => $name)
+                                                            <label
+                                                                class="es-currency-option-v1"
+                                                                data-search="{{ strtolower($code . ' ' . $name) }}"
+                                                                data-currency-option="{{ $code }}"
+                                                            >
+                                                                <input
+                                                                    type="checkbox"
+                                                                    name="secondary_currencies[]"
+                                                                    value="{{ $code }}"
+                                                                    data-secondary-currency-v1="{{ $code }}"
+                                                                    @checked(
+                                                                        in_array(
+                                                                            $code,
+                                                                            old(
+                                                                                'secondary_currencies',
+                                                                                $esSecondaryCurrenciesV1
+                                                                            ),
+                                                                            true
+                                                                        )
+                                                                    )
+                                                                >
+
+                                                                <span>
+                                                                    <strong>{{ $code }}</strong>
+                                                                    — {{ $name }}
+                                                                </span>
+                                                            </label>
+                                                        @endforeach
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <small>
+                                                Selecting a currency automatically opens its markup settings.
+                                            </small>
+                                        </div>
+
+                                        <div class="es-premium-field-v1">
+                                            <label>Currency Position</label>
+                                            <select
+                                                name="currency_position"
+                                                class="es-premium-select-v1"
+                                            >
+                                                <option
+                                                    value="before"
+                                                    @selected(($esMainSettingsV1['platform.currency_position'] ?? 'before') === 'before')
+                                                >
+                                                    Before amount — ₦10,000
+                                                </option>
+
+                                                <option
+                                                    value="after"
+                                                    @selected(($esMainSettingsV1['platform.currency_position'] ?? '') === 'after')
+                                                >
+                                                    After amount — 10,000 ₦
+                                                </option>
+                                            </select>
+                                        </div>
+
+                                        <div class="es-premium-field-v1">
+                                            <label>Number Format</label>
+                                            <select
+                                                name="number_format"
+                                                class="es-premium-select-v1"
+                                            >
+                                                @foreach([
+                                                    '1,234.56',
+                                                    '1.234,56',
+                                                    '1 234.56',
+                                                    '1 234,56'
+                                                ] as $format)
+                                                    <option
+                                                        value="{{ $format }}"
+                                                        @selected(
+                                                            ($esMainSettingsV1['platform.number_format'] ?? '1,234.56')
+                                                            === $format
+                                                        )
+                                                    >
+                                                        {{ $format }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+
+                                    </div>
+
+                                    <div
+                                        class="es-markup-stack-v1"
+                                        id="esMarkupStackV1"
+                                    >
+                                        @foreach($esCurrencyOptionsV1 as $code => $name)
+                                            @php
+                                                $currencyConfig =
+                                                    $esSecondarySettingsV1[$code]
+                                                    ?? [
+                                                        'markup_type' => 'percentage',
+                                                        'markup_value' => 0,
+                                                    ];
+                                            @endphp
+
+                                            <div
+                                                class="es-markup-row-v1 {{ in_array($code, $esSecondaryCurrenciesV1, true) ? 'active' : '' }}"
+                                                data-markup-currency-v1="{{ $code }}"
+                                            >
+                                                <div>
+                                                    <label
+                                                        style="
+                                                            display:block;
+                                                            margin-bottom:7px;
+                                                            font-size:12px;
+                                                            font-weight:750;
+                                                            color:#334155;
+                                                        "
+                                                    >
+                                                        {{ $code }} Pricing
+                                                    </label>
+
+                                                    <div class="es-markup-code-v1">
+                                                        <span class="es-markup-symbol-v1">
+                                                            {{ $code }}
+                                                        </span>
+
+                                                        <div>
+                                                            <strong
+                                                                style="
+                                                                    display:block;
+                                                                    color:#0b1f3a;
+                                                                    font-size:12px;
+                                                                "
+                                                            >
+                                                                {{ $name }}
+                                                            </strong>
+
+                                                            <small
+                                                                style="
+                                                                    color:#94a3b8;
+                                                                    font-size:10px;
+                                                                "
+                                                            >
+                                                                Live Frankfurter conversion
+                                                            </small>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="es-premium-field-v1">
+                                                    <label>Markup Type</label>
+
+                                                    <select
+                                                        name="secondary_settings[{{ $code }}][markup_type]"
+                                                        class="es-premium-select-v1"
+                                                    >
+                                                        <option
+                                                            value="percentage"
+                                                            @selected(($currencyConfig['markup_type'] ?? 'percentage') === 'percentage')
+                                                        >
+                                                            Percentage
+                                                        </option>
+
+                                                        <option
+                                                            value="fixed"
+                                                            @selected(($currencyConfig['markup_type'] ?? '') === 'fixed')
+                                                        >
+                                                            Fixed amount
+                                                        </option>
+                                                    </select>
+                                                </div>
+
+                                                <div class="es-premium-field-v1">
+                                                    <label>Markup Value</label>
+
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        class="es-premium-input-v1"
+                                                        name="secondary_settings[{{ $code }}][markup_value]"
+                                                        value="{{ $currencyConfig['markup_value'] ?? 0 }}"
+                                                    >
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+
+                                </div>
+
+                                <div class="es-premium-savebar-v1">
+                                    <button
+                                        type="submit"
+                                        class="es-premium-save-v1"
+                                    >
+                                        Save Regional Settings
+                                    </button>
+                                </div>
+                            </div>
+
+                        </form>
+
+
+        @elseif($sub === 'seo')
+            {{-- ESUBIZ_MAIN_SETTINGS_SEO_V10 --}}
+            @php
+                $esSeoSettingsV10 = app(
+                    \App\Services\Platform\CentralSiteSettingsService::class
+                )->all();
+            @endphp
+
+            <form
+                method="POST"
+                action="{{ route('admin.site-settings.main.update') }}"
+                class="space-y-6"
+            >
+                @csrf
+                @method('PATCH')
+
+                <input type="hidden"
+                    name="section"
+                    value="seo"
+                >
+
+                <div class="es-premium-card-v1">
+                    <div class="es-premium-card-head-v1">
+                        <div>
+                            <div style="font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#64748b;margin-bottom:6px;">
+                                Global Search Visibility
+                            </div>
+
+                            <h2>
+                                SEO
+                            </h2>
+
+                            <p>
+                                Optimize Esubiz for customers
+                                in Nigeria and worldwide.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="es-premium-grid-v1">
+
+                        <div style="grid-column:1 / -1;">
+                            <label>
+                                SEO Site Title
+                            </label>
+
+                            <input
+                                class="es-premium-input-v1"
+                                type="text"
+                                name="seo_site_title"
+                                maxlength="70"
+                                value="{{ old(
+                                    'seo_site_title',
+                                    $esSeoSettingsV10[
+                                        'seo.site_title'
+                                    ] ?? ''
+                                ) }}"
+                                required
+                            >
+                        </div>
+
+                        <div >
+                            <label>
+                                Title Suffix
+                            </label>
+
+                            <input
+                                class="es-premium-input-v1"
+                                type="text"
+                                name="seo_title_suffix"
+                                maxlength="40"
+                                value="{{ old(
+                                    'seo_title_suffix',
+                                    $esSeoSettingsV10[
+                                        'seo.title_suffix'
+                                    ] ?? 'Esubiz'
+                                ) }}"
+                            >
+                        </div>
+
+                        <div >
+                            <label>
+                                Canonical URL
+                            </label>
+
+                            <input
+                                class="es-premium-input-v1"
+                                type="url"
+                                name="seo_canonical_url"
+                                value="{{ old(
+                                    'seo_canonical_url',
+                                    $esSeoSettingsV10[
+                                        'seo.canonical_url'
+                                    ] ?? 'https://esubiz.com'
+                                ) }}"
+                            >
+                        </div>
+
+                        <div style="grid-column:1 / -1;">
+                            <label>
+                                Meta Description
+                            </label>
+
+                            <textarea
+                                class="es-premium-textarea-v1"
+                                name="seo_meta_description"
+                                rows="4"
+                                maxlength="180"
+                                required
+                            >{{ old(
+                                'seo_meta_description',
+                                $esSeoSettingsV10[
+                                    'seo.meta_description'
+                                ] ?? ''
+                            ) }}</textarea>
+                        </div>
+
+                        <div style="grid-column:1 / -1;">
+                            <label>
+                                SEO Keywords
+                            </label>
+
+                            <textarea
+                                class="es-premium-textarea-v1"
+                                name="seo_meta_keywords"
+                                rows="3"
+                                maxlength="500"
+                            >{{ old(
+                                'seo_meta_keywords',
+                                $esSeoSettingsV10[
+                                    'seo.meta_keywords'
+                                ] ?? ''
+                            ) }}</textarea>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="es-premium-card-v1">
+                    <div class="es-premium-card-head-v1">
+                        <div>
+                            <div style="font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#64748b;margin-bottom:6px;">
+                                Social Sharing
+                            </div>
+
+                            <h2>
+                                Open Graph & Social Preview
+                            </h2>
+
+                            <p>
+                                The uploaded Esubiz logo is
+                                automatically used as the
+                                social brand image.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="es-premium-grid-v1">
+
+                        <div >
+                            <label>
+                                Open Graph Title
+                            </label>
+
+                            <input
+                                class="es-premium-input-v1"
+                                type="text"
+                                name="seo_og_title"
+                                maxlength="100"
+                                value="{{ old(
+                                    'seo_og_title',
+                                    $esSeoSettingsV10[
+                                        'seo.og_title'
+                                    ] ?? ''
+                                ) }}"
+                            >
+                        </div>
+
+                        <div >
+                            <label>
+                                Twitter / X Card
+                            </label>
+
+                            <select
+                                class="es-premium-select-v1"
+                                name="seo_twitter_card"
+                                required
+                            >
+                                <option
+                                    value="summary_large_image"
+                                    @selected(
+                                        old(
+                                            'seo_twitter_card',
+                                            $esSeoSettingsV10[
+                                                'seo.twitter_card'
+                                            ] ?? 'summary_large_image'
+                                        )
+                                        === 'summary_large_image'
+                                    )
+                                >
+                                    Large Image
+                                </option>
+
+                                <option
+                                    value="summary"
+                                    @selected(
+                                        old(
+                                            'seo_twitter_card',
+                                            $esSeoSettingsV10[
+                                                'seo.twitter_card'
+                                            ] ?? 'summary_large_image'
+                                        )
+                                        === 'summary'
+                                    )
+                                >
+                                    Summary
+                                </option>
+                            </select>
+                        </div>
+
+                        <div style="grid-column:1 / -1;">
+                            <label>
+                                Open Graph Description
+                            </label>
+
+                            <textarea
+                                class="es-premium-textarea-v1"
+                                name="seo_og_description"
+                                rows="3"
+                                maxlength="200"
+                            >{{ old(
+                                'seo_og_description',
+                                $esSeoSettingsV10[
+                                    'seo.og_description'
+                                ] ?? ''
+                            ) }}</textarea>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="es-premium-card-v1">
+                    <div class="es-premium-card-head-v1">
+                        <div>
+                            <div style="font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#64748b;margin-bottom:6px;">
+                                Search Engine Controls
+                            </div>
+
+                            <h2>
+                                Indexing & Organization
+                            </h2>
+                        </div>
+                    </div>
+
+                    <div class="es-premium-grid-v1">
+
+                        <div style="grid-column:1 / -1;">
+                            <label>
+                                Robots Directive
+                            </label>
+
+                            <input
+                                class="es-premium-input-v1"
+                                type="text"
+                                name="seo_robots"
+                                value="{{ old(
+                                    'seo_robots',
+                                    $esSeoSettingsV10[
+                                        'seo.robots'
+                                    ] ?? 'index,follow'
+                                ) }}"
+                                required
+                            >
+                        </div>
+
+                        <div >
+                            <label>
+                                Organization Name
+                            </label>
+
+                            <input
+                                class="es-premium-input-v1"
+                                type="text"
+                                name="seo_organization_name"
+                                maxlength="100"
+                                value="{{ old(
+                                    'seo_organization_name',
+                                    $esSeoSettingsV10[
+                                        'seo.organization_name'
+                                    ] ?? 'Esubiz'
+                                ) }}"
+                                required
+                            >
+                        </div>
+
+                        <div style="grid-column:1 / -1;">
+                            <label>
+                                Organization Description
+                            </label>
+
+                            <textarea
+                                class="es-premium-textarea-v1"
+                                name="seo_organization_description"
+                                rows="4"
+                                maxlength="500"
+                            >{{ old(
+                                'seo_organization_description',
+                                $esSeoSettingsV10[
+                                    'seo.organization_description'
+                                ] ?? ''
+                            ) }}</textarea>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="es-premium-savebar-v1">
+                    <button
+                        type="submit"
+                        class="es-premium-save-v1" style="color:#ffffff;"
+                    >
+                        Save SEO Settings
+                    </button>
+                </div>
+
+            </form>
+
+@elseif($sub === 'system')
+
+                        <div class="es-premium-card-v1">
+
+                            <div class="es-premium-card-head-v1">
+                                <div>
+                                    <h4>Platform Configuration Scope</h4>
+                                    <p>
+                                        How Main Settings are distributed across the Esubiz ecosystem.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="es-premium-body-v1">
+
+                                <div class="es-system-status-v1">
+
+                                    <div class="es-system-chip-v1">
+                                        <strong>Central Esubiz</strong>
+                                        <span>
+                                            Authoritative source of truth for platform settings.
+                                        </span>
+                                    </div>
+
+                                    <div class="es-system-chip-v1">
+                                        <strong>SaaS Websites</strong>
+                                        <span>
+                                            Shared Esubiz settings are inherited where applicable.
+                                        </span>
+                                    </div>
+
+                                    <div class="es-system-chip-v1">
+                                        <strong>Off-server Websites</strong>
+                                        <span>
+                                            Shared settings are available through Central Esubiz APIs.
+                                        </span>
+                                    </div>
+
+                                </div>
+
+                            </div>
+                        </div>
+
+                    @endif
+
+                </div>
+
+                <script>
+                (() => {
+                    const logoInput =
+                        document.getElementById(
+                            'esMainLogoInputV1'
+                        );
+
+                    const faviconInput =
+                        document.getElementById(
+                            'esMainFaviconInputV1'
+                        );
+
+                    const previewFile = (
+                        input,
+                        imageId
+                    ) => {
+                        if (
+                            !input
+                            || !input.files
+                            || !input.files[0]
+                        ) {
+                            return;
+                        }
+
+                        const image =
+                            document.getElementById(
+                                imageId
+                            );
+
+                        if (!image) {
+                            return;
+                        }
+
+                        const reader =
+                            new FileReader();
+
+                        reader.onload = event => {
+                            image.src =
+                                event.target.result;
+                        };
+
+                        reader.readAsDataURL(
+                            input.files[0]
+                        );
+                    };
+
+                    logoInput?.addEventListener(
+                        'change',
+                        () =>
+                            previewFile(
+                                logoInput,
+                                'esMainLogoPreviewV1'
+                            )
+                    );
+
+                    faviconInput?.addEventListener(
+                        'change',
+                        () =>
+                            previewFile(
+                                faviconInput,
+                                'esMainFaviconPreviewV1'
+                            )
+                    );
+
+                    const trigger =
+                        document.getElementById(
+                            'esCurrencyTriggerV1'
+                        );
+
+                    const panel =
+                        document.getElementById(
+                            'esCurrencyPanelV1'
+                        );
+
+                    const search =
+                        document.getElementById(
+                            'esCurrencySearchV1'
+                        );
+
+                    const tags =
+                        document.getElementById(
+                            'esCurrencyTagsV1'
+                        );
+
+                    const primary =
+                        document.getElementById(
+                            'esPrimaryCurrencyV1'
+                        );
+
+                    const checks =
+                        Array.from(
+                            document.querySelectorAll(
+                                '[data-secondary-currency-v1]'
+                            )
+                        );
+
+                    const rows =
+                        Array.from(
+                            document.querySelectorAll(
+                                '[data-markup-currency-v1]'
+                            )
+                        );
+
+                    const options =
+                        Array.from(
+                            document.querySelectorAll(
+                                '[data-currency-option]'
+                            )
+                        );
+
+                    const syncCurrencies = () => {
+                        if (!tags) {
+                            return;
+                        }
+
+                        tags.innerHTML = '';
+
+                        let selectedCount = 0;
+
+                        checks.forEach(check => {
+                            const code =
+                                check.dataset
+                                    .secondaryCurrencyV1;
+
+                            const isPrimary =
+                                primary
+                                && primary.value === code;
+
+                            if (isPrimary) {
+                                check.checked = false;
+                                check.disabled = true;
+                            } else {
+                                check.disabled = false;
+                            }
+
+                            const row =
+                                rows.find(
+                                    item =>
+                                        item.dataset
+                                            .markupCurrencyV1
+                                        === code
+                                );
+
+                            if (
+                                row
+                                && check.checked
+                                && !check.disabled
+                            ) {
+                                row.classList.add(
+                                    'active'
+                                );
+
+                                const tag =
+                                    document.createElement(
+                                        'span'
+                                    );
+
+                                tag.className =
+                                    'es-currency-tag-v1';
+
+                                tag.textContent = code;
+
+                                tags.appendChild(tag);
+
+                                selectedCount++;
+                            } else {
+                                row?.classList.remove(
+                                    'active'
+                                );
+                            }
+                        });
+
+                        if (!selectedCount) {
+                            const placeholder =
+                                document.createElement(
+                                    'span'
+                                );
+
+                            placeholder.className =
+                                'es-currency-placeholder-v1';
+
+                            placeholder.textContent =
+                                'Select secondary currencies';
+
+                            tags.appendChild(
+                                placeholder
+                            );
+                        }
+                    };
+
+                    trigger?.addEventListener(
+                        'click',
+                        event => {
+                            event.stopPropagation();
+
+                            panel?.classList.toggle(
+                                'open'
+                            );
+
+                            if (
+                                panel
+                                && panel.classList.contains(
+                                    'open'
+                                )
+                            ) {
+                                search?.focus();
+                            }
+                        }
+                    );
+
+                    panel?.addEventListener(
+                        'click',
+                        event =>
+                            event.stopPropagation()
+                    );
+
+                    document.addEventListener(
+                        'click',
+                        () =>
+                            panel?.classList.remove(
+                                'open'
+                            )
+                    );
+
+                    search?.addEventListener(
+                        'input',
+                        () => {
+                            const term =
+                                search.value
+                                    .trim()
+                                    .toLowerCase();
+
+                            options.forEach(
+                                option => {
+                                    const haystack =
+                                        option.dataset
+                                            .search
+                                        || '';
+
+                                    option.style.display =
+                                        !term
+                                        || haystack.includes(
+                                            term
+                                        )
+                                            ? 'flex'
+                                            : 'none';
+                                }
+                            );
+                        }
+                    );
+
+                    checks.forEach(
+                        check =>
+                            check.addEventListener(
+                                'change',
+                                syncCurrencies
+                            )
+                    );
+
+                    primary?.addEventListener(
+                        'change',
+                        syncCurrencies
+                    );
+
+                    syncCurrencies();
+                })();
+                </script>
+
+            @elseif($tab === 'payments' && $sub === 'overview')
 
                 <p class="es-settings-section-copy">
                     Manage Central payment collection, wallet, gift cards and payout infrastructure.
@@ -917,7 +2884,7 @@
 
                 <div class="es-settings-grid">
 
-                    
+
 {{-- ESUBIZ_CENTRAL_SSO_UI_CLEANUP_V2 --}}
 <div>
                 <h5 class="mb-1">Esubiz SSO Control</h5>
@@ -1602,7 +3569,7 @@
                                 ) }}</textarea>
                             </div>
 
-                            
+
                     <div class="mb-3">
                                 <label class="form-label fw-semibold">
                                     Proceed to Payment Button
@@ -2824,7 +4791,7 @@
                                     </div>
 
 
-                                    
+
                                     <div
                                         class="es-notice-field-v6 es-notice-span-2-v6"
                                         id="esNoticeCentralUsersWrapV21"
@@ -5231,7 +7198,7 @@
                                     );
                             }
 
-                            
+
         async function loadDashboardNoticePageV10(page, options = {}) {
             let targetPage = Math.max(1, Number(page || 1));
 
@@ -6734,7 +8701,7 @@
                                 min-width:900px;
                             }
                         }
-                    
+
                     /* ESUBIZ_PLATFORM_UPDATE_DRY_RUN_RESULTS_V16 */
                     .es-upd-dry-summary-v16 {
                         margin-bottom: 14px;
@@ -7833,7 +9800,7 @@
                     </div>
 
                     {{-- Manual registration remains modal-only; no duplicate bottom form --}}
-                    
+
                     {{-- Manual update registration UI removed from production Admin. --}}
 
 

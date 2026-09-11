@@ -16,10 +16,11 @@ class="sticky top-0 z-50 bg-white/90 backdrop-blur-xl border-b border-slate-200"
 
 <a href="{{ route('home') }}" class="flex items-center">
 
-    <x-media.image
+    {{-- ESUBIZ_CANONICAL_HEADER_LOGO_V6 --}}
+<x-media.image
     src="{{ rtrim((string) config('services.esubiz.marketplace_url', config('app.url')), '/') . '/media/branding/esubiz-logo.png' }}"
     alt="Esubiz"
-    class="h-14 lg:h-16 w-auto shrink-0"
+    class="w-[180px] h-[60px] max-w-[180px] max-h-[60px] object-contain object-left shrink-0"
 />
 
 </a>

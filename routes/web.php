@@ -6,7 +6,9 @@
  * Same Add-on checkout controller, exposed on every tenant/custom host.
  * No new checkout implementation.
  */
-\Route::post(
+use App\Http\Controllers\Admin\CentralSiteSettingsController;
+
+Route::post(
     '/esubiz-addon-checkout/{website}',
     [
         \App\Http\Controllers\TenantAddonCheckoutController::class,
@@ -397,7 +399,7 @@ Route::domain('www.esubiz.com')
 
 Route::domain('esubiz.com')
     ->get('/', fn () => view('frontend.home'))
-    ->name('www.home');
+    ->name('central.home');
 
 /*
 |--------------------------------------------------------------------------
@@ -3474,6 +3476,145 @@ Route::get(
 */
 
 Route::get('/media/{path}', function (string $path) {
+
+    /*
+     * ESUBIZ_CENTRAL_CANONICAL_BRANDING_MEDIA_V4
+     *
+     * Stable public branding URLs.
+     *
+     * Existing Theme Hub / public frontend consumers keep using
+     * the same public paths. Main Settings only replaces the
+     * backing file referenced by logo_path / favicon_path.
+     */
+    $centralBrandingAliasesV4 = [
+        'branding/esubiz-logo.png' => 'logo_path',
+
+        /*
+         * Support the canonical favicon path plus historical
+         * favicon-style requests without creating another source.
+         */
+        'branding/favicon.png' => 'favicon_path',
+        'branding/esubiz-favicon.png' => 'favicon_path',
+        'branding/favicon.ico' => 'favicon_path',
+    ];
+
+    if (
+        array_key_exists(
+            $path,
+            $centralBrandingAliasesV4
+        )
+    ) {
+        $settingKeyV4 =
+            $centralBrandingAliasesV4[$path];
+
+        $storedPathV4 =
+            \Illuminate\Support\Facades\DB::table(
+                'site_settings'
+            )
+                ->whereNull('workspace_id')
+                ->where('key', $settingKeyV4)
+                ->value('value');
+
+        if (
+            $storedPathV4
+            && \Illuminate\Support\Facades\Storage::disk(
+                'public'
+            )->exists($storedPathV4)
+        ) {
+            $absolutePathV4 =
+                \Illuminate\Support\Facades\Storage::disk(
+                    'public'
+                )->path($storedPathV4);
+
+            $mimeV4 =
+                mime_content_type(
+                    $absolutePathV4
+                )
+                ?: 'application/octet-stream';
+
+            /*
+             * ESUBIZ_BRANDING_HTTP_CACHE_V12
+             *
+             * Branding images are already optimized by CentralMediaService.
+             * This layer does not re-encode, resize or flatten the image,
+             * so PNG/WebP transparency remains completely intact.
+             *
+             * Browser caching:
+             * - 7 day fresh cache
+             * - stale-while-revalidate for another 30 days
+             * - ETag
+             * - Last-Modified
+             * - conditional 304 responses
+             */
+            $esBrandingMtimeV12 = filemtime($absolutePathV4) ?: time();
+            $esBrandingSizeV12 = filesize($absolutePathV4) ?: 0;
+
+            $esBrandingEtagV12 = '"' . sha1(
+                $absolutePathV4
+                . '|'
+                . $esBrandingMtimeV12
+                . '|'
+                . $esBrandingSizeV12
+            ) . '"';
+
+            $esBrandingLastModifiedV12 =
+                gmdate(
+                    'D, d M Y H:i:s',
+                    $esBrandingMtimeV12
+                )
+                . ' GMT';
+
+            $esIfNoneMatchV12 =
+                request()->header('If-None-Match');
+
+            $esIfModifiedSinceV12 =
+                request()->header('If-Modified-Since');
+
+            $esBrandingCacheHeadersV12 = [
+                'Cache-Control' =>
+                    'public, max-age=604800, stale-while-revalidate=2592000',
+
+                'ETag' =>
+                    $esBrandingEtagV12,
+
+                'Last-Modified' =>
+                    $esBrandingLastModifiedV12,
+
+                'X-Content-Type-Options' =>
+                    'nosniff',
+            ];
+
+            if (
+                $esIfNoneMatchV12 === $esBrandingEtagV12
+                || (
+                    !$esIfNoneMatchV12
+                    && $esIfModifiedSinceV12
+                    && strtotime(
+                        $esIfModifiedSinceV12
+                    ) >= $esBrandingMtimeV12
+                )
+            ) {
+                return response(
+                    '',
+                    304,
+                    $esBrandingCacheHeadersV12
+                );
+            }
+
+            return response()->file(
+                $absolutePathV4,
+                array_merge(
+                    [
+                        'Content-Type' =>
+                            mime_content_type($absolutePathV4)
+                            ?: 'application/octet-stream',
+                    ],
+                    $esBrandingCacheHeadersV12
+                )
+            );
+        }
+    }
+
     $mediaRoot = realpath(storage_path('app/public/media'));
 
     if ($mediaRoot === false) {
@@ -3662,4 +3803,21 @@ Route::post(
         'validateAdministrator',
     ]
 )->name('core.setup.administrator');
+
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_CENTRAL_MAIN_SITE_SETTINGS_ROUTE_V1
+|--------------------------------------------------------------------------
+|
+| Central is the authoritative source for the shared Esubiz platform
+| settings used by Central, SaaS and off-server integrations.
+|
+*/
+Route::middleware('auth')
+    ->patch(
+        '/admin/site-settings/main',
+        [CentralSiteSettingsController::class, 'update']
+    )
+    ->name('admin.site-settings.main.update');
 

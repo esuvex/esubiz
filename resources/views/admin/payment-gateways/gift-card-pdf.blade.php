@@ -10,6 +10,16 @@
         th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
         th { background: #f3f4f6; }
     </style>
+
+    {{-- ESUBIZ_CENTRAL_CANONICAL_FAVICON_V6 --}}
+    <link
+        rel="icon"
+        href="{{ url('/media/branding/favicon.png') }}"
+    >
+    <link
+        rel="shortcut icon"
+        href="{{ url('/media/branding/favicon.png') }}"
+    >
 </head>
 <body>
 
