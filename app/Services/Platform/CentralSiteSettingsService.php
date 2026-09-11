@@ -29,6 +29,13 @@ class CentralSiteSettingsService
         'seo.organization_name' => 'Esubiz',
         'seo.organization_description' => 'Esubiz is a Business Operating System for businesses in Nigeria and worldwide, combining website creation, CRM, ecommerce, automation and business management in one intelligent platform.',
 
+            'system.maintenance_enabled' => '0',
+            'system.maintenance_message' => 'Esubiz is temporarily undergoing scheduled maintenance. Please check back shortly.',
+            'system.support_enabled' => '1',
+            'system.registration_enabled' => '1',
+            'system.default_dashboard' => 'user',
+            'system.session_timeout_minutes' => '120',
+
         'platform.site_name' => 'Esubiz',
 
         'logo_path' => '',
@@ -447,4 +454,84 @@ class CentralSiteSettingsService
             ? $value
             : null;
     }
+
+    /*
+     * ESUBIZ_CENTRAL_SETTINGS_SOURCE_OF_TRUTH_V25
+     *
+     * Reusable Central defaults for current and future Esubiz
+     * surfaces. These helpers do not alter Laravel/server timezone.
+     */
+    public function siteName(): string
+    {
+        return (string) (
+            $this->get('platform.site_name')
+            ?: 'Esubiz'
+        );
+    }
+
+    public function timezone(): string
+    {
+        return (string) (
+            $this->get('platform.timezone')
+            ?: 'Africa/Lagos'
+        );
+    }
+
+    public function country(): string
+    {
+        return strtoupper(
+            (string) (
+                $this->get('platform.country')
+                ?: 'NG'
+            )
+        );
+    }
+
+    public function language(): string
+    {
+        return (string) (
+            $this->get('platform.language')
+            ?: 'en'
+        );
+    }
+
+    public function dateFormat(): string
+    {
+        return (string) (
+            $this->get('platform.date_format')
+            ?: 'd M Y'
+        );
+    }
+
+    public function timeFormat(): string
+    {
+        return (string) (
+            $this->get('platform.time_format')
+            ?: 'H:i'
+        );
+    }
+    public function maintenanceEnabled(): bool
+    {
+        return filter_var(
+            $this->get('system.maintenance_enabled') ?? false,
+            FILTER_VALIDATE_BOOLEAN
+        );
+    }
+
+    public function supportEnabled(): bool
+    {
+        return filter_var(
+            $this->get('system.support_enabled') ?? true,
+            FILTER_VALIDATE_BOOLEAN
+        );
+    }
+
+    public function registrationEnabled(): bool
+    {
+        return filter_var(
+            $this->get('system.registration_enabled') ?? true,
+            FILTER_VALIDATE_BOOLEAN
+        );
+    }
+
 }

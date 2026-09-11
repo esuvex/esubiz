@@ -7,10 +7,108 @@ use App\Services\Platform\CentralSiteSettingsService;
 use DateTimeZone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class CentralSiteSettingsController extends Controller
 {
+    /*
+     * ESUBIZ_CENTRAL_SITE_SETTINGS_AUTHORIZATION_V24
+     *
+     * Main Site Settings are platform-wide and therefore writable
+     * only by a Central administrative account.
+     *
+     * This guard deliberately lives in the controller as a second
+     * security boundary in addition to route authentication.
+     */
+    private function authorizeCentralSettingsWrite(
+        Request $request
+    ): void {
+        $user = $request->user();
+
+        abort_unless(
+            $user,
+            401
+        );
+
+        $userId = (int) $user->getAuthIdentifier();
+
+        $isAdmin = false;
+
+        if (
+            Schema::hasColumn(
+                'users',
+                'is_super_admin'
+            )
+        ) {
+            $isAdmin = (bool) DB::table('users')
+                ->where('id', $userId)
+                ->value('is_super_admin');
+        }
+
+        if (
+            !$isAdmin
+            && Schema::hasColumn(
+                'users',
+                'is_admin'
+            )
+        ) {
+            $isAdmin = (bool) DB::table('users')
+                ->where('id', $userId)
+                ->value('is_admin');
+        }
+
+        if (
+            !$isAdmin
+            && Schema::hasTable('roles')
+            && Schema::hasTable('user_roles')
+        ) {
+            $isAdmin = DB::table('user_roles')
+                ->join(
+                    'roles',
+                    'roles.id',
+                    '=',
+                    'user_roles.role_id'
+                )
+                ->where(
+                    'user_roles.user_id',
+                    $userId
+                )
+                ->where(
+                    function ($query) {
+                        $query
+                            ->whereRaw(
+                                'LOWER(roles.slug) IN (?, ?, ?, ?)',
+                                [
+                                    'admin',
+                                    'administrator',
+                                    'super-admin',
+                                    'super_admin',
+                                ]
+                            )
+                            ->orWhereRaw(
+                                'LOWER(roles.name) IN (?, ?, ?, ?)',
+                                [
+                                    'admin',
+                                    'administrator',
+                                    'super admin',
+                                    'super administrator',
+                                ]
+                            );
+                    }
+                )
+                ->exists();
+        }
+
+        abort_unless(
+            $isAdmin,
+            403,
+            'Only a Central Administrator can modify platform settings.'
+        );
+    }
+
+
     /*
      * ESUBIZ_CENTRAL_MAIN_SITE_SETTINGS_PREMIUM_V1
      *
@@ -23,6 +121,10 @@ class CentralSiteSettingsController extends Controller
         Request $request,
         CentralSiteSettingsService $settings
     ): RedirectResponse {
+        $this->authorizeCentralSettingsWrite(
+            $request
+        );
+
         $section = (string) $request->input(
             'section',
             'general'
@@ -41,6 +143,96 @@ class CentralSiteSettingsController extends Controller
                 true
             )
         ) {
+        /*
+         * ESUBIZ_MAIN_SETTINGS_SYSTEM_SAVE_V25
+         */
+        if (
+            in_array(
+                (string) $request->input(
+                    'section',
+                    $request->input('sub', '')
+                ),
+                ['system'],
+                true
+            )
+        ) {
+            $validated = $request->validate([
+                'maintenance_enabled' => [
+                    'required',
+                    'boolean',
+                ],
+                'maintenance_message' => [
+                    'nullable',
+                    'string',
+                    'max:1000',
+                ],
+                'support_enabled' => [
+                    'required',
+                    'boolean',
+                ],
+                'registration_enabled' => [
+                    'required',
+                    'boolean',
+                ],
+                'default_dashboard' => [
+                    'required',
+                    Rule::in([
+                        'user',
+                        'developer',
+                        'admin',
+                    ]),
+                ],
+                'session_timeout_minutes' => [
+                    'required',
+                    'integer',
+                    'min:15',
+                    'max:1440',
+                ],
+            ]);
+
+            $settings = app(
+                \App\Services\Platform\CentralSiteSettingsService::class
+            );
+
+            $settings->setMany([
+                'system.maintenance_enabled' =>
+                    $request->boolean('maintenance_enabled')
+                        ? '1'
+                        : '0',
+
+                'system.maintenance_message' =>
+                    trim(
+                        (string) (
+                            $validated['maintenance_message']
+                            ?? ''
+                        )
+                    ),
+
+                'system.support_enabled' =>
+                    $request->boolean('support_enabled')
+                        ? '1'
+                        : '0',
+
+                'system.registration_enabled' =>
+                    $request->boolean('registration_enabled')
+                        ? '1'
+                        : '0',
+
+                'system.default_dashboard' =>
+                    $validated['default_dashboard'],
+
+                'system.session_timeout_minutes' =>
+                    (string) $validated['session_timeout_minutes'],
+            ]);
+
+            return back()
+                ->with(
+                    'success',
+                    'System settings updated successfully.'
+                );
+        }
+
+
             abort(422, 'Invalid settings section.');
         }
 

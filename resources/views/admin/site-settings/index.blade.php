@@ -2611,49 +2611,224 @@
             </form>
 
 @elseif($sub === 'system')
+            {{-- ESUBIZ_MAIN_SETTINGS_SYSTEM_REAL_V25 --}}
+            @php
+                $esSystemSettingsV25 = app(
+                    \App\Services\Platform\CentralSiteSettingsService::class
+                )->all();
 
-                        <div class="es-premium-card-v1">
+                $esMaintenanceEnabledV25 =
+                    filter_var(
+                        $esSystemSettingsV25['system.maintenance_enabled']
+                            ?? false,
+                        FILTER_VALIDATE_BOOLEAN
+                    );
 
-                            <div class="es-premium-card-head-v1">
-                                <div>
-                                    <h4>Platform Configuration Scope</h4>
-                                    <p>
-                                        How Main Settings are distributed across the Esubiz ecosystem.
-                                    </p>
-                                </div>
-                            </div>
+                $esSupportEnabledV25 =
+                    filter_var(
+                        $esSystemSettingsV25['system.support_enabled']
+                            ?? true,
+                        FILTER_VALIDATE_BOOLEAN
+                    );
 
-                            <div class="es-premium-body-v1">
+                $esRegistrationEnabledV25 =
+                    filter_var(
+                        $esSystemSettingsV25['system.registration_enabled']
+                            ?? true,
+                        FILTER_VALIDATE_BOOLEAN
+                    );
+            @endphp
 
-                                <div class="es-system-status-v1">
+            <form
+                method="POST"
+                action="{{ route('admin.site-settings.main.update') }}"
+            >
+                @csrf
+                @method('PATCH')
 
-                                    <div class="es-system-chip-v1">
-                                        <strong>Central Esubiz</strong>
-                                        <span>
-                                            Authoritative source of truth for platform settings.
-                                        </span>
-                                    </div>
+                <input
+                    type="hidden"
+                    name="section"
+                    value="system"
+                >
 
-                                    <div class="es-system-chip-v1">
-                                        <strong>SaaS Websites</strong>
-                                        <span>
-                                            Shared Esubiz settings are inherited where applicable.
-                                        </span>
-                                    </div>
+                <div class="es-premium-card-v1">
+                    <div class="es-premium-card-head-v1">
+                        <div>
+                            <h3>Platform Operations</h3>
+                            <p>
+                                Configure safe Central defaults that apply
+                                across the Esubiz platform.
+                            </p>
+                        </div>
+                    </div>
 
-                                    <div class="es-system-chip-v1">
-                                        <strong>Off-server Websites</strong>
-                                        <span>
-                                            Shared settings are available through Central Esubiz APIs.
-                                        </span>
-                                    </div>
+                    <div class="es-premium-grid-v1">
+                        <div>
+                            <label>Maintenance Mode</label>
 
-                                </div>
+                            <select
+                                name="maintenance_enabled"
+                                class="es-premium-select-v1"
+                            >
+                                <option
+                                    value="0"
+                                    {{ !$esMaintenanceEnabledV25 ? 'selected' : '' }}
+                                >
+                                    Disabled
+                                </option>
 
-                            </div>
+                                <option
+                                    value="1"
+                                    {{ $esMaintenanceEnabledV25 ? 'selected' : '' }}
+                                >
+                                    Enabled
+                                </option>
+                            </select>
+
+                            <small>
+                                Stores the global maintenance preference.
+                                Enforcement can be connected to public
+                                middleware independently.
+                            </small>
                         </div>
 
-                    @endif
+                        <div>
+                            <label>Support Availability</label>
+
+                            <select
+                                name="support_enabled"
+                                class="es-premium-select-v1"
+                            >
+                                <option
+                                    value="1"
+                                    {{ $esSupportEnabledV25 ? 'selected' : '' }}
+                                >
+                                    Enabled
+                                </option>
+
+                                <option
+                                    value="0"
+                                    {{ !$esSupportEnabledV25 ? 'selected' : '' }}
+                                >
+                                    Disabled
+                                </option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label>Public Registration</label>
+
+                            <select
+                                name="registration_enabled"
+                                class="es-premium-select-v1"
+                            >
+                                <option
+                                    value="1"
+                                    {{ $esRegistrationEnabledV25 ? 'selected' : '' }}
+                                >
+                                    Enabled
+                                </option>
+
+                                <option
+                                    value="0"
+                                    {{ !$esRegistrationEnabledV25 ? 'selected' : '' }}
+                                >
+                                    Disabled
+                                </option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label>Default Dashboard</label>
+
+                            <select
+                                name="default_dashboard"
+                                class="es-premium-select-v1"
+                            >
+                                @php
+                                    $esDefaultDashboardV25 =
+                                        $esSystemSettingsV25[
+                                            'system.default_dashboard'
+                                        ] ?? 'user';
+                                @endphp
+
+                                <option
+                                    value="user"
+                                    {{ $esDefaultDashboardV25 === 'user' ? 'selected' : '' }}
+                                >
+                                    User
+                                </option>
+
+                                <option
+                                    value="developer"
+                                    {{ $esDefaultDashboardV25 === 'developer' ? 'selected' : '' }}
+                                >
+                                    Developer
+                                </option>
+
+                                <option
+                                    value="admin"
+                                    {{ $esDefaultDashboardV25 === 'admin' ? 'selected' : '' }}
+                                >
+                                    Admin
+                                </option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label>Session Timeout</label>
+
+                            <input
+                                type="number"
+                                name="session_timeout_minutes"
+                                min="15"
+                                max="1440"
+                                class="es-premium-input-v1"
+                                value="{{ (int) (
+                                    $esSystemSettingsV25[
+                                        'system.session_timeout_minutes'
+                                    ] ?? 120
+                                ) }}"
+                            >
+
+                            <small>
+                                Stored in minutes. This does not mutate
+                                Laravel's global session configuration yet.
+                            </small>
+                        </div>
+
+                        <div style="grid-column:1 / -1;">
+                            <label>Maintenance Message</label>
+
+                            <textarea
+                                name="maintenance_message"
+                                rows="4"
+                                class="es-premium-textarea-v1"
+                            >{{ $esSystemSettingsV25[
+                                'system.maintenance_message'
+                            ] ?? 'Esubiz is temporarily undergoing scheduled maintenance. Please check back shortly.' }}</textarea>
+                        </div>
+                    </div>
+
+                    <div class="es-premium-savebar-v1">
+                        <div>
+                            These values are stored centrally and are
+                            available to Central, SaaS and future off-server
+                            integrations through the shared settings service.
+                        </div>
+
+                        <button
+                            type="submit"
+                            class="es-premium-save-v1"
+                        >
+                            Save System Settings
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+        @endif
 
                 </div>
 
