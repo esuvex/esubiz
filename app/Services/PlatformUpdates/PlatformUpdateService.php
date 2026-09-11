@@ -12,7 +12,8 @@ use Throwable;
 class PlatformUpdateService
 {
     public function __construct(
-        protected TenantCoreInstallationService $tenantCore
+        protected TenantCoreInstallationService $tenantCore,
+        protected TenantMigrationStateService $migrationState
     ) {
     }
 
@@ -22,64 +23,69 @@ class PlatformUpdateService
      * IMPORTANT:
      * This method MUST NOT modify the tenant.
      */
-    public function preview(Website $website, object $update): array
+    /**
+     * Read-only Dry Run preview.
+     *
+     * This method MUST NOT:
+     * - execute migrations;
+     * - call migrateExisting();
+     * - write tenant database records;
+     * - modify tenant files.
+     */
+    public function preview(Website $website, object|array $update): array
     {
-        $result = [
-            'eligible' => false,
-            'status' => 'skipped',
-            'website_id' => $website->id,
-            'update_id' => $update->id,
-            'message' => null,
+        $update = (array) $update;
+
+        $base = [
+            'website_id' => $website->getKey(),
+            'website_name' => $website->name
+                ?? $website->site_name
+                ?? $website->domain
+                ?? ('Website #' . $website->getKey()),
+            'update_id' => $update['id'] ?? null,
+            'update_name' => $update['name'] ?? null,
+            'version' => $update['version'] ?? null,
+            'product_type' => $update['product_type'] ?? 'core',
+            'dry_run' => true,
+            'read_only' => true,
         ];
 
-        if (($update->status ?? 'draft') !== 'published') {
-            $result['message'] = 'Update is not published.';
-            return $result;
+        if (($update['product_type'] ?? 'core') !== 'core') {
+            return $base + [
+                'status' => 'unable_to_verify',
+                'can_execute' => false,
+                'message' => 'Read-only migration inspection currently supports Core updates only.',
+            ];
         }
 
-        if ((bool) ($update->is_destructive ?? false)) {
-            $result['message'] =
-                'Destructive updates cannot run through the standard updater.';
-            return $result;
+        $migrationPath = trim((string) ($update['migration_path'] ?? ''));
+
+        if ($migrationPath === '') {
+            return $base + [
+                'status' => 'unable_to_verify',
+                'can_execute' => false,
+                'message' => 'This Core update has no migration path to inspect.',
+            ];
         }
 
-        if (($update->product_type ?? 'core') !== 'core') {
-            $result['message'] =
-                'This update type is not yet supported by the Core migration runner.';
-            return $result;
-        }
+        $state = $this->migrationState->inspect(
+            $website,
+            $migrationPath
+        );
 
-        /*
-         * Backup enforcement:
-         *
-         * A registered update may require a real tenant backup before
-         * execution. The backup engine has not yet been connected, so
-         * such an update must never be reported as execution-ready.
-         *
-         * Dry Run remains available conceptually, but execution-ready
-         * eligibility is withheld until the backup service exists.
-         */
-        if ((bool) ($update->requires_backup ?? true)) {
-            $result['message'] =
-                'Backup is required for this update. The managed backup engine must complete before execution.';
-            return $result;
-        }
+        $status = $state['status'] ?? 'unable_to_verify';
 
-        /*
-         * Dry-run intentionally does not guess tenant database column
-         * names and does not connect to or mutate the tenant.
-         *
-         * TenantCoreInstallationService remains authoritative for the
-         * actual existing-tenant connection. If execution discovers
-         * that the Website has no provisioned tenant database, the run
-         * is recorded as skipped rather than failed.
-         */
-
-        $result['eligible'] = true;
-        $result['status'] = 'eligible';
-        $result['message'] = 'Website is eligible for this Core update.';
-
-        return $result;
+        return $base + $state + [
+            /*
+             * Dry Run never executes anything.
+             *
+             * can_execute only describes whether the migration appears
+             * pending from the read-only state check. The real execution
+             * path must still independently enforce publication, backup,
+             * destructive-update and other safety guards.
+             */
+            'can_execute' => $status === 'pending',
+        ];
     }
 
     /**

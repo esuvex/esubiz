@@ -2133,7 +2133,96 @@
                                 min-width:900px;
                             }
                         }
-                    </style>
+                    
+                    /* ESUBIZ_PLATFORM_UPDATE_DRY_RUN_RESULTS_V16 */
+                    .es-upd-dry-summary-v16 {
+                        margin-bottom: 14px;
+                    }
+
+                    .es-upd-dry-safe-v16 {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 4px;
+                        padding: 13px 14px;
+                        border: 1px solid rgba(37, 99, 235, .20);
+                        border-radius: 10px;
+                        background: rgba(37, 99, 235, .06);
+                    }
+
+                    .es-upd-dry-safe-v16 span {
+                        font-size: 12px;
+                        opacity: .78;
+                    }
+
+                    .es-upd-dry-counts-v16 {
+                        display: flex;
+                        flex-wrap: wrap;
+                        gap: 8px;
+                        margin-top: 10px;
+                    }
+
+                    .es-upd-dry-counts-v16 span {
+                        padding: 5px 9px;
+                        border-radius: 999px;
+                        background: rgba(127, 127, 127, .10);
+                        font-size: 12px;
+                    }
+
+                    .es-upd-result-v16 {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: flex-start;
+                        gap: 14px;
+                        padding: 13px 0;
+                        border-bottom: 1px solid rgba(127, 127, 127, .14);
+                    }
+
+                    .es-upd-result-main-v16 {
+                        min-width: 0;
+                    }
+
+                    .es-upd-result-migration-v16 {
+                        margin: 3px 0;
+                        font-family: monospace;
+                        font-size: 11px;
+                        overflow-wrap: anywhere;
+                        opacity: .68;
+                    }
+
+                    .es-upd-state-v16 {
+                        flex: 0 0 auto;
+                        display: inline-flex;
+                        align-items: center;
+                        padding: 5px 9px;
+                        border-radius: 999px;
+                        font-size: 11px;
+                        font-weight: 700;
+                        white-space: nowrap;
+                        background: rgba(127, 127, 127, .12);
+                    }
+
+                    .es-upd-state-already_applied {
+                        background: rgba(22, 163, 74, .10);
+                    }
+
+                    .es-upd-state-pending {
+                        background: rgba(234, 179, 8, .14);
+                    }
+
+                    .es-upd-state-skipped {
+                        background: rgba(107, 114, 128, .12);
+                    }
+
+                    .es-upd-state-unable_to_verify {
+                        background: rgba(220, 38, 38, .10);
+                    }
+
+                    @media (max-width: 767px) {
+                        .es-upd-result-v16 {
+                            flex-direction: column;
+                        }
+                    }
+</style>
 
                     <div class="es-upd-toolbar-v8">
                         <div>
@@ -3131,11 +3220,22 @@
                             };
                         }
 
+                        function escapeUpdateResultV16(value) {
+                            return String(value ?? '')
+                                .replace(/&/g, '&amp;')
+                                .replace(/</g, '&lt;')
+                                .replace(/>/g, '&gt;')
+                                .replace(/"/g, '&quot;')
+                                .replace(/'/g, '&#039;');
+                        }
+
                         function renderResults(data) {
                             if (!data.ok) {
                                 results.innerHTML =
                                     '<div class="p-3 text-danger fw-semibold">' +
-                                    (data.message || 'Request failed.') +
+                                    escapeUpdateResultV16(
+                                        data.message || 'Request failed.'
+                                    ) +
                                     '</div>';
 
                                 results.classList.remove('d-none');
@@ -3146,27 +3246,87 @@
                                 ? data.results
                                 : [];
 
-                            results.innerHTML = list.length
+                            const labels = {
+                                already_applied: 'Already Applied',
+                                pending: 'Pending',
+                                skipped: 'Skipped',
+                                unable_to_verify: 'Unable to Verify'
+                            };
+
+                            const counts = {
+                                already_applied: 0,
+                                pending: 0,
+                                skipped: 0,
+                                unable_to_verify: 0
+                            };
+
+                            list.forEach(function(result) {
+                                const status =
+                                    result.status || 'unable_to_verify';
+
+                                if (Object.prototype.hasOwnProperty.call(
+                                    counts,
+                                    status
+                                )) {
+                                    counts[status]++;
+                                } else {
+                                    counts.unable_to_verify++;
+                                }
+                            });
+
+                            const summary =
+                                '<div class="es-upd-dry-summary-v16">' +
+                                    '<div class="es-upd-dry-safe-v16">' +
+                                        '<strong>Read-only Dry Run</strong>' +
+                                        '<span>No migrations were executed and no tenant data or files were changed.</span>' +
+                                    '</div>' +
+                                    '<div class="es-upd-dry-counts-v16">' +
+                                        '<span><strong>' + counts.already_applied + '</strong> Already Applied</span>' +
+                                        '<span><strong>' + counts.pending + '</strong> Pending</span>' +
+                                        '<span><strong>' + counts.skipped + '</strong> Skipped</span>' +
+                                        '<span><strong>' + counts.unable_to_verify + '</strong> Unable to Verify</span>' +
+                                    '</div>' +
+                                '</div>';
+
+                            const rows = list.length
                                 ? list.map(function(result) {
                                     const name =
                                         result.website_name ||
                                         ('Website #' + result.website_id);
 
                                     const status =
-                                        result.status || 'unknown';
+                                        result.status || 'unable_to_verify';
 
-                                    return '<div class="es-upd-result-v8">' +
-                                        '<div><strong>' + name + '</strong>' +
-                                        '<div class="text-muted">' +
-                                        (result.message || '') +
-                                        '</div></div>' +
-                                        '<div class="fw-bold">' +
-                                        status.charAt(0).toUpperCase() +
-                                        status.slice(1) +
-                                        '</div></div>';
+                                    const label =
+                                        labels[status] || 'Unable to Verify';
+
+                                    const migration =
+                                        result.migration || '—';
+
+                                    const message =
+                                        result.message || '';
+
+                                    return '<div class="es-upd-result-v16">' +
+                                        '<div class="es-upd-result-main-v16">' +
+                                            '<strong>' +
+                                                escapeUpdateResultV16(name) +
+                                            '</strong>' +
+                                            '<div class="es-upd-result-migration-v16">' +
+                                                escapeUpdateResultV16(migration) +
+                                            '</div>' +
+                                            '<div class="text-muted">' +
+                                                escapeUpdateResultV16(message) +
+                                            '</div>' +
+                                        '</div>' +
+                                        '<span class="es-upd-state-v16 es-upd-state-' +
+                                            escapeUpdateResultV16(status) + '">' +
+                                            escapeUpdateResultV16(label) +
+                                        '</span>' +
+                                    '</div>';
                                 }).join('')
                                 : '<div class="p-3 text-muted">No tenant results returned.</div>';
 
+                            results.innerHTML = summary + rows;
                             results.classList.remove('d-none');
                         }
 
