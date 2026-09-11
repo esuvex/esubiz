@@ -1876,6 +1876,85 @@ Route::post(
     ->whereNumber('updateId')
     ->name('admin.site-settings.updates.execute');
 
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_PLATFORM_UPDATE_SETTINGS_ROUTE_V1
+|--------------------------------------------------------------------------
+|
+| Central lifecycle configuration for Platform Updates.
+| Manual/Automatic mode, timing, backup, restore, health checks,
+| cleanup and notification preferences are persisted here.
+|
+| Automatic scheduler execution remains protected by the controller's
+| automatic_ready configuration guard.
+|
+*/
+Route::patch(
+    '/admin/site-settings/updates/settings',
+    [
+        \App\Http\Controllers\Admin\PlatformUpdateSettingController::class,
+        'update'
+    ]
+)
+    ->middleware(['auth'])
+    ->name('admin.site-settings.updates.settings.update');
+
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_DASHBOARD_NOTICE_ROUTES_V1
+|--------------------------------------------------------------------------
+|
+| Central Admin-controlled tenant dashboard notices.
+| Independent from Platform Update Manual/Automatic settings.
+|
+*/
+Route::post(
+    '/admin/site-settings/dashboard-notices',
+    [
+        \App\Http\Controllers\Admin\DashboardNoticeController::class,
+        'store'
+    ]
+)
+    ->middleware(['auth'])
+    ->name('admin.site-settings.dashboard-notices.store');
+
+Route::patch(
+    '/admin/site-settings/dashboard-notices/{noticeId}',
+    [
+        \App\Http\Controllers\Admin\DashboardNoticeController::class,
+        'update',
+    ]
+)
+    ->whereNumber('noticeId')
+    ->middleware(['auth'])
+    ->name('admin.site-settings.dashboard-notices.update');
+
+
+Route::patch(
+    '/admin/site-settings/dashboard-notices/{noticeId}/status',
+    [
+        \App\Http\Controllers\Admin\DashboardNoticeController::class,
+        'status'
+    ]
+)
+    ->middleware(['auth'])
+    ->whereNumber('noticeId')
+    ->name('admin.site-settings.dashboard-notices.status');
+
+Route::delete(
+    '/admin/site-settings/dashboard-notices/{noticeId}',
+    [
+        \App\Http\Controllers\Admin\DashboardNoticeController::class,
+        'destroy'
+    ]
+)
+    ->middleware(['auth'])
+    ->whereNumber('noticeId')
+    ->name('admin.site-settings.dashboard-notices.destroy');
+
+
 /*
 |--------------------------------------------------------------------------
 | ESUBIZ_CENTRAL_SITE_PAGES_V1
@@ -2857,6 +2936,33 @@ Route::post(
     )
     ->middleware('throttle:20,1')
     ->name('api.core.license.activate');
+
+
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_OFF_SERVER_CORE_DASHBOARD_NOTICES_API_V1
+|--------------------------------------------------------------------------
+|
+| Authenticated off-server Core -> Central Dashboard Notices.
+|
+| Authentication and website authority are resolved exclusively from
+| the current installation bearer token. The caller never chooses the
+| authoritative Central website identity.
+|
+*/
+
+Route::get(
+    '/api/v1/core/dashboard-notices',
+    [
+        \App\Http\Controllers\Api\OffServerDashboardNoticeController::class,
+        'index',
+    ]
+)
+    ->middleware('throttle:60,1')
+    ->name(
+        'api.core.dashboard-notices.index'
+    );
 
 
 /*

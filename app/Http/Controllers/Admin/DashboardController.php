@@ -194,6 +194,9 @@ class DashboardController extends Controller
             'periodIncome' => $periodIncome,
             'periodExpenses' => $periodExpenses,
             'periodNet' => $periodNet,
-            'currentMonthExpenses' => $currentMonthExpenses,]);
+            'currentMonthExpenses' => $currentMonthExpenses,
+            'centralDashboardNotices' =>
+                app(\App\Services\DashboardNotices\CentralDashboardNoticeService::class)
+                    ->forUser(request()->user()),]);
     }
 }

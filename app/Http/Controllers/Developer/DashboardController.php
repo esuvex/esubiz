@@ -327,6 +327,9 @@ class DashboardController extends Controller
             'paidEarnings' => $paidEarnings,
             'recentCommissions' => $recentCommissions,
             'financialRecords' => $financialRecords,
+            'centralDashboardNotices' =>
+                app(\App\Services\DashboardNotices\CentralDashboardNoticeService::class)
+                    ->forUser($user),
         ]);
     }
 }

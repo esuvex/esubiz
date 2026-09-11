@@ -684,7 +684,1156 @@
             </div>
 
 
+
+
+    {{-- ESUBIZ_CORE_DASHBOARD_NOTICE_IMAGE_STANDARD_V7 --}}
+    <style>
+        /*
+         * Central Dashboard Notice image standard.
+         *
+         * Recommended source:
+         * 1200 x 600 px (2:1).
+         *
+         * The container controls the visual footprint,
+         * so oversized or unusually-shaped uploads cannot
+         * make the Core dashboard notice excessively large.
+         */
+        .es-core-dashboard-notice-image-v7 {
+            position:relative;
+            width:100%;
+            aspect-ratio:2 / 1;
+            max-height:360px;
+            margin-top:16px;
+            overflow:hidden;
+            border-radius:14px;
+            background:#f3f5f7;
+        }
+
+        .es-core-dashboard-notice-image-v7 img {
+            display:block;
+            width:100%;
+            height:100%;
+            object-fit:cover;
+            object-position:center;
+        }
+
+        @media (max-width:767px) {
+            .es-core-dashboard-notice-image-v7 {
+                max-height:260px;
+                border-radius:12px;
+            }
+        }
+    </style>
+
+            {{-- ESUBIZ_CORE_DASHBOARD_CENTRAL_NOTICES_V1 --}}
+{{-- ESUBIZ_CORE_DASHBOARD_NOTICE_RUNTIME_V8 --}}
+
+@php
+    /*
+     * ============================================================
+     * ESUBIZ_CORE_DASHBOARD_NOTICE_SOURCE_V9
+     * ============================================================
+     *
+     * One shared Core dashboard renderer, two authoritative sources:
+     *
+     * SaaS:
+     *   Central database through TenantDashboardNoticeService.
+     *
+     * Off-server:
+     *   authenticated Central API through the encrypted
+     *   CoreCentralConnection.
+     *
+     * Presence of an active local Core Central connection is the
+     * authoritative off-server signal. Hosted SaaS tenants do not
+     * create this local connection.
+     */
+    $coreCentralConnection =
+        app(
+            \App\Services\Core\CoreCentralConnectionService::class
+        )->current();
+
+    $coreDashboardNoticeIsOffServer =
+        $coreCentralConnection !== null
+        && (bool) $coreCentralConnection->active;
+
+    $coreDashboardNotices =
+        $coreDashboardNoticeIsOffServer
+            ? app(
+                \App\Services\Core\OffServerDashboardNoticeService::class
+            )->notices()
+            : app(
+                \App\Services\DashboardNotices\TenantDashboardNoticeService::class
+            )->forWebsite(
+                $website
+            );
+
+    /*
+     * CentralMediaService is needed only for SaaS image_path values.
+     *
+     * Off-server notices already contain Central's generated
+     * public image_url, and the existing V8 renderer falls back
+     * to that URL automatically.
+     */
+    $coreDashboardNoticeMedia =
+        app(
+            \App\Services\Media\CentralMediaService::class
+        );
+
+    /*
+     * Rotation disabled = permanently stacked.
+     * Rotation enabled  = one shared rotating slot.
+     */
+    $coreStaticNotices =
+        $coreDashboardNotices
+            ->filter(
+                fn ($notice) =>
+                    ! (bool) ($notice->rotation_enabled ?? false)
+            )
+            ->values();
+
+    $coreRotatingNotices =
+        $coreDashboardNotices
+            ->filter(
+                fn ($notice) =>
+                    (bool) ($notice->rotation_enabled ?? false)
+            )
+            ->values();
+
+    $coreNoticeVariantMap = [
+        'info' => [
+            'class' => 'es-core-notice-info-v8',
+            'label' => 'Information',
+        ],
+        'success' => [
+            'class' => 'es-core-notice-success-v8',
+            'label' => 'Success',
+        ],
+        'warning' => [
+            'class' => 'es-core-notice-warning-v8',
+            'label' => 'Notice',
+        ],
+        'danger' => [
+            'class' => 'es-core-notice-danger-v8',
+            'label' => 'Important',
+        ],
+        'primary' => [
+            'class' => 'es-core-notice-primary-v8',
+            'label' => 'Update',
+        ],
+        'secondary' => [
+            'class' => 'es-core-notice-secondary-v8',
+            'label' => 'Notice',
+        ],
+    ];
+@endphp
+
+@if($coreDashboardNotices->isNotEmpty())
+
+<style>
+    /* ESUBIZ_CORE_DASHBOARD_NOTICE_RUNTIME_V8 */
+
+    .es-core-notices-v8 {
+        display:grid;
+        gap:14px;
+        margin-bottom:24px;
+    }
+
+    .es-core-notice-v8 {
+        position:relative;
+        overflow:hidden;
+        border:1px solid;
+        border-radius:16px;
+        background:#fff;
+        box-shadow:0 8px 24px rgba(15,23,42,.055);
+    }
+
+    .es-core-notice-inner-v8 {
+        padding:18px 20px;
+    }
+
+    .es-core-notice-top-v8 {
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:18px;
+    }
+
+    .es-core-notice-heading-v8 {
+        min-width:0;
+    }
+
+    .es-core-notice-label-v8 {
+        display:inline-flex;
+        min-height:23px;
+        margin-bottom:7px;
+        padding:4px 8px;
+        align-items:center;
+        border-radius:999px;
+        font-size:10px;
+        font-weight:800;
+        letter-spacing:.035em;
+        text-transform:uppercase;
+    }
+
+    .es-core-notice-title-v8 {
+        margin:0;
+        color:#172033;
+        font-size:16px;
+        font-weight:800;
+        line-height:1.35;
+    }
+
+    .es-core-notice-message-v8 {
+        margin-top:9px;
+        color:#475467;
+        font-size:13px;
+        line-height:1.75;
+        overflow-wrap:anywhere;
+    }
+
+    .es-core-notice-message-v8 p:last-child {
+        margin-bottom:0;
+    }
+
+    .es-core-notice-message-v8 a {
+        font-weight:700;
+        text-decoration:underline;
+        text-underline-offset:2px;
+    }
+
+    .es-core-notice-message-v8 img {
+        max-width:100%;
+        height:auto;
+    }
+
+    .es-core-notice-dismiss-v8 {
+        display:flex;
+        width:34px;
+        height:34px;
+        padding:0;
+        flex:0 0 34px;
+        align-items:center;
+        justify-content:center;
+        border:1px solid rgba(15,23,42,.09);
+        border-radius:9px;
+        background:rgba(255,255,255,.88);
+        color:#667085;
+        font-size:19px;
+        line-height:1;
+        cursor:pointer;
+    }
+
+    /*
+     * Every rotating notice remains present in the DOM,
+     * but only one is displayed at a time.
+     */
+    .es-core-notice-rotating-item-v8 {
+        display:none;
+    }
+
+    .es-core-notice-rotating-item-v8.is-active {
+        display:block;
+        animation:esCoreNoticeFadeV8 .24s ease;
+    }
+
+    @keyframes esCoreNoticeFadeV8 {
+        from {
+            opacity:0;
+            transform:translateY(3px);
+        }
+
+        to {
+            opacity:1;
+            transform:translateY(0);
+        }
+    }
+
+    .es-core-notice-info-v8 {
+        border-color:#c9def5;
+        background:#f8fbff;
+    }
+
+    .es-core-notice-info-v8 .es-core-notice-label-v8 {
+        background:#e7f1fb;
+        color:#245f94;
+    }
+
+    .es-core-notice-success-v8 {
+        border-color:#bfe5ce;
+        background:#f7fcf9;
+    }
+
+    .es-core-notice-success-v8 .es-core-notice-label-v8 {
+        background:#e5f6ec;
+        color:#147447;
+    }
+
+    .es-core-notice-warning-v8 {
+        border-color:#eed69c;
+        background:#fffaf0;
+    }
+
+    .es-core-notice-warning-v8 .es-core-notice-label-v8 {
+        background:#fff0c6;
+        color:#8b6100;
+    }
+
+    .es-core-notice-danger-v8 {
+        border-color:#efc6c2;
+        background:#fff8f7;
+    }
+
+    .es-core-notice-danger-v8 .es-core-notice-label-v8 {
+        background:#fde9e7;
+        color:#a9382e;
+    }
+
+    .es-core-notice-primary-v8 {
+        border-color:#c6d0dd;
+        background:#f8fafc;
+    }
+
+    .es-core-notice-primary-v8 .es-core-notice-label-v8 {
+        background:#e7ecf2;
+        color:#0b1f3a;
+    }
+
+    .es-core-notice-secondary-v8 {
+        border-color:#d9dde4;
+        background:#fafbfc;
+    }
+
+    .es-core-notice-secondary-v8 .es-core-notice-label-v8 {
+        background:#eceff3;
+        color:#536071;
+    }
+
+    /*
+     * Existing V7 image rule stays authoritative:
+     * recommended source 1200 x 600, rendered at 2:1.
+     */
+    .es-core-notice-v8
+    .es-core-dashboard-notice-image-v7 {
+        margin-top:16px;
+    }
+
+    @media(max-width:767px) {
+        .es-core-notices-v8 {
+            gap:12px;
+            margin-bottom:18px;
+        }
+
+        .es-core-notice-inner-v8 {
+            padding:16px;
+        }
+
+        .es-core-notice-title-v8 {
+            font-size:15px;
+        }
+
+        .es-core-notice-message-v8 {
+            font-size:12px;
+        }
+    }
+</style>
+
+<section
+    id="esCoreDashboardNoticesV8"
+    class="es-core-notices-v8"
+    aria-label="Dashboard notices"
+>
+
+    {{-- STATIC / NON-ROTATING NOTICES --}}
+    @foreach($coreStaticNotices as $coreNotice)
+
+        @php
+            $coreNoticeVariant =
+                strtolower(
+                    (string) ($coreNotice->variant ?? 'info')
+                );
+
+            $coreNoticeVisual =
+                $coreNoticeVariantMap[$coreNoticeVariant]
+                ?? $coreNoticeVariantMap['info'];
+
+            $coreNoticeImageUrl =
+                !empty($coreNotice->image_path)
+                    ? $coreDashboardNoticeMedia->url(
+                        $coreNotice->image_path
+                    )
+                    : ($coreNotice->image_url ?? null);
+        @endphp
+
+        <article
+            class="
+                es-core-notice-v8
+                es-core-notice-static-item-v8
+                {{ $coreNoticeVisual['class'] }}
+            "
+            data-notice-id="{{ $coreNotice->id }}"
+            data-rotating="0"
+        >
+            <div class="es-core-notice-inner-v8">
+
+                <div class="es-core-notice-top-v8">
+
+                    <div class="es-core-notice-heading-v8">
+
+                        <h3 class="es-core-notice-title-v8">
+                            {{ $coreNotice->title }}
+                        </h3>
+
+                    </div>
+
+                    @if($coreNotice->dismissible)
+                        <button
+                            type="button"
+                            class="es-core-notice-dismiss-v8"
+                            aria-label="Dismiss notice"
+                            title="Dismiss"
+                        >
+                            &times;
+                        </button>
+                    @endif
+
+                </div>
+
+                <div class="es-core-notice-message-v8">
+                    {!! $coreNotice->message !!}
+                </div>
+
+                @if($coreNoticeImageUrl)
+                    <div class="es-core-dashboard-notice-image-v7">
+                        <img
+                            src="{{ $coreNoticeImageUrl }}"
+                            alt="{{ $coreNotice->title }}"
+                            loading="lazy"
+                        >
+                    </div>
+                @endif
+
+            </div>
+        </article>
+
+    @endforeach
+
+
+    {{-- ROTATING NOTICES --}}
+    @if($coreRotatingNotices->isNotEmpty())
+
+        <div
+            id="esCoreDashboardNoticeRotationV8"
+            aria-live="polite"
+        >
+
+            @foreach($coreRotatingNotices as $coreNotice)
+
+                @php
+                    $coreNoticeVariant =
+                        strtolower(
+                            (string) ($coreNotice->variant ?? 'info')
+                        );
+
+                    $coreNoticeVisual =
+                        $coreNoticeVariantMap[$coreNoticeVariant]
+                        ?? $coreNoticeVariantMap['info'];
+
+                    $coreNoticeImageUrl =
+                        !empty($coreNotice->image_path)
+                            ? $coreDashboardNoticeMedia->url(
+                                $coreNotice->image_path
+                            )
+                            : ($coreNotice->image_url ?? null);
+
+                    $coreNoticeRotationSeconds =
+                        max(
+                            3,
+                            min(
+                                120,
+                                (int) (
+                                    $coreNotice->rotation_seconds
+                                    ?: 8
+                                )
+                            )
+                        );
+                @endphp
+
+                <article
+                    class="
+                        es-core-notice-v8
+                        es-core-notice-rotating-item-v8
+                        {{ $loop->first ? 'is-active' : '' }}
+                        {{ $coreNoticeVisual['class'] }}
+                    "
+                    data-notice-id="{{ $coreNotice->id }}"
+                    data-rotating="1"
+                    data-rotation-seconds="{{ $coreNoticeRotationSeconds }}"
+                >
+                    <div class="es-core-notice-inner-v8">
+
+                        <div class="es-core-notice-top-v8">
+
+                            <div class="es-core-notice-heading-v8">
+
+                                <h3 class="es-core-notice-title-v8">
+                                    {{ $coreNotice->title }}
+                                </h3>
+
+                            </div>
+
+                            @if($coreNotice->dismissible)
+                                <button
+                                    type="button"
+                                    class="es-core-notice-dismiss-v8"
+                                    aria-label="Dismiss notice"
+                                    title="Dismiss"
+                                >
+                                    &times;
+                                </button>
+                            @endif
+
+                        </div>
+
+                        <div class="es-core-notice-message-v8">
+                            {!! $coreNotice->message !!}
+                        </div>
+
+                        @if($coreNoticeImageUrl)
+                            <div class="es-core-dashboard-notice-image-v7">
+                                <img
+                                    src="{{ $coreNoticeImageUrl }}"
+                                    alt="{{ $coreNotice->title }}"
+                                    loading="lazy"
+                                >
+                            </div>
+                        @endif
+
+                    </div>
+                </article>
+
+            @endforeach
+
+        </div>
+
+    @endif
+
+</section>
+
+
+{{-- ESUBIZ_CORE_NOTICE_IMAGE_PREVIEW_V14 --}}
+<style>
+    .es-core-dashboard-notice-image-v7 img {
+        cursor:zoom-in;
+    }
+
+    .es-core-notice-image-preview-v14 {
+        position:fixed;
+        inset:0;
+        z-index:99999;
+        display:none;
+        align-items:center;
+        justify-content:center;
+        padding:28px;
+        background:rgba(15,23,42,.72);
+        backdrop-filter:blur(4px);
+    }
+
+    .es-core-notice-image-preview-v14.is-open {
+        display:flex;
+    }
+
+    .es-core-notice-image-preview-dialog-v14 {
+        position:relative;
+        width:min(1100px, 92vw);
+        max-height:88vh;
+        overflow:hidden;
+        border:1px solid rgba(255,255,255,.16);
+        border-radius:18px;
+        background:#fff;
+        box-shadow:
+            0 28px 70px rgba(15,23,42,.32),
+            0 8px 24px rgba(15,23,42,.16);
+    }
+
+    .es-core-notice-image-preview-head-v14 {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        min-height:54px;
+        padding:10px 12px 10px 18px;
+        border-bottom:1px solid #eaecf0;
+        background:#fff;
+    }
+
+    .es-core-notice-image-preview-title-v14 {
+        margin:0;
+        overflow:hidden;
+        color:#172033;
+        font-size:14px;
+        font-weight:800;
+        line-height:1.4;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+    }
+
+    .es-core-notice-image-preview-close-v14 {
+        display:flex;
+        width:36px;
+        height:36px;
+        flex:0 0 36px;
+        align-items:center;
+        justify-content:center;
+        border:1px solid #e4e7ec;
+        border-radius:10px;
+        background:#fff;
+        color:#475467;
+        font-size:22px;
+        line-height:1;
+        cursor:pointer;
+    }
+
+    .es-core-notice-image-preview-close-v14:hover {
+        background:#f8fafc;
+        color:#101828;
+    }
+
+    .es-core-notice-image-preview-body-v14 {
+        max-height:calc(88vh - 55px);
+        overflow:auto;
+        padding:16px;
+        background:#f8fafc;
+        text-align:center;
+        overscroll-behavior:contain;
+    }
+
+    .es-core-notice-image-preview-body-v14 img {
+        display:block;
+        width:auto;
+        max-width:100%;
+        height:auto;
+        margin:0 auto;
+        border-radius:12px;
+        object-fit:contain;
+    }
+
+    @media (max-width:767px) {
+        .es-core-notice-image-preview-v14 {
+            padding:14px;
+        }
+
+        .es-core-notice-image-preview-dialog-v14 {
+            width:94vw;
+            max-height:84vh;
+            border-radius:15px;
+        }
+
+        .es-core-notice-image-preview-body-v14 {
+            max-height:calc(84vh - 55px);
+            padding:10px;
+        }
+
+        .es-core-notice-image-preview-title-v14 {
+            font-size:13px;
+        }
+    }
+</style>
+
+<script>
+document.addEventListener(
+    'DOMContentLoaded',
+    function () {
+        const noticeRoot =
+            document.getElementById(
+                'esCoreDashboardNoticesV8'
+            );
+
+        if (!noticeRoot) {
+            return;
+        }
+
+        const viewer =
+            document.createElement('div');
+
+        viewer.className =
+            'es-core-notice-image-preview-v14';
+
+        viewer.setAttribute(
+            'aria-hidden',
+            'true'
+        );
+
+        viewer.innerHTML = `
             <div
+                class="es-core-notice-image-preview-dialog-v14"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Notice image preview"
+            >
+                <div class="es-core-notice-image-preview-head-v14">
+                    <p class="es-core-notice-image-preview-title-v14">
+                        Image preview
+                    </p>
+
+                    <button
+                        type="button"
+                        class="es-core-notice-image-preview-close-v14"
+                        aria-label="Close image preview"
+                        title="Close"
+                    >&times;</button>
+                </div>
+
+                <div class="es-core-notice-image-preview-body-v14">
+                    <img
+                        src=""
+                        alt=""
+                    >
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(viewer);
+
+        const previewImage =
+            viewer.querySelector('img');
+
+        const previewTitle =
+            viewer.querySelector(
+                '.es-core-notice-image-preview-title-v14'
+            );
+
+        const closeButton =
+            viewer.querySelector(
+                '.es-core-notice-image-preview-close-v14'
+            );
+
+        let previousBodyOverflow = '';
+
+        function closePreview() {
+            viewer.classList.remove(
+                'is-open'
+            );
+
+            viewer.setAttribute(
+                'aria-hidden',
+                'true'
+            );
+
+            previewImage.src = '';
+            previewImage.alt = '';
+
+            document.body.style.overflow =
+                previousBodyOverflow;
+        }
+
+        function openPreview(image) {
+            const notice =
+                image.closest(
+                    '.es-core-notice-v8'
+                );
+
+            const heading =
+                notice
+                    ? notice.querySelector(
+                        '.es-core-notice-title-v8'
+                    )
+                    : null;
+
+            previewImage.src =
+                image.currentSrc
+                || image.src;
+
+            previewImage.alt =
+                image.alt
+                || (
+                    heading
+                        ? heading.textContent.trim()
+                        : 'Notice image'
+                );
+
+            previewTitle.textContent =
+                heading
+                    ? heading.textContent.trim()
+                    : 'Image preview';
+
+            previousBodyOverflow =
+                document.body.style.overflow;
+
+            document.body.style.overflow =
+                'hidden';
+
+            viewer.classList.add(
+                'is-open'
+            );
+
+            viewer.setAttribute(
+                'aria-hidden',
+                'false'
+            );
+
+            closeButton.focus();
+        }
+
+        noticeRoot.addEventListener(
+            'click',
+            function (event) {
+                const image =
+                    event.target.closest(
+                        '.es-core-dashboard-notice-image-v7 img'
+                    );
+
+                if (!image) {
+                    return;
+                }
+
+                event.preventDefault();
+
+                openPreview(image);
+            }
+        );
+
+        closeButton.addEventListener(
+            'click',
+            closePreview
+        );
+
+        viewer.addEventListener(
+            'click',
+            function (event) {
+                if (event.target === viewer) {
+                    closePreview();
+                }
+            }
+        );
+
+        document.addEventListener(
+            'keydown',
+            function (event) {
+                if (
+                    event.key === 'Escape'
+                    && viewer.classList.contains(
+                        'is-open'
+                    )
+                ) {
+                    closePreview();
+                }
+            }
+        );
+    }
+);
+</script>
+
+<script>
+document.addEventListener(
+    'DOMContentLoaded',
+    function () {
+        const root =
+            document.getElementById(
+                'esCoreDashboardNoticesV8'
+            );
+
+        if (!root) {
+            return;
+        }
+
+        const rotation =
+            document.getElementById(
+                'esCoreDashboardNoticeRotationV8'
+            );
+
+        const dismissalPrefix =
+            'esubiz_core_dashboard_notice_dismissed_v8_';
+
+        let rotationTimer = null;
+        let activeIndex = 0;
+
+        function dismissalKey(id) {
+            return dismissalPrefix + String(id);
+        }
+
+        function isDismissed(notice) {
+            try {
+                return (
+                    localStorage.getItem(
+                        dismissalKey(
+                            notice.dataset.noticeId
+                        )
+                    ) === '1'
+                );
+            } catch (error) {
+                return false;
+            }
+        }
+
+        function rememberDismissal(notice) {
+            try {
+                localStorage.setItem(
+                    dismissalKey(
+                        notice.dataset.noticeId
+                    ),
+                    '1'
+                );
+            } catch (error) {
+                // Current page dismissal still works.
+            }
+        }
+
+        function clearRotationTimer() {
+            if (rotationTimer) {
+                clearTimeout(rotationTimer);
+                rotationTimer = null;
+            }
+        }
+
+        function rotatingItems() {
+            if (!rotation) {
+                return [];
+            }
+
+            return Array.from(
+                rotation.querySelectorAll(
+                    '.es-core-notice-rotating-item-v8'
+                )
+            ).filter(
+                function (notice) {
+                    return (
+                        notice.dataset.dismissed !== '1'
+                        && !isDismissed(notice)
+                    );
+                }
+            );
+        }
+
+        function hideRotating() {
+            if (!rotation) {
+                return;
+            }
+
+            rotation
+                .querySelectorAll(
+                    '.es-core-notice-rotating-item-v8'
+                )
+                .forEach(
+                    function (notice) {
+                        notice.classList.remove(
+                            'is-active'
+                        );
+                    }
+                );
+        }
+
+        function scheduleNext() {
+            clearRotationTimer();
+
+            const items = rotatingItems();
+
+            if (
+                items.length <= 1
+                || document.visibilityState !== 'visible'
+            ) {
+                return;
+            }
+
+            const current =
+                items[activeIndex] || items[0];
+
+            const seconds =
+                Math.max(
+                    3,
+                    Math.min(
+                        120,
+                        Number(
+                            current.dataset.rotationSeconds
+                            || 8
+                        )
+                    )
+                );
+
+            rotationTimer =
+                setTimeout(
+                    function () {
+                        const latest =
+                            rotatingItems();
+
+                        if (latest.length <= 1) {
+                            showRotating(0);
+                            return;
+                        }
+
+                        showRotating(
+                            (activeIndex + 1)
+                            % latest.length
+                        );
+                    },
+                    seconds * 1000
+                );
+        }
+
+        function showRotating(index) {
+            const items = rotatingItems();
+
+            hideRotating();
+
+            if (!items.length) {
+                if (rotation) {
+                    rotation.style.display = 'none';
+                }
+
+                activeIndex = 0;
+                clearRotationTimer();
+                return;
+            }
+
+            rotation.style.display = '';
+
+            if (index >= items.length) {
+                index = 0;
+            }
+
+            if (index < 0) {
+                index = items.length - 1;
+            }
+
+            activeIndex = index;
+
+            items[activeIndex]
+                .classList
+                .add('is-active');
+
+            scheduleNext();
+        }
+
+        /*
+         * Restore remembered dismissals.
+         */
+        root
+            .querySelectorAll(
+                '.es-core-notice-v8'
+            )
+            .forEach(
+                function (notice) {
+                    if (!isDismissed(notice)) {
+                        return;
+                    }
+
+                    notice.dataset.dismissed = '1';
+                    notice.style.display = 'none';
+                    notice.classList.remove(
+                        'is-active'
+                    );
+                }
+            );
+
+        /*
+         * Dismiss both static and rotating notices.
+         */
+        root.addEventListener(
+            'click',
+            function (event) {
+                const button =
+                    event.target.closest(
+                        '.es-core-notice-dismiss-v8'
+                    );
+
+                if (!button) {
+                    return;
+                }
+
+                const notice =
+                    button.closest(
+                        '.es-core-notice-v8'
+                    );
+
+                if (!notice) {
+                    return;
+                }
+
+                rememberDismissal(notice);
+
+                notice.dataset.dismissed = '1';
+                notice.style.display = 'none';
+                notice.classList.remove(
+                    'is-active'
+                );
+
+                if (
+                    notice.dataset.rotating !== '1'
+                ) {
+                    return;
+                }
+
+                const remaining =
+                    rotatingItems();
+
+                if (!remaining.length) {
+                    if (rotation) {
+                        rotation.style.display =
+                            'none';
+                    }
+
+                    clearRotationTimer();
+                    return;
+                }
+
+                if (
+                    activeIndex >= remaining.length
+                ) {
+                    activeIndex = 0;
+                }
+
+                /*
+                 * Advance immediately after dismissal.
+                 */
+                showRotating(activeIndex);
+            }
+        );
+
+        /*
+         * Rotation exists only while the dashboard
+         * browser tab is actually visible.
+         */
+        document.addEventListener(
+            'visibilitychange',
+            function () {
+                if (
+                    document.visibilityState
+                    === 'visible'
+                ) {
+                    const items =
+                        rotatingItems();
+
+                    if (!items.length) {
+                        return;
+                    }
+
+                    if (
+                        activeIndex >= items.length
+                    ) {
+                        activeIndex = 0;
+                    }
+
+                    showRotating(activeIndex);
+                    return;
+                }
+
+                clearRotationTimer();
+            }
+        );
+
+        const initial =
+            rotatingItems();
+
+        if (initial.length) {
+            showRotating(0);
+        } else if (rotation) {
+            rotation.style.display = 'none';
+        }
+    }
+);
+</script>
+
+@endif
+
+<div
                 class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
             >
 

@@ -5,6 +5,8 @@
 @section('content')
 
 
+
+@include('partials.central-dashboard-notices')
 {{-- Build Website --}}
 
 <div class="block rounded-3xl bg-blue-700 p-8 text-white shadow-xl mb-8">

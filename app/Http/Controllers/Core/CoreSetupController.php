@@ -1110,7 +1110,43 @@ class CoreSetupController extends Controller
 
             $session->regenerateToken();
 
-            return response()->json([
+                        /*
+             * ====================================================
+             * ESUBIZ_CORE_CENTRAL_ACTIVATION_PERSIST_V2
+             * ====================================================
+             *
+             * Off-server Core activation returns the raw Central
+             * installation bearer token only once.
+             *
+             * Persist it immediately into the universal encrypted
+             * Core Central connection store.
+             *
+             * SaaS/local Central execution may not contain
+             * central_api and therefore does nothing here.
+             */
+            if (
+                isset($result['central_api'])
+                && is_array($result['central_api'])
+                && !empty(
+                    $result['central_api']['access_token']
+                    ?? null
+                )
+            ) {
+                app(
+                    \App\Services\Core\CoreCentralConnectionService::class
+                )->storeFromActivation(
+                    $result,
+                    rtrim(
+                        (string) config(
+                            'services.esubiz.marketplace_url',
+                            config('app.url')
+                        ),
+                        '/'
+                    )
+                );
+            }
+
+return response()->json([
                 'ok' =>
                     true,
 

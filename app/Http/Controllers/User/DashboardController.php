@@ -301,6 +301,9 @@ class DashboardController extends Controller
             'subscriptionCount' => $subscriptionCount,
             'walletBalance' => $walletBalance,
             'financialRecords' => $financialRecords,
+            'centralDashboardNotices' =>
+                app(\App\Services\DashboardNotices\CentralDashboardNoticeService::class)
+                    ->forUser(auth()->user()),
         ]);
     }
 }

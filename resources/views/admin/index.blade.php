@@ -4,6 +4,8 @@
 
 @section('content')
 
+
+@include('partials.central-dashboard-notices')
 <div class="max-w-full overflow-x-hidden space-y-8">
 
     <!-- Header -->

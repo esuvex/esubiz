@@ -4,6 +4,8 @@
 
 @section('content')
 
+
+@include('partials.central-dashboard-notices')
 @php
     $draft = $draft ?? null;
 
