@@ -236,6 +236,31 @@ class AppServiceProvider extends ServiceProvider
                 );
 
                 /*
+                 * ESUBIZ_CENTRAL_CURRENCY_DISPLAY_V4
+                 *
+                 * Expose the authoritative Central pricing/currency
+                 * service to Central Esubiz views. Tenant/Core websites
+                 * continue using their own local currency configuration.
+                 */
+                $currencyPricing = app(
+                    \App\Services\Platform\EsubizCurrencyPricingService::class
+                );
+
+                $view->with(
+                    'centralCurrencyPricing',
+                    $currencyPricing
+                );
+
+                $view->with(
+                    'centralCurrencyCode',
+                    (string) (
+                        $service->get('platform.default_currency')
+                        ?: $service->get('currency.default')
+                        ?: 'NGN'
+                    )
+                );
+
+                /*
                  * ESUBIZ_CENTRAL_TIMEZONE_PROPAGATION_V2
                  *
                  * Backend timestamps remain UTC. Central views receive
