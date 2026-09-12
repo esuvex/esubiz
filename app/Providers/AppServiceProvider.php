@@ -206,6 +206,44 @@ class AppServiceProvider extends ServiceProvider
                     'centralTimezone',
                     $service->timezone()
                 );
+
+                /*
+                 * ESUBIZ_CENTRAL_TIMEZONE_PROPAGATION_V2
+                 *
+                 * Backend timestamps remain UTC. Central views receive
+                 * the configured display timezone plus safe conversion
+                 * helpers for rendering user-facing dates consistently.
+                 */
+                $timezone = app(
+                    \App\Services\Platform\CentralTimezoneService::class
+                );
+
+                $view->with(
+                    'centralTimezoneService',
+                    $timezone
+                );
+
+                $view->with(
+                    'centralNow',
+                    now('UTC')->setTimezone(
+                        $timezone->timezone()
+                    )
+                );
+
+                $view->with(
+                    'centralToLocalTime',
+                    static function ($value) use ($timezone) {
+                        if ($value === null || $value === '') {
+                            return null;
+                        }
+
+                        try {
+                            return $timezone->fromUtc($value);
+                        } catch (\Throwable $exception) {
+                            return $value;
+                        }
+                    }
+                );
             } catch (\Throwable $exception) {
                 /*
                  * Keep CLI, migrations and early installation surfaces
