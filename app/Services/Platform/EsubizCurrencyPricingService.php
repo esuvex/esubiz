@@ -328,4 +328,138 @@ class EsubizCurrencyPricingService
             $basePrice
         );
     }
+
+    /*
+     * ESUBIZ_UNIVERSAL_PRODUCT_CURRENCY_V5
+     *
+     * Canonical currency API for every Central Esubiz product:
+     * plans/subscriptions, Marketplace products, Website Types,
+     * themes, modules, add-ons and all credit products.
+     *
+     * Product/domain code should pass numeric base amounts through
+     * this service instead of choosing its own currency symbol/code.
+     */
+    public function centralCurrencyCode(): string
+    {
+        $code = strtoupper(
+            trim(
+                (string) (
+                    $this->settings->get(
+                        'platform.default_currency'
+                    )
+                    ?: $this->settings->get(
+                        'currency.default'
+                    )
+                    ?: 'NGN'
+                )
+            )
+        );
+
+        return $code !== ''
+            ? $code
+            : 'NGN';
+    }
+
+    public function currencySymbol(
+        ?string $currency = null
+    ): string {
+        $currency = strtoupper(
+            trim(
+                (string) (
+                    $currency
+                    ?: $this->centralCurrencyCode()
+                )
+            )
+        );
+
+        return match ($currency) {
+            'NGN' => '₦',
+            'USD' => '$',
+            'GBP' => '£',
+            'EUR' => '€',
+            default => $currency,
+        };
+    }
+
+    public function formatCentralAmount(
+        int|float|string|null $amount,
+        ?string $currency = null,
+        int $decimals = 2
+    ): string {
+        $currency = strtoupper(
+            trim(
+                (string) (
+                    $currency
+                    ?: $this->centralCurrencyCode()
+                )
+            )
+        );
+
+        $numericAmount = is_numeric($amount)
+            ? (float) $amount
+            : 0.0;
+
+        $formatted = number_format(
+            $numericAmount,
+            max(0, $decimals),
+            '.',
+            ','
+        );
+
+        if (
+            $decimals > 0
+            && abs(
+                $numericAmount
+                - round($numericAmount)
+            ) < 0.0000001
+        ) {
+            $formatted = number_format(
+                $numericAmount,
+                0,
+                '.',
+                ','
+            );
+        }
+
+        $symbol = $this->currencySymbol($currency);
+
+        return in_array(
+            $currency,
+            ['NGN', 'USD', 'GBP', 'EUR'],
+            true
+        )
+            ? $symbol . $formatted
+            : $currency . ' ' . $formatted;
+    }
+
+    public function productMoney(
+        int|float|string|null $amount,
+        ?string $currency = null
+    ): array {
+        $currency = strtoupper(
+            trim(
+                (string) (
+                    $currency
+                    ?: $this->centralCurrencyCode()
+                )
+            )
+        );
+
+        $numericAmount = is_numeric($amount)
+            ? (float) $amount
+            : 0.0;
+
+        return [
+            'amount' => $numericAmount,
+            'currency' => $currency,
+            'symbol' => $this->currencySymbol(
+                $currency
+            ),
+            'formatted' => $this->formatCentralAmount(
+                $numericAmount,
+                $currency
+            ),
+        ];
+    }
+
 }
