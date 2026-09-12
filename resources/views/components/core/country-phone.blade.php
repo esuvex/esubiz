@@ -122,7 +122,6 @@
                     )
                 >
                     {{ $country['country'] }}
-                    ({{ $country['dial_code'] }})
                 </option>
             @endforeach
         </select>
