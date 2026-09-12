@@ -77,6 +77,15 @@ class WebsiteDraftService
         int $step
     ): Website {
 
+        /*
+         * ESUBIZ_WIZARD_DRAFT_OWNERSHIP_V3
+         *
+         * Route model binding identifies the Website record,
+         * but ownership must still be verified before any
+         * draft data or canonical subdomain can be changed.
+         */
+        $this->assertOwnership($website);
+
         $website->saveWizard(
             $data,
             $step
@@ -174,9 +183,30 @@ class WebsiteDraftService
     public function resume(
         Website $website
     ): Website {
+        $this->assertOwnership($website);
+
+        abort_unless(
+            (string) $website->status === 'draft',
+            404
+        );
 
         return $website->fresh();
+    }
+    /**
+     * Verify that the current authenticated account owns
+     * the Website being edited or resumed.
+     */
+    protected function assertOwnership(
+        Website $website
+    ): void {
+        $authenticatedUserId = Auth::id();
 
+        abort_unless(
+            $authenticatedUserId !== null
+                && (int) $website->owner_id
+                    === (int) $authenticatedUserId,
+            404
+        );
     }
 
     /**
