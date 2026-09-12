@@ -88,4 +88,16 @@ return [
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
     ],
 
+
+    /*
+     * ESUBIZ_IPINFO_LITE_V2
+     *
+     * Free country-level visitor geolocation.
+     * Token remains server-side in .env.
+     */
+    'ipinfo_lite' => [
+        'token' => env('IPINFO_LITE_TOKEN'),
+    ],
+
+
 ];
