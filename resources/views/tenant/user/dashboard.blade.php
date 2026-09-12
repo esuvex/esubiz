@@ -1,16 +1,11 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
+@extends('tenant.admin.layouts.app')
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1"
-    >
+{{-- ESUBIZ_CORE_USER_DASHBOARD_CANONICAL_SHELL_V52 --}}
+@section('title', 'Dashboard')
 
-    <title>User Dashboard</title>
+@section('content')
 
-    <style>
+<style>
         * {
             box-sizing: border-box;
         }
@@ -701,7 +696,7 @@
                 gap: 5px;
             }
         }
-    
+
 
         /*
          * ESUBIZ_CORE_USER_HEADER_RESPONSIVE_FIX_V1
@@ -744,32 +739,30 @@
         }
 
 </style>
-</head>
 
-<body>
+<style>
+    /* ESUBIZ_CORE_USER_CANONICAL_LAYOUT_OVERRIDE_V52 */
 
-<div
-    class="core-user-sidebar-overlay"
-    data-core-user-sidebar-close
-></div>
+    .core-user-content {
+        margin-left: 0 !important;
+        padding-top: 0 !important;
+        width: auto !important;
+        min-height: auto !important;
+    }
 
-<div class="core-user-shell">
+    .core-user-sidebar,
+    .core-user-sidebar-backdrop,
+    .core-user-mobile-bar,
+    .core-user-mobile-header,
+    .core-user-header {
+        display: none !important;
+    }
+</style>
 
-    @include(
-        'tenant.user.partials.sidebar',
-        ['coreUser' => $coreUser]
-    )
-
-
-    <main class="core-user-content">
-
-        {{-- ESUBIZ_CORE_USER_DESKTOP_PROFILE_V2 --}}
+{{-- ESUBIZ_CORE_USER_DESKTOP_PROFILE_V2 --}}
         <div class="core-user-topbar">
 
-            @include(
-                'tenant.user.partials.profile-menu',
-                ['coreUser' => $coreUser]
-            )
+
 
         </div>
 
@@ -785,10 +778,7 @@
                 ☰
             </button>
 
-            @include(
-                'tenant.user.partials.profile-menu',
-                ['coreUser' => $coreUser]
-            )
+
 
         </div>
 
@@ -1029,147 +1019,6 @@
 
 </div>
 
-    </main>
 
-</div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const body = document.body;
-
-    // ESUBIZ_CORE_USER_PROFILE_DROPDOWN_JS_V1
-    const coreUserProfiles = document.querySelectorAll(
-        '[data-core-user-profile]'
-    );
-
-    const closeCoreUserProfiles = function () {
-        coreUserProfiles.forEach(function (profile) {
-            profile.classList.remove('open');
-
-            const trigger = profile.querySelector(
-                '[data-core-user-profile-toggle]'
-            );
-
-            if (trigger) {
-                trigger.setAttribute(
-                    'aria-expanded',
-                    'false'
-                );
-            }
-        });
-    };
-
-    coreUserProfiles.forEach(function (profile) {
-        const trigger = profile.querySelector(
-            '[data-core-user-profile-toggle]'
-        );
-
-        if (!trigger) {
-            return;
-        }
-
-        trigger.addEventListener(
-            'click',
-            function (event) {
-                event.stopPropagation();
-
-                const wasOpen =
-                    profile.classList.contains('open');
-
-                closeCoreUserProfiles();
-
-                if (!wasOpen) {
-                    profile.classList.add('open');
-
-                    trigger.setAttribute(
-                        'aria-expanded',
-                        'true'
-                    );
-                }
-            }
-        );
-
-        const menu = profile.querySelector(
-            '.core-user-profile-menu'
-        );
-
-        if (menu) {
-            menu.addEventListener(
-                'click',
-                function (event) {
-                    event.stopPropagation();
-                }
-            );
-        }
-    });
-
-    document.addEventListener(
-        'click',
-        closeCoreUserProfiles
-    );
-    const toggle = document.querySelector(
-        '[data-core-user-sidebar-toggle]'
-    );
-    const closers = document.querySelectorAll(
-        '[data-core-user-sidebar-close]'
-    );
-
-    const closeSidebar = function () {
-        body.classList.remove(
-            'core-user-sidebar-open'
-        );
-
-        if (toggle) {
-            toggle.setAttribute(
-                'aria-expanded',
-                'false'
-            );
-        }
-    };
-
-    if (toggle) {
-        toggle.addEventListener(
-            'click',
-            function () {
-                const open =
-                    body.classList.toggle(
-                        'core-user-sidebar-open'
-                    );
-
-                toggle.setAttribute(
-                    'aria-expanded',
-                    open ? 'true' : 'false'
-                );
-            }
-        );
-    }
-
-    closers.forEach(function (closer) {
-        closer.addEventListener(
-            'click',
-            closeSidebar
-        );
-    });
-
-    document.addEventListener(
-        'keydown',
-        function (event) {
-            if (event.key === 'Escape') {
-                closeSidebar();
-            }
-        }
-    );
-
-    document.querySelectorAll(
-        '.core-user-sidebar a'
-    ).forEach(function (link) {
-        link.addEventListener(
-            'click',
-            closeSidebar
-        );
-    });
-});
-</script>
-
-</body>
-</html>
+@endsection

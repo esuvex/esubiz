@@ -7,7 +7,25 @@
 | Do not create page-specific sidebar copies.
 |
 --}}
-        <aside
+        {{-- ESUBIZ_CORE_ROLE_AWARE_SIDEBAR_V51 --}}
+    @php
+        $coreSidebarPermissionService = app(
+            \App\Services\Core\CorePermissionService::class
+        );
+
+        $coreSidebarRoles =
+            $coreSidebarPermissionService->roles();
+
+        $coreSidebarUserOnly =
+            count($coreSidebarRoles) === 1
+            && in_array('user', $coreSidebarRoles, true);
+
+        $coreSidebarLanding =
+            $coreSidebarPermissionService->internalLandingTarget()
+            ?? '/admin/dashboard';
+    @endphp
+
+<aside
     id="tenantCmsSidebar"
     class="fixed inset-y-0 left-0 z-50 w-[280px] -translate-x-full overflow-y-auto border-r border-white/10 text-white shadow-xl transition-transform duration-300 lg:translate-x-0"
     style="background:linear-gradient(180deg,#0b1739 0%,#10245a 100%);"
@@ -37,84 +55,85 @@
         class="border-b border-white/10 px-5 py-5"
     >
 
-        <div class="flex items-center gap-3">
+        {{-- ESUBIZ_CORE_UNIFIED_SIDEBAR_BRAND_V48 --}}
+{{-- ESUBIZ_CORE_SIDEBAR_SOURCE_OF_TRUTH_V56 --}}
+{{-- ESUBIZ_CORE_SINGLE_BRAND_SOURCE_V54 --}}
+        @php
+            /*
+             * Canonical Core sidebar branding.
+             *
+             * The homepage/footer white-variant logo is the
+             * authoritative internal Core logo.
+             *
+             * No hardcoded Core CMS text or website-name copy
+             * belongs beside the logo.
+             */
+            $coreSidebarLogo =
+        $settings['theme.corporate.footer_logo_path']
+            ?? data_get(
+                $settings ?? [],
+                'theme.corporate.footer_logo_path'
+            )
+            ?? $settings['footer_logo_path']
+            ?? data_get(
+                $settings ?? [],
+                'footer_logo_path'
+            )
+            ?? null;
 
-            {{-- ESUBIZ_TENANT_ADMIN_FOOTER_LOGO_BRANDING_V1 --}}
-            @php
-                $tenantAdminLogo =
-                    $settings['theme.corporate.footer_logo_path']
-                        ?? null;
-
-                $tenantAdminLogoUrl =
-                    !empty($tenantAdminLogo)
-                        ? request()->getSchemeAndHttpHost()
-                            . '/media/'
-                            . implode(
-                                '/',
-                                array_map(
-                                    'rawurlencode',
-                                    explode(
-                                        '/',
-                                        ltrim(
-                                            $tenantAdminLogo,
-                                            '/'
-                                        )
+            $coreSidebarLogoUrl =
+                !empty($coreSidebarLogo)
+                    ? request()->getSchemeAndHttpHost()
+                        . '/media/'
+                        . implode(
+                            '/',
+                            array_map(
+                                'rawurlencode',
+                                explode(
+                                    '/',
+                                    ltrim(
+                                        $coreSidebarLogo,
+                                        '/'
                                     )
                                 )
                             )
-                        : null;
-            @endphp
+                        )
+                    : null;
+        @endphp
 
-            @if($tenantAdminLogoUrl)
+        <a
+            href="{{ $coreSidebarLanding }}"
+            class="flex min-h-[60px] items-center"
+            aria-label="{{ $settings['website_name'] ?? $website->name }}"
+        >
+            @if($coreSidebarLogoUrl)
 
-                <div
-                    class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white p-1"
+                <img
+                    src="{{ $coreSidebarLogoUrl }}"
+                    alt="{{ $settings['website_name'] ?? $website->name }}"
+                    width="180"
+                    height="60"
+                    class="block h-[60px] w-[180px] max-w-full object-contain object-left"
                 >
-                    <img
-                        src="{{ $tenantAdminLogoUrl }}"
-                        alt="{{ $settings['website_name'] ?? $website->name }}"
-                        class="h-full w-full object-contain"
-                    >
-                </div>
 
             @else
 
                 <div
-                    class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-xl font-black"
-                >
-                    {{ strtoupper(
-                        substr(
-                            $settings['website_name']
-                                ?? $website->name,
-                            0,
-                            1
-                        )
-                    ) }}
-                </div>
-
-            @endif
-
-
-            <div class="min-w-0">
-
-                <div
-                    class="truncate text-base font-black"
+                    class="flex h-[60px] w-[180px] max-w-full items-center text-xl font-black text-white"
                 >
                     {{ $settings['website_name']
                         ?? $website->name }}
                 </div>
 
-                <div
-                    class="mt-1 text-xs text-blue-200"
-                >
-                    Esubiz Core CMS
-                </div>
+            @endif
+        </a>
 
-            </div>
 
-        </div>
+
 
     </div>
+
+
 
 
     <nav class="space-y-1 px-3 py-5">
@@ -123,17 +142,483 @@
         {{-- Dashboard --}}
 
         <a
-            href="{{ route(
-                'tenant.cms.dashboard',
-                ['subdomain' => $website->subdomain]
-            ) }}"
+            href="{{ $coreSidebarLanding }}"
             class="flex items-center gap-3 rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white"
         >
             <span>⌂</span>
             Dashboard
         </a>
 
+        {{-- ESUBIZ_CORE_BRANCHES_MENU_V66 --}}
+        @if(!$coreSidebarUserOnly)
+            <a
+                href="#"
+                class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-blue-100 hover:bg-white/10 hover:text-white"
+            >
+                {{-- ESUBIZ_CORE_BRANCHES_ICON_V67 --}}
+                <span
+                    class="inline-flex h-5 w-5 shrink-0 items-center justify-center"
+                    aria-hidden="true"
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke-width="1.8"
+                        stroke="currentColor"
+                        class="h-5 w-5"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M3.75 21h16.5M5.25 21V4.5A1.5 1.5 0 0 1 6.75 3h7.5a1.5 1.5 0 0 1 1.5 1.5V21m0-12h2.25a.75.75 0 0 1 .75.75V21M8.25 7.5h1.5m2.25 0h1.5m-5.25 3h1.5m2.25 0h1.5m-5.25 3h1.5m2.25 0h1.5m-3.75 7.5v-3.75h2.25V21"
+                        />
+                    </svg>
+                </span>
 
+                <span>Branches</span>
+            </a>
+        @endif
+
+
+
+
+        {{-- ESUBIZ_CORE_USER_NAV_V51 --}}
+        @if($coreSidebarUserOnly)
+
+        {{-- ESUBIZ_CORE_USER_NAV_COMPLETE_V62 --}}
+        @php
+            /*
+             * Normal Core User navigation.
+             *
+             * Dashboard remains the shared first menu above this
+             * role split.
+             *
+             * CRM and Modules expose only features assigned to the
+             * logged-in Core User and only when a User-safe URL is
+             * available.
+             */
+
+            $coreUserFeatures = collect();
+
+            try {
+                $coreUserFeatures = collect(
+                    app(
+                        \App\Services\Core\CoreFeatureRegistry::class
+                    )->availableFeatures()
+                );
+            } catch (\Throwable $e) {
+                $coreUserFeatures = collect();
+            }
+
+            $coreUserFeatureAllowed = function ($feature)
+                use ($coreSidebarPermissionService) {
+
+                $permission =
+                    data_get(
+                        $feature,
+                        'permission'
+                    )
+                    ?? data_get(
+                        $feature,
+                        'navigation.permission'
+                    );
+
+                if (
+                    $permission
+                    && !$coreSidebarPermissionService->can(
+                        $permission
+                    )
+                ) {
+                    return false;
+                }
+
+                if (
+                    data_get(
+                        $feature,
+                        'available',
+                        true
+                    ) === false
+                ) {
+                    return false;
+                }
+
+                if (
+                    data_get(
+                        $feature,
+                        'navigation.enabled',
+                        true
+                    ) === false
+                ) {
+                    return false;
+                }
+
+                return true;
+            };
+
+
+            /*
+             * CRM FEATURES
+             */
+            $coreUserCrmFeatures =
+                $coreUserFeatures
+                    ->filter(
+                        function ($feature)
+                            use ($coreUserFeatureAllowed) {
+
+                            $sourceType =
+                                strtolower(
+                                    (string) data_get(
+                                        $feature,
+                                        'source_type',
+                                        ''
+                                    )
+                                );
+
+                            if (
+                                !in_array(
+                                    $sourceType,
+                                    [
+                                        'crm',
+                                        'core_crm',
+                                    ],
+                                    true
+                                )
+                            ) {
+                                return false;
+                            }
+
+                            if (
+                                !$coreUserFeatureAllowed(
+                                    $feature
+                                )
+                            ) {
+                                return false;
+                            }
+
+                            /*
+                             * Never expose an Admin navigation URL
+                             * to a normal Core User.
+                             */
+                            $userUrl =
+                                data_get(
+                                    $feature,
+                                    'navigation.user_url'
+                                )
+                                ?? data_get(
+                                    $feature,
+                                    'user_url'
+                                );
+
+                            return !empty($userUrl);
+                        }
+                    )
+                    ->sortBy(
+                        fn ($feature) =>
+                            (int) (
+                                data_get(
+                                    $feature,
+                                    'navigation.sort_order'
+                                )
+                                ?? data_get(
+                                    $feature,
+                                    'sort_order'
+                                )
+                                ?? 999
+                            )
+                    )
+                    ->values();
+
+
+            /*
+             * MODULE FEATURES
+             */
+            $coreUserModuleFeatures =
+                $coreUserFeatures
+                    ->filter(
+                        function ($feature)
+                            use ($coreUserFeatureAllowed) {
+
+                            $sourceType =
+                                strtolower(
+                                    (string) data_get(
+                                        $feature,
+                                        'source_type',
+                                        ''
+                                    )
+                                );
+
+                            if ($sourceType !== 'module') {
+                                return false;
+                            }
+
+                            if (
+                                !$coreUserFeatureAllowed(
+                                    $feature
+                                )
+                            ) {
+                                return false;
+                            }
+
+                            $userUrl =
+                                data_get(
+                                    $feature,
+                                    'navigation.user_url'
+                                )
+                                ?? data_get(
+                                    $feature,
+                                    'user_url'
+                                );
+
+                            return !empty($userUrl);
+                        }
+                    )
+                    ->sortBy(
+                        fn ($feature) =>
+                            (int) (
+                                data_get(
+                                    $feature,
+                                    'navigation.sort_order'
+                                )
+                                ?? data_get(
+                                    $feature,
+                                    'sort_order'
+                                )
+                                ?? 999
+                            )
+                    )
+                    ->values();
+
+
+            /*
+             * SUPPORT
+             *
+             * Use the real User ticket route when available.
+             * Otherwise keep the menu in place with # until the
+             * User ticket page is wired.
+             */
+            $coreUserSupportUrl =
+                \Illuminate\Support\Facades\Route::has(
+                    'user.tickets.index'
+                )
+                    ? route('user.tickets.index')
+                    : '#';
+
+
+            /*
+             * WALLET
+             *
+             * Core Admin remains authoritative.
+             * Both flat and nested settings formats are supported.
+             */
+            $coreUserWalletEnabledRaw =
+                $settings['wallet_enabled']
+                    ?? $settings['wallet.enabled']
+                    ?? data_get(
+                        $settings,
+                        'wallet.enabled',
+                        false
+                    );
+
+            $coreUserWalletEnabled =
+                filter_var(
+                    $coreUserWalletEnabledRaw,
+                    FILTER_VALIDATE_BOOLEAN
+                );
+
+            $coreUserWalletUrl =
+                \Illuminate\Support\Facades\Route::has(
+                    'wallet.index'
+                )
+                    ? route('wallet.index')
+                    : url('/wallet');
+
+
+            /*
+             * REFERRAL
+             *
+             * Use a User route when one exists. Until then the
+             * canonical menu remains visible with #.
+             */
+            $coreUserReferralUrl =
+                \Illuminate\Support\Facades\Route::has(
+                    'user.referrals.index'
+                )
+                    ? route(
+                        'user.referrals.index'
+                    )
+                    : '#';
+        @endphp
+
+
+        {{-- CRM --}}
+        <details
+            class="group"
+            @if(
+                request()->routeIs('user.crm.*')
+            )
+                open
+            @endif
+        >
+            <summary
+                class="flex cursor-pointer list-none items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-white/10 hover:text-white"
+            >
+                <span class="flex items-center gap-3">
+                    <span>CRM</span>
+                </span>
+
+                <span
+                    class="transition group-open:rotate-180"
+                >
+                    ▾
+                </span>
+            </summary>
+
+            <div class="mt-1 space-y-1 pl-4">
+
+                <a
+                    href="{{ route('user.crm.index') }}"
+                    class="block rounded-lg px-3 py-2 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white"
+                >
+                    Overview
+                </a>
+
+                @foreach(
+                    $coreUserCrmFeatures
+                    as $coreUserCrmFeature
+                )
+                    @php
+                        $coreUserCrmUrl =
+                            data_get(
+                                $coreUserCrmFeature,
+                                'navigation.user_url'
+                            )
+                            ?? data_get(
+                                $coreUserCrmFeature,
+                                'user_url'
+                            );
+
+                        $coreUserCrmLabel =
+                            data_get(
+                                $coreUserCrmFeature,
+                                'navigation.label'
+                            )
+                            ?? data_get(
+                                $coreUserCrmFeature,
+                                'label'
+                            )
+                            ?? data_get(
+                                $coreUserCrmFeature,
+                                'name'
+                            )
+                            ?? 'CRM';
+                    @endphp
+
+                    <a
+                        href="{{ $coreUserCrmUrl }}"
+                        class="block rounded-lg px-3 py-2 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white"
+                    >
+                        {{ $coreUserCrmLabel }}
+                    </a>
+                @endforeach
+            </div>
+        </details>
+
+
+        {{-- MODULES --}}
+        <details class="group">
+            <summary
+                class="flex cursor-pointer list-none items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-white/10 hover:text-white"
+            >
+                <span>Modules</span>
+
+                <span
+                    class="transition group-open:rotate-180"
+                >
+                    ▾
+                </span>
+            </summary>
+
+            <div class="mt-1 space-y-1 pl-4">
+
+                @forelse(
+                    $coreUserModuleFeatures
+                    as $coreUserModuleFeature
+                )
+                    @php
+                        $coreUserModuleUrl =
+                            data_get(
+                                $coreUserModuleFeature,
+                                'navigation.user_url'
+                            )
+                            ?? data_get(
+                                $coreUserModuleFeature,
+                                'user_url'
+                            );
+
+                        $coreUserModuleLabel =
+                            data_get(
+                                $coreUserModuleFeature,
+                                'navigation.label'
+                            )
+                            ?? data_get(
+                                $coreUserModuleFeature,
+                                'label'
+                            )
+                            ?? data_get(
+                                $coreUserModuleFeature,
+                                'name'
+                            )
+                            ?? 'Module';
+                    @endphp
+
+                    <a
+                        href="{{ $coreUserModuleUrl }}"
+                        class="block rounded-lg px-3 py-2 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white"
+                    >
+                        {{ $coreUserModuleLabel }}
+                    </a>
+                @empty
+                    <span
+                        class="block px-3 py-2 text-xs text-slate-500"
+                    >
+                        No assigned module features
+                    </span>
+                @endforelse
+
+            </div>
+        </details>
+
+
+        {{-- SUPPORT --}}
+        <a
+            href="{{ $coreUserSupportUrl }}"
+            class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-white/10 hover:text-white"
+        >
+            <span>Support</span>
+        </a>
+
+
+        {{-- WALLET --}}
+        @if($coreUserWalletEnabled)
+            <a
+                href="{{ $coreUserWalletUrl }}"
+                class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-white/10 hover:text-white"
+            >
+                <span>Wallet</span>
+            </a>
+        @endif
+
+
+        {{-- REFERRAL --}}
+        <a
+            href="{{ $coreUserReferralUrl }}"
+            class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-white/10 hover:text-white"
+        >
+            <span>Referral</span>
+        </a>
+
+@else
 
         {{-- Site Management --}}
 
@@ -194,72 +679,6 @@
                     Forms
                 </a>
 
-                {{-- ESUBIZ_CORE_DYNAMIC_QR_CODE_SIDEBAR_V1 --}}
-                @php
-                    $coreFeatureRegistry = app(
-                        \App\Services\Core\CoreFeatureRegistry::class
-                    );
-
-                    $corePermissionService = app(
-                        \App\Services\Core\CorePermissionService::class
-                    );
-
-                    /*
-                     * Do not assume QR Code is installed.
-                     *
-                     * A QR feature must register itself and be AVAILABLE.
-                     * We locate it by its declared navigation label rather
-                     * than inventing an add-on entitlement identifier.
-                     */
-                    $coreQrFeature = collect(
-                        $coreFeatureRegistry->availableFeatures()
-                    )->first(function (array $feature) {
-                        $navigation = $feature['navigation'] ?? null;
-
-                        if (!is_array($navigation)) {
-                            return false;
-                        }
-
-                        return strcasecmp(
-                            trim((string) (
-                                $navigation['label']
-                                ?? $feature['label']
-                                ?? ''
-                            )),
-                            'QR Code'
-                        ) === 0;
-                    });
-                @endphp
-
-                @if($coreQrFeature)
-                    @php
-                        $coreQrNavigation =
-                            $coreQrFeature['navigation'] ?? [];
-
-                        $coreQrPermission =
-                            $coreQrNavigation['permission'] ?? null;
-
-                        $coreQrUrl =
-                            $coreQrNavigation['url'] ?? null;
-
-                        $coreQrAllowed =
-                            !$coreQrPermission
-                            || $corePermissionService->can(
-                                (string) $coreQrPermission
-                            );
-                    @endphp
-
-                    @if($coreQrAllowed && $coreQrUrl)
-                        <a
-                            href="{{ $coreQrUrl }}"
-                            class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white"
-                        >
-                            QR Code
-                        </a>
-                    @endif
-                @endif
-
-
                 {{-- ESUBIZ_CORE_USERS_SIDEBAR_V1 --}}
                 @coreCan('users.view')
 <a
@@ -268,7 +687,17 @@
                 >
                     Users
                 </a>
-@endcoreCan
+
+                @endcoreCan
+
+                {{-- ESUBIZ_CORE_QR_MENU_V66 --}}
+                <a
+                    href="#"
+                    class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white"
+                >
+                    QR Code
+                </a>
+
 
 
 
@@ -994,15 +1423,10 @@
             <span>Settings</span>
         </a>
 
-        {{-- ESUBIZ_MOBILE_PROFILE_SETTINGS_MENU_V1 --}}
-        <a
-            href="{{ route('tenant.cms.settings.profile', ['subdomain' => $website->subdomain]) }}"
-            class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-blue-100 hover:bg-white/10 hover:text-white lg:hidden
-                {{ request()->routeIs('tenant.cms.settings.profile*') ? 'bg-white/10 text-white' : '' }}"
-        >
-            <span>👤</span>
-            <span>Profile Settings</span>
-        </a>
+        {{-- ESUBIZ_MOBILE_PROFILE_SETTINGS_REMOVED_V50 --}}
+
+        @endif
+        {{-- /ESUBIZ_CORE_ROLE_AWARE_SIDEBAR_V51 --}}
 
     </nav>
 

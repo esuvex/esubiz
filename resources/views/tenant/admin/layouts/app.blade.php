@@ -1,3 +1,244 @@
+{{-- ESUBIZ_CORE_CANONICAL_WEBSITE_CONTEXT_V53 --}}
+@php
+    /*
+     * Canonical Core layout website context.
+     *
+     * Internal CMS pages normally receive $website directly.
+     * User-facing Core pages may not, so resolve the same Website
+     * before any title/header/sidebar code attempts to use it.
+     */
+    if (!isset($website) || !$website) {
+        $website = request()->user()?->websites()->first();
+    }
+
+    if (!$website) {
+        $host = strtolower((string) request()->getHost());
+        $subdomain = explode('.', $host)[0] ?? null;
+
+        if ($subdomain) {
+            $website = \App\Models\Website::query()
+                ->where('subdomain', $subdomain)
+                ->first();
+        }
+    }
+
+    if (!$website) {
+        throw new \RuntimeException(
+            'Unable to resolve the current Core website.'
+        );
+    }
+@endphp
+
+{{-- ESUBIZ_CORE_SHELL_SOURCE_OF_TRUTH_V56 --}}
+@php
+    /*
+     * ==========================================================
+     * CANONICAL CORE SHELL SETTINGS
+     * ==========================================================
+     *
+     * resources/views/tenant/admin/layouts/app.blade.php
+     * is the ONE internal Core layout/header source.
+     *
+     * resources/views/tenant/admin/partials/sidebar.blade.php
+     * is the ONE Core sidebar source.
+     *
+     * Role changes affect menu visibility only.
+     * Branding is shared by every Core role.
+     */
+
+    $coreExistingSettings =
+        isset($settings) && is_array($settings)
+            ? $settings
+            : [];
+
+    $coreFallbackSettings = [];
+
+    /*
+     * Preserve Website model settings exactly as stored.
+     * Do NOT transform dotted keys into nested arrays.
+     */
+    if (isset($website) && $website) {
+
+        $rawWebsiteSettings =
+            $website->settings ?? null;
+
+        if (is_string($rawWebsiteSettings)) {
+
+            $decodedWebsiteSettings =
+                json_decode(
+                    $rawWebsiteSettings,
+                    true
+                );
+
+            if (is_array($decodedWebsiteSettings)) {
+                $coreFallbackSettings =
+                    array_replace_recursive(
+                        $coreFallbackSettings,
+                        $decodedWebsiteSettings
+                    );
+            }
+
+        } elseif (is_array($rawWebsiteSettings)) {
+
+            $coreFallbackSettings =
+                array_replace_recursive(
+                    $coreFallbackSettings,
+                    $rawWebsiteSettings
+                );
+
+        } elseif (
+            $rawWebsiteSettings instanceof
+                \Illuminate\Contracts\Support\Arrayable
+        ) {
+
+            $coreFallbackSettings =
+                array_replace_recursive(
+                    $coreFallbackSettings,
+                    $rawWebsiteSettings->toArray()
+                );
+        }
+    }
+
+    /*
+     * Read tenant settings when the current route did not already
+     * receive them from its controller.
+     *
+     * IMPORTANT:
+     * Keep the DB key literally as stored.
+     *
+     * Example:
+     * theme.corporate.footer_logo_path
+     *
+     * Do NOT use data_set() here because that would change the
+     * established Core settings structure.
+     */
+    if (empty($coreExistingSettings)) {
+
+        try {
+
+            $tenantSchema =
+                \Illuminate\Support\Facades\Schema::connection(
+                    'tenant'
+                );
+
+            $settingsTable = null;
+
+            if ($tenantSchema->hasTable('site_settings')) {
+                $settingsTable = 'site_settings';
+            } elseif ($tenantSchema->hasTable('settings')) {
+                $settingsTable = 'settings';
+            }
+
+            if ($settingsTable) {
+
+                $rows =
+                    \Illuminate\Support\Facades\DB::connection(
+                        'tenant'
+                    )
+                    ->table($settingsTable)
+                    ->get();
+
+                foreach ($rows as $row) {
+
+                    $key =
+                        $row->key
+                        ?? $row->name
+                        ?? $row->setting_key
+                        ?? null;
+
+                    if (!$key) {
+                        continue;
+                    }
+
+                    $value =
+                        $row->value
+                        ?? $row->setting_value
+                        ?? null;
+
+                    if (is_string($value)) {
+
+                        $decoded =
+                            json_decode(
+                                $value,
+                                true
+                            );
+
+                        if (
+                            json_last_error()
+                                === JSON_ERROR_NONE
+                            && (
+                                is_array($decoded)
+                                || is_bool($decoded)
+                                || is_numeric($decoded)
+                            )
+                        ) {
+                            $value = $decoded;
+                        }
+                    }
+
+                    /*
+                     * FLAT KEY IS INTENTIONAL.
+                     */
+                    $coreFallbackSettings[
+                        (string) $key
+                    ] = $value;
+                }
+            }
+
+        } catch (\Throwable $e) {
+            /*
+             * Shell must remain usable even if optional fallback
+             * storage cannot be read.
+             */
+        }
+    }
+
+    /*
+     * Existing controller-provided settings remain authoritative.
+     */
+    $settings = array_replace_recursive(
+        $coreFallbackSettings,
+        $coreExistingSettings
+    );
+
+    /*
+     * Compatibility aliases from page/theme variables.
+     * These do not create a second branding source.
+     */
+    if (
+        empty(
+            $settings[
+                'theme.corporate.footer_logo_path'
+            ] ?? null
+        )
+        && isset($theme)
+        && is_array($theme)
+        && !empty($theme['footer_logo_path'] ?? null)
+    ) {
+        $settings[
+            'theme.corporate.footer_logo_path'
+        ] = $theme['footer_logo_path'];
+    }
+
+    if (
+        empty(
+            $settings[
+                'theme.corporate.footer_logo_path'
+            ] ?? null
+        )
+        && isset($siteConfig)
+        && is_array($siteConfig)
+        && !empty(
+            $siteConfig['footer_logo_path'] ?? null
+        )
+    ) {
+        $settings[
+            'theme.corporate.footer_logo_path'
+        ] = $siteConfig['footer_logo_path'];
+    }
+@endphp
+
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -16,10 +257,18 @@
     </title>
 
 
-    {{-- ESUBIZ_TENANT_ADMIN_FAVICON_V1 --}}
+    {{-- ESUBIZ_CORE_GLOBAL_FAVICON_V44 --}}
     @php
+        /*
+         * Core website favicon is authoritative.
+         *
+         * Site Settings favicon is preferred. The existing corporate
+         * theme favicon remains a compatibility fallback.
+         */
         $tenantAdminFavicon =
-            $settings['theme.corporate.favicon_path']
+            $settings['website_favicon_path']
+                ?? $settings['favicon_path']
+                ?? $settings['theme.corporate.favicon_path']
                 ?? null;
     @endphp
 
@@ -117,399 +366,8 @@
      PERMANENT HEADER
 ========================================================= --}}
 
-<header
-    class="fixed left-0 right-0 top-0 z-30 h-[72px] border-b border-slate-200 bg-white lg:left-[280px]"
->
-
-    <div
-        class="flex h-full items-center justify-between gap-4 px-4 sm:px-6 lg:px-8"
-    >
-
-        <div
-            class="flex min-w-0 items-center gap-3"
-        >
-
-            <button
-                type="button"
-                id="tenantCmsMenuButton"
-                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white lg:hidden"
-                aria-label="Open navigation"
-            >
-                ☰
-            </button>
-
-                {{-- ESUBIZ_TENANT_HEADER_THEME_LINK_REMOVED_V1 --}}
-
-
-            <div class="min-w-0">
-
-                <div
-                    class="hidden text-[10px] font-black uppercase tracking-[.18em] text-blue-600 sm:block"
-                >
-                    Esubiz Core CMS
-                </div>
-
-                <div
-                    class="truncate text-lg font-black"
-                >
-                    @yield(
-                        'header_title',
-                        $settings['website_name']
-                            ?? $website->name
-                    )
-                </div>
-
-            </div>
-
-        </div>
-
-
-        <div class="flex shrink-0 items-center gap-2">
-
-
-            <a
-                href="/"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="flex h-10 items-center justify-center rounded-xl bg-blue-600 px-3 text-sm font-bold text-white sm:px-4"
-            >
-                <span class="hidden sm:inline">
-                    View Website
-                </span>
-
-                <span class="sm:ml-2">
-                    ↗
-                </span>
-            </a>
-
-
-            {{-- ESUBIZ_TENANT_PROFILE_MENU_V2 --}}
-            @php
-                /*
-                 * The Core site's local site_users identity
-                 * is authoritative for the tenant header.
-                 *
-                 * Do not use the Central auth()->user()
-                 * profile photo for Core avatars.
-                 */
-                $tenantProfileUser =
-                    null;
-
-                $tenantProfileUserId =
-                    session()->get(
-                        "tenant_cms_sites.{$website->id}.user_id"
-                    )
-                    ?? session()->get(
-                        'tenant_cms_user_id'
-                    );
-
-                if ($tenantProfileUserId) {
-                    try {
-                        $tenantProfileUser =
-                            \Illuminate\Support\Facades\DB
-                                ::connection('tenant')
-                                ->table('site_users')
-                                ->where(
-                                    'id',
-                                    (int)
-                                    $tenantProfileUserId
-                                )
-                                ->first();
-                    } catch (\Throwable $profileLookupError) {
-                        $tenantProfileUser =
-                            null;
-                    }
-                }
-
-                $tenantProfileName =
-                    $tenantProfileUser->name
-                    ?? auth()->user()->name
-                    ?? 'Account';
-
-                /*
-                 * Core-owned avatar must resolve through
-                 * the active website host, never APP_URL.
-                 */
-                $tenantProfilePhoto =
-                    !empty(
-                        $tenantProfileUser->avatar_path
-                        ?? null
-                    )
-                        ? route(
-                            'tenant.cms.settings.profile.avatar',
-                            [
-                                'subdomain' =>
-                                    $website->subdomain,
-                            ]
-                        )
-                        : null;
-
-                $tenantProfileInitial =
-                    strtoupper(
-                        substr(
-                            trim($tenantProfileName),
-                            0,
-                            1
-                        )
-                    );
-
-                $tenantProfileUrl = route(
-                    'tenant.cms.settings.profile',
-                    [
-                        'subdomain' =>
-                            $website->subdomain,
-                    ]
-                );
-
-                $esubizSupportUrl =
-                    rtrim(config('app.url'), '/');
-            @endphp
-
-            <div
-                class="relative"
-                data-tenant-profile-menu
-            >
-                <button
-                    type="button"
-                    class="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 sm:px-3"
-                    data-tenant-profile-button
-                    aria-expanded="false"
-                    aria-label="Open profile menu"
-                >
-                    @if($tenantProfilePhoto)
-
-                        <img
-                            src="{{ $tenantProfilePhoto }}"
-                            alt="{{ $tenantProfileName }}"
-                            class="h-7 w-7 rounded-full object-cover"
-                        >
-
-                    @else
-
-                        <span
-                            class="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-xs font-black text-white"
-                        >
-                            {{ $tenantProfileInitial ?: 'A' }}
-                        </span>
-
-                    @endif
-
-                    <span
-                        class="hidden max-w-[130px] truncate text-sm font-bold text-slate-700 sm:block"
-                    >
-                        {{ $tenantProfileName }}
-                    </span>
-
-                    <span
-                        class="text-xs text-slate-400"
-                    >
-                        ▾
-                    </span>
-                </button>
-
-
-                <div
-                    class="absolute right-0 top-full z-50 mt-2 hidden w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
-                    data-tenant-profile-dropdown
-                >
-                    <a
-                        href="{{ $tenantProfileUrl }}"
-                        class="flex items-center gap-3 border-b border-slate-100 px-4 py-4 hover:bg-slate-50"
-                    >
-                        @if($tenantProfilePhoto)
-
-                            <img
-                                src="{{ $tenantProfilePhoto }}"
-                                alt="{{ $tenantProfileName }}"
-                                class="h-10 w-10 rounded-full object-cover"
-                            >
-
-                        @else
-
-                            <span
-                                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-black text-white"
-                            >
-                                {{ $tenantProfileInitial ?: 'A' }}
-                            </span>
-
-                        @endif
-
-                        <span class="min-w-0">
-                            <span
-                                class="block truncate text-sm font-black text-slate-900"
-                            >
-                                {{ $tenantProfileName }}
-                            </span>
-
-                            <span
-                                class="block text-xs font-semibold text-blue-600"
-                            >
-                                Profile Settings
-                            </span>
-                        </span>
-                    </a>
-
-
-                    <div class="py-2">
-
-                        <a
-                            href="{{ $esubizSupportUrl }}"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50"
-                        >
-                            <span class="flex w-5 justify-center">
-                                ?
-                            </span>
-
-                            <span>
-                                Esubiz Support
-                            </span>
-                        </a>
-
-
-
-                    </div>
-
-
-                    <div class="border-t border-slate-100 p-2">
-
-                        <form
-                            method="POST"
-                            action="{{ route(
-                                'tenant.cms.logout',
-                                [
-                                    'subdomain' =>
-                                        $website->subdomain
-                                ]
-                            ) }}"
-                        >
-                            @csrf
-
-                            <button
-                                type="submit"
-                                class="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-bold text-red-600 hover:bg-red-50"
-                            >
-                                <span class="flex w-5 justify-center">
-                                    ↪
-                                </span>
-
-                                <span>
-                                    Logout
-                                </span>
-                            </button>
-                        </form>
-
-                    </div>
-                </div>
-            </div>
-
-            <script>
-                /*
-                 * ESUBIZ_TENANT_PROFILE_MENU_JS_V1
-                 */
-                document.addEventListener(
-                    'DOMContentLoaded',
-                    function () {
-                        document
-                            .querySelectorAll(
-                                '[data-tenant-profile-menu]'
-                            )
-                            .forEach(function (menu) {
-                                const button =
-                                    menu.querySelector(
-                                        '[data-tenant-profile-button]'
-                                    );
-
-                                const dropdown =
-                                    menu.querySelector(
-                                        '[data-tenant-profile-dropdown]'
-                                    );
-
-                                if (!button || !dropdown) {
-                                    return;
-                                }
-
-                                button.addEventListener(
-                                    'click',
-                                    function (event) {
-                                        event.stopPropagation();
-
-                                        const isHidden =
-                                            dropdown.classList.contains(
-                                                'hidden'
-                                            );
-
-                                        document
-                                            .querySelectorAll(
-                                                '[data-tenant-profile-dropdown]'
-                                            )
-                                            .forEach(function (item) {
-                                                item.classList.add(
-                                                    'hidden'
-                                                );
-                                            });
-
-                                        if (isHidden) {
-                                            dropdown.classList.remove(
-                                                'hidden'
-                                            );
-
-                                            button.setAttribute(
-                                                'aria-expanded',
-                                                'true'
-                                            );
-                                        } else {
-                                            button.setAttribute(
-                                                'aria-expanded',
-                                                'false'
-                                            );
-                                        }
-                                    }
-                                );
-
-                                dropdown.addEventListener(
-                                    'click',
-                                    function (event) {
-                                        event.stopPropagation();
-                                    }
-                                );
-                            });
-
-                        document.addEventListener(
-                            'click',
-                            function () {
-                                document
-                                    .querySelectorAll(
-                                        '[data-tenant-profile-dropdown]'
-                                    )
-                                    .forEach(function (dropdown) {
-                                        dropdown.classList.add(
-                                            'hidden'
-                                        );
-                                    });
-
-                                document
-                                    .querySelectorAll(
-                                        '[data-tenant-profile-button]'
-                                    )
-                                    .forEach(function (button) {
-                                        button.setAttribute(
-                                            'aria-expanded',
-                                            'false'
-                                        );
-                                    });
-                            }
-                        );
-                    }
-                );
-            </script>
-
-        </div>
-
-    </div>
-
-</header>
+{{-- ESUBIZ_CORE_CANONICAL_HEADER_INCLUDE_V58 --}}
+@include('tenant.admin.partials.header')
 
 
 {{-- =========================================================
@@ -563,6 +421,8 @@
 
 
         @yield('content')
+
+        @include('tenant.partials.internal-footer')
 
     </main>
 

@@ -24,8 +24,16 @@
     >
 
 
-{{-- ESUBIZ_BUSINESS_FAVICON_MEDIA_ROUTE_FIX_V1 --}}
-    @if(!empty($theme['favicon_path']))
+{{-- ESUBIZ_CORE_PUBLIC_GLOBAL_FAVICON_V46 --}}
+    @php
+        $corePublicFavicon =
+            $settings['website_favicon_path']
+                ?? $settings['favicon_path']
+                ?? $theme['favicon_path']
+                ?? null;
+    @endphp
+
+    @if(!empty($corePublicFavicon))
         <link
             rel="icon"
             href="{{ request()->getSchemeAndHttpHost()
@@ -37,7 +45,7 @@
                         explode(
                             '/',
                             ltrim(
-                                $theme['favicon_path'],
+                                $corePublicFavicon,
                                 '/'
                             )
                         )

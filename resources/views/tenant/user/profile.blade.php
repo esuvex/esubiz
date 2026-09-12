@@ -1,15 +1,11 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+@extends('tenant.admin.layouts.app')
 
-    <title>Profile Settings</title>
+{{-- ESUBIZ_CORE_USER_PROFILE_CANONICAL_SHELL_V52 --}}
+@section('title', 'Profile Settings')
 
-    <style>
+@section('content')
+
+<style>
         * {
             box-sizing: border-box;
         }
@@ -564,7 +560,7 @@
                 padding-top: 22px;
             }
         }
-    
+
 
         /*
          * ESUBIZ_CORE_USER_HEADER_RESPONSIVE_FIX_V1
@@ -607,29 +603,28 @@
         }
 
 </style>
-</head>
 
-<body>
+<style>
+    /* ESUBIZ_CORE_USER_CANONICAL_LAYOUT_OVERRIDE_V52 */
 
-<div
-    class="core-user-sidebar-overlay"
-    data-core-user-sidebar-close
-></div>
+    .core-user-content {
+        margin-left: 0 !important;
+        padding-top: 0 !important;
+        width: auto !important;
+        min-height: auto !important;
+    }
 
-<div class="core-user-shell">
+    .core-user-sidebar,
+    .core-user-sidebar-backdrop,
+    .core-user-mobile-bar,
+    .core-user-mobile-header,
+    .core-user-header {
+        display: none !important;
+    }
+</style>
 
-    @include(
-        'tenant.user.partials.sidebar',
-        ['coreUser' => $profileUser]
-    )
+<div class="core-user-topbar">
 
-    <main class="core-user-content">
-
-        <div class="core-user-topbar">
-            @include(
-                'tenant.user.partials.profile-menu',
-                ['coreUser' => $profileUser]
-            )
         </div>
 
         <div class="core-user-mobile-header">
@@ -644,10 +639,7 @@
                 ☰
             </button>
 
-            @include(
-                'tenant.user.partials.profile-menu',
-                ['coreUser' => $profileUser]
-            )
+
 
         </div>
 
@@ -1016,196 +1008,6 @@
 
         </div>
 
-    </main>
 
-</div>
 
-<script>
-document.addEventListener(
-    'DOMContentLoaded',
-    function () {
-        const body = document.body;
-
-        const sidebarToggle =
-            document.querySelector(
-                '[data-core-user-sidebar-toggle]'
-            );
-
-        const sidebarOverlay =
-            document.querySelector(
-                '[data-core-user-sidebar-close]'
-            );
-
-        const closeSidebar = function () {
-            body.classList.remove(
-                'core-user-sidebar-open'
-            );
-
-            if (sidebarToggle) {
-                sidebarToggle.setAttribute(
-                    'aria-expanded',
-                    'false'
-                );
-            }
-        };
-
-        if (sidebarToggle) {
-            sidebarToggle.addEventListener(
-                'click',
-                function () {
-                    const open =
-                        body.classList.toggle(
-                            'core-user-sidebar-open'
-                        );
-
-                    sidebarToggle.setAttribute(
-                        'aria-expanded',
-                        open ? 'true' : 'false'
-                    );
-                }
-            );
-        }
-
-        if (sidebarOverlay) {
-            sidebarOverlay.addEventListener(
-                'click',
-                closeSidebar
-            );
-        }
-
-        const profiles =
-            document.querySelectorAll(
-                '[data-core-user-profile]'
-            );
-
-        const closeProfiles = function () {
-            profiles.forEach(function (profile) {
-                profile.classList.remove('open');
-
-                const trigger =
-                    profile.querySelector(
-                        '[data-core-user-profile-toggle]'
-                    );
-
-                if (trigger) {
-                    trigger.setAttribute(
-                        'aria-expanded',
-                        'false'
-                    );
-                }
-            });
-        };
-
-        profiles.forEach(function (profile) {
-            const trigger =
-                profile.querySelector(
-                    '[data-core-user-profile-toggle]'
-                );
-
-            if (!trigger) {
-                return;
-            }
-
-            trigger.addEventListener(
-                'click',
-                function (event) {
-                    event.stopPropagation();
-
-                    const wasOpen =
-                        profile.classList.contains(
-                            'open'
-                        );
-
-                    closeProfiles();
-
-                    if (!wasOpen) {
-                        profile.classList.add('open');
-
-                        trigger.setAttribute(
-                            'aria-expanded',
-                            'true'
-                        );
-                    }
-                }
-            );
-
-            const menu =
-                profile.querySelector(
-                    '.core-user-profile-menu'
-                );
-
-            if (menu) {
-                menu.addEventListener(
-                    'click',
-                    function (event) {
-                        event.stopPropagation();
-                    }
-                );
-            }
-        });
-
-        document.addEventListener(
-            'click',
-            closeProfiles
-        );
-
-        const avatarInput =
-            document.querySelector(
-                '[data-profile-avatar-input]'
-            );
-
-        if (avatarInput) {
-            avatarInput.addEventListener(
-                'change',
-                function () {
-                    const file =
-                        this.files
-                        && this.files[0];
-
-                    if (!file) {
-                        return;
-                    }
-
-                    const preview =
-                        document.querySelector(
-                            '[data-profile-avatar-preview]'
-                        );
-
-                    const fallback =
-                        document.querySelector(
-                            '[data-profile-avatar-fallback]'
-                        );
-
-                    if (!preview) {
-                        return;
-                    }
-
-                    const reader =
-                        new FileReader();
-
-                    reader.onload =
-                        function (event) {
-                            preview.src =
-                                event.target.result;
-
-                            preview.classList.remove(
-                                'hidden'
-                            );
-
-                            if (fallback) {
-                                fallback.classList.add(
-                                    'hidden'
-                                );
-                            }
-                        };
-
-                    reader.readAsDataURL(file);
-                }
-            );
-        }
-    }
-);
-</script>
-
-</body>
-</html>
+@endsection

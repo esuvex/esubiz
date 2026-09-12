@@ -69,52 +69,8 @@
 
 {{-- Header --}}
 
-<header
-    class="fixed left-0 right-0 top-0 z-30 h-[72px] border-b border-slate-200 bg-white lg:left-[280px]"
->
-
-    <div
-        class="flex h-full items-center justify-between px-4 sm:px-6 lg:px-8"
-    >
-
-        <div class="flex items-center gap-3">
-
-            <button
-                type="button"
-                id="tenantCmsMenuButton"
-                class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 lg:hidden"
-            >
-                ☰
-            </button>
-
-            <div>
-
-                <div
-                    class="hidden text-[10px] font-black uppercase tracking-[.18em] text-blue-600 sm:block"
-                >
-                    Esubiz Core CMS
-                </div>
-
-                <div class="font-black">
-                    {{ $website->name }}
-                </div>
-
-            </div>
-
-        </div>
-
-
-        <a
-            href="/"
-            target="_blank"
-            class="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white"
-        >
-            View Website ↗
-        </a>
-
-    </div>
-
-</header>
+{{-- ESUBIZ_CORE_CANONICAL_HEADER_INCLUDE_V59 --}}
+@include('tenant.admin.partials.header')
 
 
 {{-- Content --}}
