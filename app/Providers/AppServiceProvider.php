@@ -2,6 +2,13 @@
 
 namespace App\Providers;
 
+
+use App\Services\Platform\CentralAuthUiService;
+use App\Services\Platform\CentralRegistrationAccessService;
+use App\Services\Platform\CentralRoleAccessService;
+use Illuminate\Support\Facades\View;
+
+use App\Services\Platform\CentralVisitorCurrencyService;
 use Illuminate\Support\Facades\Blade;
 
 use App\Services\SiteAi\Proposals\AiProposalApplierRegistry;
@@ -13,6 +20,9 @@ use App\Services\Core\CoreAddonMarketplaceFulfilmentService;
 use App\Services\Core\CoreAddonSalesTriggerRegistry;
 
 use Illuminate\Support\ServiceProvider;
+use App\Listeners\PersistCentralRegistrationCountry;
+use Illuminate\Auth\Events\Registered;
+use Illuminate\Support\Facades\Event;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -403,5 +413,223 @@ class AppServiceProvider extends ServiceProvider
                 CoreAddonSalesTriggerRegistry::class
             )
         );
+
+
+        /*
+         * ESUBIZ_REGISTER_COUNTRY_EVENT_V7
+         *
+         * Persist the registration country selected by the
+         * visitor after the account has been created.
+         */
+        Event::listen(
+            Registered::class,
+            PersistCentralRegistrationCountry::class
+        );
+
+
+        /*
+         * ESUBIZ_CENTRAL_AUTH_PROFILE_VIEW_CONTEXT_V9
+         *
+         * Central auth/profile configuration authority.
+         *
+         * Central auth uses Central settings.
+         * Tenant/Core auth remains independently configurable.
+         */
+        View::composer('*', function ($view) {
+            try {
+                $viewName = method_exists(
+                    $view,
+                    'getName'
+                )
+                    ? (string) $view->getName()
+                    : '';
+
+                /*
+                 * Never inject Central auth configuration into
+                 * tenant/Core presentation views.
+                 */
+                if (
+                    str_starts_with(
+                        $viewName,
+                        'tenant.'
+                    )
+                    || str_starts_with(
+                        $viewName,
+                        'components.core.'
+                    )
+                ) {
+                    return;
+                }
+
+                $authUi = app(
+                    CentralAuthUiService::class
+                );
+
+                $registration = app(
+                    CentralRegistrationAccessService::class
+                );
+
+                $roleAccess = app(
+                    CentralRoleAccessService::class
+                );
+
+                $authUser = auth()->user();
+
+                $view->with(
+                    'centralAuthUi',
+                    $authUi->all()
+                );
+
+                $view->with(
+                    'centralAuthEnabledProviders',
+                    $authUi->enabledProviders()
+                );
+
+                $view->with(
+                    'centralPublicRegistrationRoles',
+                    $registration->enabledPublicRoles()
+                );
+
+                $view->with(
+                    'centralDefaultRegistrationRole',
+                    $registration->defaultRole()
+                );
+
+                $view->with(
+                    'centralRegistrationAccess',
+                    $registration
+                );
+
+                $view->with(
+                    'centralRoleAccess',
+                    $roleAccess
+                );
+
+                $view->with(
+                    'centralAccountFamily',
+                    $authUser
+                        ? $roleAccess->family(
+                            $authUser
+                        )
+                        : null
+                );
+
+                $view->with(
+                    'centralVisibleContexts',
+                    $authUser
+                        ? $roleAccess->visibleContexts(
+                            $authUser
+                        )
+                        : []
+                );
+
+                $approvalStatus = $authUser
+                    ? (
+                        $authUser->approval_status
+                        ?? null
+                    )
+                    : null;
+
+                $view->with(
+                    'centralAccountApprovalStatus',
+                    $approvalStatus
+                );
+
+                $view->with(
+                    'centralAccountCanUseFunctions',
+                    $authUser
+                        ? $registration->canUseFunctions(
+                            $approvalStatus
+                        )
+                        : false
+                );
+            } catch (\Throwable $exception) {
+                /*
+                 * Presentation configuration must never make
+                 * public/auth pages unavailable.
+                 */
+            }
+        });
+
+/*
+         * ESUBIZ_GLOBAL_VISITOR_CURRENCY_CONTEXT_V4
+         *
+         * Global Esubiz commercial currency context.
+         *
+         * Available to Central, Core and tenant views without
+         * replacing any tenant website's own local currency.
+         *
+         * Esubiz-controlled product surfaces should use:
+         *
+         * $esubizVisitorCountry
+         * $esubizVisitorCurrency
+         * $esubizVisitorCurrencyContext
+         * $esubizProductMoney($baseAmount)
+         */
+        View::composer('*', function ($view) {
+            try {
+                $request = request();
+
+                $visitorCurrency =
+                    app(
+                        CentralVisitorCurrencyService::class
+                    );
+
+                $context =
+                    $visitorCurrency->resolve(
+                        $request
+                    );
+
+                $view->with(
+                    'esubizVisitorCurrencyContext',
+                    $context
+                );
+
+                $view->with(
+                    'esubizVisitorCountry',
+                    $context['country']
+                        ?? null
+                );
+
+                $view->with(
+                    'esubizVisitorCurrency',
+                    $context['currency']
+                        ?? null
+                );
+
+                $view->with(
+                    'esubizVisitorIsDefaultCountry',
+                    (bool) (
+                        $context[
+                            'is_default_country'
+                        ]
+                        ?? false
+                    )
+                );
+
+                $view->with(
+                    'esubizProductMoney',
+                    static function (
+                        $baseAmount
+                    ) use (
+                        $visitorCurrency,
+                        $request
+                    ) {
+                        return $visitorCurrency
+                            ->productMoney(
+                                $request,
+                                $baseAmount
+                            );
+                    }
+                );
+            } catch (\Throwable $exception) {
+                /*
+                 * Never break Central/Core rendering because
+                 * geolocation, session or FX context is
+                 * temporarily unavailable.
+                 */
+            }
+        });
+
     }
 }

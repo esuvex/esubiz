@@ -211,6 +211,79 @@
     }
 @endphp
 
+{{-- ESUBIZ_CORE_SHARED_REGISTER_V12 --}}
+@php
+    /*
+     * Core auth consumes the exact same shared Esubiz
+     * presentation source as Central.
+     *
+     * Core website settings remain authoritative.
+     */
+
+    $coreSettings =
+        $settings
+        ?? [];
+
+    $authLogo =
+        $coreSettings['auth.logo_path']
+        ?? $coreSettings['auth_logo_path']
+        ?? null;
+
+    $defaultLogo =
+        $coreSettings['website_logo_path']
+        ?? $coreSettings['logo_path']
+        ?? $coreSettings['theme.corporate.logo_path']
+        ?? null;
+
+    $authFavicon =
+        $coreSettings['auth.favicon_path']
+        ?? $coreSettings['auth_favicon_path']
+        ?? null;
+
+    $defaultFavicon =
+        $coreSettings['website_favicon_path']
+        ?? $coreSettings['favicon_path']
+        ?? $coreSettings['theme.corporate.favicon_path']
+        ?? null;
+
+    $authSiteName =
+        $coreSettings['website_name']
+        ?? $coreSettings['site_name']
+        ?? 'Esubiz';
+
+    $authPrimary =
+        $coreSettings['auth.primary_color']
+        ?? $coreSettings['theme.corporate.primary_color']
+        ?? '#0b1f3a';
+
+    $authAccent =
+        $coreSettings['auth.accent_color']
+        ?? $coreSettings['theme.corporate.accent_color']
+        ?? '#c89b3c';
+
+    $authBackground =
+        $coreSettings['auth.background_color']
+        ?? '#f5f7fb';
+
+    $authCard =
+        $coreSettings['auth.card_color']
+        ?? '#ffffff';
+
+    $authText =
+        $coreSettings['auth.text_color']
+        ?? '#172033';
+
+    $authMuted =
+        $coreSettings['auth.muted_text_color']
+        ?? '#667085';
+
+    $authBackgroundImage =
+        $coreSettings['auth.background_image_path']
+        ?? null;
+@endphp
+
+
+
 {{-- ESUBIZ_AUTH_CANONICAL_FAVICON_V73 --}}
     @php
         /*
@@ -738,9 +811,11 @@ body[data-theme="dark"] .auth-logo-dark {
 </style>
 
 
+    @include('shared.auth.favicon')
+    @include('shared.auth.styles')
 </head>
 
-<body>
+<body class="esubiz-auth-body">
 
 {{{-- ESUBIZ_AUTH_REAL_CARD_STRUCTURE_V18_1 --}}}
 <div class="auth-shell">
@@ -2785,3 +2860,219 @@ document.addEventListener(
 }
 
 </style>
+
+
+{{-- ESUBIZ_CORE_REGISTRATION_AGREEMENT_DOM_V31 --}}
+
+<div
+    id="esubiz-core-agreement-stage"
+    hidden
+    style="display:none !important;"
+>
+    @php
+        /*
+         * Bootstrap defaults.
+         *
+         * Core Admin Auth Settings will become the
+         * configuration authority in the next stage.
+         */
+        $registrationAgreements = [
+            [
+                'id' => 'terms',
+                'label' => 'Terms of Service',
+                'url' => url('/terms'),
+                'required' => true,
+                'enabled' => true,
+                'account_types' => ['*'],
+            ],
+            [
+                'id' => 'privacy',
+                'label' => 'Privacy Policy',
+                'url' => url('/privacy'),
+                'required' => true,
+                'enabled' => true,
+                'account_types' => ['*'],
+            ],
+        ];
+
+        $registrationAgreementAccountField =
+            'account_type';
+
+        $registrationAgreementDefaultAccountType =
+            'user';
+
+        $registrationAgreementContext =
+            'core';
+    @endphp
+
+    @include(
+        'shared.auth.registration-agreements'
+    )
+</div>
+
+<style>
+/*
+ * ESUBIZ_CORE_REGISTRATION_AGREEMENT_STYLE_V31
+ *
+ * Only the agreement rows are styled here.
+ * Existing Core card/form geometry remains authoritative.
+ */
+
+#esubiz-core-agreement-stage {
+    display: none !important;
+}
+
+.esubiz-core-agreements-mounted {
+    position: static !important;
+    display: block !important;
+
+    width: 100% !important;
+    max-width: 100% !important;
+
+    margin: 18px 0 !important;
+    padding: 0 !important;
+
+    float: none !important;
+    clear: both !important;
+}
+
+.esubiz-core-agreements-mounted
+.esubiz-registration-agreement {
+    width: 100% !important;
+    max-width: 100% !important;
+
+    margin: 0 0 10px !important;
+}
+
+.esubiz-core-agreements-mounted
+.esubiz-registration-agreement-label {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+</style>
+
+<script>
+/*
+ * ESUBIZ_CORE_REGISTRATION_AGREEMENT_MOUNT_V31
+ */
+document.addEventListener(
+    'DOMContentLoaded',
+    function () {
+        const stage =
+            document.getElementById(
+                'esubiz-core-agreement-stage'
+            );
+
+        if (!stage) {
+            return;
+        }
+
+        const agreements =
+            stage.querySelector(
+                '[data-esubiz-registration-agreements]'
+            );
+
+        const modal =
+            stage.querySelector(
+                '[data-esubiz-agreement-modal]'
+            );
+
+        const confirmation =
+            document.querySelector(
+                'input[name="password_confirmation"]'
+            );
+
+        if (
+            !agreements
+            || !confirmation
+        ) {
+            return;
+        }
+
+        const form =
+            confirmation.closest('form');
+
+        if (!form) {
+            return;
+        }
+
+        /*
+         * Find the registration submit that follows
+         * password confirmation inside the same form.
+         */
+        const submits =
+            Array.from(
+                form.querySelectorAll(
+                    'button[type="submit"], '
+                    + 'input[type="submit"]'
+                )
+            );
+
+        let submit = null;
+
+        for (const candidate of submits) {
+            const relation =
+                confirmation.compareDocumentPosition(
+                    candidate
+                );
+
+            if (
+                relation
+                & Node.DOCUMENT_POSITION_FOLLOWING
+            ) {
+                submit = candidate;
+                break;
+            }
+        }
+
+        if (!submit) {
+            return;
+        }
+
+        agreements.classList.add(
+            'esubiz-core-agreements-mounted'
+        );
+
+        /*
+         * Prefer placing agreements before the submit's
+         * existing row/wrapper without changing that wrapper.
+         */
+        let target = submit;
+
+        const wrapper =
+            submit.closest(
+                '.form-group, '
+                + '.auth-action, '
+                + '.auth-actions, '
+                + '.form-action, '
+                + '.form-actions, '
+                + '.submit-wrap, '
+                + '.button-wrap'
+            );
+
+        if (
+            wrapper
+            && wrapper !== form
+            && form.contains(wrapper)
+        ) {
+            target = wrapper;
+        }
+
+        target.parentNode.insertBefore(
+            agreements,
+            target
+        );
+
+        /*
+         * Keep modal out of the Core auth card.
+         */
+        if (modal) {
+            document.body.appendChild(
+                modal
+            );
+        }
+
+        stage.remove();
+    }
+);
+</script>

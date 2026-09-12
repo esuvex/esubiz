@@ -1217,7 +1217,7 @@ Route::post(
     /*
      * ESUBIZ_CORE_ROLES_PERMISSIONS_ROUTES_V1
      */
-    
+
         /*
          * ESUBIZ_CORE_PARTNER_ADMIN_CONFIG_ROUTES_V2
          *
@@ -1307,7 +1307,7 @@ Route::get(
             ]
         )->name('tenant.cms.pages.store');
 
-        
+
     /*
      * ESUBIZ_TENANT_ADMIN_ADDON_CHECKOUT_ROUTE_V1
      *
@@ -1403,7 +1403,7 @@ Route::get(
             ->name('tenant.theme.asset');
 
 
-        
+
 
 
 
@@ -1842,7 +1842,7 @@ Route::middleware(['auth'])->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    
+
 /*
 |--------------------------------------------------------------------------
 | ESUBIZ_CENTRAL_SITE_SETTINGS_SHELL_V1
@@ -2110,7 +2110,7 @@ Route::get('/admin/site-settings/payment-gateways', [\App\Http\Controllers\Admin
 
 
 
-    
+
 
     /*
      * Signed browser entry for registered off-server websites.
@@ -2653,11 +2653,11 @@ Route::prefix('admin/payment-gateways')->middleware(['auth'])->group(function ()
         \App\Http\Controllers\Admin\GiftCardController::class,
         'store'
     ])->name('admin.payment-gateways.gift-card.store');
-    
+
     Route::post('/gift-card/generate',
         [\App\Http\Controllers\Admin\GiftCardController::class, 'generate']
     )->name('admin.payment-gateways.gift-card.generate');
-    
+
     Route::get('/gift-card/export/csv',
         [\App\Http\Controllers\Admin\GiftCardController::class, 'csv']
     )->name('admin.payment-gateways.gift-card.csv');
@@ -3836,3 +3836,78 @@ Route::middleware('auth')
     )
     ->name('admin.site-settings.main.update');
 
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_PUBLIC_CENTRAL_MEDIA_V18
+|--------------------------------------------------------------------------
+|
+| Public delivery for Central platform media stored under:
+|
+| storage/app/public/central-media/
+|
+| This avoids dependence on the web server's blocked /storage
+| symbolic-link path.
+|
+*/
+\Illuminate\Support\Facades\Route::get(
+    '/central-media/{path}',
+    function (string $path) {
+        $path = trim(
+            str_replace(
+                '\\',
+                '/',
+                $path
+            ),
+            '/'
+        );
+
+        if (
+            $path === ''
+            || str_contains($path, '..')
+            || str_starts_with($path, '.')
+        ) {
+            abort(404);
+        }
+
+        $base = storage_path(
+            'app/public/central-media'
+        );
+
+        $candidate = $base
+            . DIRECTORY_SEPARATOR
+            . str_replace(
+                '/',
+                DIRECTORY_SEPARATOR,
+                $path
+            );
+
+        $realBase = realpath($base);
+        $realFile = realpath($candidate);
+
+        if (
+            $realBase === false
+            || $realFile === false
+            || !is_file($realFile)
+            || !str_starts_with(
+                $realFile,
+                $realBase . DIRECTORY_SEPARATOR
+            )
+        ) {
+            abort(404);
+        }
+
+        return response()->file(
+            $realFile,
+            [
+                'Cache-Control' =>
+                    'public, max-age=86400',
+            ]
+        );
+    }
+)->where(
+    'path',
+    '.*'
+)->name(
+    'central.media.public'
+);
