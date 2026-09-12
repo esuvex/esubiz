@@ -192,9 +192,37 @@ class AppServiceProvider extends ServiceProvider
                     \App\Services\Platform\CentralSiteSettingsService::class
                 );
 
+                $allCentralSettings = $service->all();
+
                 $view->with(
                     'centralSiteSettings',
-                    $service->all()
+                    $allCentralSettings
+                );
+
+                /*
+                 * ESUBIZ_CENTRAL_SYSTEM_SETTINGS_V3
+                 *
+                 * Expose the authoritative Central system/platform
+                 * configuration separately from website-local settings.
+                 * This activates saved System Settings for Central
+                 * application surfaces without overwriting tenant Core
+                 * site_settings.
+                 */
+                $view->with(
+                    'centralSystemSettings',
+                    collect($allCentralSettings)
+                        ->filter(
+                            static fn ($value, $key) =>
+                                str_starts_with(
+                                    (string) $key,
+                                    'system.'
+                                )
+                                || str_starts_with(
+                                    (string) $key,
+                                    'platform.'
+                                )
+                        )
+                        ->all()
                 );
 
                 $view->with(
