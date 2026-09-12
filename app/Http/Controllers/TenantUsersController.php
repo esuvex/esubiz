@@ -757,6 +757,78 @@ class TenantUsersController extends Controller
             }
         });
 
+        /*
+         * ESUBIZ_PARTNER_EDIT_PERSISTENCE_V30
+         *
+         * The normal Core Save User workflow is authoritative for
+         * Partner / Investor settings shown on the user edit page.
+         *
+         * Data is persisted to the existing site_partner_investments
+         * table and is therefore read back by partnerInvestmentForUser().
+         */
+        if ($requestedPartner) {
+            $partnerNow = now();
+
+            $existingPartnerCreatedAt = $db
+                ->table('site_partner_investments')
+                ->where('user_id', $user)
+                ->value('created_at');
+
+            $db
+                ->table('site_partner_investments')
+                ->updateOrInsert(
+                    [
+                        'user_id' => $user,
+                    ],
+                    [
+                        'investment_percentage' =>
+                            round(
+                                (float) (
+                                    $validatedPartner[
+                                        'partner_investment_percentage'
+                                    ] ?? 0
+                                ),
+                                2
+                            ),
+
+                        'profit_basis' =>
+                            $validatedPartner[
+                                'partner_profit_basis'
+                            ] ?? 'net',
+
+                        'is_active' =>
+                            ((string) $request->input('partner_is_active', '0') === '1'),
+
+                        'notes' =>
+                            array_key_exists(
+                                'partner_notes',
+                                $validatedPartner
+                            )
+                                ? (
+                                    trim(
+                                        (string) $validatedPartner[
+                                            'partner_notes'
+                                        ]
+                                    ) !== ''
+                                        ? trim(
+                                            (string) $validatedPartner[
+                                                'partner_notes'
+                                            ]
+                                        )
+                                        : null
+                                )
+                                : null,
+
+                        'created_at' =>
+                            $existingPartnerCreatedAt
+                                ?: $partnerNow,
+
+                        'updated_at' =>
+                            $partnerNow,
+                    ]
+                );
+        }
+
         return back()->with(
             'success',
             'Core user updated successfully.'
@@ -1024,7 +1096,7 @@ class TenantUsersController extends Controller
             'partner_investment_percentage' => [
                 'required',
                 'numeric',
-                'min:0',
+                'min:0.01',
                 'max:100',
             ],
 
@@ -1078,52 +1150,63 @@ class TenantUsersController extends Controller
 
         $now = now();
 
-        $existing = $db
+        /*
+         * ESUBIZ_PARTNER_INVESTMENT_PERSISTENCE_V28
+         *
+         * One authoritative row per Partner / Investor.
+         * updateOrInsert prevents create/update divergence and ensures
+         * subsequent Partner screens read the exact values just saved.
+         */
+        $db
             ->table('site_partner_investments')
-            ->where('user_id', $user)
-            ->first();
+            ->updateOrInsert(
+                [
+                    'user_id' => $user,
+                ],
+                [
+                    'investment_percentage' =>
+                        round(
+                            (float) $validated[
+                                'partner_investment_percentage'
+                            ],
+                            2
+                        ),
 
-        $values = [
-            'investment_percentage' =>
-                round(
-                    (float) $validated[
-                        'partner_investment_percentage'
-                    ],
-                    4
-                ),
+                    'profit_basis' =>
+                        $validated['partner_profit_basis'],
 
-            'profit_basis' =>
-                $validated['partner_profit_basis'],
+                    'is_active' =>
+                        ((string) $request->input('partner_is_active', '0') === '1'),
 
-            'is_active' =>
-                $request->boolean(
-                    'partner_is_active'
-                ),
+                    'notes' =>
+                        isset($validated['partner_notes'])
+                            ? trim(
+                                (string) $validated[
+                                    'partner_notes'
+                                ]
+                            )
+                            : null,
 
-            'notes' =>
-                isset($validated['partner_notes'])
-                    ? trim(
-                        (string)
-                        $validated['partner_notes']
-                    )
-                    : null,
+                    'updated_at' => $now,
 
-            'updated_at' => $now,
-        ];
-
-        if ($existing) {
-            $db
-                ->table('site_partner_investments')
-                ->where('user_id', $user)
-                ->update($values);
-        } else {
-            $values['user_id'] = $user;
-            $values['created_at'] = $now;
-
-            $db
-                ->table('site_partner_investments')
-                ->insert($values);
-        }
+                    /*
+                     * Preserve the original creation time where the
+                     * row already exists. For a new row MySQL receives
+                     * this value as created_at.
+                     */
+                    'created_at' =>
+                        $db
+                            ->table(
+                                'site_partner_investments'
+                            )
+                            ->where(
+                                'user_id',
+                                $user
+                            )
+                            ->value('created_at')
+                            ?: $now,
+                ]
+            );
 
         return redirect()
             ->to('/admin/users/partners')
@@ -1210,7 +1293,7 @@ class TenantUsersController extends Controller
             'partner_investment_percentage' => [
                 'required',
                 'numeric',
-                'min:0',
+                'min:0.01',
                 'max:100',
             ],
 
@@ -1219,7 +1302,7 @@ class TenantUsersController extends Controller
                 'in:gross,net',
             ],
 
-            'partner_investment_active' => [
+            'partner_is_active' => [
                 'nullable',
                 'boolean',
             ],
@@ -1283,7 +1366,7 @@ class TenantUsersController extends Controller
                             (float) $validatedPartner[
                                 'partner_investment_percentage'
                             ],
-                            4
+                            2
                         ),
 
                     'profit_basis' =>

@@ -439,11 +439,8 @@
                                 id="partnerInvestmentPercentage"
                                 name="partner_investment_percentage"
                                 class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                                min="0"
-                                max="100"
-                                step="0.0001"
                                 value="{{ $corePartnerPercentage }}"
-                            >
+                             min="0.01" max="100" step="0.01">
 
                             <span class="input-group-text">%</span>
                         </div>
@@ -508,8 +505,7 @@
                                 id="partnerIsActive"
                                 name="partner_is_active"
                                 value="1"
-                                @checked($corePartnerActive)
-                            >
+                                @checked($corePartnerActive) data-es-partner-legacy-v39="1" style="display:none !important;" aria-hidden="true" tabindex="-1">
 
                             <label
                                 class="form-check-label"
@@ -599,6 +595,8 @@
         );
         </script>
     @endif
+
+
 
 
 </form>
@@ -1457,5 +1455,500 @@ document.addEventListener('DOMContentLoaded', function () {
 
 });
 </script>
+
+
+
+{{-- ESUBIZ_PARTNER_STATUS_CLEAN_V35 --}}
+<style>
+    .es-partner-status-clean-v35 {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 8px;
+        width: auto;
+    }
+
+    .es-partner-status-label-v35 {
+        font-size: 12px;
+        line-height: 1;
+        font-weight: 800;
+        color: #94a3b8;
+        user-select: none;
+        transition: color .15s ease;
+    }
+
+    .es-partner-status-label-v35.is-current {
+        color: #0f172a;
+    }
+
+    .es-partner-switch-v35 {
+        position: relative;
+        appearance: none;
+        border: 0;
+        outline: 0;
+        width: 42px;
+        min-width: 42px;
+        height: 23px;
+        padding: 0;
+        margin: 0;
+        border-radius: 999px;
+        background: #94a3b8;
+        cursor: pointer;
+        box-shadow:
+            inset 0 0 0 1px rgba(15,23,42,.08);
+        transition:
+            background .15s ease,
+            box-shadow .15s ease;
+    }
+
+    .es-partner-switch-v35.is-active {
+        background: #2563eb;
+        box-shadow:
+            0 2px 7px rgba(37,99,235,.20),
+            inset 0 0 0 1px rgba(37,99,235,.08);
+    }
+
+    .es-partner-switch-knob-v35 {
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 17px;
+        height: 17px;
+        border-radius: 999px;
+        background: #fff;
+        box-shadow: 0 1px 4px rgba(15,23,42,.24);
+        pointer-events: none;
+        transition: transform .15s ease;
+    }
+
+    .es-partner-switch-v35.is-active
+    .es-partner-switch-knob-v35 {
+        transform: translateX(19px);
+    }
+
+    .es-partner-switch-v35:focus-visible {
+        outline: 3px solid rgba(37,99,235,.22);
+        outline-offset: 2px;
+    }
+
+    /*
+     * Hide only the original visual controls after JS identifies them.
+     * This does not alter the 3-column grid structure.
+     */
+    .es-partner-status-legacy-hidden-v35 {
+        display: none !important;
+    }
+</style>
+
+<script>
+(function () {
+    function cleanText(element) {
+        return element
+            ? element.textContent.replace(/\s+/g, ' ').trim()
+            : '';
+    }
+
+    function initPartnerStatusV35() {
+        const form = document.querySelector(
+            'form input[name="partner_investment_percentage"]'
+        )?.closest('form');
+
+        if (!form) {
+            return;
+        }
+
+        const percentage = form.querySelector(
+            '[name="partner_investment_percentage"]'
+        );
+
+        /*
+         * Always display percentage to 2 decimal places.
+         */
+        if (percentage) {
+            percentage.min = '0.01';
+            percentage.max = '100';
+            percentage.step = '0.01';
+
+            const formatPercentage = function () {
+                if (
+                    percentage.value !== '' &&
+                    !Number.isNaN(Number(percentage.value))
+                ) {
+                    percentage.value =
+                        Number(percentage.value).toFixed(2);
+                }
+            };
+
+            formatPercentage();
+
+            percentage.addEventListener(
+                'blur',
+                formatPercentage
+            );
+        }
+
+        /*
+         * Find the real Partner status checkbox from the restored
+         * authoritative Blade form.
+         */
+        const checkbox = form.querySelector(
+            'input[type="checkbox"][name="partner_is_active"]'
+        );
+
+        if (!checkbox) {
+            return;
+        }
+
+        const savedState = checkbox.checked;
+
+        /*
+         * The checkbox is no longer submitted or displayed.
+         * One hidden 0/1 field becomes the authoritative request value.
+         */
+        checkbox.removeAttribute('name');
+        checkbox.disabled = true;
+        checkbox.classList.add(
+            'es-partner-status-legacy-hidden-v35'
+        );
+
+        const checkboxLabel = checkbox.closest('label');
+
+        if (checkboxLabel) {
+            checkboxLabel.classList.add(
+                'es-partner-status-legacy-hidden-v35'
+            );
+        }
+
+        const hidden = document.createElement('input');
+
+        hidden.type = 'hidden';
+        hidden.name = 'partner_is_active';
+        hidden.value = savedState ? '1' : '0';
+        hidden.setAttribute(
+            'data-partner-status-value-v35',
+            '1'
+        );
+
+        form.appendChild(hidden);
+
+        /*
+         * Find the Partner / Investor Status heading.
+         */
+        const all = Array.from(
+            form.querySelectorAll(
+                'label, strong, span, div, p, h1, h2, h3, h4, h5, h6'
+            )
+        );
+
+        const heading = all.find(function (element) {
+            return cleanText(element) ===
+                'Partner / Investor Status';
+        });
+
+        if (!heading) {
+            return;
+        }
+
+        /*
+         * Find the smallest existing status-column container which
+         * contains the original Disabled / Active visual control,
+         * but does NOT include the Investment Share column.
+         */
+        let statusColumn = heading.parentElement;
+
+        for (let i = 0; statusColumn && i < 5; i++) {
+            const text = cleanText(statusColumn);
+
+            if (
+                text.includes('Disabled') &&
+                text.includes('Active') &&
+                !text.includes('Investment Share')
+            ) {
+                break;
+            }
+
+            statusColumn = statusColumn.parentElement;
+        }
+
+        if (!statusColumn) {
+            return;
+        }
+
+        /*
+         * Hide the old large Disabled / Active segmented control only.
+         * Keep the status column/grid itself untouched.
+         */
+        const statusElements = Array.from(
+            statusColumn.querySelectorAll(
+                'button, label, span, div'
+            )
+        );
+
+        const disabledOld = statusElements.find(
+            function (element) {
+                return cleanText(element) === 'Disabled';
+            }
+        );
+
+        const activeOld = statusElements.find(
+            function (element) {
+                return cleanText(element) === 'Active';
+            }
+        );
+
+        if (disabledOld && activeOld) {
+            let common = disabledOld;
+
+            while (
+                common &&
+                !common.contains(activeOld)
+            ) {
+                common = common.parentElement;
+            }
+
+            if (
+                common &&
+                common !== statusColumn &&
+                !common.contains(heading)
+            ) {
+                common.classList.add(
+                    'es-partner-status-legacy-hidden-v35'
+                );
+            } else {
+                disabledOld.classList.add(
+                    'es-partner-status-legacy-hidden-v35'
+                );
+
+                activeOld.classList.add(
+                    'es-partner-status-legacy-hidden-v35'
+                );
+            }
+        }
+
+        /*
+         * Remove any remaining standalone checkbox caption.
+         */
+        Array.from(
+            statusColumn.querySelectorAll(
+                'label, span, div'
+            )
+        ).forEach(function (element) {
+            if (
+                cleanText(element) ===
+                'Active Partner / Investor' &&
+                !element.contains(heading)
+            ) {
+                element.classList.add(
+                    'es-partner-status-legacy-hidden-v35'
+                );
+            }
+        });
+
+        /*
+         * Canonical compact Esubiz switch:
+         *
+         * Inactive  [toggle]  Active
+         */
+        const control = document.createElement('div');
+
+        control.className =
+            'es-partner-status-clean-v35';
+
+        const inactiveText =
+            document.createElement('span');
+
+        inactiveText.className =
+            'es-partner-status-label-v35';
+
+        inactiveText.textContent = 'Inactive';
+
+        const switchButton =
+            document.createElement('button');
+
+        switchButton.type = 'button';
+        switchButton.className =
+            'es-partner-switch-v35';
+
+        switchButton.setAttribute(
+            'role',
+            'switch'
+        );
+
+        switchButton.setAttribute(
+            'aria-label',
+            'Partner / Investor Status'
+        );
+
+        const knob =
+            document.createElement('span');
+
+        knob.className =
+            'es-partner-switch-knob-v35';
+
+        switchButton.appendChild(knob);
+
+        const activeText =
+            document.createElement('span');
+
+        activeText.className =
+            'es-partner-status-label-v35';
+
+        activeText.textContent = 'Active';
+
+        control.appendChild(inactiveText);
+        control.appendChild(switchButton);
+        control.appendChild(activeText);
+
+        /*
+         * Append inside the existing first grid column.
+         * We do not replace or move the column itself.
+         */
+        statusColumn.appendChild(control);
+
+        function render() {
+            const active = hidden.value === '1';
+
+            switchButton.classList.toggle(
+                'is-active',
+                active
+            );
+
+            switchButton.setAttribute(
+                'aria-checked',
+                active ? 'true' : 'false'
+            );
+
+            inactiveText.classList.toggle(
+                'is-current',
+                !active
+            );
+
+            activeText.classList.toggle(
+                'is-current',
+                active
+            );
+        }
+
+        switchButton.addEventListener(
+            'click',
+            function () {
+                hidden.value =
+                    hidden.value === '1'
+                        ? '0'
+                        : '1';
+
+                render();
+            }
+        );
+
+        render();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener(
+            'DOMContentLoaded',
+            initPartnerStatusV35
+        );
+    } else {
+        initPartnerStatusV35();
+    }
+})();
+</script>
+
+
+
+
+{{-- ESUBIZ_PARTNER_FINAL_V39 --}}
+<script>
+(function () {
+    function finishPartnerStatusV39() {
+        const legacy = document.querySelector(
+            'input[data-es-partner-legacy-v39="1"]'
+        );
+
+        if (!legacy) {
+            return;
+        }
+
+        /*
+         * V35 has already read the checkbox's persisted checked state.
+         * Now remove only the obsolete visual checkbox.
+         */
+        legacy.style.setProperty(
+            'display',
+            'none',
+            'important'
+        );
+
+        legacy.setAttribute('aria-hidden', 'true');
+        legacy.tabIndex = -1;
+
+        /*
+         * Hide ONLY an exact label/span containing the obsolete caption.
+         * Never hide DIV/card/grid/form containers.
+         */
+        const candidates = Array.from(
+            document.querySelectorAll(
+                'label, span, small'
+            )
+        );
+
+        candidates.forEach(function (el) {
+            const value = (
+                el.textContent || ''
+            ).replace(/\s+/g, ' ').trim();
+
+            if (
+                value === 'Active Partner / Investor'
+            ) {
+                el.style.setProperty(
+                    'display',
+                    'none',
+                    'important'
+                );
+            }
+        });
+
+        /*
+         * V35's hidden partner_is_active remains the submitted value.
+         * The legacy checkbox must never submit a duplicate.
+         */
+        legacy.removeAttribute('name');
+        legacy.disabled = true;
+    }
+
+    /*
+     * V35 is already registered on DOMContentLoaded.
+     * Run V39 immediately after those handlers complete.
+     */
+    if (document.readyState === 'loading') {
+        document.addEventListener(
+            'DOMContentLoaded',
+            function () {
+                setTimeout(
+                    finishPartnerStatusV39,
+                    0
+                );
+            }
+        );
+    } else {
+        setTimeout(
+            finishPartnerStatusV39,
+            0
+        );
+    }
+})();
+</script>
+
+
+
+
+
+
+
+
+
+
+
 
 @endsection

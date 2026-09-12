@@ -1179,6 +1179,21 @@ Route::post(
             ->whereNumber('user')
             ->name('tenant.cms.users.edit');
 
+        /*
+         * ESUBIZ_TENANT_USER_SHOW_ROUTE_V27
+         *
+         * Direct user URLs use the existing authoritative edit screen.
+         */
+        Route::get(
+            '/admin/users/{user}',
+            [
+                \App\Http\Controllers\TenantUsersController::class,
+                'edit',
+            ]
+        )
+            ->whereNumber('user')
+            ->name('tenant.cms.users.show');
+
         Route::put(
             '/admin/users/{user}',
             [
