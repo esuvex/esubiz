@@ -338,20 +338,28 @@
 
                                     <span
                                         class="inline-flex rounded-full px-3 py-1 text-[11px] font-black {{
-                                            $registryStatus === 'active'
-                                                ? 'bg-emerald-100 text-emerald-700'
+                                            strtolower((string) $website->status) === 'draft'
+                                                ? 'bg-blue-100 text-blue-700'
                                                 : (
-                                                    $registryStatus === 'suspended'
-                                                        ? 'bg-amber-100 text-amber-700'
+                                                    $registryStatus === 'active'
+                                                        ? 'bg-emerald-100 text-emerald-700'
                                                         : (
-                                                            $registryStatus === 'revoked'
-                                                                ? 'bg-red-100 text-red-700'
-                                                                : 'bg-slate-100 text-slate-600'
+                                                            $registryStatus === 'suspended'
+                                                                ? 'bg-amber-100 text-amber-700'
+                                                                : (
+                                                                    $registryStatus === 'revoked'
+                                                                        ? 'bg-red-100 text-red-700'
+                                                                        : 'bg-slate-100 text-slate-600'
+                                                                )
                                                         )
                                                 )
                                         }}"
                                     >
-                                        {{ ucfirst(str_replace('_', ' ', $registryStatus)) }}
+                                        {{
+                                            strtolower((string) $website->status) === 'draft'
+                                                ? 'Draft'
+                                                : ucfirst(str_replace('_', ' ', $registryStatus))
+                                        }}
                                     </span>
 
                                 </td>
@@ -411,6 +419,10 @@
                                                 View Website Info
                                             </a>
 
+
+                                            @unless(
+                                                strtolower((string) $website->status) === 'draft'
+                                            )
 
                                             {{--
                                                 ESUBIZ_ADMIN_WEBSITE_VISIT_ACTION_V1
@@ -520,6 +532,8 @@
                                                 </button>
 
                                             </form>
+
+                                            @endunless
 
 
                                             <div

@@ -38,8 +38,19 @@
             @foreach($websites as $website)
 
                 @php
+                    /*
+                     * ESUBIZ_DRAFT_WEBSITE_UI_V88
+                     *
+                     * Draft is a lifecycle state and must not be
+                     * presented as Active / Inactive merely because
+                     * user_enabled is false.
+                     */
+                    $websiteIsDraft =
+                        strtolower((string) $website->status) === 'draft';
+
                     $websiteIsActive =
-                        strtolower((string) $website->status) === 'active'
+                        !$websiteIsDraft
+                        && strtolower((string) $website->status) === 'active'
                         && (bool) $website->user_enabled;
 
                     $websiteName =
@@ -133,15 +144,23 @@
                             >
                                 <span
                                     class="inline-flex rounded-full border px-3 py-1.5 text-xs font-bold backdrop-blur {{
-                                        $websiteIsActive
-                                            ? 'border-emerald-300/30 bg-emerald-400/15 text-emerald-200'
-                                            : 'border-red-300/30 bg-red-400/15 text-red-200'
+                                        $websiteIsDraft
+                                            ? 'border-blue-300/30 bg-blue-400/15 text-blue-200'
+                                            : (
+                                                $websiteIsActive
+                                                    ? 'border-emerald-300/30 bg-emerald-400/15 text-emerald-200'
+                                                    : 'border-red-300/30 bg-red-400/15 text-red-200'
+                                            )
                                     }}"
                                 >
                                     {{
-                                        $websiteIsActive
-                                            ? 'Active'
-                                            : 'Inactive'
+                                        $websiteIsDraft
+                                            ? 'Draft'
+                                            : (
+                                                $websiteIsActive
+                                                    ? 'Active'
+                                                    : 'Inactive'
+                                            )
                                     }}
                                 </span>
                             </div>
@@ -217,15 +236,23 @@
 
                                 <div
                                     class="mt-1 text-sm font-bold {{
-                                        $websiteIsActive
-                                            ? 'text-emerald-600'
-                                            : 'text-red-600'
+                                        $websiteIsDraft
+                                            ? 'text-blue-600'
+                                            : (
+                                                $websiteIsActive
+                                                    ? 'text-emerald-600'
+                                                    : 'text-red-600'
+                                            )
                                     }}"
                                 >
                                     {{
-                                        $websiteIsActive
-                                            ? 'Online'
-                                            : 'Disabled'
+                                        $websiteIsDraft
+                                            ? 'Draft'
+                                            : (
+                                                $websiteIsActive
+                                                    ? 'Online'
+                                                    : 'Disabled'
+                                            )
                                     }}
                                 </div>
 
@@ -235,6 +262,8 @@
 
 
                         {{-- ACCESS TOGGLE --}}
+                        @unless($websiteIsDraft)
+
                         <div
                             class="mt-5 flex items-center justify-between gap-4 rounded-2xl border border-slate-200 px-4 py-3"
                         >
@@ -302,9 +331,33 @@
 
                         </div>
 
+                        @endunless
+
 
                         {{-- FIVE PRIMARY ACTIONS --}}
-                        @if($website->status === 'failed')
+                        @if($websiteIsDraft)
+
+                            <div
+                                class="mt-6 grid grid-cols-2 gap-3 border-t border-slate-100 pt-6"
+                            >
+
+                                <a
+                                    href="{{ route('user.websites.info', $website->id) }}"
+                                    class="inline-flex min-h-[52px] items-center justify-center rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-center text-sm font-bold text-blue-700 transition hover:bg-blue-100"
+                                >
+                                    View Website Info
+                                </a>
+
+                                <a
+                                    href="{{ secure_url('/websites/' . $website->id . '/dashboard') }}"
+                                    class="inline-flex min-h-[52px] items-center justify-center rounded-xl bg-blue-600 px-4 py-3 text-center text-sm font-bold text-white transition hover:bg-blue-700"
+                                >
+                                    Redeploy Website
+                                </a>
+
+                            </div>
+
+                        @elseif($website->status === 'failed')
 
                             <div
                                 class="mt-6 border-t border-slate-100 pt-6"
