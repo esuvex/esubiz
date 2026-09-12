@@ -169,6 +169,29 @@
  * Do not rely solely on utility CSS because public themes/auth
  * pages may define their own generic input/span/flex rules.
  */
+
+/*
+ * ESUBIZ_CORE_COUNTRY_SELECT_MOBILE_V84
+ *
+ * Keep Country at normal full-field size on narrow/mobile layouts.
+ */
+[data-esubiz-country-phone]
+[data-country-select]{
+    display:block !important;
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
+    height:52px !important;
+    min-height:52px !important;
+    padding-top:0 !important;
+    padding-bottom:0 !important;
+    padding-left:16px !important;
+    padding-right:44px !important;
+    margin:0 !important;
+    box-sizing:border-box !important;
+    font-size:16px !important;
+    line-height:normal !important;
+}
 [data-esubiz-country-phone]
 .esubiz-core-phone-control-v82{
     display:flex !important;
