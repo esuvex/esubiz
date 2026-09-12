@@ -171,6 +171,50 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         /*
+         * ESUBIZ_CENTRAL_SETTINGS_PROPAGATION_V1
+         *
+         * Make Central Main Settings available consistently to all
+         * Central Esubiz views. Tenant/Core views remain authoritative
+         * to their own website-local site_settings and are excluded.
+         */
+        \Illuminate\Support\Facades\View::composer('*', function ($view) {
+            $viewName = (string) $view->getName();
+
+            if (
+                str_starts_with($viewName, 'tenant.')
+                || str_starts_with($viewName, 'components.core.')
+            ) {
+                return;
+            }
+
+            try {
+                $service = app(
+                    \App\Services\Platform\CentralSiteSettingsService::class
+                );
+
+                $view->with(
+                    'centralSiteSettings',
+                    $service->all()
+                );
+
+                $view->with(
+                    'centralSiteName',
+                    $service->siteName()
+                );
+
+                $view->with(
+                    'centralTimezone',
+                    $service->timezone()
+                );
+            } catch (\Throwable $exception) {
+                /*
+                 * Keep CLI, migrations and early installation surfaces
+                 * operational before site_settings is available.
+                 */
+            }
+        });
+
+        /*
          * ESUBIZ_CORE_FEATURE_BOOTSTRAP_V1
          *
          * Register only Core features actually present in this build.
