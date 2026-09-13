@@ -1,11 +1,60 @@
 @props([
     'countryField' => 'country_code',
     'phoneField' => 'phone',
-    'selectedCountry' => 'NG',
+    'selectedCountry' => '',
     'phoneValue' => '',
     'allowedCountries' => ['ALL'],
     'layout' => 'stacked',
 ])
+
+
+{{-- ESUBIZ_IP_DETECTED_COUNTRY_DEFAULT_V6 --}}
+@php
+    /*
+     * Selection priority:
+     *
+     * 1. old('country') after validation failure
+     * 2. explicitly supplied component country value
+     * 3. globally resolved visitor country
+     * 4. NG fallback
+     *
+     * For anonymous visitors, the global visitor country is
+     * supplied by IP detection. If the visitor manually changes
+     * the select field, the browser-submitted country naturally
+     * overrides this default.
+     */
+    $resolvedCountryCode = strtoupper(
+        trim(
+            (string) (
+                old('country')
+                ?: (
+                    isset($country)
+                    && is_scalar($country)
+                        ? $country
+                        : null
+                )
+                ?: (
+                    isset($countryCode)
+                    && is_scalar($countryCode)
+                        ? $countryCode
+                        : null
+                )
+                ?: (
+                    isset($value)
+                    && is_scalar($value)
+                        ? $value
+                        : null
+                )
+                ?: (
+                    isset($esubizVisitorCountry)
+                        ? $esubizVisitorCountry
+                        : null
+                )
+                ?: 'NG'
+            )
+        )
+    );
+@endphp
 
 @php
     /*
@@ -20,12 +69,33 @@
      * Nigeria is the platform default, but never a restriction.
      */
 
-    $selectedCountry = strtoupper(
-        (string) old(
-            $countryField,
-            $selectedCountry
+    /*
+     * ESUBIZ_OFFSERVER_INSTALLER_COUNTRY_DETECTION_V1
+     *
+     * If the caller leaves the country empty, use the globally
+     * resolved visitor country. Explicit/profile/browser-submitted
+     * values remain authoritative.
+     */
+    $explicitSelectedCountry = strtoupper(
+        trim(
+            (string) old(
+                $countryField,
+                $selectedCountry
+            )
         )
     );
+
+    $selectedCountry =
+        $explicitSelectedCountry !== ''
+            ? $explicitSelectedCountry
+            : $resolvedCountryCode;
+
+    /*
+     * ESUBIZ_CORE_COUNTRY_FINAL_FALLBACK_V2
+     */
+    if ($selectedCountry === '') {
+        $selectedCountry = 'NG';
+    }
 
     $phoneValue = (string) old(
         $phoneField,

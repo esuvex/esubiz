@@ -70,6 +70,40 @@ class CoreSetupController extends Controller
 
                 'generatedInstanceUuid' =>
                     $instanceUuid,
+
+                /*
+                 * ESUBIZ_OFFSERVER_INSTALLER_COUNTRY_CONTEXT_V1
+                 *
+                 * Cloudflare CF-IPCountry is preferred by the
+                 * existing resolver. Public-IP lookup remains the
+                 * fallback when Cloudflare is unavailable.
+                 */
+                'installerCountryCode' =>
+                    (function () use ($request): string {
+                        $catalog = app(
+                            \App\Services\Core\CorePhoneCountryCatalog::class
+                        );
+
+                        $detected = app(
+                            \App\Services\Platform\CentralIpCountryService::class
+                        )->countryCode($request);
+
+                        $detected = strtoupper(
+                            trim((string) $detected)
+                        );
+
+                        if (
+                            $detected !== ''
+                            && $catalog->findByCountryCode($detected)
+                        ) {
+                            return $detected;
+                        }
+
+                        return (string) (
+                            $catalog->default()['country_code']
+                            ?? 'NG'
+                        );
+                    })(),
             ]
         );
     }
@@ -382,6 +416,178 @@ class CoreSetupController extends Controller
             )
         );
 
+        /*
+         * ESUBIZ_OFFSERVER_MEDIA_REQUIREMENTS_V1
+         *
+         * Off-server Core must be capable of running the same
+         * upload-time media optimization architecture used by
+         * Esubiz Central and SaaS Core.
+         *
+         * Media is optimized once when uploaded and the resulting
+         * file is stored locally by this Core installation.
+         * Page rendering must never perform image/video processing.
+         */
+
+        $imageOptimizationPass =
+            extension_loaded('gd')
+            && function_exists('imagecreatefromjpeg')
+            && function_exists('imagecreatefrompng')
+            && function_exists('imagecreatefromwebp')
+            && function_exists('imagepng')
+            && function_exists('imagewebp');
+
+        $imageOptimizationDetail =
+            $imageOptimizationPass
+                ? 'GD with JPEG, PNG and WebP processing is available.'
+                : 'GD must support JPEG, PNG and WebP image processing.';
+
+        $disabledFunctions = array_values(
+            array_filter(
+                array_map(
+                    'trim',
+                    explode(
+                        ',',
+                        (string) ini_get(
+                            'disable_functions'
+                        )
+                    )
+                )
+            )
+        );
+
+        $execAvailable =
+            function_exists('exec')
+            && !in_array(
+                'exec',
+                $disabledFunctions,
+                true
+            );
+
+        $ffmpegBinary = null;
+
+        foreach (
+            [
+                '/usr/bin/ffmpeg',
+                '/usr/local/bin/ffmpeg',
+                '/bin/ffmpeg',
+            ] as $candidate
+        ) {
+            if (
+                is_file($candidate)
+                && is_executable($candidate)
+            ) {
+                $ffmpegBinary =
+                    $candidate;
+
+                break;
+            }
+        }
+
+        if (
+            !$ffmpegBinary
+            && $execAvailable
+        ) {
+            $ffmpegLookupOutput = [];
+            $ffmpegLookupCode = 1;
+
+            @exec(
+                'command -v ffmpeg 2>/dev/null',
+                $ffmpegLookupOutput,
+                $ffmpegLookupCode
+            );
+
+            if (
+                $ffmpegLookupCode === 0
+                && !empty(
+                    $ffmpegLookupOutput[0]
+                )
+            ) {
+                $candidate =
+                    trim(
+                        (string)
+                        $ffmpegLookupOutput[0]
+                    );
+
+                if (
+                    $candidate !== ''
+                    && is_executable(
+                        $candidate
+                    )
+                ) {
+                    $ffmpegBinary =
+                        $candidate;
+                }
+            }
+        }
+
+        $ffmpegRunnable = false;
+        $ffmpegVersion = null;
+
+        if (
+            $execAvailable
+            && $ffmpegBinary
+        ) {
+            $ffmpegVersionOutput = [];
+            $ffmpegVersionCode = 1;
+
+            @exec(
+                escapeshellarg(
+                    $ffmpegBinary
+                )
+                . ' -version 2>&1',
+                $ffmpegVersionOutput,
+                $ffmpegVersionCode
+            );
+
+            if (
+                $ffmpegVersionCode === 0
+                && !empty(
+                    $ffmpegVersionOutput[0]
+                )
+                && str_starts_with(
+                    strtolower(
+                        trim(
+                            (string)
+                            $ffmpegVersionOutput[0]
+                        )
+                    ),
+                    'ffmpeg version'
+                )
+            ) {
+                $ffmpegRunnable = true;
+
+                $ffmpegVersion =
+                    trim(
+                        (string)
+                        $ffmpegVersionOutput[0]
+                    );
+            }
+        }
+
+        $videoOptimizationPass =
+            $execAvailable
+            && $ffmpegRunnable;
+
+        if (!$execAvailable) {
+            $videoOptimizationDetail =
+                'PHP exec() is unavailable or disabled; FFmpeg media optimization cannot run.';
+        } elseif (!$ffmpegBinary) {
+            $videoOptimizationDetail =
+                'FFmpeg was not found on this server.';
+        } elseif (!$ffmpegRunnable) {
+            $videoOptimizationDetail =
+                'FFmpeg was found but could not be executed successfully.';
+        } else {
+            $videoOptimizationDetail =
+                'FFmpeg is available and executable'
+                . (
+                    $ffmpegVersion
+                        ? ' — '
+                            . $ffmpegVersion
+                        : '.'
+                );
+        }
+
         $storageWritable =
             is_writable(storage_path());
 
@@ -449,6 +655,26 @@ class CoreSetupController extends Controller
                             ),
                 'pass' =>
                     empty($missingExtensions),
+            ],
+
+            [
+                'key' => 'image_optimization',
+                'label' =>
+                    'Image Optimization',
+                'detail' =>
+                    $imageOptimizationDetail,
+                'pass' =>
+                    $imageOptimizationPass,
+            ],
+
+            [
+                'key' => 'media_optimization',
+                'label' =>
+                    'Video / Audio Optimization',
+                'detail' =>
+                    $videoOptimizationDetail,
+                'pass' =>
+                    $videoOptimizationPass,
             ],
 
             [
@@ -779,6 +1005,18 @@ class CoreSetupController extends Controller
                 'max:255',
             ],
 
+            /*
+             * ESUBIZ_OFFSERVER_ADMIN_COUNTRY_V1
+             *
+             * ISO country is authoritative.
+             * Dial code is always derived from CorePhoneCountryCatalog.
+             */
+            'admin_country_code' => [
+                'required',
+                'string',
+                'size:2',
+            ],
+
             'admin_phone' => [
                 'nullable',
                 'string',
@@ -794,6 +1032,37 @@ class CoreSetupController extends Controller
                 'confirmed',
             ],
         ]);
+
+        /*
+         * ESUBIZ_OFFSERVER_ADMIN_COUNTRY_VALIDATE_V1
+         */
+        $adminCountryCode = strtoupper(
+            trim(
+                (string) $validated['admin_country_code']
+            )
+        );
+
+        $adminCountry = app(
+            \App\Services\Core\CorePhoneCountryCatalog::class
+        )->findByCountryCode(
+            $adminCountryCode
+        );
+
+        if (!$adminCountry) {
+            return response()->json(
+                [
+                    'ok' => false,
+                    'message' =>
+                        'Please select a valid country.',
+                    'errors' => [
+                        'admin_country_code' => [
+                            'Please select a valid country.',
+                        ],
+                    ],
+                ],
+                422
+            );
+        }
 
         /*
          * Retain only for the current first-run installation session.
@@ -815,6 +1084,10 @@ class CoreSetupController extends Controller
                                                 )
                                             ),
                         
+                                        /* ESUBIZ_OFFSERVER_ADMIN_COUNTRY_STAGE_V1 */
+                                        'country_code' =>
+                                            $adminCountryCode,
+
                                         'phone' =>
                                             $validated['admin_phone']
                                                 ?? null,
@@ -845,6 +1118,13 @@ class CoreSetupController extends Controller
                             $validated['admin_email']
                         )
                     ),
+
+                /* ESUBIZ_OFFSERVER_ADMIN_COUNTRY_RESPONSE_V1 */
+                'country_code' =>
+                    $adminCountryCode,
+
+                'dial_code' =>
+                    $adminCountry['dial_code'],
 
                 'phone' =>
                     $validated['admin_phone']

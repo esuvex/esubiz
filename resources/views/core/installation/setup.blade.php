@@ -885,6 +885,8 @@ input:focus{
                         ['php', 'PHP Version'],
                         ['pdo_mysql', 'PDO / MySQL'],
                         ['extensions', 'OpenSSL, Mbstring, XML, cURL, ZIP'],
+                        ['image_optimization', 'Image Optimization'],
+                        ['media_optimization', 'Video / Audio Optimization'],
                         ['permissions', 'Storage Permissions'],
                         ['https', 'HTTPS / Domain'],
                     ] as [$key, $label])
@@ -1077,21 +1079,21 @@ input:focus{
                         >
                     </div>
 
-                    <div class="field">
-                        <label for="adminPhone">
-                            Phone Number
-                        </label>
+                    <div class="field full">
+                        {{-- ESUBIZ_OFFSERVER_INSTALLER_COUNTRY_PHONE_V1 --}}
+                        <x-core.country-phone
+                            country-field="admin_country_code"
+                            phone-field="admin_phone"
+                            :selected-country="$installerCountryCode ?? ''"
+                            phone-value=""
+                            :allowed-countries="['ALL']"
+                            layout="two-column"
+                        />
 
-                        <input
-                            id="adminPhone"
-                            type="text"
-                            value=""
-                            inputmode="numeric"
-                            pattern="[0-9]*"
-                            autocomplete="tel"
-                            placeholder="Enter phone number"
-                            oninput="this.value = this.value.replace(/[^0-9]/g, '')"
-                        >
+                        <p class="installer-country-detection-note">
+                            Country is detected automatically when available.
+                            You can change it before installation.
+                        </p>
                     </div>
 
                     <div class="field">
@@ -1775,10 +1777,16 @@ document.getElementById(
                                 "adminEmail"
                             ).value,
 
+                        /* ESUBIZ_OFFSERVER_INSTALLER_COUNTRY_AJAX_V1 */
+                        admin_country_code:
+                            document.querySelector(
+                                '[name="admin_country_code"]'
+                            )?.value || "",
+
                         admin_phone:
-                            document.getElementById(
-                                "adminPhone"
-                            ).value,
+                            document.querySelector(
+                                '[name="admin_phone"]'
+                            )?.value || "",
 
                         admin_password:
                             document.getElementById(

@@ -613,6 +613,19 @@ class CoreInstallationService
                             (string) $administrator['name']
                         ),
 
+                    /*
+                     * ESUBIZ_OFFSERVER_ADMIN_COUNTRY_PERSIST_V1
+                     */
+                    'country_code' =>
+                        strtoupper(
+                            trim(
+                                (string) (
+                                    $administrator['country_code']
+                                    ?? 'NG'
+                                )
+                            )
+                        ),
+
                     'phone' =>
                         isset(
                             $administrator['phone']
