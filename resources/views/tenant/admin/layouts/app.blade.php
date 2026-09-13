@@ -257,41 +257,8 @@
     </title>
 
 
-    {{-- ESUBIZ_CORE_GLOBAL_FAVICON_V44 --}}
-    @php
-        /*
-         * Core website favicon is authoritative.
-         *
-         * Site Settings favicon is preferred. The existing corporate
-         * theme favicon remains a compatibility fallback.
-         */
-        $tenantAdminFavicon =
-            $settings['website_favicon_path']
-                ?? $settings['favicon_path']
-                ?? $settings['theme.corporate.favicon_path']
-                ?? null;
-    @endphp
-
-    @if(!empty($tenantAdminFavicon))
-        <link
-            rel="icon"
-            href="{{ request()->getSchemeAndHttpHost()
-                . '/media/'
-                . implode(
-                    '/',
-                    array_map(
-                        'rawurlencode',
-                        explode(
-                            '/',
-                            ltrim(
-                                $tenantAdminFavicon,
-                                '/'
-                            )
-                        )
-                    )
-                ) }}"
-        >
-    @endif
+        {{-- ESUBIZ_CORE_CANONICAL_FAVICON_INCLUDE_V1 --}}
+    @include('shared.core.favicon')
 
     <script src="https://cdn.tailwindcss.com"></script>
 

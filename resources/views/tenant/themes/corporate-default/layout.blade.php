@@ -24,35 +24,8 @@
     >
 
 
-{{-- ESUBIZ_CORE_PUBLIC_GLOBAL_FAVICON_V46 --}}
-    @php
-        $corePublicFavicon =
-            $settings['website_favicon_path']
-                ?? $settings['favicon_path']
-                ?? $theme['favicon_path']
-                ?? null;
-    @endphp
-
-    @if(!empty($corePublicFavicon))
-        <link
-            rel="icon"
-            href="{{ request()->getSchemeAndHttpHost()
-                . '/media/'
-                . implode(
-                    '/',
-                    array_map(
-                        'rawurlencode',
-                        explode(
-                            '/',
-                            ltrim(
-                                $corePublicFavicon,
-                                '/'
-                            )
-                        )
-                    )
-                ) }}"
-        >
-    @endif
+    {{-- ESUBIZ_CORE_CANONICAL_FAVICON_INCLUDE_V1 --}}
+    @include('shared.core.favicon')
 
 
     <style>
