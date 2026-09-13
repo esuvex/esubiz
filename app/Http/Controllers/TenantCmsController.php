@@ -1505,11 +1505,51 @@ return view(
             }
         }
 
+        /*
+         * ESUBIZ_CORE_SITE_COUNTRY_DETECTION_V1
+         *
+         * One Core Site Settings implementation for every Core.
+         *
+         * Saved default_country_code is authoritative.
+         * Only a Core with no saved country uses the existing
+         * visitor-country resolver (Cloudflare CF-IPCountry first,
+         * then its configured safe fallback).
+         */
+        $siteDetectedCountryCode = '';
+
+        if (empty($settings['default_country_code'])) {
+            try {
+                $siteDetectedCountryCode = strtoupper(
+                    trim(
+                        (string) app(
+                            \App\Services\Platform\CentralIpCountryService::class
+                        )->countryCode($request)
+                    )
+                );
+            } catch (\Throwable $e) {
+                $siteDetectedCountryCode = '';
+            }
+        }
+
         $siteConfig = [
             'website_name' =>
                 $settings['website_name']
                 ?? $website->name
                 ?? '',
+
+            /*
+             * ESUBIZ_CORE_SITE_EMAIL_SETTING_V5
+             *
+             * Public/contact email belonging to this Core website.
+             * This is independent of administrator login email.
+             */
+            'site_email' =>
+                trim(
+                    (string) (
+                        $settings['site_email']
+                        ?? ''
+                    )
+                ),
 
             'timezone' =>
                 $settings['timezone']
@@ -1518,7 +1558,27 @@ return view(
             'default_country_code' =>
                 strtoupper(
                     $settings['default_country_code']
-                    ?? 'NG'
+                    ?? (
+                        $siteDetectedCountryCode !== ''
+                            ? $siteDetectedCountryCode
+                            : 'NG'
+                    )
+                ),
+
+            /*
+             * ESUBIZ_CORE_SITE_PHONE_NUMBER_SETTING_V1
+             *
+             * Site phone stores the national number only.
+             * Dial code is always derived from the selected country.
+             */
+            'phone_number' =>
+                preg_replace(
+                    '/\D+/',
+                    '',
+                    (string) (
+                        $settings['phone_number']
+                        ?? ''
+                    )
                 ),
 
             'allowed_country_codes' =>
@@ -1571,6 +1631,38 @@ return view(
                 ?? null,
         ];
 
+        /*
+         * ESUBIZ_CORE_SITE_SECONDARY_CURRENCY_CONFIG_V1
+         *
+         * Expose the existing canonical Core currency engine in
+         * Site Settings. Core supports one optional secondary currency.
+         */
+        try {
+            $siteCurrencySettings = app(
+                \App\Services\Core\CoreCurrencySettingsService::class
+            )->get($website->id ?? null);
+        } catch (\Throwable $e) {
+            $siteCurrencySettings = [
+                'primary_currency' =>
+                    $siteConfig['currency'],
+
+                'secondary' => [
+                    'enabled' => false,
+                    'currency' => null,
+                ],
+
+                'conversion' => [
+                    'automatic' => true,
+                    'manual_rate' => null,
+                ],
+
+                'margin' => [
+                    'type' => 'none',
+                    'value' => 0,
+                ],
+            ];
+        }
+
         $timezones = timezone_identifiers_list();
 
         try {
@@ -1585,6 +1677,114 @@ return view(
                     'dial_code' => '+234',
                 ],
             ];
+        }
+
+        /*
+         * ESUBIZ_CORE_SITE_COUNTRY_TIMEZONE_MAP_V1
+         *
+         * CorePhoneCountryCatalog remains authoritative for
+         * country/dial-code identity. PHP's timezone database
+         * supplies country-specific timezone identifiers.
+         */
+        $siteCountryRegionalMap = [];
+
+        foreach ($phoneCountries as $phoneCountry) {
+            $countryCode = strtoupper(
+                trim(
+                    (string) (
+                        $phoneCountry['country_code']
+                        ?? ''
+                    )
+                )
+            );
+
+            if ($countryCode === '') {
+                continue;
+            }
+
+            $countryTimezones = [];
+
+            try {
+                $countryTimezones =
+                    \DateTimeZone::listIdentifiers(
+                        \DateTimeZone::PER_COUNTRY,
+                        $countryCode
+                    );
+            } catch (\Throwable $e) {
+                $countryTimezones = [];
+            }
+
+            $siteCountryRegionalMap[$countryCode] = [
+                'dial_code' =>
+                    (string) (
+                        $phoneCountry['dial_code']
+                        ?? ''
+                    ),
+
+                'timezones' =>
+                    array_values($countryTimezones),
+            ];
+        }
+
+        /*
+         * ESUBIZ_CORE_SITE_COUNTRY_CURRENCY_MAP_V1
+         *
+         * Currency suggestions come from the existing Core currency
+         * catalogue. No second country/currency mapping is maintained.
+         */
+        try {
+            $siteCurrencyCountries = app(
+                \App\Services\Core\CoreCurrencyCatalog::class
+            )->all();
+        } catch (\Throwable $e) {
+            $siteCurrencyCountries = [];
+        }
+
+        foreach ($siteCurrencyCountries as $siteCurrencyCountry) {
+            $currencyCountryCode = strtoupper(
+                trim(
+                    (string) (
+                        $siteCurrencyCountry['country_code']
+                        ?? ''
+                    )
+                )
+            );
+
+            $currencyCode = strtoupper(
+                trim(
+                    (string) (
+                        $siteCurrencyCountry['code']
+                        ?? ''
+                    )
+                )
+            );
+
+            if (
+                $currencyCountryCode === ''
+                || $currencyCode === ''
+                || !isset(
+                    $siteCountryRegionalMap[
+                        $currencyCountryCode
+                    ]
+                )
+            ) {
+                continue;
+            }
+
+            /*
+             * Use the first active legal-tender currency returned
+             * by the authoritative catalogue as the country default.
+             * Currency remains manually editable in Site Settings.
+             */
+            if (empty(
+                $siteCountryRegionalMap[
+                    $currencyCountryCode
+                ]['currency']
+            )) {
+                $siteCountryRegionalMap[
+                    $currencyCountryCode
+                ]['currency'] = $currencyCode;
+            }
         }
 
         $languages = [
@@ -1644,6 +1844,8 @@ return view(
                 'siteConfig',
                 'timezones',
                 'phoneCountries',
+                'siteCountryRegionalMap',
+                'siteCurrencySettings',
                 'languages',
                 'dateFormats',
                 'currencies'
@@ -1689,6 +1891,15 @@ return view(
                 'max:150',
             ],
 
+            /*
+             * ESUBIZ_CORE_SITE_EMAIL_VALIDATION_V5
+             */
+            'site_email' => [
+                'nullable',
+                'email',
+                'max:254',
+            ],
+
             'timezone' => [
                 'required',
                 'string',
@@ -1700,6 +1911,16 @@ return view(
                 'string',
                 'size:2',
                 'regex:/^[A-Za-z]{2}$/',
+            ],
+
+            /*
+             * ESUBIZ_CORE_SITE_PHONE_NUMBER_VALIDATION_V1
+             */
+            'phone_number' => [
+                'nullable',
+                'string',
+                'max:30',
+                'regex:/^[0-9]*$/',
             ],
 
             'allowed_country_codes' => [
@@ -1731,6 +1952,43 @@ return view(
                 'string',
                 'size:3',
                 'regex:/^[A-Za-z]{3}$/',
+            ],
+
+            /*
+             * ESUBIZ_CORE_SITE_SECONDARY_CURRENCY_VALIDATION_V1
+             */
+            'secondary_currency_enabled' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'secondary_currency' => [
+                'nullable',
+                'string',
+                'size:3',
+                'regex:/^[A-Za-z]{3}$/',
+            ],
+
+            'currency_automatic_conversion' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'currency_manual_rate' => [
+                'nullable',
+                'numeric',
+                'gt:0',
+            ],
+
+            'currency_margin_type' => [
+                'nullable',
+                'in:none,percentage,fixed',
+            ],
+
+            'currency_margin_value' => [
+                'nullable',
+                'numeric',
+                'min:0',
             ],
 
             'date_format' => [
@@ -1833,6 +2091,19 @@ return view(
         $data['default_country_code'] =
             $defaultCountryCode;
 
+        /*
+         * ESUBIZ_CORE_SITE_PHONE_NUMBER_NORMALIZE_V1
+         */
+        $data['phone_number'] =
+            preg_replace(
+                '/\D+/',
+                '',
+                (string) (
+                    $data['phone_number']
+                    ?? ''
+                )
+            );
+
         $data['allowed_country_codes'] =
             $allowedCountryCodes;
 
@@ -1902,11 +2173,27 @@ return view(
                 'website_name' =>
                     trim($data['website_name']),
 
+                /*
+                 * ESUBIZ_CORE_SITE_EMAIL_SAVE_V5
+                 */
+                'site_email' =>
+                    strtolower(
+                        trim(
+                            (string) (
+                                $data['site_email']
+                                ?? ''
+                            )
+                        )
+                    ),
+
                 'timezone' =>
                     trim($data['timezone']),
 
                 'default_country_code' =>
                     $data['default_country_code'],
+
+                'phone_number' =>
+                    $data['phone_number'],
 
                 'default_registration_role' =>
                     trim(
@@ -1958,43 +2245,106 @@ return view(
             }
 
             /*
-             * Currency is already a Core capability.
-             * Update only the primary currency and preserve
-             * all existing secondary-currency configuration.
+             * ESUBIZ_CORE_SITE_SECONDARY_CURRENCY_SAVE_V1
+             *
+             * Site Settings delegates to the existing Core currency
+             * settings service. No second currency engine is created.
              */
-            $existingCurrency = $db->table('site_settings')
-                ->where('key', 'core_currency')
-                ->value('value');
-
-            $currencyConfig = [];
-
-            if ($existingCurrency) {
-                $decoded = json_decode(
-                    (string) $existingCurrency,
-                    true
+            $secondaryEnabled =
+                $request->boolean(
+                    'secondary_currency_enabled'
                 );
 
-                if (is_array($decoded)) {
-                    $currencyConfig = $decoded;
-                }
-            }
+            $automaticConversion =
+                $request->boolean(
+                    'currency_automatic_conversion'
+                );
 
-            $currencyConfig['primary'] = strtoupper(
-                trim($data['currency'])
+            $primaryCurrency = strtoupper(
+                trim(
+                    (string) $data['currency']
+                )
             );
 
-            $db->table('site_settings')
-                ->updateOrInsert(
-                    ['key' => 'core_currency'],
-                    [
-                        'value' => json_encode(
-                            $currencyConfig,
-                            JSON_UNESCAPED_SLASHES
-                        ),
-                        'updated_at' => $now,
-                        'created_at' => $now,
-                    ]
-                );
+            $secondaryCurrency =
+                $secondaryEnabled
+                    ? strtoupper(
+                        trim(
+                            (string) (
+                                $data['secondary_currency']
+                                ?? ''
+                            )
+                        )
+                    )
+                    : null;
+
+            if (
+                $secondaryEnabled
+                && $secondaryCurrency === ''
+            ) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'secondary_currency' =>
+                        'Select a secondary currency.',
+                ]);
+            }
+
+            if (
+                $secondaryEnabled
+                && $secondaryCurrency === $primaryCurrency
+            ) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'secondary_currency' =>
+                        'Secondary currency must be different from primary currency.',
+                ]);
+            }
+
+            $manualRate =
+                $secondaryEnabled
+                && !$automaticConversion
+                    ? (
+                        isset($data['currency_manual_rate'])
+                            ? (float) $data['currency_manual_rate']
+                            : null
+                    )
+                    : null;
+
+            /*
+             * ESUBIZ_CORE_SITE_MANUAL_RATE_NO_MARKUP_V3
+             *
+             * Markup applies only to automatic live conversion.
+             * A manually supplied exchange rate is already the final
+             * conversion rule and therefore carries no extra markup.
+             */
+            $marginType =
+                $secondaryEnabled
+                && $automaticConversion
+                    ? (
+                        $data['currency_margin_type']
+                        ?? 'none'
+                    )
+                    : 'none';
+
+            $marginValue =
+                $secondaryEnabled
+                && $automaticConversion
+                    ? (float) (
+                        $data['currency_margin_value']
+                        ?? 0
+                    )
+                    : 0.0;
+
+            app(
+                \App\Services\Core\CoreCurrencySettingsService::class
+            )->save(
+                $website->id ?? null,
+                $primaryCurrency,
+                $secondaryEnabled,
+                $secondaryCurrency,
+                $automaticConversion,
+                $manualRate,
+                $marginType,
+                $marginValue
+            );
         });
 
         return back()->with(
