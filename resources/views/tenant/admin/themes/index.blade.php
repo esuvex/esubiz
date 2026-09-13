@@ -744,16 +744,58 @@
     @foreach($themes as $previewTheme)
 
         @php
-            $fullPreviewUrl = route(
-                'tenant.cms.themes.preview',
-                [
-                    'subdomain' =>
-                        $website->subdomain,
+            /*
+             * ESUBIZ_CORE_THEME_PREVIEW_PLUG_AND_PLAY_V1
+             *
+             * Every installed Theme follows the same preview contract:
+             *
+             * Theme manifest
+             *     -> installed Theme metadata
+             *     -> generic preview URL
+             *     -> card + full preview modal.
+             *
+             * Marketplace Themes use the authoritative Central package
+             * preview. Local/off-server Themes use Core's generic local
+             * preview endpoint. No Theme names are hardcoded.
+             */
+            $previewMarketplaceThemePackageId =
+                (int) (
+                    $previewTheme[
+                        'marketplace_theme_package_id'
+                    ]
+                    ?? 0
+                );
 
-                    'theme' =>
-                        $previewTheme['slug'],
-                ]
-            );
+            if ($previewMarketplaceThemePackageId > 0) {
+                $previewCentralMarketplaceUrl =
+                    rtrim(
+                        (string) config(
+                            'services.esubiz.marketplace_url',
+                            config(
+                                'app.url'
+                            )
+                        ),
+                        '/'
+                    );
+
+                $fullPreviewUrl =
+                    $previewCentralMarketplaceUrl
+                    . '/marketplace/themes/'
+                    . $previewMarketplaceThemePackageId
+                    . '/preview';
+            } else {
+                $fullPreviewUrl =
+                    route(
+                        'tenant.cms.themes.preview',
+                        [
+                            'subdomain' =>
+                                $website->subdomain,
+
+                            'theme' =>
+                                $previewTheme['slug'],
+                        ]
+                    );
+            }
         @endphp
 
         <div
