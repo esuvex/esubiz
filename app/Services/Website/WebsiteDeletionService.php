@@ -9,7 +9,8 @@ use RuntimeException;
 class WebsiteDeletionService
 {
     public function __construct(
-        protected WebsiteDatabaseCleanupService $databaseCleanup
+        protected WebsiteDatabaseCleanupService $databaseCleanup,
+        protected WebsiteMailboxService $websiteMailboxService
     ) {
     }
 
@@ -28,7 +29,24 @@ class WebsiteDeletionService
          */
 
         /*
-         * SaaS tenant database must be removed first.
+         * ESUBIZ_SAAS_MANAGED_MAIL_DELETE_V2
+         *
+         * Remove Esubiz-managed mail before destroying the tenant
+         * database or Central Website identity.
+         *
+         * If a managed mailbox exists and DirectAdmin cannot remove
+         * it, the exception aborts deletion here. The Central ownership
+         * record therefore remains available for a safe retry.
+         */
+        if ($website->isSaas()) {
+            $this->websiteMailboxService
+                ->deleteManagedForWebsite(
+                    $website
+                );
+        }
+
+        /*
+         * SaaS tenant database is removed after managed mail.
          *
          * If this fails, abort before Central identity is deleted.
          */

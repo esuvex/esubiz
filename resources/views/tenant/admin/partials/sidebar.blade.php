@@ -1132,7 +1132,11 @@
                 class="ml-4 space-y-1 border-l border-white/10 pl-3"
             >
 
-                <a href="#" class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10">
+                {{-- ESUBIZ_CORE_EMAIL_SIDEBAR_LINK_V1 --}}
+                <a
+                    href="{{ route('tenant.cms.email.index', ['subdomain' => request()->route('subdomain')]) }}"
+                    class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white {{ request()->routeIs('tenant.cms.email.*') ? 'bg-white/10 text-white' : '' }}"
+                >
                     Email
                 </a>
 

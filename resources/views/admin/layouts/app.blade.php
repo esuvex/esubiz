@@ -91,21 +91,16 @@
     </style>
 
 
-    {{-- ESUBIZ_CENTRAL_CANONICAL_FAVICON_V6 --}}
-    <link
-        rel="icon"
-        href="{{ url('/media/branding/favicon.png') }}"
-    >
-    <link
-        rel="shortcut icon"
-        href="{{ url('/media/branding/favicon.png') }}"
-    >
 
     {{-- ESUBIZ_INTERNAL_NOINDEX_V13 --}}
     <meta
         name="robots"
         content="noindex,nofollow,noarchive"
     >
+
+
+    {{-- ESUBIZ_CENTRAL_GLOBAL_FAVICON_INCLUDE_V1 --}}
+    @include('shared.central.favicon')
 
 </head>
 
@@ -782,7 +777,10 @@
                             @click="profile=!profile"
                             class="w-11 h-11 rounded-full bg-slate-200 font-semibold">
 
-                            {{ strtoupper(substr(auth()->user()->name, 0, 2)) }}
+                            @include(
+                                    'shared.profile.central-avatar',
+                                    ['user' => auth()->user()]
+                                )
 
                         </button>
 
@@ -807,6 +805,97 @@
                                 {{ auth()->user()->email }}
 
                                 </div>
+                                {{-- ESUBIZ_CENTRAL_PROFILE_WALLET_BALANCE_V10 --}}
+                                @php
+                                    /*
+                                     * Real ledger balance from the exact
+                                     * same customer wallet used by /wallet.
+                                     */
+                                    $menuWalletBaseBalance = (float) (
+                                        data_get(
+                                            $esubizCentralMenuWallet ?? null,
+                                            'available_balance'
+                                        )
+                                        ?? 0
+                                    );
+
+                                    /*
+                                     * Use the existing Central currency
+                                     * presentation engine.
+                                     *
+                                     * Authenticated saved profile country
+                                     * has priority over IP country.
+                                     */
+                                    $menuWalletMoney = (
+                                        isset($esubizProductMoney)
+                                        && is_callable($esubizProductMoney)
+                                    )
+                                        ? $esubizProductMoney(
+                                            $menuWalletBaseBalance
+                                        )
+                                        : null;
+
+                                    /*
+                                     * Support the current money context plus
+                                     * defensive compatibility keys.
+                                     */
+                                    if (is_numeric($menuWalletMoney)) {
+                                        $menuWalletDisplayBalance =
+                                            (float) $menuWalletMoney;
+                                    } else {
+                                        $menuWalletDisplayBalance =
+                                            (float) (
+                                                data_get(
+                                                    $menuWalletMoney,
+                                                    'amount'
+                                                )
+                                                ?? data_get(
+                                                    $menuWalletMoney,
+                                                    'display_amount'
+                                                )
+                                                ?? data_get(
+                                                    $menuWalletMoney,
+                                                    'converted_amount'
+                                                )
+                                                ?? $menuWalletBaseBalance
+                                            );
+                                    }
+
+                                    $menuWalletDisplayCurrency = strtoupper(
+                                        (string) (
+                                            data_get(
+                                                $menuWalletMoney,
+                                                'currency'
+                                            )
+                                            ?? data_get(
+                                                $menuWalletMoney,
+                                                'display_currency'
+                                            )
+                                            ?? ($esubizVisitorCurrency ?? null)
+                                            ?? data_get(
+                                                $esubizCentralMenuWallet ?? null,
+                                                'currency'
+                                            )
+                                            ?? 'NGN'
+                                        )
+                                    );
+                                @endphp
+
+                                <a href="{{ route('account.wallet') }}"
+                                   class="block mt-3 px-3 py-2 rounded-lg bg-slate-50 hover:bg-slate-100 transition">
+                                    <div class="text-xs text-slate-500">
+                                        Wallet Balance
+                                    </div>
+
+                                    <div class="text-sm font-semibold text-slate-900">
+                                        {{ $menuWalletDisplayCurrency }}
+                                        {{ number_format(
+                                            $menuWalletDisplayBalance,
+                                            2
+                                        ) }}
+                                    </div>
+                                </a>
+
 
                             </div>
 
@@ -862,7 +951,8 @@
 
                                 <hr>
 
-                                <a href="#" class="block px-5 py-3 hover:bg-slate-100">
+                                {{-- ESUBIZ_CENTRAL_ADMIN_CANONICAL_PROFILE_MENU_V5 --}}
+                                <a href="{{ route('central.profile.edit') }}" class="block px-5 py-3 hover:bg-slate-100">
 
                                     My Profile
 

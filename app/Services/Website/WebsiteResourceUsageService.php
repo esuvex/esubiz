@@ -37,6 +37,34 @@ class WebsiteResourceUsageService
             }
         }
 
+        /*
+         * ESUBIZ_CORE_SHARED_STORAGE_MAILBOX_USAGE_V2
+         *
+         * Core has ONE storage pool.
+         *
+         * Existing filesystem usage plus live managed-mailbox usage
+         * are combined here. Physical deletion therefore naturally
+         * frees storage:
+         *
+         * - deleted media/files disappear from the filesystem scan;
+         * - permanently purged email disappears from mailbox usage.
+         *
+         * Moving an email to Trash does not free storage because the
+         * message still physically exists.
+         */
+        $mailboxBytes =
+            app(
+                WebsiteMailboxService::class
+            )->storageBytes(
+                $website
+            );
+
+        $bytes +=
+            max(
+                0,
+                $mailboxBytes
+            );
+
         $usedMb =
             $bytes > 0
                 ? $bytes / 1024 / 1024

@@ -6,6 +6,438 @@ use Illuminate\Contracts\Auth\Authenticatable;
 
 class CentralRoleAccessService
 {
+
+    /**
+     * ESUBIZ_CENTRAL_ASSIGNED_ROLE_RESOLVER_V23
+     *
+     * Return roles actually assigned to a Central account.
+     *
+     * Plug-and-play compatibility:
+     * - Spatie/getRoleNames()
+     * - roles() relationships
+     * - loaded roles collections
+     * - legacy Central scalar role fields
+     * - established Admin helper authority
+     */
+    public function assignedRoleNames($user): array
+    {
+        if (!$user) {
+            return [];
+        }
+
+        $roles = collect();
+
+        /*
+         * Spatie-style role source.
+         */
+        try {
+            if (method_exists($user, 'getRoleNames')) {
+                $roles = $roles->merge(
+                    collect(
+                        $user->getRoleNames()
+                    )
+                );
+            }
+        } catch (\Throwable $e) {
+            // Continue to other supported role authorities.
+        }
+
+        /*
+         * Generic roles relationship.
+         */
+        try {
+            if (method_exists($user, 'roles')) {
+                $assigned = $user->roles()->get();
+
+                foreach ($assigned as $role) {
+                    foreach ([
+                        'name',
+                        'display_name',
+                        'title',
+                        'slug',
+                    ] as $field) {
+                        $value = data_get(
+                            $role,
+                            $field
+                        );
+
+                        if (
+                            is_scalar($value)
+                            && trim((string) $value) !== ''
+                        ) {
+                            $roles->push(
+                                (string) $value
+                            );
+                            break;
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // Continue.
+        }
+
+        /*
+         * Already-loaded generic roles collection.
+         */
+        try {
+            $loadedRoles =
+                $user->getRelationValue('roles');
+
+            if (
+                $loadedRoles
+                instanceof \Illuminate\Support\Collection
+            ) {
+                foreach ($loadedRoles as $role) {
+                    foreach ([
+                        'name',
+                        'display_name',
+                        'title',
+                        'slug',
+                    ] as $field) {
+                        $value = data_get(
+                            $role,
+                            $field
+                        );
+
+                        if (
+                            is_scalar($value)
+                            && trim((string) $value) !== ''
+                        ) {
+                            $roles->push(
+                                (string) $value
+                            );
+                            break;
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // Continue.
+        }
+
+        /*
+         * Existing Central/legacy scalar fields.
+         */
+        foreach ([
+            'role',
+            'user_type',
+            'type',
+            'account_role',
+        ] as $field) {
+            try {
+                $value = $user->{$field} ?? null;
+
+                if (
+                    is_scalar($value)
+                    && trim((string) $value) !== ''
+                ) {
+                    $roles->push(
+                        (string) $value
+                    );
+                }
+            } catch (\Throwable $e) {
+                // Continue.
+            }
+        }
+
+        $roles = $roles
+            ->map(
+                function ($role) {
+                    $role = trim(
+                        (string) $role
+                    );
+
+                    return strtolower(
+                        str_replace(
+                            [' ', '-'],
+                            '_',
+                            $role
+                        )
+                    );
+                }
+            )
+            ->filter()
+            ->unique()
+            ->values();
+
+        /*
+         * A stale legacy "user" value must not override an
+         * actual stronger assigned role.
+         */
+        if ($roles->count() > 1) {
+            $roles = $roles->reject(
+                fn ($role) => $role === 'user'
+            )->values();
+        }
+
+        /*
+         * Existing Admin authority remains a compatibility fallback.
+         */
+        if (
+            $roles->isEmpty()
+            && $this->isAdminFamily($user)
+        ) {
+            $roles->push('admin');
+        }
+
+        return $roles->all();
+    }
+
+    /**
+     * Return the primary assigned Central role.
+     */
+    public function primaryAssignedRole(
+        $user,
+        string $fallback = 'user'
+    ): string {
+        $roles = $this->assignedRoleNames(
+            $user
+        );
+
+        if (!$roles) {
+            return $fallback;
+        }
+
+        /*
+         * Existing built-in roles get deterministic precedence.
+         * Unknown future roles still work automatically.
+         */
+        $priority = [
+            'super_admin',
+            'superadmin',
+            'platform_admin',
+            'admin',
+            'administrator',
+            'staff',
+            'investor',
+            'partner',
+            'investor_partner',
+            'developer',
+            'user',
+        ];
+
+        foreach ($priority as $candidate) {
+            if (in_array(
+                $candidate,
+                $roles,
+                true
+            )) {
+                return $candidate;
+            }
+        }
+
+        /*
+         * Custom future role: no code change required.
+         */
+        return (string) $roles[0];
+    }
+
+    /**
+     * Human-readable role label for Central UI.
+     */
+    public function assignedRoleLabel(
+        $user,
+        string $fallback = 'User'
+    ): string {
+        $role = $this->primaryAssignedRole(
+            $user,
+            ''
+        );
+
+        if ($role === '') {
+            return $fallback;
+        }
+
+        return match ($role) {
+            'super_admin',
+            'superadmin',
+            'platform_admin',
+            'admin',
+            'administrator'
+                => 'Administrator',
+
+            'investor_partner'
+                => 'Investor / Partner',
+
+            default => ucwords(
+                str_replace(
+                    '_',
+                    ' ',
+                    $role
+                )
+            ),
+        };
+    }
+
+
+    /**
+     * ESUBIZ_CENTRAL_ADMIN_FAMILY_AUTHORITY_V12
+     *
+     * Preserve existing Central Admin authority even when a
+     * legacy account_role value still says "user".
+     */
+    public function isAdminFamily($user): bool
+    {
+        /*
+         * ESUBIZ_CENTRAL_ADMIN_FAMILY_AUTHORITY_V14
+         *
+         * Existing Central Admin authority takes precedence over a
+         * stale account_role value such as "user".
+         */
+
+        if (!$user) {
+            return false;
+        }
+
+        /*
+         * Support role packages / User-model helpers without binding
+         * Central authority to one implementation.
+         */
+        foreach ([
+            'admin',
+            'administrator',
+            'super_admin',
+            'superadmin',
+            'platform_admin',
+        ] as $roleName) {
+            try {
+                if (
+                    method_exists($user, 'hasRole')
+                    && $user->hasRole($roleName)
+                ) {
+                    return true;
+                }
+            } catch (\Throwable $e) {
+                // Continue through other established authorities.
+            }
+        }
+
+        /*
+         * Existing model helper methods.
+         */
+        foreach ([
+            'isAdmin',
+            'isAdministrator',
+            'isSuperAdmin',
+        ] as $method) {
+            try {
+                if (
+                    method_exists($user, $method)
+                    && (bool) $user->{$method}()
+                ) {
+                    return true;
+                }
+            } catch (\Throwable $e) {
+                // Continue.
+            }
+        }
+
+        /*
+         * Relationship-based roles.
+         */
+        try {
+            if (
+                method_exists($user, 'roles')
+                && $user->roles()
+            ) {
+                $roleNames = $user->roles()
+                    ->pluck('name')
+                    ->map(
+                        fn ($name) => strtolower(
+                            str_replace(
+                                [' ', '-'],
+                                '_',
+                                trim((string) $name)
+                            )
+                        )
+                    );
+
+                if (
+                    $roleNames->intersect([
+                        'admin',
+                        'administrator',
+                        'super_admin',
+                        'superadmin',
+                        'platform_admin',
+                        'staff',
+                        'investor',
+                        'partner',
+                        'investor_partner',
+                    ])->isNotEmpty()
+                ) {
+                    return true;
+                }
+            }
+        } catch (\Throwable $e) {
+            // Continue.
+        }
+
+
+        if (!$user) {
+            return false;
+        }
+
+        foreach ([
+            'isAdmin',
+            'isAdministrator',
+            'isSuperAdmin',
+        ] as $method) {
+            try {
+                if (
+                    method_exists($user, $method)
+                    && (bool) $user->{$method}()
+                ) {
+                    return true;
+                }
+            } catch (\Throwable $e) {
+                // Continue through established role sources.
+            }
+        }
+
+        foreach ([
+            'role',
+            'user_type',
+            'type',
+            'account_role',
+        ] as $field) {
+            $value = $user->{$field} ?? null;
+
+            if (!is_scalar($value)) {
+                continue;
+            }
+
+            $role = strtolower(
+                str_replace(
+                    [' ', '-'],
+                    '_',
+                    trim((string) $value)
+                )
+            );
+
+            if (in_array(
+                $role,
+                [
+                    'admin',
+                    'administrator',
+                    'superadmin',
+                    'super_admin',
+                    'platform_admin',
+                    'staff',
+                    'investor',
+                    'partner',
+                    'investor_partner',
+                    'investor/partner',
+                ],
+                true
+            )) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /*
      * ESUBIZ_CENTRAL_ROLE_ACCESS_V1
      *
@@ -99,6 +531,13 @@ class CentralRoleAccessService
     public function visibleContexts(
         ?Authenticatable $user
     ): array {
+        /*
+         * ESUBIZ_CENTRAL_ADMIN_VISIBLE_CONTEXTS_V12
+         */
+        if ($this->isAdminFamily($user)) {
+            return ['admin', 'developer', 'user'];
+        }
+
         return match (
             $this->family($user)
         ) {
@@ -131,6 +570,19 @@ class CentralRoleAccessService
         ?Authenticatable $user,
         string $context
     ): bool {
+        /*
+         * ESUBIZ_CENTRAL_ADMIN_VISIBLE_AUTHORITY_V17
+         *
+         * Admin-family helper remains an unconditional superset.
+         */
+
+        /*
+         * ESUBIZ_CENTRAL_ADMIN_CONTEXT_ACCESS_V12
+         */
+        if ($this->isAdminFamily($user)) {
+            return true;
+        }
+
         $context = $this->normalizeContext(
             $context
         );
@@ -238,6 +690,13 @@ class CentralRoleAccessService
     public function includesUserFeatures(
         ?Authenticatable $user
     ): bool {
+        /*
+         * ESUBIZ_CENTRAL_ADMIN_USER_FEATURES_V12
+         */
+        if ($this->isAdminFamily($user)) {
+            return true;
+        }
+
         return in_array(
             $this->family($user),
             [
@@ -252,6 +711,13 @@ class CentralRoleAccessService
     public function includesDeveloperFeatures(
         ?Authenticatable $user
     ): bool {
+        /*
+         * ESUBIZ_CENTRAL_ADMIN_DEVELOPER_FEATURES_V12
+         */
+        if ($this->isAdminFamily($user)) {
+            return true;
+        }
+
         return in_array(
             $this->family($user),
             [

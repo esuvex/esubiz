@@ -241,6 +241,14 @@ class Website extends Model
         'admin_password',
 
         /*
+         * ESUBIZ_SAAS_MAILBOX_INITIAL_CREDENTIAL_V3
+         *
+         * Temporary encrypted credential used only to initialize the
+         * automatically managed SaaS mailbox.
+         */
+        'mailbox_provisioning_password',
+
+        /*
         |--------------------------------------------------------------------------
         | Deployment
         |--------------------------------------------------------------------------
@@ -290,6 +298,14 @@ class Website extends Model
     protected $casts = [
 
         'wizard_data' => 'array',
+
+        /*
+         * ESUBIZ_SAAS_MAILBOX_INITIAL_CREDENTIAL_CAST_V3
+         *
+         * Never store the temporary mailbox provisioning password
+         * as plaintext in the Central database.
+         */
+        'mailbox_provisioning_password' => 'encrypted',
 
         'enabled_modules' => 'array',
         'enabled_features' => 'array',

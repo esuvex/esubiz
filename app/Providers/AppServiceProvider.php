@@ -181,6 +181,79 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         /*
+         * ESUBIZ_CENTRAL_WALLET_VIEW_CONTEXT_V9
+         *
+         * Central shell wallet display authority:
+         * WalletService -> Wallet.available_balance.
+         *
+         * The underlying wallet ledger remains authoritative in its
+         * stored currency. Secondary-currency presentation uses the
+         * same Central currency engine as the rest of Esubiz.
+         */
+        \Illuminate\Support\Facades\View::composer(
+            [
+                'components.app-layout',
+                'layouts.app',
+                'admin.layouts.app',
+            ],
+            function ($view): void {
+                $user = auth()->user();
+
+                $wallet = null;
+                $walletMoney = null;
+
+                if ($user) {
+                    try {
+                        $wallets = app(
+                            \App\Services\Core\WalletService::class
+                        );
+
+                        $wallet = $wallets->ensureUserWallet(
+                            (int) $user->id,
+                            'NGN'
+                        );
+
+                        /*
+                         * Keep the wallet ledger amount untouched here.
+                         * Currency presentation is handled by the same
+                         * global Esubiz money renderer used elsewhere.
+                         */
+                        $walletMoney = null;
+                    } catch (\Throwable $e) {
+                        /*
+                         * Never break the Central shell because wallet
+                         * presentation failed. Preserve the real stored
+                         * wallet amount/currency whenever available.
+                         */
+                        if ($wallet) {
+                            $walletMoney = [
+                                'amount' => (float) (
+                                    $wallet->available_balance ?? 0
+                                ),
+                                'currency' => strtoupper(
+                                    (string) (
+                                        $wallet->currency ?? 'NGN'
+                                    )
+                                ),
+                            ];
+                        }
+                    }
+                }
+
+                $view->with(
+                    'esubizCentralMenuWallet',
+                    $wallet
+                );
+
+                $view->with(
+                    'esubizCentralMenuWalletMoney',
+                    $walletMoney
+                );
+            }
+        );
+
+
+        /*
          * ESUBIZ_CENTRAL_SETTINGS_PROPAGATION_V1
          *
          * Make Central Main Settings available consistently to all

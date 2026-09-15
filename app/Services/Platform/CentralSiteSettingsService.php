@@ -390,7 +390,8 @@ class CentralSiteSettingsService
         $newPath = $this->media->replace(
             $oldPath ?: null,
             $file,
-            'branding'
+            'branding',
+            \App\Services\Media\EsubizImageOptimizer::PROFILE_LOGO
         );
 
         $this->set(
@@ -412,7 +413,8 @@ class CentralSiteSettingsService
         $newPath = $this->media->replace(
             $oldPath ?: null,
             $file,
-            'branding'
+            'branding',
+            \App\Services\Media\EsubizImageOptimizer::PROFILE_FAVICON
         );
 
         $this->set(

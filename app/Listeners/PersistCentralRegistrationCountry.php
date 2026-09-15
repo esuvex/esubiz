@@ -2,136 +2,150 @@
 
 namespace App\Listeners;
 
-use App\Services\Platform\CentralVisitorCurrencyService;
+use App\Services\Platform\CentralCountryCatalog;
 use Illuminate\Auth\Events\Registered;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Schema;
 
 class PersistCentralRegistrationCountry
 {
-    /*
-     * ESUBIZ_REGISTRATION_COUNTRY_PERSISTENCE_V7
+    /**
+     * ESUBIZ_CENTRAL_REGISTRATION_PROFILE_PERSISTENCE_V23
      *
-     * After successful Central registration:
-     *
-     * - save the country selected on the registration form;
-     * - if unchanged, that value is the IP-detected default;
-     * - manual registration selection wins over IP detection;
-     * - persist the ISO country code on the new user's profile;
-     * - keep the session currency context synchronized.
+     * Central registration is authoritative for the initial
+     * country and phone details saved to the account.
      */
-    public function __construct(
-        protected CentralVisitorCurrencyService $visitorCurrency
-    ) {
-    }
-
-    public function handle(
-        Registered $event
-    ): void {
-        $user = $event->user;
-
-        if (!$user instanceof Model) {
-            return;
-        }
-
+    public function handle(Registered $event): void
+    {
         try {
             $request = request();
 
-            $country =
-                $this->visitorCurrency
-                    ->normalizeCountry(
-                        $request->input(
-                            'esubiz_country'
-                        )
-                        ?: $request->input(
-                            'country'
-                        )
-                        ?: (
-                            $request->hasSession()
-                                ? $request->session()->get(
-                                    'esubiz_country'
-                                )
-                                : null
-                        )
-                    );
-
-            /*
-             * If the registration request itself did not
-             * explicitly contain a country, resolve the same
-             * visitor country that was used to preselect the
-             * registration field.
-             */
-            if ($country === null) {
-                $country =
-                    $this->visitorCurrency
-                        ->resolveCountry(
-                            $request
-                        );
-            }
-
-            $country =
-                $this->visitorCurrency
-                    ->normalizeCountry(
-                        $country
-                    );
-
-            if ($country === null) {
+            if (!$request) {
                 return;
             }
 
             /*
-             * Prefer dedicated ISO-country columns.
-             *
-             * We only use the generic `country` column if the
-             * more explicit fields do not exist.
+             * Do not apply Central account persistence to tenant/Core
+             * registrations on *.esubiz.com.
              */
-            $table = $user->getTable();
+            $requestHost = strtolower(
+                trim((string) $request->getHost())
+            );
 
-            $countryField = null;
-
-            foreach (
-                [
-                    'country_code',
-                    'default_country_code',
-                    'country',
-                ] as $candidate
-            ) {
-                if (
-                    Schema::hasColumn(
-                        $table,
-                        $candidate
+            $centralHost = strtolower(
+                trim(
+                    (string) (
+                        parse_url(
+                            (string) config('app.url'),
+                            PHP_URL_HOST
+                        )
+                        ?: 'esubiz.com'
                     )
-                ) {
-                    $countryField =
-                        $candidate;
+                )
+            );
 
-                    break;
-                }
+            $centralHosts = array_values(
+                array_unique([
+                    $centralHost,
+                    preg_replace(
+                        '/^www\./',
+                        '',
+                        $centralHost
+                    ),
+                    'www.' . preg_replace(
+                        '/^www\./',
+                        '',
+                        $centralHost
+                    ),
+                ])
+            );
+
+            if (!in_array(
+                $requestHost,
+                $centralHosts,
+                true
+            )) {
+                return;
             }
 
-            if ($countryField !== null) {
-                $user->setAttribute(
-                    $countryField,
-                    $country
+            $user = $event->user;
+
+            if (!$user) {
+                return;
+            }
+
+            $catalog = app(
+                CentralCountryCatalog::class
+            );
+
+            $country = strtoupper(
+                trim(
+                    (string) $request->input(
+                        'country_code',
+                        $request->input(
+                            'country',
+                            ''
+                        )
+                    )
+                )
+            );
+
+            if (!$catalog->has($country)) {
+                return;
+            }
+
+            $phoneCountryCode =
+                $catalog->dialCode(
+                    $country,
+                    '+234'
                 );
 
-                if ($user->isDirty()) {
-                    $user->save();
-                }
+            $phoneNumber = trim(
+                (string) $request->input(
+                    'phone_number',
+                    $request->input('phone', '')
+                )
+            );
+
+            /*
+             * ESUBIZ_REGISTRATION_COUNTRY_PERSISTENCE_V23
+             *
+             * forceFill is intentional here so persistence does not
+             * depend on User::$fillable.
+             */
+            $attributes = [
+                'country_code' =>
+                    $country,
+
+                'phone_country_code' =>
+                    $phoneCountryCode,
+            ];
+
+            if ($phoneNumber !== '') {
+                $attributes['phone_number'] =
+                    $phoneNumber;
             }
 
+            $user->forceFill(
+                $attributes
+            )->save();
+
+            /*
+             * Saved profile country now outranks IP/default country
+             * for the authenticated account.
+             */
             if ($request->hasSession()) {
                 $request->session()->put(
-                    'esubiz_country',
+                    'esubiz_country_code',
                     $country
                 );
+
+                $request->session()->put(
+                    'esubiz_country_source',
+                    'profile'
+                );
             }
-        } catch (\Throwable $exception) {
-            /*
-             * Country persistence must never prevent account
-             * creation if an unexpected environment/schema
-             * issue occurs.
-             */
+
+        } catch (\Throwable $e) {
+            report($e);
         }
     }
 }

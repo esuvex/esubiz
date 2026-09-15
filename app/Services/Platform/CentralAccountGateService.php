@@ -214,6 +214,58 @@ class CentralAccountGateService
     public function canUseInternalFunctions(
         ?Authenticatable $user
     ): bool {
+        /*
+         * ESUBIZ_CENTRAL_ADMIN_GATE_AUTHORITY_V17
+         *
+         * Existing Admin context authority overrides stale
+         * account_role data. Mode switching changes UI experience,
+         * not the underlying Admin permission level.
+         */
+        $centralGateUser = $user;
+
+        if ($centralGateUser) {
+            $centralRoleAccess = app(
+                \App\Services\Platform\CentralRoleAccessService::class
+            );
+
+            $centralContexts = collect(
+                $centralRoleAccess->visibleContexts(
+                    $centralGateUser
+                )
+            )
+                ->map(
+                    fn ($context) => strtolower(
+                        trim((string) $context)
+                    )
+                );
+
+            if (
+                $centralRoleAccess
+                    ->isAdminFamily($centralGateUser)
+                || $centralContexts->contains('admin')
+            ) {
+                return true;
+            }
+        }
+
+
+        /*
+         * ESUBIZ_CENTRAL_ADMIN_GATE_BYPASS_V12
+         *
+         * Admin-family accounts retain full backend authority.
+         * User/Developer Mode remains an experience/context switch,
+         * not a permission downgrade.
+         */
+        $centralGateUser = $user;
+
+        if (
+            app(
+                \App\Services\Platform\CentralRoleAccessService::class
+            )->isAdminFamily($centralGateUser)
+        ) {
+            return true;
+        }
+
         return (bool) (
             $this->status($user)[
                 'functions_allowed'

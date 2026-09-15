@@ -26,15 +26,11 @@
     @vite(['resources/css/app.css','resources/js/app.js'])
 
 
-    {{-- ESUBIZ_CENTRAL_CANONICAL_FAVICON_V6 --}}
-    <link
-        rel="icon"
-        href="{{ url('/media/branding/favicon.png') }}"
-    >
-    <link
-        rel="shortcut icon"
-        href="{{ url('/media/branding/favicon.png') }}"
-    >
+
+
+    {{-- ESUBIZ_CENTRAL_GLOBAL_FAVICON_INCLUDE_V1 --}}
+    @include('shared.central.favicon')
+
 </head>
 
 

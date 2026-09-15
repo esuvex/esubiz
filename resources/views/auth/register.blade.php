@@ -102,36 +102,18 @@
             );
 
         /*
-         * Central registration uses its own compact country
-         * catalogue here so it remains independent from
-         * tenant/Core website configuration.
+         * ESUBIZ_CENTRAL_REGISTRATION_WORLDWIDE_COUNTRIES_V26
+         *
+         * Central registration consumes the Central adapter
+         * backed by CorePhoneCountryCatalog.
+         *
+         * This gives Central the same worldwide country and
+         * international dial-code source used by Core while
+         * preserving Central's own registration behavior.
          */
-        $countries = [
-            'NG' => ['Nigeria', '+234'],
-            'GH' => ['Ghana', '+233'],
-            'US' => ['United States', '+1'],
-            'GB' => ['United Kingdom', '+44'],
-            'CA' => ['Canada', '+1'],
-            'ZA' => ['South Africa', '+27'],
-            'KE' => ['Kenya', '+254'],
-            'UG' => ['Uganda', '+256'],
-            'TZ' => ['Tanzania', '+255'],
-            'RW' => ['Rwanda', '+250'],
-            'CM' => ['Cameroon', '+237'],
-            'CI' => ["Côte d'Ivoire", '+225'],
-            'SN' => ['Senegal', '+221'],
-            'AE' => ['United Arab Emirates', '+971'],
-            'SA' => ['Saudi Arabia', '+966'],
-            'IN' => ['India', '+91'],
-            'CN' => ['China', '+86'],
-            'DE' => ['Germany', '+49'],
-            'FR' => ['France', '+33'],
-            'IT' => ['Italy', '+39'],
-            'ES' => ['Spain', '+34'],
-            'NL' => ['Netherlands', '+31'],
-            'BE' => ['Belgium', '+32'],
-            'AU' => ['Australia', '+61'],
-        ];
+        $countries = app(
+            \App\Services\Platform\CentralCountryCatalog::class
+        )->all();
 
         if (
             !array_key_exists(
@@ -239,6 +221,55 @@
          * the normal 52px Esubiz field height on small devices.
          */
         @media (max-width: 640px) {
+            /*
+             * ESUBIZ_CENTRAL_REGISTER_MOBILE_COUNTRY_PHONE_V31
+             *
+             * Mobile only:
+             * - Country occupies its own full-width row.
+             * - Phone occupies the next full-width row.
+             * - Dial code stays compact.
+             * - Editable phone number receives all remaining width.
+             */
+            #central-register-country-phone-row {
+                grid-template-columns: minmax(0, 1fr) !important;
+                gap: 16px !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: 0 !important;
+                box-sizing: border-box !important;
+            }
+
+            #central-register-country-phone-row
+            .central-register-country-field,
+            #central-register-country-phone-row
+            .central-register-phone-field {
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: 0 !important;
+                box-sizing: border-box !important;
+            }
+
+            #central-register-country-phone-row
+            .esubiz-auth-phone {
+                display: grid !important;
+                grid-template-columns: 96px minmax(0, 1fr) !important;
+                gap: 12px !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: 0 !important;
+                box-sizing: border-box !important;
+            }
+
+            #central-register-country-phone-row
+            #phone_country_code,
+            #central-register-country-phone-row
+            #phone_number {
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: 0 !important;
+                box-sizing: border-box !important;
+            }
+
             select[name="country_code"],
             select[name="country"],
             select[name="account_role"],
@@ -831,75 +862,113 @@
                             @enderror
                         </div>
 
-                        <div class="esubiz-auth-field">
-                            <label class="esubiz-auth-label" for="country_code">
-                                Country
-                                <span class="esubiz-auth-required">*</span>
-                            </label>
-
-                            <select
-                                id="country_code"
-                                class="esubiz-auth-select"
-                                name="country_code"
-                                required
+                        {{-- ESUBIZ_CENTRAL_REGISTER_COUNTRY_PHONE_ALIGNMENT_V29 --}}
+                        {{-- ESUBIZ_CENTRAL_REGISTER_MOBILE_COUNTRY_PHONE_V31 --}}
+                        <div
+                            id="central-register-country-phone-row"
+                            class="esubiz-auth-field-full"
+                            style="
+                                display:grid;
+                                grid-template-columns:minmax(0, 0.72fr) minmax(0, 1.28fr);
+                                gap:20px;
+                                width:100%;
+                                max-width:100%;
+                                min-width:0;
+                                box-sizing:border-box;
+                            "
+                        >
+                            <div
+                                class="esubiz-auth-field central-register-country-field"
+                                style="min-width:0; width:100%; max-width:100%; box-sizing:border-box;"
                             >
-                                @foreach(
-                                    $countries
-                                    as $code => $country
-                                )
-                                    <option
-                                        value="{{ $code }}"
-                                        data-dial="{{ $country[1] }}"
-                                        @selected(
-                                            $resolvedCountry
-                                                === $code
-                                        )
-                                    >
-                                        {{ $country[0] }}
-                                    </option>
-                                @endforeach
-                            </select>
+                                <label class="esubiz-auth-label" for="country_code">
+                                    Country
+                                    <span class="esubiz-auth-required">*</span>
+                                </label>
 
-                            @error('country_code')
-                                <div class="esubiz-auth-error">
-                                    {{ $message }}
-                                </div>
-                            @enderror
-                        </div>
-
-                        <div class="esubiz-auth-field">
-                            <label class="esubiz-auth-label" for="phone_number">
-                                Phone Number
-                                <span class="esubiz-auth-required">*</span>
-                            </label>
-
-                            <div class="esubiz-auth-phone">
-                                <input
-                                    id="phone_country_code"
-                                    class="esubiz-auth-control"
-                                    type="text"
-                                    name="phone_country_code"
-                                    value="{{ $phoneDial }}"
-                                    readonly
-                                    aria-label="Phone country code"
-                                >
-
-                                <input
-                                    id="phone_number"
-                                    class="esubiz-auth-control"
-                                    type="tel"
-                                    name="phone_number"
-                                    value="{{ old('phone_number') }}"
+                                <select
+                                    id="country_code"
+                                    class="esubiz-auth-select"
+                                    name="country_code"
                                     required
-                                    autocomplete="tel"
+                                    style="width:100%; min-width:0;"
                                 >
+                                    @foreach(
+                                        $countries
+                                        as $code => $country
+                                    )
+                                        <option
+                                            value="{{ $code }}"
+                                            data-dial="{{ $country[1] }}"
+                                            @selected(
+                                                $resolvedCountry
+                                                    === $code
+                                            )
+                                        >
+                                            {{ $country[0] }}
+                                        </option>
+                                    @endforeach
+                                </select>
+
+                                @error('country_code')
+                                    <div class="esubiz-auth-error">
+                                        {{ $message }}
+                                    </div>
+                                @enderror
                             </div>
 
-                            @error('phone_number')
-                                <div class="esubiz-auth-error">
-                                    {{ $message }}
+                            <div
+                                class="esubiz-auth-field central-register-phone-field"
+                                style="min-width:0; width:100%; max-width:100%; box-sizing:border-box;"
+                            >
+                                <label class="esubiz-auth-label" for="phone_number">
+                                    Phone Number
+                                    <span class="esubiz-auth-required">*</span>
+                                </label>
+
+                                {{-- ESUBIZ_CENTRAL_REGISTER_PHONE_WIDTH_V27 --}}
+                                <div
+                                    class="esubiz-auth-phone"
+                                    style="
+                                        display:grid;
+                                        grid-template-columns:100px minmax(0, 1fr);
+                                        gap:12px;
+                                        width:100%;
+                                        max-width:100%;
+                                        min-width:0;
+                                        box-sizing:border-box;
+                                        align-items:stretch;
+                                    "
+                                >
+                                    <input
+                                        id="phone_country_code"
+                                        class="esubiz-auth-control"
+                                        type="text"
+                                        name="phone_country_code"
+                                        value="{{ $phoneDial }}"
+                                        readonly
+                                        aria-label="Phone country code"
+                                        style="width:100%; min-width:0;"
+                                    >
+
+                                    <input
+                                        id="phone_number"
+                                        class="esubiz-auth-control"
+                                        type="tel"
+                                        name="phone_number"
+                                        value="{{ old('phone_number') }}"
+                                        required
+                                        autocomplete="tel"
+                                        style="width:100%; min-width:0;"
+                                    >
                                 </div>
-                            @enderror
+
+                                @error('phone_number')
+                                    <div class="esubiz-auth-error">
+                                        {{ $message }}
+                                    </div>
+                                @enderror
+                            </div>
                         </div>
 
                         @if($roleSelectionEnabled)

@@ -18,18 +18,22 @@ class WebsiteProvisioningService
 
     protected WebsiteTypeCompositionService $websiteTypeCompositionService;
 
+    protected WebsiteMailboxService $websiteMailboxService;
+
     public function __construct(
         RecipeService $recipeService,
         WebsiteDatabaseProvisioningService $databaseProvisioningService,
         TenantCoreInstallationService $tenantCoreInstallationService,
         WebsiteDatabaseCleanupService $databaseCleanupService,
-        WebsiteTypeCompositionService $websiteTypeCompositionService
+        WebsiteTypeCompositionService $websiteTypeCompositionService,
+        WebsiteMailboxService $websiteMailboxService
     ) {
         $this->recipeService = $recipeService;
         $this->databaseProvisioningService = $databaseProvisioningService;
         $this->tenantCoreInstallationService = $tenantCoreInstallationService;
         $this->databaseCleanupService = $databaseCleanupService;
         $this->websiteTypeCompositionService = $websiteTypeCompositionService;
+        $this->websiteMailboxService = $websiteMailboxService;
     }
 
     /**
@@ -156,6 +160,40 @@ class WebsiteProvisioningService
                 'status' => 'active',
                 'deployment_progress' => 98,
             ]);
+
+            /*
+             * ESUBIZ_SAAS_MANAGED_MAIL_PROVISIONING_V2
+             *
+             * SaaS mailbox rule:
+             *
+             * johnstore.esubiz.com -> johnstore@esubiz.com
+             *
+             * DirectAdmin integration remains opt-in through Central
+             * configuration. Until enabled, existing SaaS deployment
+             * behavior remains unchanged.
+             *
+             * Once enabled, a temporary mail-server failure is recorded
+             * and reported without destroying an otherwise successfully
+             * deployed Core website.
+             */
+            if (
+                $website->isSaas()
+                && config(
+                    'esubiz_mail.directadmin.enabled',
+                    false
+                )
+            ) {
+                try {
+                    $this->websiteMailboxService
+                        ->provisionSaas(
+                            $website
+                        );
+                } catch (\Throwable $mailboxException) {
+                    report(
+                        $mailboxException
+                    );
+                }
+            }
 
         } catch (\Throwable $e) {
 

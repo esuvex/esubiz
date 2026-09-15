@@ -30,6 +30,42 @@ class CentralIpCountryService
     public function countryCode(
         Request $request
     ): ?string {
+
+        /*
+         * ESUBIZ_CLOUDFLARE_COUNTRY_RESOLUTION_V4
+         *
+         * Preferred source for proxied Esubiz traffic.
+         *
+         * Cloudflare resolves the visitor country before PHP,
+         * avoiding proxy-IP mistakes and external API latency.
+         */
+        $cloudflareCountry = strtoupper(
+            trim(
+                (string) $request->header(
+                    'CF-IPCountry',
+                    ''
+                )
+            )
+        );
+
+        if (
+            preg_match(
+                '/^[A-Z]{2}$/',
+                $cloudflareCountry
+            )
+            && !in_array(
+                $cloudflareCountry,
+                [
+                    'XX',
+                    'T1',
+                ],
+                true
+            )
+        ) {
+            return $cloudflareCountry;
+        }
+
+
         $ip = trim(
             (string) $request->ip()
         );

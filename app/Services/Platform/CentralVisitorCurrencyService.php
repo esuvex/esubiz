@@ -85,39 +85,60 @@ class CentralVisitorCurrencyService
         return $country;
     }
 
+    /*
+     * ESUBIZ_VISITOR_COUNTRY_PRIORITY_V4
+     *
+     * Resolution priority before IP detection:
+     *
+     * 1. Country explicitly supplied during the current request.
+     * 2. Saved authenticated-user profile country.
+     * 3. Previously selected visitor/session country.
+     *
+     * This ensures that changing a signed-in user's profile
+     * country immediately changes Esubiz product pricing.
+     */
     public function selectedCountry(
         Request $request
     ): ?string {
         $manual = $this->normalizeCountry(
-            $request->input('country')
+            $request->input('esubiz_country')
+                ?: $request->query('esubiz_country')
+                ?: $request->input('country')
                 ?: $request->query('country')
-                ?: $request->session()->get(
-                    'esubiz_country'
-                )
         );
 
         if ($manual !== null) {
-            return $manual;
-        }
+            /*
+             * ESUBIZ_MANUAL_COUNTRY_SESSION_V6
+             *
+             * Persist an explicit visitor selection so pricing
+             * immediately follows the country chosen in forms
+             * such as registration.
+             */
+            if ($request->hasSession()) {
+            /*
+             * ESUBIZ_ANONYMOUS_IP_PRIORITY_V9
+             *
+             * Only explicit/manual anonymous country selection
+             * outranks IP detection.
+             */
+            $source = $request->session()->get(
+                'esubiz_country_source'
+            );
 
-        $user = $request->user();
+            if ($source === 'manual') {
+                $sessionCountry =
+                    $this->normalizeCountry(
+                        $request->session()->get(
+                            'esubiz_country'
+                        )
+                    );
 
-        if ($user) {
-            foreach (
-                [
-                    'country_code',
-                    'country',
-                    'default_country_code',
-                ] as $field
-            ) {
-                $candidate = $this->normalizeCountry(
-                    $user->{$field} ?? null
-                );
-
-                if ($candidate !== null) {
-                    return $candidate;
+                if ($sessionCountry !== null) {
+                    return $sessionCountry;
                 }
             }
+        }
         }
 
         return null;

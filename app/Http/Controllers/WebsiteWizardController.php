@@ -618,6 +618,19 @@ class WebsiteWizardController extends Controller
              * TenantCoreInitializer copies this exact hash unchanged
              * into site_users.password.
              */
+            /*
+             * ESUBIZ_SAAS_MAILBOX_PASSWORD_HANDOFF_V3
+             *
+             * SaaS managed mail initially uses the same password entered
+             * for the Website Administrator.
+             *
+             * The Website model encrypts this temporary credential at rest.
+             * It is deliberately excluded from wizard_data and is cleared
+             * after successful managed-mail provisioning.
+             */
+            $mailboxProvisioningPassword =
+                (string) $validated['password'];
+
             $passwordHash = Hash::make(
                 $validated['password']
             );
@@ -641,6 +654,9 @@ class WebsiteWizardController extends Controller
 
                 'admin_password' =>
                     $passwordHash,
+
+                'mailbox_provisioning_password' =>
+                    $mailboxProvisioningPassword,
             ]);
 
             /*

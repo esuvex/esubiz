@@ -12,81 +12,80 @@ class CentralMediaService
         'central-media';
 
 
+    /*
+     * ESUBIZ_CENTRAL_SHARED_IMAGE_OPTIMIZER_V1
+     *
+     * Canonical Central media gateway.
+     *
+     * Raster images use EsubizImageOptimizer.
+     *
+     * SVG / ICO are never rasterized here.
+     *
+     * Video and audio remain owned by the existing FFmpeg pipeline.
+     */
     public function store(
         UploadedFile $file,
-        string $folder = 'general'
+        string $folder = 'general',
+        string $imageProfile = EsubizImageOptimizer::PROFILE_GENERAL
     ): string {
-
-        /*
-         * ESUBIZ_CENTRAL_STORE_UNIVERSAL_BRIDGE_V1
-         *
-         * Existing CentralMediaService callers automatically inherit
-         * the universal MIME-aware storage pipeline.
-         *
-         * Central landlord assets remain isolated under:
-         * public / central-media / {folder}
-         */
 
         $folder =
             $this->sanitizeFolder(
                 $folder
             );
 
+        $mime =
+            strtolower(
+                (string) (
+                    $file->getMimeType()
+                    ?: $file->getClientMimeType()
+                    ?: 'application/octet-stream'
+                )
+            );
 
         /*
-         * AI avatars retain their dedicated small-profile policy.
-         *
-         * Keep the existing 512 x 512 WEBP behaviour rather than
-         * treating avatars like ordinary full-size media.
+         * Preserve the existing small square avatar policy through
+         * the canonical shared profile-photo optimizer.
          */
         if (
             $folder === 'ai/avatars'
-            && $this->canOptimizeImage(
-                $file
-            )
+            && $imageProfile
+                === EsubizImageOptimizer::PROFILE_GENERAL
         ) {
-
-            $optimized =
-                $this->storeOptimizedImage(
-                    $file,
-                    $folder,
-                    512,
-                    512,
-                    82
-                );
-
-
-            if ($optimized) {
-                return $optimized;
-            }
+            $imageProfile =
+                EsubizImageOptimizer::PROFILE_PHOTO;
         }
 
+        if (
+            in_array(
+                $mime,
+                [
+                    'image/jpeg',
+                    'image/jpg',
+                    'image/png',
+                    'image/webp',
+                ],
+                true
+            )
+        ) {
+            return app(
+                EsubizImageOptimizer::class
+            )->storeUploaded(
+                $file,
+                $this->root
+                    . '/'
+                    . $folder,
+                $imageProfile,
+                'public'
+            );
+        }
 
-        /*
-         * Everything else now enters the single universal pipeline.
-         *
-         * Raster images:
-         *   optimized WEBP / max edge 1920
-         *
-         * SVG:
-         *   preserved
-         *
-         * Video/audio:
-         *   FFmpeg automatically when central transcoders are installed
-         *
-         * Other permitted files:
-         *   stored unchanged
-         */
         return $this->storeMediaToDisk(
             $file,
             'public',
             $this->root
                 . '/'
-                . $folder,
-            [
-                'maximum_edge' => 1920,
-                'image_quality' => 82,
-            ]
+                . $folder
         );
     }
 
@@ -210,13 +209,15 @@ class CentralMediaService
     public function replace(
         ?string $oldPath,
         UploadedFile $file,
-        string $folder = 'general'
+        string $folder = 'general',
+        string $imageProfile = EsubizImageOptimizer::PROFILE_GENERAL
     ): string {
 
         $newPath =
             $this->store(
                 $file,
-                $folder
+                $folder,
+                $imageProfile
             );
 
 
@@ -1507,7 +1508,59 @@ class CentralMediaService
     }
 
 
-    public function storeMediaToDisk(
+
+    /*
+     * ESUBIZ_SHARED_CENTRAL_CORE_MEDIA_GATEWAY_V2
+     *
+     * CANONICAL MEDIA UPLOAD GATEWAY FOR CENTRAL + CORE
+     *
+     * This existing service is the single media-processing foundation
+     * for both Central and Core.
+     *
+     * IMPORTANT FOR ALL CURRENT AND FUTURE UPLOAD FEATURES:
+     *
+     * Controllers, addons, modules, themes, website types, builders,
+     * AI features and future Core/Central features must route uploaded
+     * media through storeMediaToDisk() rather than implementing their
+     * own image/video/audio processing.
+     *
+     * Storage ownership remains with the caller:
+     *
+     *   Central caller -> Central directory/disk
+     *   Core caller    -> Core/Tenant directory/disk
+     *
+     * Processing is shared:
+     *
+     *   JPEG / PNG / WEBP
+     *       -> EsubizImageOptimizer
+     *
+     *   Video
+     *       -> existing FFmpeg optimization pipeline
+     *
+     *   Audio
+     *       -> existing FFmpeg optimization pipeline
+     *
+     *   SVG
+     *       -> existing vector-safe passthrough
+     *
+     *   Other accepted media
+     *       -> existing canonical storage handling
+     *
+     * Image callers may optionally provide:
+     *
+     *   image_profile => PROFILE_GENERAL
+     *   image_profile => PROFILE_PHOTO
+     *   image_profile => PROFILE_LOGO
+     *   image_profile => PROFILE_FAVICON
+     *
+     * PROFILE_GENERAL remains the automatic default, meaning future
+     * Core raster uploads receive optimization even when no specialized
+     * profile is explicitly requested.
+     *
+     * Do not create a separate Core media optimizer.
+     * Do not duplicate FFmpeg or GD processing inside controllers.
+     */
+public function storeMediaToDisk(
         \Illuminate\Http\UploadedFile $file,
         string $disk,
         string $directory,
@@ -1543,9 +1596,40 @@ class CentralMediaService
         );
 
         /*
-         * Raster image.
+         * ESUBIZ_MEDIA_CALLER_IMAGE_PROFILE_V1
          *
-         * Existing central image optimizer remains authoritative.
+         * General media remains the default.
+         *
+         * Branding callers may explicitly request PROFILE_LOGO or
+         * PROFILE_FAVICON without changing storage ownership.
+         */
+        $imageProfile =
+            (string) (
+                $options['image_profile']
+                ?? EsubizImageOptimizer::PROFILE_GENERAL
+            );
+
+        if (
+            !in_array(
+                $imageProfile,
+                [
+                    EsubizImageOptimizer::PROFILE_GENERAL,
+                    EsubizImageOptimizer::PROFILE_PHOTO,
+                    EsubizImageOptimizer::PROFILE_LOGO,
+                    EsubizImageOptimizer::PROFILE_FAVICON,
+                ],
+                true
+            )
+        ) {
+            $imageProfile =
+                EsubizImageOptimizer::PROFILE_GENERAL;
+        }
+
+        /*
+         * ESUBIZ_UNIVERSAL_SHARED_RASTER_OPTIMIZER_V1
+         *
+         * One authoritative raster engine for Central + Core while
+         * retaining the disk/directory selected by the caller.
          */
         if (
             in_array(
@@ -1559,26 +1643,27 @@ class CentralMediaService
                 true
             )
         ) {
-            $optimized = $this->storeOptimizedToDisk(
-                $file,
-                $disk,
-                $directory,
-                $maximumEdge,
-                $imageQuality
-            );
+            try {
+                return app(
+                    EsubizImageOptimizer::class
+                )->storeUploaded(
+                    $file,
+                    $directory,
+                    $imageProfile,
+                    $disk
+                );
+            } catch (\Throwable $e) {
+                report($e);
 
-            if ($optimized) {
-                return $optimized;
+                /*
+                 * Preserve the existing graceful fallback policy.
+                 */
+                return $this->storeOriginalMediaToDisk(
+                    $file,
+                    $disk,
+                    $directory
+                );
             }
-
-            /*
-             * Graceful fallback if GD/optimization is unavailable.
-             */
-            return $this->storeOriginalMediaToDisk(
-                $file,
-                $disk,
-                $directory
-            );
         }
 
         /*

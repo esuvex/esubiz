@@ -475,6 +475,91 @@ Route::domain('{subdomain}.esubiz.com')
 |
 */
 
+/*
+ * ESUBIZ_CORE_GENERAL_EMAIL_WORKSPACE_ROUTES_V1
+ *
+ * Email is the canonical Core mail engine.
+ * CRM, HR, Live Chat, Tickets, Contact Form, Marketing,
+ * modules, Core System and Esubiz are proxy/source systems.
+ */
+Route::get(
+    '/admin/communication/email',
+    [
+        \App\Http\Controllers\Core\CoreEmailController::class,
+        'index',
+    ]
+)->name('tenant.cms.email.index');
+
+/*
+ * ESUBIZ_CORE_EMAIL_SENDER_ROUTES_V3
+ */
+Route::get(
+    '/admin/communication/email/premium-data',
+    [
+        \App\Http\Controllers\Core\CoreEmailController::class,
+        'premiumData',
+    ]
+)->name('tenant.cms.email.premium-data');
+
+Route::post(
+    '/admin/communication/email/sender-mode',
+    [
+        \App\Http\Controllers\Core\CoreEmailController::class,
+        'updateSenderMode',
+    ]
+)->name('tenant.cms.email.sender-mode');
+
+
+Route::get(
+    '/admin/communication/email/messages',
+    [
+        \App\Http\Controllers\Core\CoreEmailController::class,
+        'messages',
+    ]
+)->name('tenant.cms.email.messages');
+
+/*
+ * ESUBIZ_CORE_EMAIL_SAVE_DRAFT_ROUTE_V1
+ */
+/*
+ * ESUBIZ_CORE_EMAIL_DRAFT_ATTACHMENT_REMOVE_ROUTE_V1
+ */
+Route::delete(
+    '/admin/communication/email/messages/{message}/attachments/{attachment}',
+    [
+        \App\Http\Controllers\Core\CoreEmailController::class,
+        'removeDraftAttachment',
+    ]
+)
+    ->whereNumber('message')
+    ->whereNumber('attachment')
+    ->name(
+        'tenant.cms.email.drafts.attachments.destroy'
+    );
+
+Route::post(
+    '/admin/communication/email/drafts',
+    [
+        \App\Http\Controllers\Core\CoreEmailController::class,
+        'saveDraft',
+    ]
+)->name('tenant.cms.email.drafts.store');
+
+
+/*
+ * ESUBIZ_CORE_EMAIL_MESSAGE_VIEW_ROUTE_V1
+ */
+Route::get(
+    '/admin/communication/email/messages/{message}',
+    [
+        \App\Http\Controllers\Core\CoreEmailController::class,
+        'message',
+    ]
+)->whereNumber('message')
+    ->name('tenant.cms.email.message');
+
+
+
 Route::get(
     '/admin/settings',
     [
@@ -3911,3 +3996,34 @@ Route::middleware('auth')
 )->name(
     'central.media.public'
 );
+
+/*
+|--------------------------------------------------------------------------
+| Central Profile Settings
+|--------------------------------------------------------------------------
+| ESUBIZ_CENTRAL_PROFILE_ROUTES_V1
+*/
+Route::middleware('auth')->group(function () {
+    Route::get('/profile', [\App\Http\Controllers\CentralProfileController::class, 'edit'])
+        ->name('central.profile.edit');
+
+    Route::get(
+    '/profile/photo',
+    [\App\Http\Controllers\CentralProfileController::class, 'photo']
+)
+    ->middleware('auth')
+    ->name('central.profile.photo');
+
+    // ESUBIZ_CENTRAL_PROFILE_PHOTO_DELETE_V35
+    Route::delete(
+        'profile/photo',
+        [\App\Http\Controllers\CentralProfileController::class, 'destroyPhoto']
+    )->name('central.profile.photo.destroy');
+
+
+Route::put('/profile', [\App\Http\Controllers\CentralProfileController::class, 'update'])
+        ->name('central.profile.update');
+
+    Route::put('/profile/password', [\App\Http\Controllers\CentralProfileController::class, 'password'])
+        ->name('central.profile.password');
+});
