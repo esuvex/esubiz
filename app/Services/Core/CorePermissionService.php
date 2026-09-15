@@ -201,29 +201,41 @@ class CorePermissionService
     }
 
     /**
-     * Current Core user ID from the existing tenant CMS session.
+     * Current Core user ID from this website's isolated CMS session.
      *
-     * We deliberately support the established Core session identity
-     * rather than Laravel's central application Auth user.
+     * ESUBIZ_CORE_SCOPED_PERMISSION_IDENTITY_V1
+     *
+     * Core authentication is website-scoped. Authorization must resolve
+     * the same website-scoped identity and must never fall back to the
+     * historical browser-wide tenant_cms_* session keys.
      */
     public function userId(): ?int
     {
-        $candidates = [
-            session('tenant_cms_user_id'),
-            session('site_user_id'),
-        ];
+        $tenant = \App\Models\WebsiteTenant::current();
 
-        foreach ($candidates as $candidate) {
-            if (
-                $candidate !== null &&
-                filter_var(
-                    $candidate,
-                    FILTER_VALIDATE_INT,
-                    ['options' => ['min_range' => 1]]
-                ) !== false
-            ) {
-                return (int) $candidate;
-            }
+        if (!$tenant) {
+            return null;
+        }
+
+        $websiteId = (int) $tenant->website_id;
+
+        if ($websiteId < 1) {
+            return null;
+        }
+
+        $candidate = session()->get(
+            "tenant_cms_sites.{$websiteId}.user_id"
+        );
+
+        if (
+            $candidate !== null &&
+            filter_var(
+                $candidate,
+                FILTER_VALIDATE_INT,
+                ['options' => ['min_range' => 1]]
+            ) !== false
+        ) {
+            return (int) $candidate;
         }
 
         return null;
