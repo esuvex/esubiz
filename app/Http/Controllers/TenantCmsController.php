@@ -220,13 +220,18 @@ class TenantCmsController extends Controller
             $supportAccess =
                 $access === 'admin_support';
 
+            /*
+             * ESUBIZ_CORE_MULTI_SITE_AUTH_ISOLATION_V1
+             *
+             * Core authentication is owned by the current website.
+             * A browser may therefore hold independent authenticated
+             * sessions for multiple Esubiz/Core websites at once.
+             *
+             * Never write the legacy single-site tenant_cms_* auth
+             * keys here: authenticating one website must not replace
+             * another website's authentication context.
+             */
             session([
-                'tenant_cms_authenticated' => true,
-                'tenant_cms_user_id' => $administratorUserId,
-                'tenant_cms_website_id' => $websiteId,
-                'tenant_cms_auth_method' => $authMethod,
-                'tenant_cms_support_access' => $supportAccess,
-
                 "tenant_cms_sites.{$websiteId}.authenticated" => true,
                 "tenant_cms_sites.{$websiteId}.user_id" => $administratorUserId,
                 "tenant_cms_sites.{$websiteId}.auth_method" => $authMethod,
@@ -248,11 +253,6 @@ class TenantCmsController extends Controller
             session()->get(
                 "tenant_cms_sites.{$website->id}.authenticated"
             ) === true
-            || (
-                session()->get('tenant_cms_authenticated') === true
-                && (int) session()->get('tenant_cms_website_id')
-                    === (int) $website->id
-            )
         ) {
             return redirect()->route(
                 'tenant.cms.dashboard',
@@ -327,7 +327,7 @@ class TenantCmsController extends Controller
     public function dashboard()
     {
 
-        
+
         /*
          * ESUBIZ_REAL_REGISTRATION_ROLE_VERIFICATION_V13
          */
@@ -391,25 +391,7 @@ class TenantCmsController extends Controller
                 "tenant_cms_sites.{$websiteId}.authenticated"
             ) === true;
 
-        if (
-            !$tenantAuthenticated
-            && session()->get('tenant_cms_authenticated') === true
-            && (int) session()->get('tenant_cms_website_id') === $websiteId
-        ) {
-            session()->put(
-                "tenant_cms_sites.{$websiteId}.authenticated",
-                true
-            );
 
-            if (session()->has('tenant_cms_user_id')) {
-                session()->put(
-                    "tenant_cms_sites.{$websiteId}.user_id",
-                    (int) session()->get('tenant_cms_user_id')
-                );
-            }
-
-            $tenantAuthenticated = true;
-        }
 
         if (!$tenantAuthenticated) {
             /*
@@ -525,34 +507,6 @@ class TenantCmsController extends Controller
                                 false
                             );
 
-                            /*
-                             * Keep compatibility with existing
-                             * Core session consumers.
-                             */
-                            session()->put(
-                                'tenant_cms_authenticated',
-                                true
-                            );
-
-                            session()->put(
-                                'tenant_cms_user_id',
-                                (int) $rememberUser->id
-                            );
-
-                            session()->put(
-                                'tenant_cms_website_id',
-                                $websiteId
-                            );
-
-                            session()->put(
-                                'tenant_cms_auth_method',
-                                'local_remember'
-                            );
-
-                            session()->put(
-                                'tenant_cms_support_access',
-                                false
-                            );
 
                             session()->regenerate();
 
@@ -1071,7 +1025,7 @@ class TenantCmsController extends Controller
         }
 
 
-        
+
         view()->share(
             'authForms',
             $authForms
@@ -1171,7 +1125,7 @@ if ($coreUserId) {
                 );
         }
 
-        
+
         /*
         |--------------------------------------------------------------------------
         | ESUBIZ_CORE_PARTNER_SITE_FINANCIAL_TOTALS_V1
@@ -1470,12 +1424,7 @@ return view(
         $tenantAuthenticated =
             session()->get(
                 "tenant_cms_sites.{$websiteId}.authenticated"
-            ) === true
-            || (
-                session()->get('tenant_cms_authenticated') === true
-                && (int) session()->get('tenant_cms_website_id')
-                    === $websiteId
-            );
+            ) === true;
 
         if (!$tenantAuthenticated) {
             session()->put(
@@ -1868,12 +1817,7 @@ return view(
         $tenantAuthenticated =
             session()->get(
                 "tenant_cms_sites.{$websiteId}.authenticated"
-            ) === true
-            || (
-                session()->get('tenant_cms_authenticated') === true
-                && (int) session()->get('tenant_cms_website_id')
-                    === $websiteId
-            );
+            ) === true;
 
         if (!$tenantAuthenticated) {
             session()->put(
@@ -2454,12 +2398,7 @@ return view(
         $authenticated =
             session()->get(
                 "tenant_cms_sites.{$websiteId}.authenticated"
-            ) === true
-            || (
-                session()->get('tenant_cms_authenticated') === true
-                && (int) session()->get('tenant_cms_website_id')
-                    === $websiteId
-            );
+            ) === true;
 
         if (!$authenticated) {
             session()->put(
@@ -2473,8 +2412,7 @@ return view(
         $userId =
             session()->get(
                 "tenant_cms_sites.{$websiteId}.user_id"
-            )
-            ?? session()->get('tenant_cms_user_id');
+            );
 
         if (!$userId) {
             return redirect()
@@ -2504,10 +2442,7 @@ return view(
         $authMethod =
             session()->get(
                 "tenant_cms_sites.{$websiteId}.auth_method"
-            )
-            ?? session()->get('tenant_cms_auth_method')
-            ?? session()->get('tenant_cms_authenticated_via')
-            ?? 'local';
+            ) ?? 'local';
 
         $isSso = in_array(
             (string) $authMethod,
@@ -2625,12 +2560,7 @@ return view(
         $authenticated =
             session()->get(
                 "tenant_cms_sites.{$websiteId}.authenticated"
-            ) === true
-            || (
-                session()->get('tenant_cms_authenticated') === true
-                && (int) session()->get('tenant_cms_website_id')
-                    === $websiteId
-            );
+            ) === true;
 
         if (!$authenticated) {
             return redirect()->to('/login');
@@ -2639,8 +2569,7 @@ return view(
         $userId =
             session()->get(
                 "tenant_cms_sites.{$websiteId}.user_id"
-            )
-            ?? session()->get('tenant_cms_user_id');
+            );
 
         abort_unless(
             $userId,
@@ -2995,12 +2924,7 @@ return view(
         $authenticated =
             session()->get(
                 "tenant_cms_sites.{$websiteId}.authenticated"
-            ) === true
-            || (
-                session()->get('tenant_cms_authenticated') === true
-                && (int) session()->get('tenant_cms_website_id')
-                    === $websiteId
-            );
+            ) === true;
 
         abort_unless(
             $authenticated,
@@ -3011,8 +2935,7 @@ return view(
         $userId =
             session()->get(
                 "tenant_cms_sites.{$websiteId}.user_id"
-            )
-            ?? session()->get('tenant_cms_user_id');
+            );
 
         abort_unless(
             $userId,
@@ -3110,12 +3033,7 @@ return view(
         $authenticated =
             session()->get(
                 "tenant_cms_sites.{$websiteId}.authenticated"
-            ) === true
-            || (
-                session()->get('tenant_cms_authenticated') === true
-                && (int) session()->get('tenant_cms_website_id')
-                    === $websiteId
-            );
+            ) === true;
 
         if (!$authenticated) {
             return redirect()->to('/login');
@@ -3124,8 +3042,7 @@ return view(
         $userId =
             session()->get(
                 "tenant_cms_sites.{$websiteId}.user_id"
-            )
-            ?? session()->get('tenant_cms_user_id');
+            );
 
         abort_unless(
             $userId,
@@ -3210,12 +3127,7 @@ return view(
         $authenticated =
             session()->get(
                 "tenant_cms_sites.{$websiteId}.authenticated"
-            ) === true
-            || (
-                session()->get('tenant_cms_authenticated') === true
-                && (int) session()->get('tenant_cms_website_id')
-                    === $websiteId
-            );
+            ) === true;
 
         if (!$authenticated) {
             return redirect()->to('/login');
@@ -3224,8 +3136,7 @@ return view(
         $userId =
             session()->get(
                 "tenant_cms_sites.{$websiteId}.user_id"
-            )
-            ?? session()->get('tenant_cms_user_id');
+            );
 
         abort_unless(
             $userId,
@@ -3261,10 +3172,7 @@ return view(
         $authMethod =
             session()->get(
                 "tenant_cms_sites.{$websiteId}.auth_method"
-            )
-            ?? session()->get('tenant_cms_auth_method')
-            ?? session()->get('tenant_cms_authenticated_via')
-            ?? 'local';
+            ) ?? 'local';
 
         $isSso = in_array(
             (string) $authMethod,
@@ -3354,12 +3262,7 @@ return view(
         $authenticated =
             session()->get(
                 "tenant_cms_sites.{$websiteId}.authenticated"
-            ) === true
-            || (
-                session()->get('tenant_cms_authenticated') === true
-                && (int) session()->get('tenant_cms_website_id')
-                    === $websiteId
-            );
+            ) === true;
 
         if (!$authenticated) {
             session()->put(
@@ -4300,12 +4203,7 @@ return view(
         $authenticated =
             session()->get(
                 "tenant_cms_sites.{$websiteId}.authenticated"
-            ) === true
-            || (
-                session()->get('tenant_cms_authenticated') === true
-                && (int) session()->get('tenant_cms_website_id')
-                    === $websiteId
-            );
+            ) === true;
 
         if (!$authenticated) {
             session()->put(
@@ -5103,8 +5001,8 @@ return view(
             }
         }
 
-        
-        
+
+
         /*
          * Registration defaults.
          * The role is selected only by an administrator.
@@ -5586,12 +5484,7 @@ return back()->with(
         $tenantAuthenticated =
             session()->get(
                 "tenant_cms_sites.{$websiteId}.authenticated"
-            ) === true
-            || (
-                session()->get('tenant_cms_authenticated') === true
-                && (int) session()->get('tenant_cms_website_id')
-                    === $websiteId
-            );
+            ) === true;
 
         if (!$tenantAuthenticated) {
             session()->put(
@@ -6487,12 +6380,7 @@ private function tenantAuthBranding($website): array
         $tenantAuthenticated =
             session()->get(
                 "tenant_cms_sites.{$websiteId}.authenticated"
-            ) === true
-            || (
-                session()->get('tenant_cms_authenticated') === true
-                && (int) session()->get('tenant_cms_website_id')
-                    === $websiteId
-            );
+            ) === true;
 
         if ($tenantAuthenticated) {
             return redirect()->route(
@@ -7003,34 +6891,6 @@ private function tenantAuthBranding($website): array
             false
         );
 
-        /*
-         * Retain compatibility with existing Core CMS code
-         * while website-scoped sessions remain authoritative.
-         */
-        $request->session()->put(
-            'tenant_cms_authenticated',
-            true
-        );
-
-        $request->session()->put(
-            'tenant_cms_user_id',
-            (int) $siteUser->id
-        );
-
-        $request->session()->put(
-            'tenant_cms_website_id',
-            $websiteId
-        );
-
-        $request->session()->put(
-            'tenant_cms_auth_method',
-            'local'
-        );
-
-        $request->session()->put(
-            'tenant_cms_support_access',
-            false
-        );
 
         /*
          * ESUBIZ_AUTH_LOGIN_RATE_LIMIT_CLEAR_V1
@@ -7067,7 +6927,7 @@ private function tenantAuthBranding($website): array
             );
         }
 
-        
+
         /*
          * ESUBIZ_CORE_AUTH_FORM_LOGIN_REDIRECT_V4
          *
@@ -7301,33 +7161,6 @@ return $response;
             false
         );
 
-        /*
-         * Legacy compatibility.
-         */
-        $request->session()->put(
-            'tenant_cms_authenticated',
-            true
-        );
-
-        $request->session()->put(
-            'tenant_cms_user_id',
-            (int) $userId
-        );
-
-        $request->session()->put(
-            'tenant_cms_website_id',
-            $websiteId
-        );
-
-        $request->session()->put(
-            'tenant_cms_auth_method',
-            'local'
-        );
-
-        $request->session()->put(
-            'tenant_cms_support_access',
-            false
-        );
 
         $request->session()->regenerate();
 
@@ -8093,12 +7926,7 @@ return $response;
         $tenantAuthenticated =
             session()->get(
                 "tenant_cms_sites.{$websiteId}.authenticated"
-            ) === true
-            || (
-                session()->get('tenant_cms_authenticated') === true
-                && (int) session()->get('tenant_cms_website_id')
-                    === $websiteId
-            );
+            ) === true;
 
         if ($tenantAuthenticated) {
             return redirect()->route(
@@ -8142,11 +7970,14 @@ return $response;
          * ESUBIZ_CORE_REMEMBER_LOGOUT_CLEANUP_V5
          *
          * Revoke Core-local persistent Remember Me state
-         * before the existing logout/session cleanup runs.
+         * for THIS website only.
          */
+        $website = $this->currentWebsite();
+        $websiteId = (int) $website->id;
+
         $coreLogoutUserId =
-            session(
-                'tenant_cms_user_id'
+            $request->session()->get(
+                "tenant_cms_sites.{$websiteId}.user_id"
             );
 
         if (
@@ -8237,34 +8068,10 @@ return $response;
             }
         }
 
-        $website = $this->currentWebsite();
-        $websiteId = (int) $website->id;
-
         $request->session()->forget(
             "tenant_cms_sites.{$websiteId}"
         );
 
-        /*
-         * Remove legacy single-site keys only when they belong
-         * to the website currently being logged out.
-         */
-        if (
-            (int) $request->session()->get(
-                'tenant_cms_website_id'
-            ) === $websiteId
-        ) {
-            $request->session()->forget([
-                'tenant_cms_authenticated',
-                'tenant_cms_website_id',
-                'tenant_cms_user_id',
-                'tenant_cms_authenticated_via',
-                'tenant_cms_auth_method',
-                'tenant_cms_support_access',
-                'tenant_cms_sso_state',
-                'tenant_cms_sso_website_id',
-                'tenant_cms_sso_destination',
-            ]);
-        }
 
         $request->session()->regenerateToken();
 

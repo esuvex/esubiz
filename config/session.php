@@ -156,7 +156,25 @@ return [
     |
     */
 
-    'domain' => env('SESSION_DOMAIN', '.esubiz.com'),
+    /*
+     * ESUBIZ_HOST_ISOLATED_SESSIONS_V1
+     *
+     * Session cookies are host-only by default.
+     *
+     * Central:
+     *   esubiz.com
+     *
+     * SaaS Core:
+     *   {tenant}.esubiz.com
+     *
+     * This allows Central and every tenant website to maintain
+     * independent authentication in the same browser.
+     *
+     * Do not restore a parent-domain .esubiz.com session cookie:
+     * doing so makes Central and tenant logout/session rotation
+     * affect one another.
+     */
+    'domain' => env('SESSION_DOMAIN'),
 
     /*
     |--------------------------------------------------------------------------

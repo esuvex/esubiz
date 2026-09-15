@@ -76,6 +76,19 @@ return Application::configure(basePath: dirname(__DIR__))
         );
 
         /*
+         * ESUBIZ_LEGACY_PARENT_SESSION_COOKIE_CLEANUP_REGISTRATION_V1
+         *
+         * Transitional cleanup for browsers that still carry the
+         * historical Domain=.esubiz.com Laravel session cookie.
+         *
+         * Laravel's active session cookie is host-only.
+         */
+        $middleware->appendToGroup(
+            'web',
+            \App\Http\Middleware\ExpireLegacyParentSessionCookie::class
+        );
+
+        /*
          * Tenant-aware routes.
          *
          * NeedsTenant invokes the configured WebsiteTenantFinder
