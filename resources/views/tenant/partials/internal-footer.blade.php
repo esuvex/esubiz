@@ -6,9 +6,27 @@
      * The configured white/footer logo is authoritative for
      * authenticated Core pages.
      */
+    /*
+     * ESUBIZ_CORE_INTERNAL_FOOTER_LOGO_INHERITANCE_V1
+     *
+     * Explicit footer override -> generated white main-logo variant
+     * -> canonical main logo.
+     */
+    /*
+     * ESUBIZ_CORE_INTERNAL_LOGO_EMPTY_FALLBACK_V2
+     *
+     * Empty override values inherit the canonical generated white logo.
+     */
     $coreInternalFooterLogo =
-        $settings['theme.corporate.footer_logo_path']
-            ?? null;
+        collect([
+            $settings['theme.corporate.footer_logo_path'] ?? null,
+            $settings['footer_logo_path'] ?? null,
+            $settings['site_logo_white_path'] ?? null,
+            $settings['site_logo_path'] ?? null,
+        ])->first(
+            static fn ($value) =>
+                trim((string) $value) !== ''
+        );
 
     $coreInternalFooterLogoUrl =
         !empty($coreInternalFooterLogo)

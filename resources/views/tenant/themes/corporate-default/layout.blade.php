@@ -1223,6 +1223,79 @@
     };
 
 
+    /*
+     * ESUBIZ_CORE_PUBLIC_LOGO_INHERITANCE_V5
+     *
+     * Site Settings owns the canonical Core website identity.
+     *
+     * Theme logo values are explicit overrides only. Empty theme
+     * values MUST fall through to the canonical Site Settings logo.
+     *
+     * The public theme settings payload already contains the complete
+     * site-settings map under $settings; do not require canonical
+     * identity keys to be duplicated into theme configuration.
+     */
+    /*
+     * ESUBIZ_CORE_PUBLIC_CANONICAL_LOGO_PAYLOAD_V14
+     *
+     * Canonical Site Settings branding may arrive in the public
+     * corporate payload through $settings or the normalized $theme
+     * payload. Theme-specific logo_path/footer_logo_path remain
+     * explicit overrides and are resolved separately below.
+     */
+    $coreCanonicalMainLogo =
+        trim(
+            (string) (
+                $settings['site_logo_path']
+                ?? $theme['site_logo_path']
+                ?? ''
+            )
+        );
+
+    $coreCanonicalWhiteLogo =
+        trim(
+            (string) (
+                $settings['site_logo_white_path']
+                ?? $theme['site_logo_white_path']
+                ?? ''
+            )
+        );
+
+    $coreThemeMainOverride =
+        trim(
+            (string) (
+                $theme['logo_path']
+                ?? ''
+            )
+        );
+
+    $coreThemeFooterOverride =
+        trim(
+            (string) (
+                $theme['footer_logo_path']
+                ?? ''
+            )
+        );
+
+    $corePublicMainLogo =
+        $coreThemeMainOverride !== ''
+            ? $coreThemeMainOverride
+            : (
+                $coreCanonicalMainLogo !== ''
+                    ? $coreCanonicalMainLogo
+                    : null
+            );
+
+    $corePublicFooterLogo =
+        $coreThemeFooterOverride !== ''
+            ? $coreThemeFooterOverride
+            : (
+                $coreCanonicalWhiteLogo !== ''
+                    ? $coreCanonicalWhiteLogo
+                    : $corePublicMainLogo
+            );
+
+
     $floatingDevices =
         static function (
             ?string $value
@@ -1346,10 +1419,11 @@
             class="brand"
         >
 
-            @if(!empty($theme['logo_path']))
+            {{-- ESUBIZ_CORE_PUBLIC_HEADER_LOGO_CONSUMER_V6 --}}
+            @if(!empty($corePublicMainLogo))
 
                 <x-media.image
-                    :src="$assetUrl($theme['logo_path'])"
+                    :src="$assetUrl($corePublicMainLogo)"
                     :alt="$website->name ?? 'Website'"
                 />
 
@@ -1689,15 +1763,14 @@
                             'footer_logo_enabled'
                         ] ?? '1') === '1'
                         && !empty(
-                            $theme[
-                                'footer_logo_path'
-                            ]
+                            $corePublicFooterLogo
                         )
                     )
 
+                        {{-- ESUBIZ_CORE_PUBLIC_FOOTER_LOGO_CONSUMER_V6 --}}
                         <x-media.image
                             :src="$assetUrl(
-                                $theme['footer_logo_path']
+                                $corePublicFooterLogo
                             )"
                             :alt="$website->name ?? 'Website'"
                             class="footer-logo"

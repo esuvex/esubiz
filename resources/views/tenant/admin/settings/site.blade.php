@@ -39,32 +39,13 @@
         </div>
 
     </div>
+    {{-- ESUBIZ_CORE_SETTINGS_GLOBAL_SUCCESS_ALERT_V2
+         Core admin layout owns the single success alert. --}}
 
 
-    @if(session('success'))
-        <div
-            class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700"
-        >
-            {{ session('success') }}
-        </div>
-    @endif
 
-
-    @if($errors->any())
-        <div
-            class="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-        >
-            <div class="font-semibold">
-                Please correct the following:
-            </div>
-
-            <ul class="mt-2 list-disc space-y-1 pl-5">
-                @foreach($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
+    {{-- ESUBIZ_CORE_SETTINGS_GLOBAL_VALIDATION_ALERT_V1
+         Validation errors are rendered once by the Core admin layout. --}}
 
 
     <form enctype="multipart/form-data"
@@ -765,14 +746,14 @@
                         <div class="mt-4 flex min-h-24 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-4">
                             <img
                                 id="coreWebsiteFaviconPreview"
-                                src="{{ !empty($siteConfig['favicon_path']) ? request()->getSchemeAndHttpHost() . '/media/' . implode('/', array_map('rawurlencode', explode('/', ltrim($siteConfig['favicon_path'], '/')))) : '' }}"
+                                src="{{ !empty($siteConfig['site_favicon_path'] ?? null) ? request()->getSchemeAndHttpHost() . '/media/' . implode('/', array_map('rawurlencode', explode('/', ltrim(($siteConfig['site_favicon_path'] ?? ''), '/')))) : '' }}"
                                 alt="Browser icon"
-                                class="{{ empty($siteConfig['favicon_path']) ? 'hidden ' : '' }}h-16 w-16 object-contain"
+                                class="{{ empty($siteConfig['site_favicon_path'] ?? null) ? 'hidden ' : '' }}h-16 w-16 object-contain"
                             >
 
                             <span
                                 id="coreWebsiteFaviconPlaceholder"
-                                class="{{ !empty($siteConfig['favicon_path']) ? 'hidden ' : '' }}text-sm text-slate-400"
+                                class="{{ !empty($siteConfig['site_favicon_path'] ?? null) ? 'hidden ' : '' }}text-sm text-slate-400"
                             >
                                 No browser icon uploaded
                             </span>

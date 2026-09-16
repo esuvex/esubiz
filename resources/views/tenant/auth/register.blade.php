@@ -230,10 +230,16 @@
         ?? null;
 
     $defaultLogo =
-        $coreSettings['website_logo_path']
-        ?? $coreSettings['logo_path']
-        ?? $coreSettings['theme.corporate.logo_path']
-        ?? null;
+        collect([
+            $coreSettings['site_logo_path'] ?? null,
+            $coreSettings['site_logo_white_path'] ?? null,
+            $coreSettings['theme.corporate.logo_path'] ?? null,
+            $coreSettings['website_logo_path'] ?? null,
+            $coreSettings['logo_path'] ?? null,
+        ])->first(
+            static fn ($value) =>
+                trim((string) $value) !== ''
+        );
 
     $authFavicon =
         $coreSettings['auth.favicon_path']
@@ -290,15 +296,22 @@
          * Same Core favicon setting used by Site Settings.
          * No separate auth favicon configuration.
          */
+        /*
+         * ESUBIZ_CORE_CANONICAL_AUTH_BRANDING_V75
+         *
+         * Core Site Settings owns the website favicon.
+         * Auth-specific/theme keys are compatibility fallbacks.
+         */
         $authFaviconPath =
-            $settings['website_favicon_path']
-                ?? $settings['favicon_path']
-                ?? $settings['theme.corporate.favicon_path']
-                ?? data_get(
-                    $settings ?? [],
-                    'theme.corporate.favicon_path'
-                )
-                ?? null;
+            collect([
+                $settings['site_favicon_path'] ?? null,
+                $settings['theme.corporate.favicon_path'] ?? null,
+                $settings['website_favicon_path'] ?? null,
+                $settings['favicon_path'] ?? null,
+            ])->first(
+                static fn ($value) =>
+                    trim((string) $value) !== ''
+            );
 
         $authFaviconUrl = null;
 
@@ -823,13 +836,46 @@ body[data-theme="dark"] .auth-logo-dark {
 
     {{-- ESUBIZ_SHARED_AUTH_LOGO_RENDER_V18_1 --}}
     @php
+        /*
+         * ESUBIZ_CORE_AUTH_SOURCE_V80
+         *
+         * V78 resolves canonical Site Settings branding in
+         * tenantAuthBranding(). Authentication consumes that
+         * resolved source directly.
+         *
+         * Explicit Auth branding remains authoritative when present;
+         * otherwise the canonical Core website logo is inherited.
+         */
+
+        $coreAuthBranding =
+            is_array($authBranding ?? null)
+                ? $authBranding
+                : [];
+
         $resolvedLightLogo =
-            $authPageConfig['logo_light_url']
-            ?? '';
+            collect([
+                $coreAuthBranding['logo_light'] ?? null,
+                $coreAuthBranding['logo_light_url'] ?? null,
+                $coreAuthBranding['site_logo_path'] ?? null,
+                $settings['auth.brand.logo_light'] ?? null,
+                $settings['site_logo_path'] ?? null,
+            ])->first(
+                static fn ($value) =>
+                    trim((string) $value) !== ''
+            ) ?? '';
 
         $resolvedDarkLogo =
-            $authPageConfig['logo_dark_url']
-            ?? '';
+            collect([
+                $coreAuthBranding['logo_dark'] ?? null,
+                $coreAuthBranding['logo_dark_url'] ?? null,
+                $coreAuthBranding['site_logo_white_path'] ?? null,
+                $settings['auth.brand.logo_dark'] ?? null,
+                $settings['site_logo_white_path'] ?? null,
+                $resolvedLightLogo,
+            ])->first(
+                static fn ($value) =>
+                    trim((string) $value) !== ''
+            ) ?? '';
 
         $hasAuthLogo =
             $resolvedLightLogo !== ''
@@ -850,25 +896,32 @@ body[data-theme="dark"] .auth-logo-dark {
             }
 
             if (str_starts_with($value, '/')) {
-                return asset(
-                    ltrim($value, '/')
-                );
+                return request()->getSchemeAndHttpHost()
+                    . $value;
             }
 
-            return asset(
-                'storage/' . ltrim($value, '/')
-            );
+            $value = ltrim($value, '/');
+
+            if (str_starts_with($value, 'media/')) {
+                $value = substr($value, 6);
+            }
+
+            return request()->getSchemeAndHttpHost()
+                . '/media/'
+                . implode(
+                    '/',
+                    array_map(
+                        'rawurlencode',
+                        explode('/', $value)
+                    )
+                );
         };
 
         $resolvedLightLogoUrl =
-            $authLogoUrl(
-                $resolvedLightLogo
-            );
+            $authLogoUrl($resolvedLightLogo);
 
         $resolvedDarkLogoUrl =
-            $authLogoUrl(
-                $resolvedDarkLogo
-            );
+            $authLogoUrl($resolvedDarkLogo);
     @endphp
 
     <div class="brand-mark{{ $hasAuthLogo ? ' has-logo' : '' }}">

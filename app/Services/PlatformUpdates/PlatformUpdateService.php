@@ -102,12 +102,24 @@ class PlatformUpdateService
     ): array {
         $preview = $this->preview($website, $update);
 
-        if (!$preview['eligible']) {
+        /*
+         * ESUBIZ_PLATFORM_UPDATE_EXECUTE_PREVIEW_CONTRACT_V17
+         *
+         * preview() exposes the read-only migration eligibility state through
+         * can_execute. Execution must consume that same contract rather than
+         * the removed legacy eligible key.
+         *
+         * This does not bypass any execution safety rule. The controller still
+         * requires a published, non-destructive update, while preview() only
+         * permits execution when the tenant migration is actually pending.
+         */
+        if (!(bool) ($preview['can_execute'] ?? false)) {
             return $this->recordResult(
                 $website,
                 $update,
                 'skipped',
-                $preview['message'],
+                $preview['message']
+                    ?? 'This update is not pending for this website.',
                 $executedBy
             );
         }

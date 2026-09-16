@@ -8745,7 +8745,7 @@
                             overflow:hidden;
                         }
 
-                        /* ESUBIZ_PLATFORM_UPDATE_MODAL_V9 */
+                        /* ESUBIZ_PLATFORM_UPDATE_MODAL_VISIBILITY_V13 */
                         #esUpdateActionModalV8 {
                             display:none !important;
                             position:fixed;
@@ -8760,17 +8760,44 @@
                             justify-content:center;
                         }
 
-                        #esUpdateActionModalV8.es-upd-modal-open-v9,
+                        #esUpdateActionModalV8.es-upd-modal-open-v9 {
+                            display:flex !important;
+                            opacity:1 !important;
+                            visibility:visible !important;
+                        }
 
-                        #esUpdateActionModalV8 .modal-dialog,
+                        #esUpdateActionModalV8 .modal-dialog {
+                            display:block;
+                            width:100%;
+                            max-width:800px;
+                            margin:auto;
+                            transform:none !important;
+                            pointer-events:auto;
+                        }
 
-                        #esUpdateActionModalV8 .modal-content,
+                        #esUpdateActionModalV8 .modal-content {
+                            display:flex;
+                            flex-direction:column;
+                            width:100%;
+                            max-height:calc(100vh - 48px);
+                            border:0;
+                            border-radius:17px;
+                            overflow:hidden;
+                            background:var(--bs-body-bg, #fff);
+                            opacity:1;
+                            visibility:visible;
+                            pointer-events:auto;
+                        }
 
                         #esUpdateActionModalV8 .modal-header,
+                        #esUpdateActionModalV8 .modal-footer {
+                            flex:0 0 auto;
+                        }
 
-                        #esUpdateActionModalV8 .modal-body,
-
-                        #esUpdateActionModalV8 .modal-footer,
+                        #esUpdateActionModalV8 .modal-body {
+                            flex:1 1 auto;
+                            overflow-y:auto;
+                        }
 
                         .es-upd-close-v9 {
                             width:34px;
@@ -8801,7 +8828,13 @@
                                 align-items:flex-start;
                             }
 
-                            #esUpdateActionModalV8 .modal-content,
+                            #esUpdateActionModalV8 .modal-dialog {
+                                max-width:100%;
+                            }
+
+                            #esUpdateActionModalV8 .modal-content {
+                                max-height:calc(100vh - 24px);
+                            }
                         }
 
                         .es-upd-target-box-v8 {
@@ -9723,9 +9756,437 @@
                             </div>
                         </div>
 
-                        <!-- ESUBIZ_PLATFORM_UPDATE_MANUAL_REGISTER_HIDDEN_V7 -->
-                        <!-- ESUBIZ_REGISTER_UPDATE_DEAD_CODE_CLEANUP_V8 -->
-                    </div>
+                        <!-- ESUBIZ_PLATFORM_UPDATE_REGISTRATION_UI_V10 -->
+                        <style>
+                            .es-upd-register-v10 {
+                                margin-top: 20px;
+                                border: 1px solid rgba(148,163,184,.22);
+                                border-radius: 18px;
+                                overflow: hidden;
+                                background: var(--bs-body-bg);
+                                box-shadow: 0 10px 30px rgba(15,23,42,.05);
+                            }
+
+                            .es-upd-register-head-v10 {
+                                display: flex;
+                                align-items: center;
+                                justify-content: space-between;
+                                gap: 18px;
+                                padding: 20px 22px;
+                                cursor: pointer;
+                                list-style: none;
+                                user-select: none;
+                            }
+
+                            .es-upd-register-head-v10::-webkit-details-marker {
+                                display: none;
+                            }
+
+                            .es-upd-register-head-copy-v10 {
+                                min-width: 0;
+                            }
+
+                            .es-upd-register-title-v10 {
+                                font-size: 15px;
+                                font-weight: 700;
+                                line-height: 1.35;
+                            }
+
+                            .es-upd-register-subtitle-v10 {
+                                margin-top: 4px;
+                                font-size: 12px;
+                                color: var(--bs-secondary-color);
+                            }
+
+                            .es-upd-register-toggle-v10 {
+                                flex: 0 0 auto;
+                                border: 0;
+                                border-radius: 10px;
+                                padding: 9px 14px;
+                                background: #0d6efd;
+                                color: #fff;
+                                font-size: 13px;
+                                font-weight: 700;
+                                pointer-events: none;
+                            }
+
+                            .es-upd-register-body-v10 {
+                                border-top: 1px solid rgba(148,163,184,.18);
+                            }
+
+                            .es-upd-premium-row-v10 {
+                                display: grid;
+                                grid-template-columns: minmax(220px, .8fr) minmax(300px, 1.2fr);
+                                gap: 30px;
+                                align-items: center;
+                                padding: 18px 22px;
+                                border-bottom: 1px solid rgba(148,163,184,.14);
+                            }
+
+                            .es-upd-premium-row-v10:last-child {
+                                border-bottom: 0;
+                            }
+
+                            .es-upd-row-label-v10 {
+                                font-size: 13px;
+                                font-weight: 700;
+                                line-height: 1.4;
+                            }
+
+                            .es-upd-row-help-v10 {
+                                margin-top: 4px;
+                                font-size: 11px;
+                                line-height: 1.55;
+                                color: var(--bs-secondary-color);
+                            }
+
+                            .es-upd-control-grid-v10 {
+                                display: grid;
+                                grid-template-columns: repeat(2, minmax(0,1fr));
+                                gap: 12px;
+                            }
+
+                            .es-upd-control-v10 {
+                                width: 100%;
+                                min-height: 42px;
+                            }
+
+                            .es-upd-checks-v10 {
+                                display: flex;
+                                flex-wrap: wrap;
+                                gap: 22px;
+                                align-items: center;
+                            }
+
+                            .es-upd-action-row-v10 {
+                                display: flex;
+                                align-items: center;
+                                justify-content: flex-end;
+                                gap: 14px;
+                                padding: 20px 22px;
+                                background: rgba(148,163,184,.055);
+                            }
+
+                            .es-upd-save-v10 {
+                                min-width: 150px;
+                                min-height: 42px;
+                                font-weight: 700;
+                            }
+
+                            @media (max-width: 767.98px) {
+                                .es-upd-premium-row-v10 {
+                                    grid-template-columns: 1fr;
+                                    gap: 10px;
+                                }
+
+                                .es-upd-control-grid-v10 {
+                                    grid-template-columns: 1fr;
+                                }
+
+                                .es-upd-action-row-v10 {
+                                    align-items: stretch;
+                                    flex-direction: column;
+                                }
+
+                                .es-upd-save-v10 {
+                                    width: 100%;
+                                }
+                            }
+                        </style>
+
+                        <details class="es-upd-register-v10">
+                            <summary class="es-upd-register-head-v10">
+                                <div class="es-upd-register-head-copy-v10">
+                                    <div class="es-upd-register-title-v10">
+                                        Register Update
+                                    </div>
+                                    <div class="es-upd-register-subtitle-v10">
+                                        Add a Core or product update to the Central controlled migration pipeline.
+                                    </div>
+                                </div>
+
+                                <span class="es-upd-register-toggle-v10">
+                                    + Register Update
+                                </span>
+                            </summary>
+
+                            <form
+                                method="POST"
+                                action="{{ route('admin.site-settings.updates.store') }}"
+                                id="esPlatformUpdateRegisterFormV10"
+                                class="es-upd-register-body-v10"
+                            >
+                                @csrf
+
+                                <div class="es-upd-premium-row-v10">
+                                    <div>
+                                        <div class="es-upd-row-label-v10">
+                                            Update Identity
+                                        </div>
+                                        <div class="es-upd-row-help-v10">
+                                            Give this update a clear Central name and unique version.
+                                        </div>
+                                    </div>
+
+                                    <div class="es-upd-control-grid-v10">
+                                        <input
+                                            type="text"
+                                            name="name"
+                                            class="form-control es-upd-control-v10"
+                                            maxlength="150"
+                                            required
+                                            placeholder="Update name"
+                                        >
+
+                                        <input
+                                            type="text"
+                                            name="version"
+                                            class="form-control es-upd-control-v10"
+                                            maxlength="50"
+                                            required
+                                            placeholder="Version e.g. 2026.09.16.1"
+                                        >
+                                    </div>
+                                </div>
+
+                                <div class="es-upd-premium-row-v10">
+                                    <div>
+                                        <div class="es-upd-row-label-v10">
+                                            Product
+                                        </div>
+                                        <div class="es-upd-row-help-v10">
+                                            Choose what receives this update. Product ID is optional for Core/global updates.
+                                        </div>
+                                    </div>
+
+                                    <div class="es-upd-control-grid-v10">
+                                        <select
+                                            name="product_type"
+                                            class="form-select es-upd-control-v10"
+                                            required
+                                        >
+                                            <option value="core">Core</option>
+                                            <option value="website_type">Website Type</option>
+                                            <option value="module">Module</option>
+                                            <option value="addon">Add-on</option>
+                                            <option value="bundle">Bundle</option>
+                                            <option value="theme">Theme</option>
+                                        </select>
+
+                                        <input
+                                            type="number"
+                                            name="product_id"
+                                            class="form-control es-upd-control-v10"
+                                            min="1"
+                                            placeholder="Product ID — optional"
+                                        >
+                                    </div>
+                                </div>
+
+                                <div class="es-upd-premium-row-v10">
+                                    <div>
+                                        <div class="es-upd-row-label-v10">
+                                            Update Method
+                                        </div>
+                                        <div class="es-upd-row-help-v10">
+                                            Select whether Central should deploy a migration, package, or both.
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <select
+                                            name="update_type"
+                                            class="form-select es-upd-control-v10"
+                                            id="esPlatformUpdateTypeV10"
+                                            required
+                                        >
+                                            <option value="migration">Migration</option>
+                                            <option value="package">Package</option>
+                                            <option value="hybrid">Hybrid</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div
+                                    class="es-upd-premium-row-v10"
+                                    id="esMigrationPathRowV10"
+                                >
+                                    <div>
+                                        <div class="es-upd-row-label-v10">
+                                            Migration Path
+                                        </div>
+                                        <div class="es-upd-row-help-v10">
+                                            Existing tenant migration path executed by the Central migration engine.
+                                        </div>
+                                    </div>
+
+                                    <input
+                                        type="text"
+                                        name="migration_path"
+                                        class="form-control es-upd-control-v10"
+                                        maxlength="255"
+                                        placeholder="database/migrations/tenant/core/..."
+                                    >
+                                </div>
+
+                                <div
+                                    class="es-upd-premium-row-v10 d-none"
+                                    id="esPackagePathRowV10"
+                                >
+                                    <div>
+                                        <div class="es-upd-row-label-v10">
+                                            Package Path
+                                        </div>
+                                        <div class="es-upd-row-help-v10">
+                                            Package source used when the update contains deployable files.
+                                        </div>
+                                    </div>
+
+                                    <input
+                                        type="text"
+                                        name="package_path"
+                                        class="form-control es-upd-control-v10"
+                                        maxlength="255"
+                                        placeholder="Package path"
+                                    >
+                                </div>
+
+                                <div class="es-upd-premium-row-v10">
+                                    <div>
+                                        <div class="es-upd-row-label-v10">
+                                            Description
+                                        </div>
+                                        <div class="es-upd-row-help-v10">
+                                            Explain the purpose and scope of the update for Central administrators.
+                                        </div>
+                                    </div>
+
+                                    <textarea
+                                        name="description"
+                                        class="form-control"
+                                        rows="3"
+                                        placeholder="What does this update change?"
+                                    ></textarea>
+                                </div>
+
+                                <div class="es-upd-premium-row-v10">
+                                    <div>
+                                        <div class="es-upd-row-label-v10">
+                                            Release Status
+                                        </div>
+                                        <div class="es-upd-row-help-v10">
+                                            Draft keeps it inactive. Published makes it available to the controlled updater.
+                                        </div>
+                                    </div>
+
+                                    <select
+                                        name="status"
+                                        class="form-select es-upd-control-v10"
+                                        required
+                                    >
+                                        <option value="draft">Draft</option>
+                                        <option value="published">Published</option>
+                                        <option value="disabled">Disabled</option>
+                                    </select>
+                                </div>
+
+                                <div class="es-upd-premium-row-v10">
+                                    <div>
+                                        <div class="es-upd-row-label-v10">
+                                            Safety
+                                        </div>
+                                        <div class="es-upd-row-help-v10">
+                                            Apply execution safeguards before this update can be deployed.
+                                        </div>
+                                    </div>
+
+                                    <div class="es-upd-checks-v10">
+                                        <div class="form-check">
+                                            <input
+                                                class="form-check-input"
+                                                type="checkbox"
+                                                name="requires_backup"
+                                                value="1"
+                                                id="esUpdateRequiresBackupV10"
+                                            >
+                                            <label
+                                                class="form-check-label"
+                                                for="esUpdateRequiresBackupV10"
+                                            >
+                                                Requires Backup
+                                            </label>
+                                        </div>
+
+                                        <div class="form-check">
+                                            <input
+                                                class="form-check-input"
+                                                type="checkbox"
+                                                name="is_destructive"
+                                                value="1"
+                                                id="esUpdateDestructiveV10"
+                                            >
+                                            <label
+                                                class="form-check-label"
+                                                for="esUpdateDestructiveV10"
+                                            >
+                                                Destructive Update
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="es-upd-action-row-v10">
+                                    <span class="small text-muted">
+                                        Saving registers the update only. It does not run tenant migrations.
+                                    </span>
+
+                                    <button
+                                        type="submit"
+                                        class="btn btn-primary es-upd-save-v10"
+                                    >
+                                        Save Update
+                                    </button>
+                                </div>
+                            </form>
+                        </details>
+
+                        <script>
+                            document.addEventListener('DOMContentLoaded', function () {
+                                const type =
+                                    document.getElementById('esPlatformUpdateTypeV10');
+
+                                const migration =
+                                    document.getElementById('esMigrationPathRowV10');
+
+                                const packageRow =
+                                    document.getElementById('esPackagePathRowV10');
+
+                                if (!type || !migration || !packageRow) {
+                                    return;
+                                }
+
+                                function syncPlatformUpdateFieldsV10() {
+                                    const value = type.value;
+
+                                    migration.classList.toggle(
+                                        'd-none',
+                                        value === 'package'
+                                    );
+
+                                    packageRow.classList.toggle(
+                                        'd-none',
+                                        value === 'migration'
+                                    );
+                                }
+
+                                type.addEventListener(
+                                    'change',
+                                    syncPlatformUpdateFieldsV10
+                                );
+
+                                syncPlatformUpdateFieldsV10();
+                            });
+                        </script>
 
                     <div class="es-upd-table-card-v8">
 
@@ -9764,10 +10225,21 @@
                                                     default => 'amber',
                                                 };
 
+                                                /*
+                                                 * ESUBIZ_PLATFORM_UPDATE_RUN_GATE_V14
+                                                 *
+                                                 * requires_backup is a safety requirement,
+                                                 * not an execution prohibition. The updater
+                                                 * already displays that requirement and the
+                                                 * backend blocks destructive updates.
+                                                 *
+                                                 * Published, non-destructive Core updates
+                                                 * therefore remain executable through the
+                                                 * Central migration engine.
+                                                 */
                                                 $canRun =
                                                     $update->status === 'published'
                                                     && !(bool)$update->is_destructive
-                                                    && !(bool)$update->requires_backup
                                                     && $update->product_type === 'core';
                                             @endphp
 
@@ -10149,9 +10621,24 @@
 
                         renderPage();
 
+                        // ESUBIZ_PLATFORM_UPDATE_ACTION_MENU_CLICK_V11
                         document.addEventListener('click', function(event) {
                             const menuButton =
                                 event.target.closest('.es-upd-menu-btn-v8');
+
+                            const menuAction =
+                                event.target.closest('.es-upd-menu-v8 button');
+
+                            /*
+                             * Allow action buttons inside an open three-dot menu
+                             * to complete their own click handlers.
+                             *
+                             * The individual View / Dry Run / Status / Run
+                             * handlers are authoritative for those actions.
+                             */
+                            if (menuAction) {
+                                return;
+                            }
 
                             document
                                 .querySelectorAll('.es-upd-menu-v8.active')
@@ -10197,12 +10684,6 @@
                         }
 
                         document
-                            .getElementById('esOpenRegisterUpdateV9')
-                            ?.addEventListener('click', function () {
-                                openUpdateModalV9(registerModalEl);
-                            });
-
-                        document
                             .querySelectorAll('[data-es-upd-close-v9]')
                             .forEach(function(button) {
                                 button.addEventListener('click', function() {
@@ -10214,7 +10695,8 @@
                                 });
                             });
 
-                        [modalEl, registerModalEl].forEach(function(element) {
+                        // ESUBIZ_PLATFORM_UPDATE_REMOVE_STALE_REGISTER_MODAL_V12
+                        [modalEl].forEach(function(element) {
                             element?.addEventListener('click', function(event) {
                                 if (event.target === element) {
                                     closeUpdateModalV9(element);
@@ -10225,7 +10707,6 @@
                         document.addEventListener('keydown', function(event) {
                             if (event.key === 'Escape') {
                                 closeUpdateModalV9(modalEl);
-                                closeUpdateModalV9(registerModalEl);
                             }
                         });
 

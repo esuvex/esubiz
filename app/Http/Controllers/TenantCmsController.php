@@ -1569,9 +1569,20 @@ return view(
              * Website identity belongs to this Core installation.
              * It is not a Central Esubiz account/profile asset.
              */
+            /*
+             * ESUBIZ_CORE_MAIN_LOGO_DISPLAY_V2
+             *
+             * site_logo_path is authoritative. The old theme logo is
+             * retained only as a compatibility fallback for tenants that
+             * predate canonical Core branding.
+             */
             'logo_path' =>
                 $settings['site_logo_path']
                 ?? $settings['theme.corporate.logo_path']
+                ?? null,
+
+            'logo_white_path' =>
+                $settings['site_logo_white_path']
                 ?? null,
 
             'favicon_path' =>
@@ -1867,8 +1878,14 @@ return view(
                 'regex:/^[0-9]*$/',
             ],
 
+            /*
+             * ESUBIZ_CORE_OPTIONAL_ALLOWED_COUNTRY_CODES_V1
+             *
+             * This setting is not submitted by every Site Settings form.
+             * When omitted, preserve the website's existing country policy.
+             */
             'allowed_country_codes' => [
-                'required',
+                'sometimes',
                 'array',
                 'min:1',
             ],
@@ -1999,37 +2016,47 @@ return view(
             'Invalid default country.'
         );
 
-        $allowedCountryCodes = array_values(
-            array_unique(
-                array_map(
-                    fn ($code) => strtoupper(trim((string) $code)),
-                    $data['allowed_country_codes']
+        /*
+         * ESUBIZ_CORE_PRESERVE_ALLOWED_COUNTRY_CODES_V1
+         *
+         * Only normalize/change the allowed-country policy when the form
+         * actually submits it. Otherwise the existing setting is preserved.
+         */
+        $allowedCountryCodes = null;
+
+        if (array_key_exists('allowed_country_codes', $data)) {
+            $allowedCountryCodes = array_values(
+                array_unique(
+                    array_map(
+                        fn ($code) => strtoupper(trim((string) $code)),
+                        $data['allowed_country_codes']
+                    )
                 )
-            )
-        );
+            );
 
-        if (!in_array('ALL', $allowedCountryCodes, true)) {
-            foreach ($allowedCountryCodes as $countryCode) {
-                abort_unless(
-                    in_array(
-                        $countryCode,
-                        $validCountryCodes,
-                        true
-                    ),
-                    422,
-                    'Invalid allowed country.'
-                );
-            }
+            if (!in_array('ALL', $allowedCountryCodes, true)) {
+                foreach ($allowedCountryCodes as $countryCode) {
+                    abort_unless(
+                        in_array(
+                            $countryCode,
+                            $validCountryCodes,
+                            true
+                        ),
+                        422,
+                        'Invalid allowed country.'
+                    );
+                }
 
-            if (!in_array(
-                $defaultCountryCode,
-                $allowedCountryCodes,
-                true
-            )) {
-                $allowedCountryCodes[] = $defaultCountryCode;
+                if (!in_array(
+                    $defaultCountryCode,
+                    $allowedCountryCodes,
+                    true
+                )) {
+                    $allowedCountryCodes[] = $defaultCountryCode;
+                }
+            } else {
+                $allowedCountryCodes = ['ALL'];
             }
-        } else {
-            $allowedCountryCodes = ['ALL'];
         }
 
         $data['default_country_code'] =
@@ -2048,8 +2075,10 @@ return view(
                 )
             );
 
-        $data['allowed_country_codes'] =
-            $allowedCountryCodes;
+        if ($allowedCountryCodes !== null) {
+            $data['allowed_country_codes'] =
+                $allowedCountryCodes;
+        }
 
         $db = DB::connection('tenant');
 
@@ -2062,55 +2091,111 @@ return view(
         $brandingUpdates = [];
 
         if ($request->boolean('remove_website_logo')) {
+            /*
+             * ESUBIZ_CORE_MAIN_LOGO_REMOVE_V1
+             *
+             * Removing the canonical logo must not destroy any explicit
+             * feature/theme override.
+             */
             $brandingUpdates['site_logo_path'] = null;
-            $brandingUpdates['theme.corporate.logo_path'] = null;
+            $brandingUpdates['site_logo_white_path'] = null;
         }
 
         if ($request->boolean('remove_website_favicon')) {
+            /*
+             * ESUBIZ_CORE_CANONICAL_FAVICON_REMOVE_V7
+             *
+             * Site Settings owns the canonical website favicon.
+             * Removing it must not remove a genuine theme/feature
+             * favicon override.
+             */
             $brandingUpdates['site_favicon_path'] = null;
-            $brandingUpdates['theme.corporate.favicon_path'] = null;
         }
 
         if ($request->hasFile('website_logo')) {
-            $file = $request->file('website_logo');
+            /*
+             * ESUBIZ_CORE_MAIN_LOGO_UPLOAD_V2
+             *
+             * Site Settings owns the canonical Core website logo.
+             * The shared optimizer stores the main logo and Core creates
+             * its automatic white/footer/internal variant.
+             *
+             * Theme-specific logo keys are NOT written here: they are
+             * explicit overrides only.
+             */
+            $logoSet = app(
+                \App\Services\Core\CoreWebsiteLogoService::class
+            )->storeMainLogo(
+                $request->file('website_logo'),
+                (int) $website->id
+            );
 
             $brandingUpdates['site_logo_path'] =
-                $file->storeAs(
-                    'core/site-branding',
-                    'logo.'
-                    . strtolower(
-                        $file->getClientOriginalExtension()
-                    ),
-                    'public'
-                );
+                $logoSet['main'];
 
-            /*
-             * Existing corporate theme renderer already consumes this key.
-             */
-            $brandingUpdates['theme.corporate.logo_path'] =
-                $brandingUpdates['site_logo_path'];
+            $brandingUpdates['site_logo_white_path'] =
+                $logoSet['white'];
         }
 
         if ($request->hasFile('website_favicon')) {
+            /*
+             * ESUBIZ_CORE_CANONICAL_FAVICON_STORAGE_V81
+             *
+             * site_favicon_path is the single Site Settings source
+             * of truth.
+             *
+             * Canonical website branding belongs to that website's
+             * tenant media storage and is delivered through /media/.
+             * Theme/feature favicon keys remain explicit overrides
+             * and are never mirrored from Site Settings.
+             *
+             * A unique filename also prevents browsers from continuing
+             * to display a previously cached favicon after replacement.
+             */
             $file = $request->file('website_favicon');
+
+            $extension = strtolower(
+                $file->getClientOriginalExtension()
+            );
+
+            $extension = in_array(
+                $extension,
+                ['png', 'ico', 'jpg', 'jpeg', 'webp'],
+                true
+            )
+                ? $extension
+                : 'png';
+
+            $directory =
+                'tenant-websites/'
+                . (int) $website->id
+                . '/media/branding';
+
+            $faviconName =
+                'favicon-'
+                . now()->format('YmdHis')
+                . '-'
+                . bin2hex(random_bytes(4))
+                . '.'
+                . $extension;
 
             $brandingUpdates['site_favicon_path'] =
                 $file->storeAs(
-                    'core/site-branding',
-                    'favicon.'
-                    . strtolower(
-                        $file->getClientOriginalExtension()
-                    ),
-                    'public'
+                    $directory,
+                    $faviconName,
+                    'local'
                 );
-
-            $brandingUpdates['theme.corporate.favicon_path'] =
-                $brandingUpdates['site_favicon_path'];
         }
 
         $db->transaction(
-            function () use ($db, $data, $brandingUpdates) {
+            function () use ($db, $data, $brandingUpdates, $request) {
 
+            /*
+             * ESUBIZ_CORE_SITE_SETTINGS_REQUEST_CAPTURE_V3
+             *
+             * The transaction uses request booleans for secondary-currency
+             * settings, so the current Request must be explicitly captured.
+             */
             $now = now();
 
             $plainSettings = [
@@ -2147,11 +2232,23 @@ return view(
                         )
                     ) ?: 'user',
 
-                'allowed_country_codes' =>
-                    json_encode(
-                        $data['allowed_country_codes'],
-                        JSON_UNESCAPED_SLASHES
-                    ),
+                /*
+                 * ESUBIZ_CORE_PRESERVE_ALLOWED_COUNTRY_CODES_WRITE_V2
+                 *
+                 * Only overwrite this setting when the current form
+                 * actually submitted an allowed-country policy.
+                 */
+                ...(
+                    array_key_exists('allowed_country_codes', $data)
+                        ? [
+                            'allowed_country_codes' =>
+                                json_encode(
+                                    $data['allowed_country_codes'],
+                                    JSON_UNESCAPED_SLASHES
+                                ),
+                        ]
+                        : []
+                ),
 
                 'language' =>
                     trim($data['language']),
@@ -2173,8 +2270,10 @@ return view(
             }
 
             /*
-             * Persist canonical website branding and mirror it into the
-             * existing corporate theme identity keys.
+             * ESUBIZ_CORE_CANONICAL_BRANDING_PERSISTENCE_V7
+             *
+             * Persist canonical Site Settings branding only.
+             * Theme/feature branding keys are independent overrides.
              */
             foreach ($brandingUpdates as $key => $value) {
                 $db->table('site_settings')
@@ -5880,13 +5979,16 @@ return back()->with(
         );
 
         /*
-         * Canonical current Core website Header Logo.
+         * ESUBIZ_CORE_AUTH_CANONICAL_LOGO_FALLBACK_V1
+         *
+         * Authentication-specific uploads remain authoritative when set.
+         * Otherwise authentication inherits the Core main website logo.
          */
         $siteLogo = trim(
             (string) (
-                $settings[
-                    'theme.corporate.logo_path'
-                ] ?? ''
+                $settings['site_logo_path']
+                ?? $settings['theme.corporate.logo_path']
+                ?? ''
             )
         );
 
@@ -6101,12 +6203,20 @@ private function tenantAuthBranding($website): array
         $db = DB::connection('tenant');
 
         $keys = [
+            /*
+             * ESUBIZ_CORE_CANONICAL_BRANDING_SOURCE_V78
+             *
+             * Core Site Settings is the branding authority.
+             */
+            'site_logo_path',
+            'site_logo_white_path',
+            'site_favicon_path',
+
             'auth.brand.logo_light',
             'auth.brand.logo_dark',
 
             /*
-             * Existing Site Logo candidates.
-             * No duplicate site logo is created here.
+             * Historical aliases remain compatibility fallback only.
              */
             'site.logo_light',
             'site.logo',
@@ -6139,6 +6249,7 @@ private function tenantAuthBranding($website): array
         $siteLogo = '';
 
         foreach ([
+            'site_logo_path',
             'site.logo_light',
             'site.logo',
             'branding.logo',

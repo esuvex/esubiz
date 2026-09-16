@@ -1322,12 +1322,30 @@ class WebsiteWizardController extends Controller
                                     )
                             );
 
+                        /*
+                         * ESUBIZ_CORE_WIZARD_CANONICAL_LOGO_V2
+                         *
+                         * The SaaS wizard seeds the SAME canonical Core
+                         * main-logo authority used by Site Settings.
+                         *
+                         * It must not create a theme logo override.
+                         */
+                        $whiteLogoPath = app(
+                            \App\Services\Core\CoreWebsiteLogoService::class
+                        )->generateWhiteVariant(
+                            $logoPath,
+                            'local'
+                        );
+
                         foreach (
                             [
-                                'site_logo_path',
-                                'theme.corporate.logo_path',
+                                'site_logo_path' =>
+                                    $logoPath,
+
+                                'site_logo_white_path' =>
+                                    $whiteLogoPath,
                             ]
-                            as $key
+                            as $key => $value
                         ) {
                             $tenantDb
                                 ->table(
@@ -1340,7 +1358,7 @@ class WebsiteWizardController extends Controller
                                     ],
                                     [
                                         'value' =>
-                                            $logoPath,
+                                            $value,
 
                                         'updated_at' =>
                                             now(),

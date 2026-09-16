@@ -1,6 +1,120 @@
 {{-- ESUBIZ_CORE_SHARED_FAVICON_V6 --}}
 @php
     /*
+     * ESUBIZ_CORE_UNIVERSAL_FAVICON_AUTHORITY_V8
+     *
+     * Universal Core favicon contract:
+     *
+     * 1. A context-specific explicit override wins when supplied.
+     * 2. site_favicon_path is the canonical website favicon.
+     * 3. Historical theme favicon remains compatibility fallback only.
+     *
+     * The canonical value is resolved directly from the active tenant
+     * database so public, Core admin and authentication layouts do not
+     * depend on each caller remembering to inject Site Settings.
+     */
+    $coreCanonicalFavicon = null;
+    $coreLegacyThemeFavicon = null;
+
+    try {
+        $coreFaviconDb =
+            \Illuminate\Support\Facades\DB::connection(
+                'website_tenant'
+            );
+
+        $coreFaviconRows =
+            $coreFaviconDb
+                ->table('site_settings')
+                ->whereIn(
+                    'key',
+                    [
+                        'site_favicon_path',
+                        'theme.corporate.favicon_path',
+                    ]
+                )
+                ->pluck('value', 'key');
+
+        $coreCanonicalFavicon =
+            trim(
+                (string) (
+                    $coreFaviconRows[
+                        'site_favicon_path'
+                    ]
+                    ?? ''
+                )
+            );
+
+        $coreLegacyThemeFavicon =
+            trim(
+                (string) (
+                    $coreFaviconRows[
+                        'theme.corporate.favicon_path'
+                    ]
+                    ?? ''
+                )
+            );
+
+    } catch (\Throwable $coreFaviconException) {
+        /*
+         * Off-server / non-tenant compatibility:
+         * allow the existing resolver below to continue.
+         */
+    }
+
+    /*
+     * Existing callers may explicitly provide a favicon override.
+     * Empty values are NOT overrides.
+     */
+    $coreExplicitFaviconOverride = null;
+
+    foreach (
+        [
+            $authFavicon ?? null,
+            $faviconOverride ?? null,
+        ]
+        as $coreFaviconOverrideCandidate
+    ) {
+        $coreFaviconOverrideCandidate =
+            trim(
+                (string) $coreFaviconOverrideCandidate
+            );
+
+        if ($coreFaviconOverrideCandidate !== '') {
+            $coreExplicitFaviconOverride =
+                $coreFaviconOverrideCandidate;
+            break;
+        }
+    }
+
+    $coreEffectiveFavicon =
+        $coreExplicitFaviconOverride
+        ?: (
+            $coreCanonicalFavicon
+            ?: (
+                $coreLegacyThemeFavicon
+                ?: null
+            )
+        );
+
+    /*
+     * Feed the effective value into the existing shared resolver.
+     * This keeps its media URL/version/browser-sync implementation
+     * authoritative instead of creating a second renderer.
+     */
+    if (!empty($coreEffectiveFavicon)) {
+        $faviconOverride = $coreEffectiveFavicon;
+
+        if (!isset($settings) || !is_array($settings)) {
+            $settings = [];
+        }
+
+        $settings['site_favicon_path'] =
+            $coreEffectiveFavicon;
+    }
+@endphp
+
+@php
+    /*
      * Plug-and-play favicon resolver for Core.
      *
      * Ownership:

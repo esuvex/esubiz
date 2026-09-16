@@ -496,15 +496,37 @@ class TenantWebsiteController extends Controller
             ->connect($website);
 
         try {
+            /*
+             * ESUBIZ_CORE_PUBLIC_CANONICAL_BRANDING_PAYLOAD_V10
+             *
+             * The public theme needs both its explicit theme overrides
+             * and the canonical Core website branding identity.
+             *
+             * theme.corporate.logo_path / footer_logo_path remain
+             * optional explicit overrides.
+             *
+             * site_logo_path / site_logo_white_path are inherited
+             * defaults and must not be duplicated into theme settings.
+             */
             $stored = $this
                 ->tenantDatabaseService
                 ->connection()
                 ->table('site_settings')
-                ->where(
-                    'key',
-                    'like',
-                    'theme.corporate.%'
-                )
+                ->where(function ($query) {
+                    $query
+                        ->where(
+                            'key',
+                            'like',
+                            'theme.corporate.%'
+                        )
+                        ->orWhereIn(
+                            'key',
+                            [
+                                'site_logo_path',
+                                'site_logo_white_path',
+                            ]
+                        );
+                })
                 ->pluck(
                     'value',
                     'key'
@@ -520,6 +542,29 @@ class TenantWebsiteController extends Controller
                         . $key
                     ]
                     ?? $value;
+            }
+
+            /*
+             * Canonical branding stays outside the theme namespace.
+             * Expose it in this public settings payload so the view can
+             * resolve: explicit theme override -> canonical Core logo.
+             */
+            foreach (
+                [
+                    'site_logo_path',
+                    'site_logo_white_path',
+                ]
+                as $canonicalBrandingKey
+            ) {
+                if (
+                    array_key_exists(
+                        $canonicalBrandingKey,
+                        $stored
+                    )
+                ) {
+                    $defaults[$canonicalBrandingKey] =
+                        $stored[$canonicalBrandingKey];
+                }
             }
 
             return $defaults;

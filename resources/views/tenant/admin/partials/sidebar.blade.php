@@ -68,18 +68,47 @@
              * No hardcoded Core CMS text or website-name copy
              * belongs beside the logo.
              */
+            /*
+             * ESUBIZ_CORE_INTERNAL_WHITE_LOGO_AUTHORITY_V1
+             *
+             * Explicit theme footer logo wins.
+             * Otherwise use Core's generated white variant.
+             * Main logo is the final legacy/processing fallback.
+             */
+            /*
+             * ESUBIZ_CORE_INTERNAL_LOGO_EMPTY_FALLBACK_V2
+             *
+             * Empty branding settings mean "inherit", not "override".
+             * first() therefore selects the first non-empty candidate instead
+             * of allowing an empty theme/footer value to block the canonical
+             * generated white logo.
+             */
             $coreSidebarLogo =
-        $settings['theme.corporate.footer_logo_path']
-            ?? data_get(
-                $settings ?? [],
-                'theme.corporate.footer_logo_path'
-            )
-            ?? $settings['footer_logo_path']
-            ?? data_get(
-                $settings ?? [],
-                'footer_logo_path'
-            )
-            ?? null;
+                collect([
+                    $settings['theme.corporate.footer_logo_path'] ?? null,
+                    data_get(
+                        $settings ?? [],
+                        'theme.corporate.footer_logo_path'
+                    ),
+                    $settings['footer_logo_path'] ?? null,
+                    data_get(
+                        $settings ?? [],
+                        'footer_logo_path'
+                    ),
+                    $settings['site_logo_white_path'] ?? null,
+                    data_get(
+                        $settings ?? [],
+                        'site_logo_white_path'
+                    ),
+                    $settings['site_logo_path'] ?? null,
+                    data_get(
+                        $settings ?? [],
+                        'site_logo_path'
+                    ),
+                ])->first(
+                    static fn ($value) =>
+                        trim((string) $value) !== ''
+                );
 
             $coreSidebarLogoUrl =
                 !empty($coreSidebarLogo)

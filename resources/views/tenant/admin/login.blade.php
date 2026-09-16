@@ -212,20 +212,28 @@
     }
 @endphp
 
-    {-- ESUBIZ_CORE_AUTH_CANONICAL_FAVICON_V69 --}
-    ESUBIZ_CORE_GLOBAL_FAVICON_V44 --}}
+    {{-- ESUBIZ_CORE_AUTH_CANONICAL_FAVICON_V69 --}}
+    {{-- ESUBIZ_CORE_GLOBAL_FAVICON_V44 --}}
     @php
         /*
-         * Core website favicon is authoritative.
+         * ESUBIZ_CORE_AUTH_CANONICAL_BRANDING_V73
          *
-         * Site Settings favicon is preferred. The existing corporate
-         * theme favicon remains a compatibility fallback.
+         * Core Site Settings is authoritative for auth branding.
+         * site_favicon_path is the canonical favicon.
+         *
+         * Theme and historical keys remain compatibility fallbacks.
+         * Empty values mean inherit.
          */
         $tenantAdminFavicon =
-            $settings['website_favicon_path']
-                ?? $settings['favicon_path']
-                ?? $settings['theme.corporate.favicon_path']
-                ?? null;
+            collect([
+                $settings['site_favicon_path'] ?? null,
+                $settings['theme.corporate.favicon_path'] ?? null,
+                $settings['website_favicon_path'] ?? null,
+                $settings['favicon_path'] ?? null,
+            ])->first(
+                static fn ($value) =>
+                    trim((string) $value) !== ''
+            );
     @endphp
 
     @if(!empty($tenantAdminFavicon))
@@ -276,20 +284,70 @@
         class="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-xl"
     >
 
-        <div
-            class="text-xs font-black uppercase tracking-[0.18em] text-blue-600"
-        >
-            Esubiz Core CMS
-        </div>
+        @php
+            /*
+             * Canonical Core authentication identity.
+             *
+             * The standard Site Settings logo is authoritative because
+             * the authentication card uses a light background.
+             *
+             * Empty values mean inherit.
+             */
+            $tenantAdminLogo =
+                collect([
+                    $settings['site_logo_path'] ?? null,
+                    $settings['site_logo_white_path'] ?? null,
+                    $settings['theme.corporate.logo_path'] ?? null,
+                    $settings['logo_path'] ?? null,
+                ])->first(
+                    static fn ($value) =>
+                        trim((string) $value) !== ''
+                );
 
-        <h1
-            class="mt-3 text-3xl font-black tracking-tight text-slate-900"
-        >
-            {{ $website->name }}
-        </h1>
+            $tenantAdminLogoUrl =
+                !empty($tenantAdminLogo)
+                    ? request()->getSchemeAndHttpHost()
+                        . '/media/'
+                        . implode(
+                            '/',
+                            array_map(
+                                'rawurlencode',
+                                explode(
+                                    '/',
+                                    ltrim(
+                                        $tenantAdminLogo,
+                                        '/'
+                                    )
+                                )
+                            )
+                        )
+                    : null;
+        @endphp
+
+        @if($tenantAdminLogoUrl)
+            <a
+                href="/"
+                class="inline-flex max-w-full items-center"
+                aria-label="{{ $website->name }}"
+            >
+                <img
+                    src="{{ $tenantAdminLogoUrl }}"
+                    alt="{{ $website->name }}"
+                    width="180"
+                    height="60"
+                    class="block h-[60px] w-[180px] max-w-full object-contain object-left"
+                >
+            </a>
+        @else
+            <h1
+                class="text-3xl font-black tracking-tight text-slate-900"
+            >
+                {{ $website->name }}
+            </h1>
+        @endif
 
         <p
-            class="mt-2 text-sm leading-6 text-slate-500"
+            class="mt-4 text-sm leading-6 text-slate-500"
         >
             Sign in to manage this website.
         </p>
