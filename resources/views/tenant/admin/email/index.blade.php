@@ -10,13 +10,70 @@
     id="core-email-workspace"
     class="mx-auto max-w-7xl"
     data-messages-url="{{ route('tenant.cms.email.messages', ['subdomain' => request()->route('subdomain')]) }}"
+    data-refresh-url="{{ route('tenant.cms.email.refresh', ['subdomain' => request()->route('subdomain')]) }}"
     data-save-draft-url="{{ route('tenant.cms.email.drafts.store', ['subdomain' => request()->route('subdomain')]) }}"
     data-send-url="{{ route('tenant.cms.email.send', ['subdomain' => request()->route('subdomain')]) }}"
     data-remove-draft-attachment-url-template="{{ route('tenant.cms.email.drafts.attachments.destroy', ['subdomain' => request()->route('subdomain'), 'message' => 0, 'attachment' => 0]) }}"
     data-message-url-template="{{ route('tenant.cms.email.message', ['subdomain' => request()->route('subdomain'), 'message' => 0]) }}"
+    data-message-action-url-template="{{ route('core.email.messages.action', ['subdomain' => request()->route('subdomain'), 'message' => 0]) }}"
+    data-settings-show-url="{{ route('core.email.settings.show') }}"
+    data-settings-save-url="{{ route('core.email.settings.save') }}"
+    data-attachment-url-template="{{ route('core.email.attachments.download', ['subdomain' => request()->route('subdomain'), 'attachment' => 0]) }}"
+    data-attachment-preview-url-template="{{ route('core.email.attachments.preview', ['subdomain' => request()->route('subdomain'), 'attachment' => 0]) }}"
     data-premium-url="{{ route('tenant.cms.email.premium-data', ['subdomain' => request()->route('subdomain')]) }}"
     data-sender-mode-url="{{ route('tenant.cms.email.sender-mode', ['subdomain' => request()->route('subdomain')]) }}"
 >
+    {{-- ESUBIZ_CORE_EMAIL_ATTACHMENT_PREVIEW_MODAL_V1 --}}
+    <div
+        id="core-email-attachment-preview-modal"
+        class="fixed inset-0 z-[70] hidden items-center justify-center bg-slate-950/60 p-2 sm:p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="core-email-attachment-preview-title"
+    >
+        <div
+            class="flex max-h-[96vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl sm:max-h-[92vh] sm:rounded-2xl"
+        >
+            <div
+                class="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-5 sm:py-4"
+            >
+                <div class="min-w-0">
+                    <h2
+                        id="core-email-attachment-preview-title"
+                        class="truncate text-sm font-bold text-slate-900 sm:text-base"
+                    >
+                        Attachment Preview
+                    </h2>
+
+                    <div
+                        id="core-email-attachment-preview-meta"
+                        class="mt-0.5 truncate text-xs text-slate-500"
+                    ></div>
+                </div>
+
+                <button
+                    id="core-email-attachment-preview-close"
+                    type="button"
+                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-2xl leading-none text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                    aria-label="Close attachment preview"
+                >
+                    &times;
+                </button>
+            </div>
+
+            <div
+                id="core-email-attachment-preview-stage"
+                class="min-h-0 flex-1 overflow-auto bg-slate-100 p-2 sm:p-4"
+            >
+                <iframe
+                    id="core-email-attachment-preview-frame"
+                    title="Attachment Preview"
+                    class="min-h-[65vh] w-full rounded-lg border-0 bg-white sm:min-h-[72vh]"
+                ></iframe>
+            </div>
+        </div>
+    </div>
+
     <div class="mb-6">
         <h1 class="text-2xl font-bold text-slate-900">
             Email
@@ -846,33 +903,48 @@
 
             <div class="p-5">
 
+                {{-- ESUBIZ_CORE_EMAIL_CLEAN_FOLDER_UI_V18 --}}
                 <div id="core-email-list-panel">
 
-                    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 
-                        <div>
-                            <h2
-                                id="core-email-folder-title"
-                                class="text-lg font-bold text-slate-900"
-                            >
-                                Inbox
-                            </h2>
+                        <div class="flex min-w-0 items-center gap-3">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <h2
+                                        id="core-email-folder-title"
+                                        class="text-lg font-bold text-slate-900"
+                                    >
+                                        Inbox
+                                    </h2>
 
-                            <p
-                                id="core-email-active-address"
-                                class="mt-1 text-sm text-slate-500"
-                            ></p>
+                                    <button
+                                        type="button"
+                                        id="core-email-folder-refresh"
+                                        title="Refresh"
+                                        aria-label="Refresh current folder"
+                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-base transition hover:bg-slate-50"
+                                    >
+                                        🔄
+                                    </button>
+                                </div>
+
+                                <p
+                                    id="core-email-active-address"
+                                    class="mt-1 text-sm text-slate-500"
+                                ></p>
+                            </div>
                         </div>
 
                         {{-- ESUBIZ_CORE_MAIL_FOLDER_AJAX_SEARCH_V3 --}}
-                        <div class="relative w-full sm:max-w-sm">
+                        <div class="relative w-full lg:max-w-sm">
                             <div class="relative">
                                 <input
                                     id="core-email-search"
                                     type="search"
                                     autocomplete="off"
                                     placeholder="Search this folder..."
-                                    class="w-full rounded-xl border border-slate-300 px-4 py-2.5 pr-10 text-sm outline-none focus:border-slate-500"
+                                    class="w-full rounded-xl border border-slate-300 px-4 py-2.5 pr-10 text-sm outline-none focus:border-blue-500"
                                 >
 
                                 <div
@@ -896,19 +968,21 @@
 
                     </div>
 
-                    <div id="core-email-message-results">
-                        <div class="py-10 text-center text-sm text-slate-500">
+                    <div
+                        id="core-email-message-results"
+                        class="overflow-hidden rounded-xl border border-slate-200 bg-white"
+                    >
+                        <div class="py-12 text-center text-sm text-slate-500">
                             Loading emails...
                         </div>
                     </div>
 
-                    <div class="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
-
+                    <div class="mt-4 flex items-center justify-between">
                         <button
                             id="core-email-previous"
                             type="button"
                             disabled
-                            class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+                            class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                             Previous
                         </button>
@@ -924,122 +998,188 @@
                             id="core-email-next"
                             type="button"
                             disabled
-                            class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+                            class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                             Next
                         </button>
-
                     </div>
 
                 </div>
 
-                {{-- ESUBIZ_CORE_EMAIL_MESSAGE_VIEW_UI_V1 --}}
+                {{-- ESUBIZ_CORE_EMAIL_CLEAN_MESSAGE_VIEW_V18 --}}
                 <div
                     id="core-email-message-view-panel"
-                    class="hidden rounded-2xl border border-slate-200 bg-white"
+                    class="hidden"
                 >
-                    <div class="border-b border-slate-200 p-5">
-                        <button
-                            type="button"
-                            id="core-email-message-back"
-                            class="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900"
-                        >
-                            <span>←</span>
-                            <span>Back to folder</span>
-                        </button>
+                    <div class="rounded-xl border border-slate-200 bg-white">
 
-                        <div class="flex flex-wrap items-start justify-between gap-4">
-                            <div class="min-w-0 flex-1">
-                                <h2
-                                    id="core-email-view-subject"
-                                    class="text-xl font-bold text-slate-900"
-                                >
-                                    Email
-                                </h2>
+                        <div class="border-b border-slate-200 p-5">
+                            <button
+                                type="button"
+                                id="core-email-message-back"
+                                class="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-blue-700 hover:text-blue-900"
+                            >
+                                ← Back to folder
+                            </button>
 
-                                <div class="mt-3 space-y-1 text-sm">
-                                    <div>
-                                        <span class="font-semibold text-slate-700">
-                                            From:
-                                        </span>
-                                        <span
-                                            id="core-email-view-from"
-                                            class="text-slate-600"
-                                        ></span>
+                            <div class="flex flex-wrap items-start justify-between gap-4">
+                                <div class="min-w-0 flex-1">
+                                    <h2
+                                        id="core-email-view-subject"
+                                        class="text-xl font-bold text-slate-900"
+                                    >
+                                        Email
+                                    </h2>
+
+                                    <div class="mt-3 space-y-1 text-sm text-slate-600">
+                                        <div>
+                                            <span class="font-semibold text-slate-800">From:</span>
+                                            <span id="core-email-view-from"></span>
+                                        </div>
+
+                                        <div>
+                                            <span class="font-semibold text-slate-800">To:</span>
+                                            <span id="core-email-view-to"></span>
+                                        </div>
+
+                                        <div
+                                            id="core-email-view-cc-row"
+                                            class="hidden"
+                                        >
+                                            <span class="font-semibold text-slate-800">CC:</span>
+                                            <span id="core-email-view-cc"></span>
+                                        </div>
                                     </div>
+                                </div>
 
-                                    <div>
-                                        <span class="font-semibold text-slate-700">
-                                            To:
-                                        </span>
-                                        <span
-                                            id="core-email-view-to"
-                                            class="text-slate-600"
-                                        ></span>
+                                <div class="text-right">
+                                    <div
+                                        id="core-email-view-source"
+                                        class="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700"
+                                    >
+                                        Direct Email
                                     </div>
 
                                     <div
-                                        id="core-email-view-cc-row"
-                                        class="hidden"
-                                    >
-                                        <span class="font-semibold text-slate-700">
-                                            CC:
-                                        </span>
-                                        <span
-                                            id="core-email-view-cc"
-                                            class="text-slate-600"
-                                        ></span>
-                                    </div>
+                                        id="core-email-view-date"
+                                        class="mt-2 text-xs text-slate-400"
+                                    ></div>
                                 </div>
                             </div>
-
-                            <div class="text-right">
-                                <div
-                                    id="core-email-view-source"
-                                    class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600"
-                                >
-                                    Direct Email
-                                </div>
-
-                                <div
-                                    id="core-email-view-date"
-                                    class="mt-2 text-xs text-slate-400"
-                                ></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="p-5">
-                        <div
-                            id="core-email-view-loading"
-                            class="py-16 text-center text-sm text-slate-500"
-                        >
-                            Loading email...
                         </div>
 
+                        {{-- ESUBIZ_CORE_EMAIL_DETAIL_ACTIONS_V1 --}}
                         <div
-                            id="core-email-view-content"
-                            class="hidden"
+                            id="core-email-message-actions"
+                            class="hidden flex-wrap items-center gap-2 border-b border-slate-200 px-5 py-3"
                         >
-                            <div
-                                id="core-email-view-body"
-                                class="prose max-w-none break-words text-sm leading-7 text-slate-700"
-                            ></div>
+                            <button type="button"
+                                id="core-email-view-reply"
+                                class="hidden rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+                                Reply
+                            </button>
 
+                            <button type="button"
+                                id="core-email-view-forward"
+                                class="hidden rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                                Forward
+                            </button>
+
+                            <button type="button"
+                                id="core-email-view-read"
+                                data-detail-action="read"
+                                class="hidden rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                                Mark Read
+                            </button>
+
+                            <button type="button"
+                                id="core-email-view-unread"
+                                data-detail-action="unread"
+                                class="hidden rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                                Mark Unread
+                            </button>
+
+                            <button type="button"
+                                id="core-email-view-move-spam"
+                                data-detail-action="spam"
+                                class="hidden rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50">
+                                Move to Spam
+                            </button>
+
+                            <button type="button"
+                                id="core-email-view-move-inbox"
+                                data-detail-action="inbox"
+                                class="hidden rounded-lg border border-blue-300 bg-white px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50">
+                                Move to Inbox
+                            </button>
+
+                            <button type="button"
+                                id="core-email-view-edit"
+                                class="hidden rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                                Edit
+                            </button>
+
+                            <button type="button"
+                                id="core-email-view-send-draft"
+                                class="hidden rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+                                Send
+                            </button>
+
+                            <button type="button"
+                                id="core-email-view-restore"
+                                data-detail-action="restore"
+                                class="hidden rounded-lg border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">
+                                Restore
+                            </button>
+
+                            <button type="button"
+                                id="core-email-view-delete"
+                                data-detail-action="delete"
+                                class="hidden rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">
+                                Delete
+                            </button>
+
+                            <button type="button"
+                                id="core-email-view-delete-permanent"
+                                data-detail-action="delete_permanently"
+                                class="hidden rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700">
+                                Delete Permanently
+                            </button>
+                        </div>
+
+                        <div class="p-5">
                             <div
-                                id="core-email-view-attachments-section"
-                                class="mt-8 hidden border-t border-slate-200 pt-5"
+                                id="core-email-view-loading"
+                                class="py-16 text-center text-sm text-slate-500"
                             >
-                                <h3 class="text-sm font-bold text-slate-900">
-                                    Attachments
-                                </h3>
+                                Loading email...
+                            </div>
+
+                            <div
+                                id="core-email-view-content"
+                                class="hidden"
+                            >
+                                <div
+                                    id="core-email-view-body"
+                                    class="prose max-w-none break-words text-sm leading-7 text-slate-700"
+                                ></div>
 
                                 <div
-                                    id="core-email-view-attachments"
-                                    class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
-                                ></div>
+                                    id="core-email-view-attachments-section"
+                                    class="mt-8 hidden border-t border-slate-200 pt-5"
+                                >
+                                    <h3 class="text-sm font-bold text-slate-900">
+                                        Attachments
+                                    </h3>
+
+                                    <div
+                                        id="core-email-view-attachments"
+                                        class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+                                    ></div>
+                                </div>
                             </div>
                         </div>
+
                     </div>
                 </div>
 
@@ -1063,10 +1203,36 @@
                     </div>
 
                     <div class="space-y-4">
+                        {{-- ESUBIZ_CORE_EMAIL_CC_BCC_TOGGLE_V1 --}}
                         <div>
-                            <label class="mb-1.5 block text-sm font-semibold text-slate-700">
-                                To
-                            </label>
+                            <div class="mb-1.5 flex items-center justify-between gap-3">
+                                <label class="block text-sm font-semibold text-slate-700">
+                                    To
+                                </label>
+
+                                <div class="flex items-center gap-2 text-xs font-semibold">
+                                    <button
+                                        id="core-email-compose-cc-toggle"
+                                        type="button"
+                                        class="rounded-md px-2 py-1 text-blue-700 transition hover:bg-blue-50"
+                                        aria-expanded="false"
+                                        aria-controls="core-email-compose-cc-wrap"
+                                    >
+                                        CC
+                                    </button>
+
+                                    <button
+                                        id="core-email-compose-bcc-toggle"
+                                        type="button"
+                                        class="rounded-md px-2 py-1 text-blue-700 transition hover:bg-blue-50"
+                                        aria-expanded="false"
+                                        aria-controls="core-email-compose-bcc-wrap"
+                                    >
+                                        BCC
+                                    </button>
+                                </div>
+                            </div>
+
                             <input
                                 id="core-email-compose-to"
                                 type="text"
@@ -1075,30 +1241,36 @@
                             >
                         </div>
 
-                        <div class="grid gap-4 md:grid-cols-2">
-                            <div>
-                                <label class="mb-1.5 block text-sm font-semibold text-slate-700">
-                                    CC
-                                </label>
-                                <input
-                                    id="core-email-compose-cc"
-                                    type="text"
-                                    placeholder="Optional"
-                                    class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-slate-500"
-                                >
-                            </div>
+                        <div
+                            id="core-email-compose-cc-wrap"
+                            class="hidden"
+                        >
+                            <label class="mb-1.5 block text-sm font-semibold text-slate-700">
+                                CC
+                            </label>
 
-                            <div>
-                                <label class="mb-1.5 block text-sm font-semibold text-slate-700">
-                                    BCC
-                                </label>
-                                <input
-                                    id="core-email-compose-bcc"
-                                    type="text"
-                                    placeholder="Optional"
-                                    class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-slate-500"
-                                >
-                            </div>
+                            <input
+                                id="core-email-compose-cc"
+                                type="text"
+                                placeholder="Optional"
+                                class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-slate-500"
+                            >
+                        </div>
+
+                        <div
+                            id="core-email-compose-bcc-wrap"
+                            class="hidden"
+                        >
+                            <label class="mb-1.5 block text-sm font-semibold text-slate-700">
+                                BCC
+                            </label>
+
+                            <input
+                                id="core-email-compose-bcc"
+                                type="text"
+                                placeholder="Optional"
+                                class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-slate-500"
+                            >
                         </div>
 
                         <div>
@@ -1143,6 +1315,16 @@
                                         class="rounded px-2.5 py-1.5 text-sm text-slate-700 hover:bg-white"
                                     >
                                         List
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        data-compose-command="createLink"
+                                        class="rounded px-2.5 py-1.5 text-sm font-semibold text-slate-700 hover:bg-white"
+                                        title="Add link"
+                                        aria-label="Add link"
+                                    >
+                                        Link
                                     </button>
                                 </div>
 
@@ -2511,6 +2693,485 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    /*
+     * ESUBIZ_CORE_EMAIL_V17_ACTION_HELPERS_V1
+     */
+    function v17ActionsForFolder() {
+        if (folder === 'inbox') {
+            return [
+                ['read', 'Mark read'],
+                ['unread', 'Mark unread'],
+                ['spam', 'Move to Spam'],
+                ['delete', 'Delete'],
+            ];
+        }
+
+        if (folder === 'spam') {
+            return [
+                ['read', 'Mark read'],
+                ['unread', 'Mark unread'],
+                ['inbox', 'Move to Inbox'],
+                ['delete', 'Delete'],
+            ];
+        }
+
+        if (folder === 'draft') {
+            return [
+                ['edit', 'Edit'],
+                ['send', 'Send'],
+                ['delete', 'Delete'],
+            ];
+        }
+
+        if (folder === 'sent') {
+            return [
+                ['delete', 'Delete'],
+            ];
+        }
+
+        if (folder === 'trash') {
+            return [
+                ['restore', 'Restore'],
+                [
+                    'delete_permanently',
+                    'Delete permanently'
+                ],
+            ];
+        }
+
+        return [];
+    }
+
+    function v17ServerActions() {
+        return v17ActionsForFolder()
+            .filter(([action]) =>
+                !['edit', 'send'].includes(action)
+            );
+    }
+
+    function v17ActionMenu(id) {
+        return v17ActionsForFolder()
+            .map(([action, label]) => `
+                <button
+                    type="button"
+                    data-v17-action="${escapeEmailHtml(action)}"
+                    data-message-id="${id}"
+                    class="block w-full px-4 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                    ${escapeEmailHtml(label)}
+                </button>
+            `)
+            .join('');
+    }
+
+    function v17ActionUrl(id) {
+        const template =
+            root.dataset.messageActionUrlTemplate;
+
+        if (!template) {
+            return '';
+        }
+
+        const token =
+            '/messages/0/action';
+
+        if (!template.includes(token)) {
+            return '';
+        }
+
+        return template.replace(
+            token,
+            `/messages/${id}/action`
+        );
+    }
+
+    async function performV17MessageAction(
+        id,
+        action
+    ) {
+        const url =
+            v17ActionUrl(id);
+
+        if (!url) {
+            throw new Error(
+                'Message action URL unavailable.'
+            );
+        }
+
+        if (
+            action === 'delete_permanently'
+            && !window.confirm(
+                'Permanently delete this email? This cannot be undone.'
+            )
+        ) {
+            return false;
+        }
+
+        const response =
+            await fetch(
+                url,
+                {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With':
+                            'XMLHttpRequest',
+                        'Accept':
+                            'application/json',
+                        'Content-Type':
+                            'application/json',
+                        'X-CSRF-TOKEN':
+                            csrfToken,
+                    },
+                    credentials:
+                        'same-origin',
+                    body:
+                        JSON.stringify({
+                            mailbox_id:
+                                mailboxId,
+                            action:
+                                action,
+                        }),
+                }
+            );
+
+        const responseText =
+            await response.text();
+
+        let responsePayload = {};
+
+        if (responseText) {
+            try {
+                responsePayload =
+                    JSON.parse(responseText);
+            } catch (error) {
+                responsePayload = {};
+            }
+        }
+
+        if (!response.ok) {
+            const serverMessage =
+                responsePayload.message
+                || responseText
+                || `HTTP ${response.status}`;
+
+            throw new Error(
+                `Message action failed (${response.status}): ${serverMessage}`
+            );
+        }
+
+        if (responsePayload?.ok === false) {
+            throw new Error(
+                responsePayload.message
+                || 'Message action was rejected.'
+            );
+        }
+
+        await loadMessages();
+
+        return true;
+    }
+
+    /*
+     * ESUBIZ_CORE_EMAIL_V17_TABLE_RENDERER_V1
+     *
+     * One authoritative folder renderer.
+     * No secondary navigation/runtime is introduced.
+     */
+    function escapeEmailHtml(value) {
+        return String(value ?? '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
+
+    function folderCounterpartyHeading() {
+        return folder === 'sent'
+            ? 'To'
+            : folder === 'draft'
+                ? 'To'
+                : 'From';
+    }
+
+    function formatFolderDate(value) {
+        if (!value) {
+            return '—';
+        }
+
+        const date =
+            new Date(value);
+
+        if (Number.isNaN(date.getTime())) {
+            return String(value);
+        }
+
+        return date.toLocaleString();
+    }
+
+    function renderV17Messages(messages) {
+        const rows =
+            Array.isArray(messages)
+                ? messages
+                : [];
+
+        if (!rows.length) {
+            const emptyText =
+                folder === 'inbox'
+                    ? 'No emails in Inbox.'
+                    : folder === 'sent'
+                        ? 'No sent emails yet.'
+                        : folder === 'draft'
+                            ? 'No drafts yet.'
+                            : folder === 'spam'
+                                ? 'No spam emails.'
+                                : 'Trash is empty.';
+
+            results.innerHTML = `
+                <div
+                    class="rounded-xl border border-slate-200 bg-white py-12 text-center text-sm font-semibold text-slate-600"
+                >
+                    ${escapeEmailHtml(emptyText)}
+                </div>
+            `;
+
+            return;
+        }
+
+        const body =
+            rows.map(message => {
+                const id =
+                    Number(message.id);
+
+                /*
+                 * ESUBIZ_CORE_EMAIL_READ_STATE_V1
+                 *
+                 * Read/unread is meaningful for received mail.
+                 * Unread Inbox/Spam rows are visually stronger.
+                 */
+                const receivedFolder =
+                    folder === 'inbox'
+                    || folder === 'spam';
+
+                const isUnread =
+                    receivedFolder
+                    && !message.read_at;
+
+                const counterpartyClass =
+                    isUnread
+                        ? 'font-bold text-slate-900'
+                        : receivedFolder
+                            ? 'font-normal text-slate-500'
+                            : 'font-medium text-slate-800';
+
+                const subjectClass =
+                    isUnread
+                        ? 'font-bold text-slate-900'
+                        : receivedFolder
+                            ? 'font-normal text-slate-500'
+                            : 'font-medium text-slate-800';
+
+                const dateClass =
+                    isUnread
+                        ? 'font-bold text-slate-800'
+                        : 'font-normal text-slate-400';
+
+                const rowReadClass =
+                    isUnread
+                        ? 'bg-white'
+                        : receivedFolder
+                            ? 'bg-slate-50/40'
+                            : '';
+
+                const attachment =
+                    message.has_attachments
+                        ? `
+                            <span
+                                class="ml-2 rounded bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600"
+                            >
+                                Attachment
+                            </span>
+                        `
+                        : '';
+
+                return `
+                    <tr
+                        data-v17-row
+                        data-message-id="${id}"
+                        class="core-email-v17-row ${rowReadClass} cursor-pointer border-b border-slate-100 transition hover:bg-blue-50/70"
+                    >
+                        <td
+                            class="w-12 px-4 py-4"
+                            data-v17-no-open
+                        >
+                            <input
+                                type="checkbox"
+                                data-v17-select="${id}"
+                                class="h-4 w-4 rounded border-slate-300"
+                            >
+                        </td>
+
+                        <td
+                            class="px-4 py-4 ${counterpartyClass}"
+                        >
+                            ${escapeEmailHtml(
+                                message.counterparty || '—'
+                            )}
+                        </td>
+
+                        <td class="px-4 py-4">
+                            <span
+                                class="${subjectClass}"
+                            >
+                                ${escapeEmailHtml(
+                                    message.subject
+                                    || '(No subject)'
+                                )}
+                            </span>
+
+                            ${attachment}
+                        </td>
+
+                        <td class="px-4 py-4">
+                            <span
+                                class="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700"
+                            >
+                                ${escapeEmailHtml(
+                                    message.source_label
+                                    || 'Direct Email'
+                                )}
+                            </span>
+                        </td>
+
+                        <td
+                            class="whitespace-nowrap px-4 py-4 text-sm ${dateClass}"
+                        >
+                            ${escapeEmailHtml(
+                                formatFolderDate(
+                                    message.created_at
+                                )
+                            )}
+                        </td>
+
+                        <td
+                            class="w-20 px-4 py-4 text-center"
+                            data-v17-no-open
+                        >
+                            <div
+                                class="relative inline-block"
+                                data-v17-menu-wrap
+                            >
+                                <button
+                                    type="button"
+                                    data-v17-menu
+                                    data-message-id="${id}"
+                                    aria-label="Email actions"
+                                    class="inline-flex h-8 w-8 items-center justify-center rounded-full text-lg font-bold text-slate-600 hover:bg-slate-100 hover:text-blue-700"
+                                >
+                                    ⋮
+                                </button>
+
+                                <div
+                                    data-v17-menu-panel
+                                    class="absolute right-0 z-50 mt-1 hidden min-w-44 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 text-left shadow-xl"
+                                >
+                                    ${v17ActionMenu(id)}
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+        results.innerHTML = `
+            <div
+                data-v17-bulk
+                class="hidden mb-3 flex-wrap items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2"
+            >
+                <strong
+                    data-v17-count
+                    class="mr-2 text-xs text-blue-800"
+                >
+                    0 selected
+                </strong>
+
+                ${v17ServerActions()
+                    .map(([action, label]) => `
+                        <button
+                            type="button"
+                            data-v17-bulk-action="${escapeEmailHtml(action)}"
+                            class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-blue-300 hover:text-blue-700"
+                        >
+                            ${escapeEmailHtml(label)}
+                        </button>
+                    `)
+                    .join('')}
+            </div>
+
+            <div
+                class="overflow-visible rounded-xl border border-slate-200 bg-white"
+            >
+                <div class="overflow-x-auto">
+                    <table
+                        class="min-w-full border-collapse text-left"
+                    >
+                        <thead
+                            class="border-b border-slate-200 bg-slate-50"
+                        >
+                            <tr>
+                                <th
+                                    class="w-12 px-4 py-3"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        data-v17-all
+                                        class="h-4 w-4 rounded border-slate-300"
+                                    >
+                                </th>
+
+                                <th
+                                    class="px-4 py-3 text-xs font-bold uppercase text-slate-500"
+                                >
+                                    ${escapeEmailHtml(
+                                        folderCounterpartyHeading()
+                                    )}
+                                </th>
+
+                                <th
+                                    class="px-4 py-3 text-xs font-bold uppercase text-slate-500"
+                                >
+                                    Subject
+                                </th>
+
+                                <th
+                                    class="px-4 py-3 text-xs font-bold uppercase text-slate-500"
+                                >
+                                    Source
+                                </th>
+
+                                <th
+                                    class="px-4 py-3 text-xs font-bold uppercase text-slate-500"
+                                >
+                                    Date
+                                </th>
+
+                                <th
+                                    class="w-20 px-4 py-3 text-center text-xs font-bold uppercase text-slate-500"
+                                >
+                                    Action
+                                </th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            ${body}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+
     async function loadMessages() {
         if (!mailboxId) {
             return;
@@ -2539,22 +3200,38 @@ document.addEventListener('DOMContentLoaded', () => {
                     'Accept': 'application/json',
                 },
                 credentials: 'same-origin',
+                cache: 'no-store',
             });
 
             if (!response.ok) {
-                throw new Error('Email request failed.');
+                throw new Error(
+                    'Email request failed.'
+                );
             }
 
-            const data = await response.json();
+            const data =
+                await response.json();
 
-            results.innerHTML = data.html;
+            if (Array.isArray(data.messages)) {
+                renderV17Messages(
+                    data.messages
+                );
+            } else {
+                results.innerHTML =
+                    data.html;
+            }
 
-            page = Number(data.page || 1);
+            page =
+                Number(data.page || 1);
 
-            previous.disabled = !data.has_previous;
-            next.disabled = !data.has_next;
+            previous.disabled =
+                !data.has_previous;
 
-            pageLabel.textContent = `Page ${page}`;
+            next.disabled =
+                !data.has_next;
+
+            pageLabel.textContent =
+                `Page ${page}`;
         } catch (error) {
             results.innerHTML =
                 '<div class="rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">Unable to load emails.</div>';
@@ -2696,6 +3373,391 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /*
+     * ESUBIZ_CORE_EMAIL_V17_ACTION_RUNTIME_V1
+     */
+    const v17Selected =
+        new Set();
+
+    function updateV17Selection() {
+        const selectedInputs =
+            results.querySelectorAll(
+                '[data-v17-select]:checked'
+            );
+
+        v17Selected.clear();
+
+        selectedInputs.forEach(input => {
+            v17Selected.add(
+                Number(input.dataset.v17Select)
+            );
+        });
+
+        const toolbar =
+            results.querySelector(
+                '[data-v17-bulk]'
+            );
+
+        const count =
+            results.querySelector(
+                '[data-v17-count]'
+            );
+
+        if (toolbar) {
+            toolbar.classList.toggle(
+                'hidden',
+                v17Selected.size === 0
+            );
+
+            toolbar.classList.toggle(
+                'flex',
+                v17Selected.size > 0
+            );
+        }
+
+        if (count) {
+            count.textContent =
+                `${v17Selected.size} selected`;
+        }
+
+        const all =
+            results.querySelector(
+                '[data-v17-all]'
+            );
+
+        const total =
+            results.querySelectorAll(
+                '[data-v17-select]'
+            ).length;
+
+        if (all) {
+            all.checked =
+                total > 0
+                && v17Selected.size === total;
+
+            all.indeterminate =
+                v17Selected.size > 0
+                && v17Selected.size < total;
+        }
+    }
+
+    results.addEventListener(
+        'change',
+        event => {
+            const select =
+                event.target.closest(
+                    '[data-v17-select]'
+                );
+
+            if (select) {
+                updateV17Selection();
+                return;
+            }
+
+            const all =
+                event.target.closest(
+                    '[data-v17-all]'
+                );
+
+            if (!all) {
+                return;
+            }
+
+            results
+                .querySelectorAll(
+                    '[data-v17-select]'
+                )
+                .forEach(input => {
+                    input.checked =
+                        all.checked;
+                });
+
+            updateV17Selection();
+        }
+    );
+
+    results.addEventListener(
+        'click',
+        async event => {
+            const menuButton =
+                event.target.closest(
+                    '[data-v17-menu]'
+                );
+
+            if (menuButton) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                const panel =
+                    menuButton
+                        .closest(
+                            '[data-v17-menu-wrap]'
+                        )
+                        ?.querySelector(
+                            '[data-v17-menu-panel]'
+                        );
+
+                results
+                    .querySelectorAll(
+                        '[data-v17-menu-panel]'
+                    )
+                    .forEach(item => {
+                        if (item !== panel) {
+                            item.classList.add(
+                                'hidden'
+                            );
+                        }
+                    });
+
+                panel?.classList.toggle(
+                    'hidden'
+                );
+
+                return;
+            }
+
+            const actionButton =
+                event.target.closest(
+                    '[data-v17-action]'
+                );
+
+            if (actionButton) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                const id =
+                    Number(
+                        actionButton.dataset.messageId
+                    );
+
+                const action =
+                    actionButton.dataset.v17Action;
+
+                if (action === 'edit') {
+                    const row =
+                        results.querySelector(
+                            `[data-v17-row][data-message-id="${id}"]`
+                        );
+
+                    row?.dispatchEvent(
+                        new MouseEvent(
+                            'click',
+                            {
+                                bubbles: true,
+                            }
+                        )
+                    );
+
+                    return;
+                }
+
+                if (action === 'send') {
+                    const row =
+                        results.querySelector(
+                            `[data-v17-row][data-message-id="${id}"]`
+                        );
+
+                    row?.dispatchEvent(
+                        new MouseEvent(
+                            'click',
+                            {
+                                bubbles: true,
+                            }
+                        )
+                    );
+
+                    return;
+                }
+
+                try {
+                    actionButton.disabled =
+                        true;
+
+                    await performV17MessageAction(
+                        id,
+                        action
+                    );
+                } catch (error) {
+                    window.alert(
+                        'Unable to complete this email action.'
+                    );
+                } finally {
+                    actionButton.disabled =
+                        false;
+                }
+
+                return;
+            }
+
+            const bulkButton =
+                event.target.closest(
+                    '[data-v17-bulk-action]'
+                );
+
+            if (bulkButton) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                const ids =
+                    Array.from(
+                        v17Selected
+                    );
+
+                const action =
+                    bulkButton.dataset.v17BulkAction;
+
+                if (!ids.length) {
+                    return;
+                }
+
+                if (
+                    action === 'delete_permanently'
+                    && !window.confirm(
+                        `Permanently delete ${ids.length} selected email(s)? This cannot be undone.`
+                    )
+                ) {
+                    return;
+                }
+
+                bulkButton.disabled =
+                    true;
+
+                try {
+                    for (const id of ids) {
+                        await performV17MessageAction(
+                            id,
+                            action
+                        );
+                    }
+                } catch (error) {
+                    window.alert(
+                        'Unable to complete the selected email action.'
+                    );
+                } finally {
+                    bulkButton.disabled =
+                        false;
+                }
+
+                return;
+            }
+
+            const row =
+                event.target.closest(
+                    '[data-v17-row]'
+                );
+
+            if (
+                row
+                && !event.target.closest(
+                    '[data-v17-no-open]'
+                )
+            ) {
+                const id =
+                    Number(
+                        row.dataset.messageId
+                    );
+
+                if (
+                    typeof openMessage
+                    === 'function'
+                ) {
+                    openMessage(id);
+                }
+            }
+        }
+    );
+
+    document.addEventListener(
+        'click',
+        event => {
+            if (
+                event.target.closest(
+                    '[data-v17-menu-wrap]'
+                )
+            ) {
+                return;
+            }
+
+            results
+                .querySelectorAll(
+                    '[data-v17-menu-panel]'
+                )
+                .forEach(panel => {
+                    panel.classList.add(
+                        'hidden'
+                    );
+                });
+        }
+    );
+
+    /*
+     * ESUBIZ_CORE_EMAIL_FOLDER_REFRESH_V1
+     */
+    const folderRefreshButton =
+        document.getElementById(
+            'core-email-folder-refresh'
+        );
+
+    if (folderRefreshButton) {
+        folderRefreshButton.addEventListener(
+            'click',
+            async () => {
+                if (!mailboxId) {
+                    return;
+                }
+
+                folderRefreshButton.disabled =
+                    true;
+
+                try {
+                    const response =
+                        await fetch(
+                            root.dataset.refreshUrl,
+                            {
+                                method: 'POST',
+                                headers: {
+                                    'X-Requested-With':
+                                        'XMLHttpRequest',
+                                    'Accept':
+                                        'application/json',
+                                    'Content-Type':
+                                        'application/json',
+                                    'X-CSRF-TOKEN':
+                                        csrfToken,
+                                },
+                                credentials:
+                                    'same-origin',
+                                body:
+                                    JSON.stringify({
+                                        mailbox_id:
+                                            mailboxId,
+                                        folder:
+                                            folder,
+                                    }),
+                            }
+                        );
+
+                    if (!response.ok) {
+                        throw new Error(
+                            'Refresh failed.'
+                        );
+                    }
+
+                    page = 1;
+
+                    await loadMessages();
+                } catch (error) {
+                    window.alert(
+                        'Unable to refresh this folder.'
+                    );
+                } finally {
+                    folderRefreshButton.disabled =
+                        false;
+                }
+            }
+        );
+    }
+
+    /*
      * ESUBIZ_CORE_EMAIL_REAL_NAVIGATION_LISTENERS_V8B
      *
      * Existing Core Email runtime remains authoritative for
@@ -2829,11 +3891,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (composeCc) {
             composeCc.value =
                 message.cc || '';
+
+            setComposeRecipientVisible(
+                'cc',
+                Boolean(
+                    String(message.cc || '')
+                        .trim()
+                )
+            );
         }
 
         if (composeBcc) {
             composeBcc.value =
                 message.bcc || '';
+
+            setComposeRecipientVisible(
+                'bcc',
+                Boolean(
+                    String(message.bcc || '')
+                        .trim()
+                )
+            );
         }
 
         if (composeSubject) {
@@ -2896,6 +3974,101 @@ document.addEventListener('DOMContentLoaded', () => {
             'core-email-compose-bcc'
         );
 
+    /*
+     * ESUBIZ_CORE_EMAIL_CC_BCC_RUNTIME_V1
+     */
+    const composeCcWrap =
+        document.getElementById(
+            'core-email-compose-cc-wrap'
+        );
+
+    const composeBccWrap =
+        document.getElementById(
+            'core-email-compose-bcc-wrap'
+        );
+
+    const composeCcToggle =
+        document.getElementById(
+            'core-email-compose-cc-toggle'
+        );
+
+    const composeBccToggle =
+        document.getElementById(
+            'core-email-compose-bcc-toggle'
+        );
+
+    const setComposeRecipientVisible =
+        (kind, visible) => {
+            const wrap =
+                kind === 'cc'
+                    ? composeCcWrap
+                    : composeBccWrap;
+
+            const toggle =
+                kind === 'cc'
+                    ? composeCcToggle
+                    : composeBccToggle;
+
+            if (!wrap || !toggle) {
+                return;
+            }
+
+            wrap.classList.toggle(
+                'hidden',
+                !visible
+            );
+
+            toggle.setAttribute(
+                'aria-expanded',
+                visible
+                    ? 'true'
+                    : 'false'
+            );
+
+            toggle.classList.toggle(
+                'bg-blue-50',
+                visible
+            );
+        };
+
+    composeCcToggle?.addEventListener(
+        'click',
+        () => {
+            const visible =
+                composeCcWrap
+                    ?.classList
+                    .contains('hidden');
+
+            setComposeRecipientVisible(
+                'cc',
+                Boolean(visible)
+            );
+
+            if (visible) {
+                composeCc?.focus();
+            }
+        }
+    );
+
+    composeBccToggle?.addEventListener(
+        'click',
+        () => {
+            const visible =
+                composeBccWrap
+                    ?.classList
+                    .contains('hidden');
+
+            setComposeRecipientVisible(
+                'bcc',
+                Boolean(visible)
+            );
+
+            if (visible) {
+                composeBcc?.focus();
+            }
+        }
+    );
+
     const composeSubject =
         document.getElementById(
             'core-email-compose-subject'
@@ -2905,6 +4078,484 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById(
             'core-email-compose-body'
         );
+
+    /*
+     * ESUBIZ_CORE_EMAIL_COMPOSE_FORMATTING_V1
+     *
+     * The contenteditable body remains the canonical rich
+     * compose surface. body_html is already persisted/sent.
+     */
+    const composeFormatButtons =
+        Array.from(
+            document.querySelectorAll(
+                '[data-compose-command]'
+            )
+        );
+
+    const normalizeComposeLink =
+        value => {
+            const raw =
+                String(value || '').trim();
+
+            if (!raw) {
+                return '';
+            }
+
+            if (
+                /^(https?:\/\/|mailto:|tel:)/i
+                    .test(raw)
+            ) {
+                return raw;
+            }
+
+            return `https://${raw}`;
+        };
+
+    const runComposeFormat =
+        (command, value = null) => {
+            if (!composeBody) {
+                return;
+            }
+
+            composeBody.focus();
+
+            document.execCommand(
+                command,
+                false,
+                value
+            );
+
+            composeBody.dispatchEvent(
+                new Event(
+                    'input',
+                    {
+                        bubbles: true
+                    }
+                )
+            );
+        };
+
+    composeFormatButtons.forEach(
+        button => {
+            /*
+             * Prevent the contenteditable selection from
+             * disappearing before the command executes.
+             */
+            button.addEventListener(
+                'mousedown',
+                event => {
+                    event.preventDefault();
+                }
+            );
+
+            button.addEventListener(
+                'click',
+                () => {
+                    const command =
+                        button.dataset
+                            .composeCommand
+                        || '';
+
+                    if (!command) {
+                        return;
+                    }
+
+                    /*
+                     * ESUBIZ_CORE_EMAIL_COMPOSE_LIST_FIX_V1
+                     *
+                     * Build the list directly from the current
+                     * selection instead of relying on the browser's
+                     * inconsistent insertUnorderedList implementation.
+                     */
+                    if (
+                        command ===
+                        'insertUnorderedList'
+                    ) {
+                        const selection =
+                            window.getSelection();
+
+                        if (
+                            !selection
+                            || selection.rangeCount < 1
+                        ) {
+                            return;
+                        }
+
+                        const range =
+                            selection.getRangeAt(0);
+
+                        if (
+                            !composeBody.contains(
+                                range.commonAncestorContainer
+                            )
+                        ) {
+                            composeBody.focus();
+                            return;
+                        }
+
+                        const selectedText =
+                            selection.toString();
+
+                        const lines =
+                            String(selectedText || '')
+                                .split(/\r?\n/)
+                                .map(line => line.trim())
+                                .filter(Boolean);
+
+                        const list =
+                            document.createElement(
+                                'ul'
+                            );
+
+                        list.style.listStyleType =
+                            'disc';
+
+                        list.style.paddingLeft =
+                            '1.5rem';
+
+                        list.style.margin =
+                            '0.5rem 0';
+
+                        (
+                            lines.length
+                                ? lines
+                                : ['']
+                        ).forEach(line => {
+                            const item =
+                                document.createElement(
+                                    'li'
+                                );
+
+                            if (line) {
+                                item.textContent =
+                                    line;
+                            } else {
+                                item.appendChild(
+                                    document.createElement(
+                                        'br'
+                                    )
+                                );
+                            }
+
+                            list.appendChild(item);
+                        });
+
+                        range.deleteContents();
+                        range.insertNode(list);
+
+                        const lastItem =
+                            list.lastElementChild;
+
+                        if (lastItem) {
+                            const caret =
+                                document.createRange();
+
+                            caret.selectNodeContents(
+                                lastItem
+                            );
+
+                            caret.collapse(false);
+
+                            selection.removeAllRanges();
+                            selection.addRange(caret);
+                        }
+
+                        composeBody.focus();
+
+                        composeBody.dispatchEvent(
+                            new Event(
+                                'input',
+                                {
+                                    bubbles: true
+                                }
+                            )
+                        );
+
+                        return;
+                    }
+
+                    if (
+                        command ===
+                        'createLink'
+                    ) {
+                        const selection =
+                            window.getSelection();
+
+                        if (
+                            !selection
+                            || selection.rangeCount < 1
+                            || selection.isCollapsed
+                        ) {
+                            window.alert(
+                                'Select the text you want to link first.'
+                            );
+
+                            return;
+                        }
+
+                        const url =
+                            window.prompt(
+                                'Enter the link URL:'
+                            );
+
+                        if (url === null) {
+                            return;
+                        }
+
+                        const normalized =
+                            normalizeComposeLink(
+                                url
+                            );
+
+                        if (!normalized) {
+                            return;
+                        }
+
+                        runComposeFormat(
+                            'createLink',
+                            normalized
+                        );
+
+                        return;
+                    }
+
+                    runComposeFormat(
+                        command
+                    );
+                }
+            );
+        }
+    );
+
+    /*
+     * ESUBIZ_CORE_EMAIL_SETTINGS_RUNTIME_V1
+     */
+    const coreEmailSaveSettings =
+        document.getElementById(
+            'core-email-save-settings'
+        );
+
+    const coreEmailSettingsEmail =
+        document.getElementById(
+            'core-email-settings-email'
+        );
+
+    const coreEmailSettingsAddress =
+        document.getElementById(
+            'core-email-settings-address'
+        );
+
+    const coreEmailRetentionFields =
+        Array.from(
+            document.querySelectorAll(
+                '[data-retention-folder]'
+            )
+        );
+
+    const coreEmailSourceFields =
+        Array.from(
+            document.querySelectorAll(
+                '[data-email-source]'
+            )
+        );
+
+    const coreEmailSettingsShowUrl =
+        root.dataset.settingsShowUrl || '';
+
+    const coreEmailSettingsSaveUrl =
+        root.dataset.settingsSaveUrl || '';
+
+    const loadCoreEmailSettings =
+        async () => {
+            if (
+                !mailboxId
+                || !coreEmailSettingsShowUrl
+            ) {
+                return;
+            }
+
+            const url =
+                new URL(
+                    coreEmailSettingsShowUrl,
+                    window.location.origin
+                );
+
+            url.searchParams.set(
+                'mailbox_id',
+                mailboxId
+            );
+
+            const response =
+                await fetch(
+                    url.toString(),
+                    {
+                        headers: {
+                            'X-Requested-With':
+                                'XMLHttpRequest',
+                            'Accept':
+                                'application/json'
+                        }
+                    }
+                );
+
+            const payload =
+                await response.json();
+
+            if (!response.ok || !payload.ok) {
+                throw new Error(
+                    payload.message
+                    || 'Unable to load mailbox settings.'
+                );
+            }
+
+            if (coreEmailSettingsEmail) {
+                coreEmailSettingsEmail.value =
+                    payload.mailbox?.email || '';
+            }
+
+            if (coreEmailSettingsAddress) {
+                coreEmailSettingsAddress.textContent =
+                    payload.mailbox?.email || '';
+            }
+
+            const retention =
+                payload.retention_days || {};
+
+            coreEmailRetentionFields.forEach(
+                field => {
+                    const folder =
+                        field.dataset
+                            .retentionFolder;
+
+                    field.value =
+                        String(
+                            retention[folder]
+                            ?? 0
+                        );
+                }
+            );
+
+            const visibility =
+                payload.source_visibility || {};
+
+            coreEmailSourceFields.forEach(
+                field => {
+                    const source =
+                        field.dataset.emailSource;
+
+                    field.checked =
+                        Object.prototype
+                            .hasOwnProperty.call(
+                                visibility,
+                                source
+                            )
+                            ? Boolean(
+                                visibility[source]
+                            )
+                            : true;
+                }
+            );
+        };
+
+    const saveCoreEmailSettings =
+        async () => {
+            if (
+                !mailboxId
+                || !coreEmailSettingsSaveUrl
+            ) {
+                return;
+            }
+
+            const retention = {};
+
+            coreEmailRetentionFields.forEach(
+                field => {
+                    retention[
+                        field.dataset.retentionFolder
+                    ] = Number(field.value || 0);
+                }
+            );
+
+            const visibility = {};
+
+            coreEmailSourceFields.forEach(
+                field => {
+                    visibility[
+                        field.dataset.emailSource
+                    ] = field.checked;
+                }
+            );
+
+            coreEmailSaveSettings.disabled = true;
+
+            try {
+                const response =
+                    await fetch(
+                        coreEmailSettingsSaveUrl,
+                        {
+                            method: 'POST',
+
+                            headers: {
+                                'X-Requested-With':
+                                    'XMLHttpRequest',
+                                'Accept':
+                                    'application/json',
+                                'Content-Type':
+                                    'application/json',
+                                'X-CSRF-TOKEN':
+                                    csrfToken
+                            },
+
+                            body: JSON.stringify({
+                                mailbox_id:
+                                    Number(mailboxId),
+
+                                retention_days:
+                                    retention,
+
+                                source_visibility:
+                                    visibility
+                            })
+                        }
+                    );
+
+                const payload =
+                    await response.json();
+
+                if (!response.ok || !payload.ok) {
+                    throw new Error(
+                        payload.message
+                        || 'Unable to save mailbox settings.'
+                    );
+                }
+
+                coreEmailSaveSettings.textContent =
+                    'Saved';
+
+                window.setTimeout(
+                    () => {
+                        coreEmailSaveSettings.textContent =
+                            'Save Settings';
+                    },
+                    1400
+                );
+            } catch (error) {
+                window.alert(
+                    error?.message
+                    || 'Unable to save mailbox settings.'
+                );
+            } finally {
+                coreEmailSaveSettings.disabled =
+                    false;
+            }
+        };
+
+    if (coreEmailSaveSettings) {
+        coreEmailSaveSettings.addEventListener(
+            'click',
+            saveCoreEmailSettings
+        );
+    }
 
     const composeAttachments =
         document.getElementById(
@@ -3194,11 +4845,10 @@ document.addEventListener('DOMContentLoaded', () => {
      *
      * Folder rows and AJAX search results share this viewer.
      */
-    const messageViewPanel =
-        document.getElementById(
-            'core-email-message-view-panel'
-        );
-
+    /*
+     * messageViewPanel is declared once by the
+     * authoritative Level-2 runtime above.
+     */
     const messageListPanel =
         document.getElementById(
             'core-email-list-panel'
@@ -3255,10 +4905,25 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const token =
+            '/messages/0';
+
+        if (!template.includes(token)) {
+            messageViewLoading?.classList.add(
+                'hidden'
+            );
+
+            messageViewContent?.classList.remove(
+                'hidden'
+            );
+
+            return;
+        }
+
         const url = new URL(
             template.replace(
-                /\/0(?:\?|$)/,
-                `/${messageId}$1`
+                token,
+                `/messages/${messageId}`
             ),
             window.location.origin
         );
@@ -3282,8 +4947,34 @@ document.addEventListener('DOMContentLoaded', () => {
             );
 
             if (!response.ok) {
+                const failureBody =
+                    await response.text();
+
+                console.error(
+                    '[Core Email] message endpoint failed',
+                    {
+                        status: response.status,
+                        statusText: response.statusText,
+                        url: response.url,
+                        body: failureBody,
+                    }
+                );
+
                 throw new Error(
-                    'Unable to open email.'
+                    'HTTP '
+                    + response.status
+                    + ' '
+                    + response.statusText
+                    + (
+                        failureBody
+                            ? ' — '
+                                + failureBody
+                                    .replace(/<[^>]*>/g, ' ')
+                                    .replace(/\\s+/g, ' ')
+                                    .trim()
+                                    .slice(0, 300)
+                            : ''
+                    )
                 );
             }
 
@@ -3292,6 +4983,81 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const message =
                 payload.message || {};
+
+            /* ESUBIZ_CORE_EMAIL_DETAIL_STATE_V1 */
+            window.__coreEmailOpenMessage = {
+                id: Number(message.id || messageId),
+                message,
+                replyForward:
+                    payload.reply_forward || {},
+                attachments:
+                    Array.isArray(payload.attachments)
+                        ? payload.attachments
+                        : [],
+            };
+
+            const detailActions =
+                document.getElementById(
+                    'core-email-message-actions'
+                );
+
+            const detailIds = [
+                'core-email-view-reply',
+                'core-email-view-forward',
+                'core-email-view-read',
+                'core-email-view-unread',
+                'core-email-view-move-spam',
+                'core-email-view-move-inbox',
+                'core-email-view-edit',
+                'core-email-view-send-draft',
+                'core-email-view-restore',
+                'core-email-view-delete',
+                'core-email-view-delete-permanent',
+            ];
+
+            detailIds.forEach(id => {
+                document.getElementById(id)
+                    ?.classList.add('hidden');
+            });
+
+            const showDetail = id => {
+                document.getElementById(id)
+                    ?.classList.remove('hidden');
+            };
+
+            const detailFolder =
+                String(
+                    message.folder || folder || ''
+                ).toLowerCase();
+
+            detailActions?.classList.remove('hidden');
+            detailActions?.classList.add('flex');
+
+            if (detailFolder === 'inbox') {
+                showDetail('core-email-view-reply');
+                showDetail('core-email-view-forward');
+                showDetail('core-email-view-unread');
+                showDetail('core-email-view-move-spam');
+                showDetail('core-email-view-delete');
+            } else if (detailFolder === 'spam') {
+                showDetail('core-email-view-reply');
+                showDetail('core-email-view-forward');
+                showDetail('core-email-view-unread');
+                showDetail('core-email-view-move-inbox');
+                showDetail('core-email-view-delete');
+            } else if (detailFolder === 'sent') {
+                showDetail('core-email-view-forward');
+                showDetail('core-email-view-delete');
+            } else if (detailFolder === 'draft') {
+                showDetail('core-email-view-edit');
+                showDetail('core-email-view-send-draft');
+                showDetail('core-email-view-delete');
+            } else if (detailFolder === 'trash') {
+                showDetail('core-email-view-restore');
+                showDetail(
+                    'core-email-view-delete-permanent'
+                );
+            }
 
             /*
              * Draft rows use the same secure detail endpoint,
@@ -3401,20 +5167,318 @@ document.addEventListener('DOMContentLoaded', () => {
                 );
 
             if (attachments.length) {
-                attachmentList.innerHTML =
-                    attachments.map(item => `
-                        <div class="rounded-xl border border-slate-200 p-3">
-                            <div class="truncate text-sm font-semibold text-slate-800">
-                                ${escapeSearchHtml(item.name)}
-                            </div>
+                const attachmentExtension =
+                    name => {
+                        const value =
+                            String(name || '');
 
-                            <div class="mt-1 text-xs text-slate-500">
-                                ${item.size
-                                    ? `${Math.ceil(item.size / 1024)} KB`
-                                    : 'Attachment'}
+                        const dot =
+                            value.lastIndexOf('.');
+
+                        if (
+                            dot <= 0
+                            || dot === value.length - 1
+                        ) {
+                            return '';
+                        }
+
+                        return value
+                            .slice(dot + 1)
+                            .toLowerCase();
+                    };
+
+                const attachmentFileType =
+                    item => {
+                        const ext =
+                            attachmentExtension(
+                                item.name
+                            );
+
+                        const known = {
+                            pdf: 'PDF',
+                            doc: 'DOC',
+                            docx: 'DOCX',
+                            xls: 'XLS',
+                            xlsx: 'XLSX',
+                            csv: 'CSV',
+                            ppt: 'PPT',
+                            pptx: 'PPTX',
+                            txt: 'TXT',
+                            rtf: 'RTF',
+                            zip: 'ZIP',
+                            rar: 'RAR',
+                            '7z': '7Z',
+                            jpg: 'JPG',
+                            jpeg: 'JPEG',
+                            png: 'PNG',
+                            gif: 'GIF',
+                            webp: 'WEBP',
+                            svg: 'SVG',
+                            mp3: 'MP3',
+                            wav: 'WAV',
+                            mp4: 'MP4',
+                            mov: 'MOV'
+                        };
+
+                        if (
+                            ext
+                            && known[ext]
+                        ) {
+                            return known[ext];
+                        }
+
+                        if (ext) {
+                            return ext
+                                .slice(0, 5)
+                                .toUpperCase();
+                        }
+
+                        const mime =
+                            String(
+                                item.mime_type || ''
+                            );
+
+                        if (
+                            mime.startsWith(
+                                'image/'
+                            )
+                        ) {
+                            return 'IMG';
+                        }
+
+                        if (
+                            mime.startsWith(
+                                'video/'
+                            )
+                        ) {
+                            return 'VIDEO';
+                        }
+
+                        if (
+                            mime.startsWith(
+                                'audio/'
+                            )
+                        ) {
+                            return 'AUDIO';
+                        }
+
+                        return 'FILE';
+                    };
+
+                const attachmentReadableSize =
+                    bytes => {
+                        const size =
+                            Number(bytes || 0);
+
+                        if (size < 1024) {
+                            return `${size} B`;
+                        }
+
+                        if (
+                            size
+                            < 1024 * 1024
+                        ) {
+                            return `${
+                                (
+                                    size / 1024
+                                ).toFixed(1)
+                            } KB`;
+                        }
+
+                        return `${
+                            (
+                                size
+                                / 1024
+                                / 1024
+                            ).toFixed(1)
+                        } MB`;
+                    };
+
+                const attachmentCanPreview =
+                    item => {
+                        const mime =
+                            String(
+                                item.mime_type || ''
+                            )
+                                .toLowerCase();
+
+                        return (
+                            mime ===
+                                'application/pdf'
+                            || mime ===
+                                'text/plain'
+                            || mime ===
+                                'image/jpeg'
+                            || mime ===
+                                'image/png'
+                            || mime ===
+                                'image/gif'
+                            || mime ===
+                                'image/webp'
+                            || mime.startsWith(
+                                'audio/'
+                            )
+                            || mime.startsWith(
+                                'video/'
+                            )
+                        );
+                    };
+
+                attachmentList.innerHTML =
+                    attachments.map(item => {
+                        const downloadTemplate =
+                            root.dataset
+                                .attachmentUrlTemplate
+                            || '';
+
+                        const previewTemplate =
+                            root.dataset
+                                .attachmentPreviewUrlTemplate
+                            || '';
+
+                        const downloadToken =
+                            '/attachments/0/download';
+
+                        const previewToken =
+                            '/attachments/0/preview';
+
+                        let downloadUrl = '#';
+                        let previewUrl = '#';
+
+                        if (
+                            Number(item.id) > 0
+                            && downloadTemplate
+                                .includes(
+                                    downloadToken
+                                )
+                        ) {
+                            const url =
+                                new URL(
+                                    downloadTemplate
+                                        .replace(
+                                            downloadToken,
+                                            `/attachments/${Number(item.id)}/download`
+                                        ),
+                                    window.location.origin
+                                );
+
+                            url.searchParams.set(
+                                'mailbox',
+                                String(mailboxId)
+                            );
+
+                            downloadUrl =
+                                url.toString();
+                        }
+
+                        if (
+                            Number(item.id) > 0
+                            && previewTemplate
+                                .includes(
+                                    previewToken
+                                )
+                        ) {
+                            const url =
+                                new URL(
+                                    previewTemplate
+                                        .replace(
+                                            previewToken,
+                                            `/attachments/${Number(item.id)}/preview`
+                                        ),
+                                    window.location.origin
+                                );
+
+                            url.searchParams.set(
+                                'mailbox',
+                                String(mailboxId)
+                            );
+
+                            previewUrl =
+                                url.toString();
+                        }
+
+                        const type =
+                            attachmentFileType(
+                                item
+                            );
+
+                        const size =
+                            attachmentReadableSize(
+                                item.size
+                            );
+
+                        const previewButton =
+                            attachmentCanPreview(
+                                item
+                            )
+                                ? `
+                                    <button
+                                        type="button"
+                                        data-core-email-attachment-preview
+                                        data-preview-url="${escapeSearchHtml(previewUrl)}"
+                                        data-preview-name="${escapeSearchHtml(item.name || 'Attachment')}"
+                                        data-preview-type="${escapeSearchHtml(type)}"
+                                        data-preview-size="${escapeSearchHtml(size)}"
+                                        class="font-semibold text-blue-700 hover:underline"
+                                    >
+                                        Preview
+                                    </button>
+
+                                    <span
+                                        class="text-slate-300"
+                                    >
+                                        |
+                                    </span>
+                                `
+                                : '';
+
+                        return `
+                            <div
+                                class="flex max-w-full items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3"
+                            >
+                                <div
+                                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-[10px] font-bold text-slate-600"
+                                >
+                                    ${escapeSearchHtml(type)}
+                                </div>
+
+                                <div
+                                    class="min-w-0 flex-1"
+                                >
+                                    <div
+                                        class="truncate text-sm font-semibold text-slate-700"
+                                        title="${escapeSearchHtml(item.name || 'Attachment')}"
+                                    >
+                                        ${escapeSearchHtml(
+                                            item.name
+                                            || 'Attachment'
+                                        )}
+                                    </div>
+
+                                    <div
+                                        class="mt-0.5 text-[10px] text-slate-500"
+                                    >
+                                        ${escapeSearchHtml(type)}
+                                        •
+                                        ${escapeSearchHtml(size)}
+                                    </div>
+
+                                    <div
+                                        class="mt-2 flex flex-wrap items-center gap-2 text-xs"
+                                    >
+                                        ${previewButton}
+
+                                        <a
+                                            href="${escapeSearchHtml(downloadUrl)}"
+                                            class="font-semibold text-blue-700 hover:underline"
+                                        >
+                                            Download
+                                        </a>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    `).join('');
+                        `;
+                    }).join('');
 
                 attachmentSection
                     .classList.remove('hidden');
@@ -3430,9 +5494,26 @@ document.addEventListener('DOMContentLoaded', () => {
             messageViewContent
                 ?.classList.remove('hidden');
         } catch (error) {
+            const detail =
+                error instanceof Error
+                    ? error.message
+                    : String(error);
+
+            console.error(
+                '[Core Email] openMessage failed',
+                {
+                    messageId,
+                    mailboxId,
+                    template:
+                        root.dataset.messageUrlTemplate,
+                    error,
+                }
+            );
+
             if (messageViewLoading) {
                 messageViewLoading.textContent =
-                    'This email could not be opened.';
+                    'This email could not be opened: '
+                    + detail;
             }
         }
     };
@@ -3451,6 +5532,342 @@ document.addEventListener('DOMContentLoaded', () => {
             openMessage(
                 target.dataset.messageId
             );
+        }
+    );
+
+    /*
+     * ESUBIZ_CORE_EMAIL_ATTACHMENT_PREVIEW_RUNTIME_V1
+     */
+    const attachmentPreviewModal =
+        document.getElementById(
+            'core-email-attachment-preview-modal'
+        );
+
+    const attachmentPreviewFrame =
+        document.getElementById(
+            'core-email-attachment-preview-frame'
+        );
+
+    const attachmentPreviewTitle =
+        document.getElementById(
+            'core-email-attachment-preview-title'
+        );
+
+    const attachmentPreviewMeta =
+        document.getElementById(
+            'core-email-attachment-preview-meta'
+        );
+
+    const closeAttachmentPreview =
+        () => {
+            if (
+                !attachmentPreviewModal
+            ) {
+                return;
+            }
+
+            attachmentPreviewModal
+                .classList.add('hidden');
+
+            attachmentPreviewModal
+                .classList.remove('flex');
+
+            if (
+                attachmentPreviewFrame
+            ) {
+                attachmentPreviewFrame
+                    .removeAttribute('src');
+            }
+
+            document.body
+                .classList.remove(
+                    'overflow-hidden'
+                );
+        };
+
+    document.addEventListener(
+        'click',
+        event => {
+            const previewButton =
+                event.target.closest(
+                    '[data-core-email-attachment-preview]'
+                );
+
+            if (previewButton) {
+                event.preventDefault();
+
+                const url =
+                    previewButton.dataset
+                        .previewUrl
+                    || '';
+
+                if (
+                    !url
+                    || url === '#'
+                ) {
+                    return;
+                }
+
+                if (
+                    attachmentPreviewTitle
+                ) {
+                    attachmentPreviewTitle
+                        .textContent =
+                            previewButton.dataset
+                                .previewName
+                            || 'Attachment Preview';
+                }
+
+                if (
+                    attachmentPreviewMeta
+                ) {
+                    attachmentPreviewMeta
+                        .textContent = [
+                            previewButton.dataset
+                                .previewType
+                                || 'FILE',
+                            previewButton.dataset
+                                .previewSize
+                                || ''
+                        ]
+                            .filter(Boolean)
+                            .join(' • ');
+                }
+
+                if (
+                    attachmentPreviewFrame
+                ) {
+                    attachmentPreviewFrame.src =
+                        url;
+                }
+
+                attachmentPreviewModal
+                    ?.classList.remove(
+                        'hidden'
+                    );
+
+                attachmentPreviewModal
+                    ?.classList.add(
+                        'flex'
+                    );
+
+                document.body
+                    .classList.add(
+                        'overflow-hidden'
+                    );
+
+                return;
+            }
+
+            if (
+                event.target.closest(
+                    '#core-email-attachment-preview-close'
+                )
+            ) {
+                closeAttachmentPreview();
+                return;
+            }
+
+            if (
+                event.target ===
+                    attachmentPreviewModal
+            ) {
+                closeAttachmentPreview();
+            }
+        }
+    );
+
+    document.addEventListener(
+        'keydown',
+        event => {
+            if (
+                event.key === 'Escape'
+                && attachmentPreviewModal
+                && !attachmentPreviewModal
+                    .classList.contains(
+                        'hidden'
+                    )
+            ) {
+                closeAttachmentPreview();
+            }
+        }
+    );
+
+    /*
+     * ESUBIZ_CORE_EMAIL_DETAIL_ACTION_RUNTIME_V1
+     */
+    document.addEventListener(
+        'click',
+        async event => {
+            const current =
+                window.__coreEmailOpenMessage;
+
+            const actionButton =
+                event.target.closest(
+                    '[data-detail-action]'
+                );
+
+            if (actionButton) {
+                event.preventDefault();
+
+                if (!current?.id) {
+                    return;
+                }
+
+                const action =
+                    actionButton.dataset
+                        .detailAction;
+
+                if (
+                    (
+                        action === 'delete'
+                        || action
+                            === 'delete_permanently'
+                    )
+                    && !window.confirm(
+                        action
+                            === 'delete_permanently'
+                            ? 'Permanently delete this email? This cannot be undone.'
+                            : 'Delete this email?'
+                    )
+                ) {
+                    return;
+                }
+
+                actionButton.disabled = true;
+
+                try {
+                    await performV17MessageAction(
+                        current.id,
+                        action
+                    );
+
+                    messageViewPanel
+                        ?.classList.add('hidden');
+
+                    messageListPanel
+                        ?.classList.remove('hidden');
+
+                    window.__coreEmailOpenMessage =
+                        null;
+
+                    await loadMessages();
+                } catch (error) {
+                    console.error(
+                        '[Core Email] detail action failed',
+                        error
+                    );
+
+                    window.alert(
+                        error?.message
+                        || 'Unable to complete this email action.'
+                    );
+                } finally {
+                    actionButton.disabled = false;
+                }
+
+                return;
+            }
+
+            if (
+                event.target.closest(
+                    '#core-email-view-reply'
+                )
+            ) {
+                event.preventDefault();
+
+                if (!current) {
+                    return;
+                }
+
+                const reply =
+                    current.replyForward?.reply
+                    || {};
+
+                openDraftInCompose({
+                    id: null,
+                    folder: 'draft',
+                    to: reply.to || '',
+                    cc: '',
+                    bcc: '',
+                    subject:
+                        reply.subject || '',
+                    body: '',
+                    body_html: '',
+                    attachments: [],
+                });
+
+                return;
+            }
+
+            if (
+                event.target.closest(
+                    '#core-email-view-forward'
+                )
+            ) {
+                event.preventDefault();
+
+                if (!current) {
+                    return;
+                }
+
+                const forward =
+                    current.replyForward?.forward
+                    || {};
+
+                const forwardedBody = [
+                    '',
+                    '',
+                    '---------- Forwarded message ----------',
+                    `From: ${
+                        forward.original_from || ''
+                    }`,
+                    `To: ${
+                        forward.original_to || ''
+                    }`,
+                    `Subject: ${
+                        forward.original_subject || ''
+                    }`,
+                    '',
+                    forward.body || '',
+                ].join('\n');
+
+                openDraftInCompose({
+                    id: null,
+                    folder: 'draft',
+                    to: '',
+                    cc: '',
+                    bcc: '',
+                    subject:
+                        forward.subject || 'Fwd:',
+                    body: forwardedBody,
+                    body_html: '',
+                    attachments: [],
+                });
+
+                return;
+            }
+
+            if (
+                event.target.closest(
+                    '#core-email-view-edit'
+                )
+                || event.target.closest(
+                    '#core-email-view-send-draft'
+                )
+            ) {
+                event.preventDefault();
+
+                if (!current?.message) {
+                    return;
+                }
+
+                openDraftInCompose({
+                    ...current.message,
+                    attachments:
+                        current.attachments || [],
+                });
+            }
         }
     );
 
@@ -4861,1347 +7278,10 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 
 
-{{-- ESUBIZ_CORE_EMAIL_UNIFIED_MAILBOX_RUNTIME_V17 --}}
-<style>
-.core-email-v17-menu-wrap{position:relative;display:inline-flex}
-.core-email-v17-menu{display:none;position:absolute;right:0;top:100%;z-index:100;width:190px;margin-top:4px}
-.core-email-v17-menu.open{display:block}
-.core-email-v17-row{cursor:pointer}
-.core-email-v17-row:hover{background:rgb(239 246 255/.7)}
-.core-email-v17-row.selected{background:rgb(239 246 255)}
-.core-email-v17-bulk{display:none}
-.core-email-v17-bulk.visible{display:flex}
-</style>
 
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    const root =
-        document.getElementById(
-            'core-email-workspace'
-        );
 
-    const results =
-        document.getElementById(
-            'core-email-message-results'
-        );
 
-    if (!root || !results) {
-        return;
-    }
 
-    const folders = [
-        'inbox',
-        'spam',
-        'draft',
-        'sent',
-        'trash'
-    ];
 
-    const ACTION_URL =
-        @json(
-            url(
-                '/admin/email/messages/__MESSAGE__/action'
-            )
-        );
-
-    const csrf =
-        document.querySelector(
-            'meta[name="csrf-token"]'
-        )?.content || '';
-
-    const previous =
-        document.getElementById(
-            'core-email-previous'
-        );
-
-    const next =
-        document.getElementById(
-            'core-email-next'
-        );
-
-    const pageLabel =
-        document.getElementById(
-            'core-email-page-label'
-        );
-
-    let folder = 'inbox';
-    let page = 1;
-    let serial = 0;
-    let rows = [];
-    let selected = new Set();
-
-    const esc = value =>
-        String(value ?? '')
-            .replaceAll('&', '&amp;')
-            .replaceAll('<', '&lt;')
-            .replaceAll('>', '&gt;')
-            .replaceAll('"', '&quot;')
-            .replaceAll("'", '&#039;');
-
-    const mailboxId = () => {
-        const tabs =
-            Array.from(
-                document.querySelectorAll(
-                    '[data-email-level1="mailbox"]'
-                )
-            );
-
-        const active =
-            tabs.find(
-                tab =>
-                    tab.classList.contains(
-                        'bg-blue-800'
-                    )
-            );
-
-        return Number(
-            (
-                active || tabs[0]
-            )?.dataset.mailboxId || 0
-        );
-    };
-
-    const status = message => {
-        if (folder === 'sent') {
-            return ['Sent',
-                'bg-emerald-50 text-emerald-700'];
-        }
-
-        if (folder === 'draft') {
-            return ['Draft',
-                'bg-amber-50 text-amber-700'];
-        }
-
-        if (folder === 'spam') {
-            return ['Spam',
-                'bg-orange-50 text-orange-700'];
-        }
-
-        if (folder === 'trash') {
-            return ['Deleted',
-                'bg-red-50 text-red-700'];
-        }
-
-        return message?.read_at
-            ? ['Read',
-               'bg-slate-100 text-slate-600']
-            : ['Unread',
-               'bg-blue-50 text-blue-700'];
-    };
-
-    const counterpartyHeading = () =>
-        folder === 'sent'
-        || folder === 'draft'
-            ? 'To'
-            : folder === 'trash'
-                ? 'From / To'
-                : 'From';
-
-    const actions = message => {
-        const read =
-            Boolean(message?.read_at);
-
-        if (folder === 'inbox') {
-            return [
-                [
-                    read ? 'unread' : 'read',
-                    read
-                        ? 'Mark unread'
-                        : 'Mark read'
-                ],
-                ['spam', 'Move to Spam'],
-                ['delete', 'Delete']
-            ];
-        }
-
-        if (folder === 'spam') {
-            return [
-                [
-                    read ? 'unread' : 'read',
-                    read
-                        ? 'Mark unread'
-                        : 'Mark read'
-                ],
-                ['inbox', 'Move to Inbox'],
-                ['delete', 'Delete']
-            ];
-        }
-
-        if (folder === 'sent') {
-            return [
-                ['delete', 'Delete']
-            ];
-        }
-
-        if (folder === 'draft') {
-            return [
-                ['edit', 'Edit'],
-                ['delete', 'Delete']
-            ];
-        }
-
-        if (folder === 'trash') {
-            return [
-                ['restore', 'Restore'],
-                [
-                    'delete_permanently',
-                    'Delete permanently'
-                ]
-            ];
-        }
-
-        return [];
-    };
-
-    const bulkActions = () => {
-        if (folder === 'inbox') {
-            return [
-                ['read', 'Mark read'],
-                ['unread', 'Mark unread'],
-                ['spam', 'Move to Spam'],
-                ['delete', 'Delete']
-            ];
-        }
-
-        if (folder === 'spam') {
-            return [
-                ['read', 'Mark read'],
-                ['unread', 'Mark unread'],
-                ['inbox', 'Move to Inbox'],
-                ['delete', 'Delete']
-            ];
-        }
-
-        if (
-            folder === 'sent'
-            || folder === 'draft'
-        ) {
-            return [
-                ['delete', 'Delete']
-            ];
-        }
-
-        if (folder === 'trash') {
-            return [
-                ['restore', 'Restore'],
-                [
-                    'delete_permanently',
-                    'Delete permanently'
-                ]
-            ];
-        }
-
-        return [];
-    };
-
-    const formatDate = message => {
-        const value =
-            message?.sent_at
-            || message?.received_at
-            || message?.created_at;
-
-        if (!value) {
-            return '—';
-        }
-
-        const date =
-            new Date(value);
-
-        if (
-            Number.isNaN(
-                date.getTime()
-            )
-        ) {
-            return String(value);
-        }
-
-        return date.toLocaleString();
-    };
-
-    const requestAction =
-        async (id, action) => {
-            const response =
-                await fetch(
-                    ACTION_URL.replace(
-                        '__MESSAGE__',
-                        String(id)
-                    ),
-                    {
-                        method: 'POST',
-
-                        credentials:
-                            'same-origin',
-
-                        headers: {
-                            'Accept':
-                                'application/json',
-
-                            'Content-Type':
-                                'application/json',
-
-                            'X-Requested-With':
-                                'XMLHttpRequest',
-
-                            'X-CSRF-TOKEN':
-                                csrf
-                        },
-
-                        body:
-                            JSON.stringify({
-                                mailbox_id:
-                                    mailboxId(),
-                                action
-                            })
-                    }
-                );
-
-            const data =
-                await response.json();
-
-            if (
-                !response.ok
-                || data?.ok === false
-            ) {
-                throw new Error(
-                    data?.message
-                    || 'Email action failed.'
-                );
-            }
-
-            return data;
-        };
-
-    const updateSelection = () => {
-        const toolbar =
-            document.querySelector(
-                '[data-v17-bulk]'
-            );
-
-        toolbar?.classList.toggle(
-            'visible',
-            selected.size > 0
-        );
-
-        const count =
-            document.querySelector(
-                '[data-v17-count]'
-            );
-
-        if (count) {
-            count.textContent =
-                `${selected.size} selected`;
-        }
-
-        document
-            .querySelectorAll(
-                '[data-v17-row]'
-            )
-            .forEach(row => {
-                row.classList.toggle(
-                    'selected',
-                    selected.has(
-                        Number(
-                            row.dataset.messageId
-                        )
-                    )
-                );
-            });
-
-        const all =
-            document.querySelector(
-                '[data-v17-all]'
-            );
-
-        if (all) {
-            all.checked =
-                rows.length > 0
-                && selected.size ===
-                    rows.length;
-
-            all.indeterminate =
-                selected.size > 0
-                && selected.size <
-                    rows.length;
-        }
-    };
-
-    const render = messages => {
-        rows =
-            Array.isArray(messages)
-                ? messages
-                : [];
-
-        selected.clear();
-
-        if (!rows.length) {
-            results.innerHTML = `
-                <div
-                    class="py-12 text-center text-sm font-semibold text-slate-600"
-                >
-                    ${
-                        folder === 'inbox'
-                            ? 'No emails in Inbox.'
-                            : folder === 'sent'
-                                ? 'No sent emails yet.'
-                                : folder === 'draft'
-                                    ? 'No drafts yet.'
-                                    : folder === 'spam'
-                                        ? 'No spam emails.'
-                                        : 'Trash is empty.'
-                    }
-                </div>
-            `;
-            return;
-        }
-
-        const bulk =
-            bulkActions()
-                .map(([action, label]) => `
-                    <button
-                        type="button"
-                        data-v17-bulk-action="${esc(action)}"
-                        class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-blue-300 hover:text-blue-700"
-                    >
-                        ${esc(label)}
-                    </button>
-                `)
-                .join('');
-
-        const body =
-            rows.map(message => {
-                const id =
-                    Number(message.id);
-
-                const state =
-                    status(message);
-
-                const menu =
-                    actions(message)
-                        .map(
-                            ([action, label]) => `
-                                <button
-                                    type="button"
-                                    data-v17-action="${esc(action)}"
-                                    data-message-id="${id}"
-                                    class="block w-full px-4 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
-                                >
-                                    ${esc(label)}
-                                </button>
-                            `
-                        )
-                        .join('');
-
-                return `
-                    <tr
-                        data-v17-row
-                        data-message-id="${id}"
-                        class="core-email-v17-row border-b border-slate-100"
-                    >
-                        <td class="w-12 px-4 py-4">
-                            <input
-                                type="checkbox"
-                                data-v17-select="${id}"
-                                class="h-4 w-4 rounded border-slate-300"
-                            >
-                        </td>
-
-                        <td
-                            class="px-4 py-4 font-medium text-slate-800"
-                        >
-                            ${esc(
-                                message.counterparty
-                                || '—'
-                            )}
-                        </td>
-
-                        <td class="px-4 py-4">
-                            <span
-                                class="font-medium text-slate-800"
-                            >
-                                ${esc(
-                                    message.subject
-                                    || '(No subject)'
-                                )}
-                            </span>
-
-                            ${
-                                message.has_attachments
-                                    ? `
-                                        <span
-                                            class="ml-2 rounded bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600"
-                                        >
-                                            Attachment
-                                        </span>
-                                    `
-                                    : ''
-                            }
-                        </td>
-
-                        <td class="px-4 py-4">
-                            <span
-                                class="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700"
-                            >
-                                ${esc(
-                                    message.source_label
-                                    || 'Direct Email'
-                                )}
-                            </span>
-                        </td>
-
-                        <td class="px-4 py-4">
-                            <span
-                                class="rounded-full px-2.5 py-1 text-xs font-semibold ${state[1]}"
-                            >
-                                ${esc(state[0])}
-                            </span>
-                        </td>
-
-                        <td
-                            class="whitespace-nowrap px-4 py-4 text-sm text-slate-500"
-                        >
-                            ${esc(
-                                formatDate(message)
-                            )}
-                        </td>
-
-                        <td
-                            class="w-20 px-4 py-4 text-center"
-                        >
-                            <div
-                                class="core-email-v17-menu-wrap"
-                            >
-                                <button
-                                    type="button"
-                                    data-v17-menu
-                                    aria-label="Action"
-                                    class="flex h-8 w-8 items-center justify-center rounded-full text-lg font-bold text-slate-600 hover:bg-slate-100 hover:text-blue-700"
-                                >
-                                    ⋮
-                                </button>
-
-                                <div
-                                    class="core-email-v17-menu rounded-xl border border-slate-200 bg-white py-1 shadow-xl"
-                                >
-                                    ${menu}
-                                </div>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-
-        results.innerHTML = `
-            <div
-                data-v17-bulk
-                class="core-email-v17-bulk mb-3 flex-wrap items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2"
-            >
-                <strong
-                    data-v17-count
-                    class="mr-2 text-xs text-blue-800"
-                >
-                    0 selected
-                </strong>
-
-                ${bulk}
-            </div>
-
-            <div
-                class="overflow-visible rounded-xl border border-slate-200 bg-white"
-            >
-                <div class="overflow-x-auto">
-                    <table
-                        class="min-w-full border-collapse text-left"
-                    >
-                        <thead
-                            class="border-b border-slate-200 bg-slate-50"
-                        >
-                            <tr>
-                                <th class="w-12 px-4 py-3">
-                                    <input
-                                        type="checkbox"
-                                        data-v17-all
-                                        class="h-4 w-4 rounded border-slate-300"
-                                    >
-                                </th>
-
-                                <th class="px-4 py-3 text-xs font-bold uppercase text-slate-500">
-                                    ${esc(
-                                        counterpartyHeading()
-                                    )}
-                                </th>
-
-                                <th class="px-4 py-3 text-xs font-bold uppercase text-slate-500">
-                                    Subject
-                                </th>
-
-                                <th class="px-4 py-3 text-xs font-bold uppercase text-slate-500">
-                                    Source
-                                </th>
-
-                                <th class="px-4 py-3 text-xs font-bold uppercase text-slate-500">
-                                    Status
-                                </th>
-
-                                <th class="px-4 py-3 text-xs font-bold uppercase text-slate-500">
-                                    Date
-                                </th>
-
-                                <th class="w-20 px-4 py-3 text-center text-xs font-bold uppercase text-slate-500">
-                                    Action
-                                </th>
-                            </tr>
-                        </thead>
-
-                        <tbody>
-                            ${body}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `;
-    };
-
-    const load =
-        async (
-            targetFolder = folder,
-            targetPage = page
-        ) => {
-            if (
-                !folders.includes(
-                    targetFolder
-                )
-            ) {
-                return;
-            }
-
-            const mailbox =
-                mailboxId();
-
-            const base =
-                root.dataset.messagesUrl;
-
-            if (!mailbox || !base) {
-                return;
-            }
-
-            folder =
-                targetFolder;
-
-            page =
-                Math.max(
-                    1,
-                    Number(targetPage || 1)
-                );
-
-            const request =
-                ++serial;
-
-            selected.clear();
-
-            results.innerHTML = `
-                <div
-                    class="py-10 text-center text-sm text-slate-500"
-                >
-                    Loading emails...
-                </div>
-            `;
-
-            try {
-                const url =
-                    new URL(
-                        base,
-                        window.location.origin
-                    );
-
-                url.searchParams.set(
-                    'mailbox',
-                    String(mailbox)
-                );
-
-                url.searchParams.set(
-                    'folder',
-                    folder
-                );
-
-                url.searchParams.set(
-                    'page',
-                    String(page)
-                );
-
-                const response =
-                    await fetch(
-                        url.toString(),
-                        {
-                            headers: {
-                                'Accept':
-                                    'application/json',
-
-                                'X-Requested-With':
-                                    'XMLHttpRequest'
-                            },
-
-                            credentials:
-                                'same-origin',
-
-                            cache:
-                                'no-store'
-                        }
-                    );
-
-                const data =
-                    await response.json();
-
-                if (request !== serial) {
-                    return;
-                }
-
-                if (
-                    !response.ok
-                    || data?.ok === false
-                ) {
-                    throw new Error(
-                        data?.message
-                        || 'Email folder could not be loaded.'
-                    );
-                }
-
-                page =
-                    Number(
-                        data?.page || page
-                    );
-
-                if (pageLabel) {
-                    pageLabel.textContent =
-                        `Page ${page}`;
-                }
-
-                if (previous) {
-                    previous.disabled =
-                        !Boolean(
-                            data?.has_previous
-                        );
-                }
-
-                if (next) {
-                    next.disabled =
-                        !Boolean(
-                            data?.has_next
-                        );
-                }
-
-                render(
-                    data?.messages || []
-                );
-            } catch (error) {
-                results.innerHTML = `
-                    <div
-                        class="rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700"
-                    >
-                        ${esc(
-                            error?.message
-                            || 'Email folder could not be loaded.'
-                        )}
-                    </div>
-                `;
-            }
-        };
-
-    /*
-     * Full message opening:
-     * use the existing authoritative message-detail
-     * listener by emitting the same message row/open
-     * contract it already understands.
-     */
-    const openMessage = id => {
-        const bridge =
-            document.createElement(
-                'button'
-            );
-
-        bridge.type = 'button';
-
-        bridge.dataset.messageId =
-            String(id);
-
-        bridge.className =
-            'core-email-message-open';
-
-        bridge.style.display =
-            'none';
-
-        results.appendChild(
-            bridge
-        );
-
-        bridge.click();
-
-        bridge.remove();
-    };
-
-    document.addEventListener(
-        'click',
-        async event => {
-            const menu =
-                event.target.closest(
-                    '[data-v17-menu]'
-                );
-
-            if (menu) {
-                event.preventDefault();
-                event.stopPropagation();
-
-                const target =
-                    menu.nextElementSibling;
-
-                document
-                    .querySelectorAll(
-                        '.core-email-v17-menu.open'
-                    )
-                    .forEach(item => {
-                        if (item !== target) {
-                            item.classList.remove(
-                                'open'
-                            );
-                        }
-                    });
-
-                target?.classList.toggle(
-                    'open'
-                );
-
-                return;
-            }
-
-            const action =
-                event.target.closest(
-                    '[data-v17-action]'
-                );
-
-            if (action) {
-                event.preventDefault();
-                event.stopPropagation();
-
-                const id =
-                    Number(
-                        action.dataset
-                            .messageId
-                    );
-
-                const name =
-                    action.dataset
-                        .v17Action;
-
-                if (name === 'edit') {
-                    openMessage(id);
-                    return;
-                }
-
-                if (
-                    name ===
-                    'delete_permanently'
-                    && !window.confirm(
-                        'Permanently delete this email? This cannot be undone.'
-                    )
-                ) {
-                    return;
-                }
-
-                try {
-                    await requestAction(
-                        id,
-                        name
-                    );
-
-                    await load(
-                        folder,
-                        page
-                    );
-                } catch (error) {
-                    window.alert(
-                        error?.message
-                        || 'Email action failed.'
-                    );
-                }
-
-                return;
-            }
-
-            const bulk =
-                event.target.closest(
-                    '[data-v17-bulk-action]'
-                );
-
-            if (bulk) {
-                event.preventDefault();
-                event.stopPropagation();
-
-                const ids =
-                    Array.from(selected);
-
-                if (!ids.length) {
-                    return;
-                }
-
-                const name =
-                    bulk.dataset
-                        .v17BulkAction;
-
-                if (
-                    name ===
-                    'delete_permanently'
-                    && !window.confirm(
-                        `Permanently delete ${ids.length} selected email(s)? This cannot be undone.`
-                    )
-                ) {
-                    return;
-                }
-
-                try {
-                    for (const id of ids) {
-                        await requestAction(
-                            id,
-                            name
-                        );
-                    }
-
-                    await load(
-                        folder,
-                        page
-                    );
-                } catch (error) {
-                    window.alert(
-                        error?.message
-                        || 'Bulk action failed.'
-                    );
-                }
-
-                return;
-            }
-
-            const select =
-                event.target.closest(
-                    '[data-v17-select]'
-                );
-
-            if (select) {
-                event.stopPropagation();
-
-                const id =
-                    Number(
-                        select.dataset
-                            .v17Select
-                    );
-
-                if (select.checked) {
-                    selected.add(id);
-                } else {
-                    selected.delete(id);
-                }
-
-                updateSelection();
-                return;
-            }
-
-            const all =
-                event.target.closest(
-                    '[data-v17-all]'
-                );
-
-            if (all) {
-                event.stopPropagation();
-
-                selected.clear();
-
-                if (all.checked) {
-                    rows.forEach(
-                        message =>
-                            selected.add(
-                                Number(
-                                    message.id
-                                )
-                            )
-                    );
-                }
-
-                document
-                    .querySelectorAll(
-                        '[data-v17-select]'
-                    )
-                    .forEach(box => {
-                        box.checked =
-                            all.checked;
-                    });
-
-                updateSelection();
-                return;
-            }
-
-            const row =
-                event.target.closest(
-                    '[data-v17-row]'
-                );
-
-            if (row) {
-                event.preventDefault();
-
-                openMessage(
-                    Number(
-                        row.dataset
-                            .messageId
-                    )
-                );
-
-                return;
-            }
-
-            document
-                .querySelectorAll(
-                    '.core-email-v17-menu.open'
-                )
-                .forEach(item =>
-                    item.classList.remove(
-                        'open'
-                    )
-                );
-        },
-        true
-    );
-
-    /*
-     * Folder navigation.
-     */
-    document.addEventListener(
-        'click',
-        event => {
-            const tab =
-                event.target.closest(
-                    '[data-email-section]'
-                );
-
-            if (!tab) {
-                return;
-            }
-
-            const value =
-                String(
-                    tab.dataset
-                        .emailSection || ''
-                );
-
-            if (
-                !folders.includes(
-                    value
-                )
-            ) {
-                return;
-            }
-
-            window.setTimeout(
-                () => load(
-                    value,
-                    1
-                ),
-                0
-            );
-        },
-        true
-    );
-
-    /*
-     * Mailbox switching.
-     */
-    document.addEventListener(
-        'click',
-        event => {
-            const mailbox =
-                event.target.closest(
-                    '[data-email-level1="mailbox"]'
-                );
-
-            if (!mailbox) {
-                return;
-            }
-
-            window.setTimeout(
-                () => load(
-                    'inbox',
-                    1
-                ),
-                0
-            );
-        },
-        true
-    );
-
-    previous?.addEventListener(
-        'click',
-        event => {
-            if (page <= 1) {
-                return;
-            }
-
-            event.preventDefault();
-
-            load(
-                folder,
-                page - 1
-            );
-        },
-        true
-    );
-
-    next?.addEventListener(
-        'click',
-        event => {
-            event.preventDefault();
-
-            load(
-                folder,
-                page + 1
-            );
-        },
-        true
-    );
-
-    window.setTimeout(
-        () => load(
-            'inbox',
-            1
-        ),
-        100
-    );
-});
-</script>
-
-
-
-
-
-{{-- ESUBIZ_CORE_EMAIL_LEVEL2_NAVIGATION_V9 --}}
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    const workspace =
-        document.getElementById(
-            'core-email-mailbox-workspace'
-        );
-
-    if (!workspace) {
-        return;
-    }
-
-    const tabs =
-        Array.from(
-            workspace.querySelectorAll(
-                '[data-email-section]'
-            )
-        );
-
-    const listPanel =
-        document.getElementById(
-            'core-email-list-panel'
-        );
-
-    const messagePanel =
-        document.getElementById(
-            'core-email-message-view-panel'
-        );
-
-    const composePanel =
-        document.getElementById(
-            'core-email-compose-panel'
-        );
-
-    const settingsPanel =
-        document.getElementById(
-            'core-email-settings-panel'
-        );
-
-    const brandingPanel =
-        document.getElementById(
-            'core-email-branding-panel'
-        );
-
-    const folderTitle =
-        document.getElementById(
-            'core-email-folder-title'
-        );
-
-    if (
-        tabs.length === 0
-        || !listPanel
-        || !composePanel
-        || !settingsPanel
-        || !brandingPanel
-    ) {
-        return;
-    }
-
-    const folders = {
-        inbox: 'Inbox',
-        spam: 'Spam',
-        draft: 'Draft',
-        sent: 'Sent',
-        trash: 'Trash'
-    };
-
-    const paint = active => {
-        tabs.forEach(tab => {
-            tab.classList.remove(
-                'bg-blue-600',
-                'bg-blue-700',
-                'bg-blue-800',
-                'bg-slate-900',
-                'bg-white',
-                'text-slate-600',
-                'text-slate-700'
-            );
-
-            tab.classList.add(
-                tab === active
-                    ? 'bg-blue-800'
-                    : 'bg-blue-600',
-                'text-white'
-            );
-        });
-    };
-
-    const closePanels = () => {
-        listPanel.classList.add('hidden');
-        messagePanel?.classList.add('hidden');
-        composePanel.classList.add('hidden');
-        settingsPanel.classList.add('hidden');
-        brandingPanel.classList.add('hidden');
-    };
-
-    const openSection = tab => {
-        const section =
-            String(
-                tab.dataset.emailSection || ''
-            ).toLowerCase();
-
-        paint(tab);
-        closePanels();
-
-        if (section === 'compose') {
-            composePanel.classList.remove(
-                'hidden'
-            );
-
-            return;
-        }
-
-        if (section === 'settings') {
-            settingsPanel.classList.remove(
-                'hidden'
-            );
-
-            return;
-        }
-
-        if (section === 'branding') {
-            brandingPanel.classList.remove(
-                'hidden'
-            );
-
-            return;
-        }
-
-        if (
-            !Object.prototype.hasOwnProperty.call(
-                folders,
-                section
-            )
-        ) {
-            return;
-        }
-
-        /*
-         * Keep the existing Core Email runtime as the source
-         * of truth for folder/mailbox state whenever it is
-         * available.
-         */
-        try {
-            if (
-                typeof folder !== 'undefined'
-            ) {
-                folder = section;
-            }
-
-            if (
-                typeof page !== 'undefined'
-            ) {
-                page = 1;
-            }
-        } catch (error) {
-            // UI remains functional even if the older runtime
-            // is unavailable.
-        }
-
-        if (folderTitle) {
-            folderTitle.textContent =
-                folders[section];
-        }
-
-        listPanel.classList.remove(
-            'hidden'
-        );
-
-        try {
-            if (
-                typeof loadMessages ===
-                    'function'
-            ) {
-                loadMessages();
-            }
-        } catch (error) {
-            console.error(
-                'Core Email folder load failed.',
-                error
-            );
-        }
-    };
-
-    /*
-     * Capture phase makes this navigation independent of
-     * broken/older bubble-phase handlers.
-     */
-    tabs.forEach(tab => {
-        tab.addEventListener(
-            'click',
-            event => {
-                event.preventDefault();
-
-                openSection(tab);
-            },
-            true
-        );
-    });
-
-    /*
-     * Inbox is the default Level-2 panel beneath the default
-     * first real email-address Level-1 tab.
-     */
-    const inbox =
-        tabs.find(
-            tab =>
-                tab.dataset.emailSection ===
-                    'inbox'
-        );
-
-    if (inbox) {
-        paint(inbox);
-        closePanels();
-
-        listPanel.classList.remove(
-            'hidden'
-        );
-
-        if (folderTitle) {
-            folderTitle.textContent =
-                'Inbox';
-        }
-    }
-});
-</script>
 
 @endsection

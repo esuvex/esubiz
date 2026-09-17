@@ -522,6 +522,18 @@ Route::post(
 )->name('tenant.cms.email.sender-mode');
 
 
+
+/*
+ * ESUBIZ_CORE_EMAIL_FOLDER_REFRESH_ROUTE_V1
+ */
+Route::post(
+    '/admin/communication/email/refresh',
+    [
+        \App\Http\Controllers\Core\CoreEmailController::class,
+        'refreshFolder',
+    ]
+)->name('tenant.cms.email.refresh');
+
 Route::get(
     '/admin/communication/email/messages',
     [
@@ -591,7 +603,53 @@ Route::post(
     ]
 )->name('core.email.messages.action');
 
+/*
+ * ESUBIZ_CORE_EMAIL_ATTACHMENT_DOWNLOAD_ROUTE_V1
+ */
+Route::get(
+    '/admin/communication/email/attachments/{attachment}/download',
+    [
+        \App\Http\Controllers\Core\CoreEmailController::class,
+        'downloadAttachment',
+    ]
+)
+    ->whereNumber('attachment')
+    ->name('core.email.attachments.download');
 
+/*
+ * ESUBIZ_CORE_EMAIL_ATTACHMENT_PREVIEW_ROUTE_V1
+ */
+Route::get(
+    '/admin/communication/email/attachments/{attachment}/preview',
+    [
+        \App\Http\Controllers\Core\CoreEmailController::class,
+        'previewAttachment',
+    ]
+)
+    ->whereNumber('attachment')
+    ->name('core.email.attachments.preview');
+
+
+
+
+/*
+ * ESUBIZ_CORE_EMAIL_MAILBOX_SETTINGS_ROUTES_V1
+ */
+Route::get(
+    '/admin/communication/email/settings',
+    [
+        \App\Http\Controllers\Core\CoreEmailController::class,
+        'mailboxSettings',
+    ]
+)->name('core.email.settings.show');
+
+Route::post(
+    '/admin/communication/email/settings',
+    [
+        \App\Http\Controllers\Core\CoreEmailController::class,
+        'saveMailboxSettings',
+    ]
+)->name('core.email.settings.save');
 
 
 Route::get(

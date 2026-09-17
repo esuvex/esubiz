@@ -511,9 +511,15 @@ class CoreMailGateway
         $db = DB::connection('website_tenant');
 
         /*
+         * ESUBIZ_CORE_MAIL_DIRECTIONAL_IDEMPOTENCY_V1
+         *
          * Provider/source identifiers provide the universal
-         * idempotency boundary. A proxy and mailbox synchronization
-         * must resolve to the same canonical email record.
+         * idempotency boundary within a message direction.
+         *
+         * A Sent/outbound row and Inbox/inbound row may legitimately
+         * share the same RFC Message-ID. Duplicate transport/source
+         * events within the same direction still resolve to one
+         * canonical mailbox record.
          */
         $providerMessageId = trim(
             (string) (
@@ -539,6 +545,10 @@ class CoreMailGateway
                 ->where(
                     'provider_message_id',
                     $providerMessageId
+                )
+                ->where(
+                    'direction',
+                    $direction
                 )
                 ->first();
 
@@ -623,12 +633,93 @@ class CoreMailGateway
                     $message['message_references']
                     ?? null,
 
+                /*
+                 * ESUBIZ_CORE_INBOUND_FROM_ADDRESS_NORMALIZATION_V2
+                 *
+                 * IMAP may supply From as an address array.
+                 * Canonical from_address stores one scalar address.
+                 */
                 'from_address' =>
-                    trim(
-                        (string) (
-                            $message['from']
-                            ?? $mailbox->email
-                        )
+                    (
+                        static function (
+                            mixed $value,
+                            string $fallback
+                        ): string {
+                            $find =
+                                static function (
+                                    mixed $candidate
+                                ) use (&$find): ?string {
+                                    if (is_string($candidate)) {
+                                        $candidate =
+                                            strtolower(
+                                                trim($candidate)
+                                            );
+
+                                        return filter_var(
+                                            $candidate,
+                                            FILTER_VALIDATE_EMAIL
+                                        )
+                                            ? $candidate
+                                            : null;
+                                    }
+
+                                    if (!is_array($candidate)) {
+                                        return null;
+                                    }
+
+                                    foreach (
+                                        [
+                                            'email',
+                                            'address',
+                                            'mail',
+                                        ]
+                                        as $key
+                                    ) {
+                                        if (
+                                            array_key_exists(
+                                                $key,
+                                                $candidate
+                                            )
+                                        ) {
+                                            $resolved =
+                                                $find(
+                                                    $candidate[$key]
+                                                );
+
+                                            if (
+                                                $resolved !== null
+                                            ) {
+                                                return $resolved;
+                                            }
+                                        }
+                                    }
+
+                                    foreach (
+                                        $candidate
+                                        as $nested
+                                    ) {
+                                        $resolved =
+                                            $find($nested);
+
+                                        if (
+                                            $resolved !== null
+                                        ) {
+                                            return $resolved;
+                                        }
+                                    }
+
+                                    return null;
+                                };
+
+                            return $find($value)
+                                ?? strtolower(
+                                    trim($fallback)
+                                );
+                        }
+                    )(
+                        $message['from']
+                            ?? null,
+                        (string) $mailbox->email
                     ),
 
                 'to_addresses' =>

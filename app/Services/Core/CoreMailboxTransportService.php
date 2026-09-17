@@ -105,6 +105,37 @@ class CoreMailboxTransportService
         $mailer = new Mailer($transport);
 
         /*
+         * ESUBIZ_CORE_SMTP_MESSAGE_ID_BEFORE_SEND_V1
+         *
+         * Establish the RFC Message-ID before SMTP transmission so
+         * Sent persistence and the later IMAP copy can correlate to
+         * the same real message.
+         */
+        $messageId =
+            trim(
+                (string) (
+                    $email->getHeaders()
+                        ->get('Message-ID')
+                        ?->getBodyAsString()
+                    ?? ''
+                )
+            );
+
+        if ($messageId === '') {
+            $messageId =
+                bin2hex(
+                    random_bytes(16)
+                )
+                . '@esubiz.com';
+
+            $email->getHeaders()
+                ->addIdHeader(
+                    'Message-ID',
+                    $messageId
+                );
+        }
+
+        /*
          * A successful return from Symfony Mailer means the SMTP
          * transport accepted the message. Persistence into Sent is
          * deliberately handled by CoreMailGateway outside this class.
@@ -117,9 +148,7 @@ class CoreMailboxTransportService
             'from' => $from,
 
             'message_id' =>
-                $email->getHeaders()
-                    ->get('Message-ID')
-                    ?->getBodyAsString(),
+                $messageId,
 
             'transport' => [
                 'host' =>
@@ -275,13 +304,23 @@ class CoreMailboxTransportService
          *
          * We intentionally do not guess DirectAdmin/Exim ports here.
          */
+        /*
+         * ESUBIZ_CORE_MANAGED_SMTP_PLATFORM_CONNECTION_V1
+         *
+         * Managed SaaS mailbox credentials come from Central while
+         * public SMTP connection parameters are Esubiz infrastructure.
+         * Tenant-specific synchronized settings remain compatible,
+         * but are not required for managed mailboxes.
+         */
         $smtp =
             $settings['connection']['smtp']
-                ?? null;
+                ?? config(
+                    'esubiz_mail.managed_mail.smtp'
+                );
 
         if (!is_array($smtp)) {
             throw new RuntimeException(
-                'The managed mailbox SMTP connection has not been synchronized yet.'
+                'The Esubiz managed SMTP connection is unavailable.'
             );
         }
 
@@ -292,7 +331,7 @@ class CoreMailboxTransportService
             'username' =>
                 trim(
                     (string) (
-                        $centralMailbox->address
+                        $centralMailbox->email_address
                         ?? $mailbox->email
                     )
                 ),

@@ -479,6 +479,314 @@ return view('tenant.admin.email.index', [
      * Folder/search/pagination are always scoped to the selected
      * mailbox. Exactly ten messages are displayed per page.
      */
+    /**
+     * ESUBIZ_CORE_EMAIL_FOLDER_REFRESH_V1
+     *
+     * Refresh the selected canonical mailbox folder.
+     *
+     * Inbox and Spam synchronize the real mailbox through IMAP
+     * before the browser reloads canonical email_messages.
+     *
+     * Draft, Sent and Trash require no remote synchronization;
+     * their canonical Core rows are already authoritative.
+     */
+    /**
+     * ESUBIZ_CORE_EMAIL_MAILBOX_SETTINGS_API_V1
+     *
+     * Mailbox operational preferences remain owned by
+     * email_boxes.settings. Existing transport/discovery settings are
+     * merged and preserved rather than replaced.
+     */
+    public function mailboxSettings(Request $request)
+    {
+        $validated = $request->validate([
+            'mailbox_id' => [
+                'required',
+                'integer',
+                'min:1',
+            ],
+        ]);
+
+        $db = DB::connection('website_tenant');
+
+        $mailbox = $db
+            ->table('email_boxes')
+            ->where('id', (int) $validated['mailbox_id'])
+            ->where('status', 'active')
+            ->first();
+
+        abort_unless($mailbox, 404, 'Mailbox not found.');
+
+        $settings = [];
+
+        if (
+            is_string($mailbox->settings ?? null)
+            && trim((string) $mailbox->settings) !== ''
+        ) {
+            $decoded = json_decode(
+                (string) $mailbox->settings,
+                true
+            );
+
+            if (is_array($decoded)) {
+                $settings = $decoded;
+            }
+        } elseif (is_array($mailbox->settings ?? null)) {
+            $settings = $mailbox->settings;
+        }
+
+        return response()->json([
+            'ok' => true,
+
+            'mailbox' => [
+                'id' => (int) $mailbox->id,
+                'email' => (string) $mailbox->email,
+            ],
+
+            'retention_days' => (array) (
+                $settings['retention_days']
+                ?? []
+            ),
+
+            'source_visibility' => (array) (
+                $settings['source_visibility']
+                ?? []
+            ),
+        ]);
+    }
+
+    public function saveMailboxSettings(Request $request)
+    {
+        $folders = [
+            'inbox',
+            'spam',
+            'draft',
+            'sent',
+            'trash',
+        ];
+
+        $sources = [
+            'direct_email',
+            'core_system',
+            'system_auth',
+            'crm',
+            'hr',
+            'tickets',
+            'live_chat',
+            'contact_form',
+            'marketing',
+            'module',
+            'esubiz',
+        ];
+
+        $allowedRetention = [
+            0,
+            7,
+            14,
+            30,
+            60,
+            90,
+            180,
+            365,
+        ];
+
+        $validated = $request->validate([
+            'mailbox_id' => [
+                'required',
+                'integer',
+                'min:1',
+            ],
+
+            'retention_days' => [
+                'required',
+                'array',
+            ],
+
+            'source_visibility' => [
+                'required',
+                'array',
+            ],
+        ]);
+
+        $db = DB::connection('website_tenant');
+
+        $mailbox = $db
+            ->table('email_boxes')
+            ->where('id', (int) $validated['mailbox_id'])
+            ->where('status', 'active')
+            ->first();
+
+        abort_unless($mailbox, 404, 'Mailbox not found.');
+
+        $settings = [];
+
+        if (
+            is_string($mailbox->settings ?? null)
+            && trim((string) $mailbox->settings) !== ''
+        ) {
+            $decoded = json_decode(
+                (string) $mailbox->settings,
+                true
+            );
+
+            if (is_array($decoded)) {
+                $settings = $decoded;
+            }
+        } elseif (is_array($mailbox->settings ?? null)) {
+            $settings = $mailbox->settings;
+        }
+
+        $retention = [];
+
+        foreach ($folders as $folder) {
+            $days = (int) (
+                $validated['retention_days'][$folder]
+                ?? 0
+            );
+
+            if (!in_array($days, $allowedRetention, true)) {
+                return response()->json([
+                    'ok' => false,
+                    'message' =>
+                        'Invalid automatic deletion period.',
+                ], 422);
+            }
+
+            $retention[$folder] = $days;
+        }
+
+        $visibility = [];
+
+        foreach ($sources as $source) {
+            $visibility[$source] = filter_var(
+                $validated['source_visibility'][$source]
+                    ?? true,
+                FILTER_VALIDATE_BOOLEAN
+            );
+        }
+
+        /*
+         * Merge only the operational mailbox keys owned by this UI.
+         * Connection, discovery, central_mailbox_id and any future
+         * transport settings remain untouched.
+         */
+        $settings['retention_days'] = $retention;
+        $settings['source_visibility'] = $visibility;
+
+        $db
+            ->table('email_boxes')
+            ->where('id', (int) $mailbox->id)
+            ->where('status', 'active')
+            ->update([
+                'settings' => json_encode(
+                    $settings,
+                    JSON_UNESCAPED_SLASHES
+                ),
+
+                'updated_at' => now(),
+            ]);
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Mailbox settings saved.',
+            'retention_days' => $retention,
+            'source_visibility' => $visibility,
+        ]);
+    }
+
+
+    public function refreshFolder(Request $request)
+    {
+        $validated = $request->validate([
+            'mailbox_id' => [
+                'required',
+                'integer',
+                'min:1',
+            ],
+
+            'folder' => [
+                'required',
+                'string',
+                'in:inbox,spam,draft,sent,trash',
+            ],
+        ]);
+
+        $website =
+            $this->centralWebsite($request);
+
+        $mailboxId =
+            (int) $validated['mailbox_id'];
+
+        $folder =
+            strtolower(
+                trim(
+                    (string) $validated['folder']
+                )
+            );
+
+        $mailbox =
+            DB::connection('website_tenant')
+                ->table('email_boxes')
+                ->where('id', $mailboxId)
+                ->where('status', 'active')
+                ->first();
+
+        abort_unless($mailbox, 404);
+
+        $synchronized = false;
+        $syncResult = null;
+
+        if (
+            in_array(
+                $folder,
+                ['inbox', 'spam'],
+                true
+            )
+        ) {
+            try {
+                $syncResult =
+                    app(
+                        \App\Services\Core\CoreMailboxImapSyncService::class
+                    )->sync(
+                        $website,
+                        $mailboxId
+                    );
+
+                $synchronized =
+                    (bool) (
+                        $syncResult['success']
+                        ?? false
+                    );
+
+                if (!$synchronized) {
+                    return response()->json([
+                        'ok' => false,
+                        'message' =>
+                            'Mailbox synchronization did not complete.',
+                        'folder' => $folder,
+                    ], 422);
+                }
+            } catch (\Throwable $e) {
+                report($e);
+
+                return response()->json([
+                    'ok' => false,
+                    'message' =>
+                        'Unable to refresh the real mailbox right now.',
+                    'folder' => $folder,
+                ], 422);
+            }
+        }
+
+        return response()->json([
+            'ok' => true,
+            'folder' => $folder,
+            'synchronized' => $synchronized,
+            'sync' => $syncResult,
+        ]);
+    }
+
+
     public function messages(Request $request)
     {
         abort_unless($request->ajax(), 404);
@@ -621,6 +929,10 @@ return view('tenant.admin.email.index', [
                                         ?? false
                                 ),
 
+                            'read_at' =>
+                                $message->read_at
+                                    ?? null,
+
                             'created_at' =>
                                 $message->created_at
                                     ?? null,
@@ -645,8 +957,24 @@ return view('tenant.admin.email.index', [
      * A message must belong to the explicitly selected active
      * mailbox. This prevents cross-mailbox message access.
      */
-    public function message(Request $request, int $message)
+    public function message(Request $request)
     {
+        /*
+         * Core routes may also contain a domain parameter such as
+         * {subdomain}. Never depend on positional controller
+         * parameters for the canonical message ID.
+         */
+        $message = $request->route('message');
+
+        abort_unless(
+            ctype_digit((string) $message)
+                && (int) $message > 0,
+            404,
+            'CORE_EMAIL_404_INVALID_MESSAGE_ID'
+        );
+
+        $message = (int) $message;
+
         abort_unless($request->ajax(), 404);
 
         $validated = $request->validate([
@@ -671,7 +999,8 @@ return view('tenant.admin.email.index', [
                 && $schema->hasTable(
                     'email_messages'
                 ),
-            404
+            404,
+            'CORE_EMAIL_404_SCHEMA'
         );
 
         abort_unless(
@@ -679,7 +1008,8 @@ return view('tenant.admin.email.index', [
                 ->where('id', $mailboxId)
                 ->where('status', 'active')
                 ->exists(),
-            404
+            404,
+            'CORE_EMAIL_404_MAILBOX'
         );
 
         $row = $db
@@ -691,7 +1021,11 @@ return view('tenant.admin.email.index', [
             )
             ->first();
 
-        abort_unless($row, 404);
+        abort_unless(
+            $row,
+            404,
+            'CORE_EMAIL_404_MESSAGE_SCOPE'
+        );
 
         /*
          * Opening an inbound message marks the canonical
@@ -734,7 +1068,135 @@ return view('tenant.admin.email.index', [
                 ->get();
         }
 
-        return response()->json([
+
+        /*
+         * ESUBIZ_CORE_EMAIL_REPLY_FORWARD_PAYLOAD_V1
+         *
+         * Reply/Forward derive from the canonical mailbox record.
+         * No duplicate message copy is created here.
+         */
+        $replyToAddress =
+            strtolower(
+                trim(
+                    (string) (
+                        $row->reply_to
+                        ?: $row->from_address
+                        ?: ''
+                    )
+                )
+            );
+
+        $originalSubject =
+            trim(
+                (string) (
+                    $row->subject
+                    ?? ''
+                )
+            );
+
+        $replySubject =
+            preg_match(
+                '/^\s*re\s*:/i',
+                $originalSubject
+            )
+                ? $originalSubject
+                : 'Re: ' . $originalSubject;
+
+        $forwardSubject =
+            preg_match(
+                '/^\s*fwd?\s*:/i',
+                $originalSubject
+            )
+                ? $originalSubject
+                : 'Fwd: ' . $originalSubject;
+
+        $providerMessageId =
+            trim(
+                (string) (
+                    $row->provider_message_id
+                    ?? ''
+                )
+            );
+
+        $existingReferences =
+            trim(
+                (string) (
+                    $row->message_references
+                    ?? ''
+                )
+            );
+
+        $replyReferences =
+            trim(
+                implode(
+                    ' ',
+                    array_filter([
+                        $existingReferences,
+                        $providerMessageId,
+                    ])
+                )
+            );
+
+        $replyForward = [
+            'reply' => [
+                'to' =>
+                    $replyToAddress,
+
+                'subject' =>
+                    $replySubject,
+
+                'in_reply_to' =>
+                    $providerMessageId !== ''
+                        ? $providerMessageId
+                        : null,
+
+                'message_references' =>
+                    $replyReferences !== ''
+                        ? $replyReferences
+                        : null,
+
+                'thread_key' =>
+                    $row->thread_key
+                    ?? null,
+            ],
+
+            'forward' => [
+                'subject' =>
+                    $forwardSubject,
+
+                'original_from' =>
+                    $row->from_address
+                    ?? null,
+
+                'original_to' =>
+                    $row->to_addresses
+                    ?? null,
+
+                'original_sent_at' =>
+                    $row->sent_at
+                    ?? $row->received_at
+                    ?? $row->created_at
+                    ?? null,
+
+                'original_subject' =>
+                    $originalSubject,
+
+                'body' =>
+                    $row->body
+                    ?? '',
+
+                'body_html' =>
+                    $row->body_html
+                    ?? null,
+            ],
+        ];
+
+return response()->json([
+
+            'reply_forward' =>
+                $replyForward,
+
+
             'ok' => true,
             'message' => [
                 'id' =>
@@ -1752,10 +2214,253 @@ return view('tenant.admin.email.index', [
      * Every mutation is scoped to the selected website
      * tenant database and mailbox.
      */
+    /**
+     * ESUBIZ_CORE_EMAIL_ATTACHMENT_DOWNLOAD_V1
+     */
+    public function downloadAttachment(Request $request)
+    {
+        $attachment = $request->route('attachment');
+
+        abort_unless(
+            ctype_digit((string) $attachment)
+                && (int) $attachment > 0,
+            404
+        );
+
+        $attachment = (int) $attachment;
+        $mailboxId = (int) $request->query('mailbox');
+
+        abort_unless($mailboxId > 0, 404);
+
+        $db = DB::connection('website_tenant');
+        $schema = Schema::connection('website_tenant');
+
+        abort_unless(
+            $schema->hasTable('email_boxes')
+                && $schema->hasTable('email_messages')
+                && $schema->hasTable('email_attachments'),
+            404
+        );
+
+        abort_unless(
+            $db->table('email_boxes')
+                ->where('id', $mailboxId)
+                ->where('status', 'active')
+                ->exists(),
+            404
+        );
+
+        $row = $db->table('email_attachments as a')
+            ->join(
+                'email_messages as m',
+                'm.id',
+                '=',
+                'a.email_message_id'
+            )
+            ->where('a.id', $attachment)
+            ->where('m.email_box_id', $mailboxId)
+            ->select('a.*')
+            ->first();
+
+        abort_unless($row, 404);
+
+        $locator = trim(
+            (string) ($row->mailbox_locator ?? '')
+        );
+
+        abort_unless($locator !== '', 404);
+
+        $disk =
+            \Illuminate\Support\Facades\Storage::disk(
+                'local'
+            );
+
+        abort_unless(
+            $disk->exists($locator),
+            404
+        );
+
+        $filename = trim(
+            (string) ($row->original_name ?? '')
+        );
+
+        if ($filename === '') {
+            $filename = 'attachment-' . $attachment;
+        }
+
+        $mime = trim(
+            (string) ($row->mime_type ?? '')
+        );
+
+        return $disk->download(
+            $locator,
+            $filename,
+            [
+                'Content-Type' =>
+                    $mime !== ''
+                        ? $mime
+                        : 'application/octet-stream',
+            ]
+        );
+    }
+
+
+    /**
+     * ESUBIZ_CORE_EMAIL_ATTACHMENT_PREVIEW_V1
+     *
+     * Preview only explicitly safe browser-renderable MIME types.
+     * Mailbox ownership is validated exactly like Download.
+     */
+    public function previewAttachment(Request $request)
+    {
+        $attachment = $request->route('attachment');
+
+        abort_unless(
+            ctype_digit((string) $attachment)
+                && (int) $attachment > 0,
+            404
+        );
+
+        $attachment = (int) $attachment;
+        $mailboxId = (int) $request->query('mailbox');
+
+        abort_unless($mailboxId > 0, 404);
+
+        $db = DB::connection('website_tenant');
+        $schema = Schema::connection('website_tenant');
+
+        abort_unless(
+            $schema->hasTable('email_boxes')
+                && $schema->hasTable('email_messages')
+                && $schema->hasTable('email_attachments'),
+            404
+        );
+
+        abort_unless(
+            $db->table('email_boxes')
+                ->where('id', $mailboxId)
+                ->where('status', 'active')
+                ->exists(),
+            404
+        );
+
+        $row = $db->table('email_attachments as a')
+            ->join(
+                'email_messages as m',
+                'm.id',
+                '=',
+                'a.email_message_id'
+            )
+            ->where('a.id', $attachment)
+            ->where('m.email_box_id', $mailboxId)
+            ->select('a.*')
+            ->first();
+
+        abort_unless($row, 404);
+
+        $locator = trim(
+            (string) ($row->mailbox_locator ?? '')
+        );
+
+        abort_unless($locator !== '', 404);
+
+        $disk =
+            \Illuminate\Support\Facades\Storage::disk(
+                'local'
+            );
+
+        abort_unless(
+            $disk->exists($locator),
+            404
+        );
+
+        $mime = strtolower(
+            trim(
+                (string) ($row->mime_type ?? '')
+            )
+        );
+
+        /*
+         * Never inline active browser content such as HTML or SVG.
+         */
+        $exactAllowed = [
+            'application/pdf',
+            'text/plain',
+        ];
+
+        $prefixAllowed = [
+            'image/jpeg',
+            'image/png',
+            'image/gif',
+            'image/webp',
+            'audio/',
+            'video/',
+        ];
+
+        $previewable =
+            in_array($mime, $exactAllowed, true);
+
+        if (!$previewable) {
+            foreach ($prefixAllowed as $allowed) {
+                if (
+                    str_ends_with($allowed, '/')
+                    && str_starts_with($mime, $allowed)
+                ) {
+                    $previewable = true;
+                    break;
+                }
+
+                if ($mime === $allowed) {
+                    $previewable = true;
+                    break;
+                }
+            }
+        }
+
+        abort_unless($previewable, 415);
+
+        $filename = trim(
+            (string) ($row->original_name ?? '')
+        );
+
+        if ($filename === '') {
+            $filename = 'attachment-' . $attachment;
+        }
+
+        return $disk->response(
+            $locator,
+            $filename,
+            [
+                'Content-Type' => $mime,
+                'Content-Disposition' =>
+                    'inline; filename="' .
+                    addcslashes(
+                        basename($filename),
+                        "\\\""
+                    ) .
+                    '"',
+                'X-Content-Type-Options' => 'nosniff',
+            ]
+        );
+    }
+
     public function messageAction(
-        Request $request,
-        int $message
+        Request $request
     ) {
+        /*
+         * Resolve the named route parameter directly so domain
+         * parameters cannot shift the message ID positionally.
+         */
+        $message = $request->route('message');
+
+        abort_unless(
+            ctype_digit((string) $message)
+                && (int) $message > 0,
+            404
+        );
+
+        $message = (int) $message;
+
         $website = $this->centralWebsite($request);
 
         $validated = $request->validate([
@@ -1794,7 +2499,14 @@ return view('tenant.admin.email.index', [
             $connection
                 ->table('email_messages')
                 ->where('id', $message)
-                ->where('mailbox_id', $mailboxId)
+                /*
+                 * ESUBIZ_CORE_EMAIL_MESSAGE_ACTION_EMAIL_BOX_SCOPE_V1
+                 *
+                 * email_messages belongs to email_boxes through
+                 * email_box_id. Keep every folder mutation scoped
+                 * to the selected real mailbox.
+                 */
+                ->where('email_box_id', $mailboxId)
                 ->first();
 
         if (!$record) {
@@ -2002,7 +2714,7 @@ return view('tenant.admin.email.index', [
                 $connection
                     ->table('email_attachments')
                     ->where(
-                        'message_id',
+                        'email_message_id',
                         $message
                     )
                     ->get();
@@ -2045,7 +2757,7 @@ return view('tenant.admin.email.index', [
                             'email_attachments'
                         )
                         ->where(
-                            'message_id',
+                            'email_message_id',
                             $message
                         )
                         ->delete();
@@ -2059,7 +2771,7 @@ return view('tenant.admin.email.index', [
                             $message
                         )
                         ->where(
-                            'mailbox_id',
+                            'email_box_id',
                             $mailboxId
                         )
                         ->delete();
@@ -2079,7 +2791,7 @@ return view('tenant.admin.email.index', [
             ->table('email_messages')
             ->where('id', $message)
             ->where(
-                'mailbox_id',
+                'email_box_id',
                 $mailboxId
             )
             ->update($updates);
@@ -2089,7 +2801,7 @@ return view('tenant.admin.email.index', [
                 ->table('email_messages')
                 ->where('id', $message)
                 ->where(
-                    'mailbox_id',
+                    'email_box_id',
                     $mailboxId
                 )
                 ->first();
