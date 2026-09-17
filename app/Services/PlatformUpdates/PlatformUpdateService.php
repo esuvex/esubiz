@@ -4,6 +4,7 @@ namespace App\Services\PlatformUpdates;
 
 use App\Models\Website;
 use App\Services\Website\TenantCoreInstallationService;
+use App\Services\Website\WebsiteMailboxService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use RuntimeException;
@@ -13,7 +14,8 @@ class PlatformUpdateService
 {
     public function __construct(
         protected TenantCoreInstallationService $tenantCore,
-        protected TenantMigrationStateService $migrationState
+        protected TenantMigrationStateService $migrationState,
+        protected WebsiteMailboxService $websiteMailboxService
     ) {
     }
 
@@ -75,16 +77,53 @@ class PlatformUpdateService
 
         $status = $state['status'] ?? 'unable_to_verify';
 
+        /*
+         * ESUBIZ_PLATFORM_UPDATE_POST_ACTION_RETRY_V1
+         *
+         * A tenant migration may succeed before its explicitly allow-listed
+         * Central post-migration action fails. In that case the migration is
+         * already applied, but the failed Central action must remain safely
+         * retryable without rerunning the tenant migration.
+         */
+        $postMigrationAction = $this->postMigrationAction(
+            (object) $update
+        );
+
+        $retryPostMigrationAction = false;
+
+        if (
+            $status !== 'pending'
+            && $postMigrationAction !== null
+            && isset($update['id'])
+        ) {
+            $retryPostMigrationAction =
+                DB::table('platform_update_runs')
+                    ->where(
+                        'platform_update_id',
+                        $update['id']
+                    )
+                    ->where(
+                        'website_id',
+                        $website->getKey()
+                    )
+                    ->where('status', 'failed')
+                    ->exists();
+        }
+
         return $base + $state + [
             /*
              * Dry Run never executes anything.
              *
-             * can_execute only describes whether the migration appears
-             * pending from the read-only state check. The real execution
-             * path must still independently enforce publication, backup,
-             * destructive-update and other safety guards.
+             * Normal execution requires a pending migration. A failed
+             * allow-listed post-migration action may also be retried after
+             * its migration checkpoint has already been applied.
              */
-            'can_execute' => $status === 'pending',
+            'can_execute' =>
+                $status === 'pending'
+                || $retryPostMigrationAction,
+
+            'retry_post_migration_action' =>
+                $retryPostMigrationAction,
         ];
     }
 
@@ -163,13 +202,47 @@ class PlatformUpdateService
              * This is the established safe existing-tenant path.
              * It runs pending tenant Core migrations only.
              */
-            $this->tenantCore->migrateExisting($website);
+            $retryPostMigrationAction =
+                (bool) (
+                    $preview['retry_post_migration_action']
+                    ?? false
+                );
+
+            if (!$retryPostMigrationAction) {
+                $this->tenantCore->migrateExisting($website);
+            }
+
+            /*
+             * ESUBIZ_PLATFORM_UPDATE_POST_MIGRATION_ACTIONS_V1
+             *
+             * Some existing-SaaS upgrades require a Central-owned action
+             * after the tenant schema migration succeeds.
+             *
+             * If that external action previously failed after the migration
+             * succeeded, retry only the action. Never rerun an already
+             * applied tenant migration merely to retry an external side
+             * effect.
+             *
+             * Never execute arbitrary classes, methods or shell commands
+             * from update metadata.
+             */
+            $postMigrationAction =
+                $this->postMigrationAction($update);
+
+            if ($postMigrationAction !== null) {
+                $this->executePostMigrationAction(
+                    $website,
+                    $postMigrationAction
+                );
+            }
 
             return $this->recordResult(
                 $website,
                 $update,
                 'updated',
-                'Core migrations completed successfully.',
+                $postMigrationAction === null
+                    ? 'Core migrations completed successfully.'
+                    : 'Core migration and post-migration action completed successfully.',
                 $executedBy
             );
         } catch (Throwable $e) {
@@ -217,6 +290,79 @@ class PlatformUpdateService
         }
 
         return $results;
+    }
+
+    /**
+     * Resolve an optional, explicitly declared post-migration action.
+     */
+    protected function postMigrationAction(
+        object $update
+    ): ?string {
+        $manifest = $update->manifest ?? null;
+
+        if (is_string($manifest)) {
+            $manifest = json_decode(
+                $manifest,
+                true
+            );
+        } elseif (is_object($manifest)) {
+            $manifest = (array) $manifest;
+        }
+
+        if (!is_array($manifest)) {
+            return null;
+        }
+
+        $action = trim(
+            (string) (
+                $manifest['post_migration_action']
+                ?? ''
+            )
+        );
+
+        return $action !== ''
+            ? $action
+            : null;
+    }
+
+    /**
+     * ESUBIZ_PLATFORM_UPDATE_POST_MIGRATION_ACTION_ALLOWLIST_V1
+     *
+     * Central actions are deliberately allow-listed. Update metadata
+     * cannot dynamically invoke arbitrary PHP code.
+     */
+    protected function executePostMigrationAction(
+        Website $website,
+        string $action
+    ): void {
+        match ($action) {
+            'provision_included_saas_mailbox' =>
+                $this->provisionIncludedSaasMailbox(
+                    $website
+                ),
+
+            default => throw new RuntimeException(
+                'Unsupported platform update post-migration action: '
+                . $action
+            ),
+        };
+    }
+
+    /**
+     * Backfill the included Esubiz-managed mailbox for an existing
+     * SaaS website through the same idempotent authority used by
+     * newly provisioned SaaS websites.
+     */
+    protected function provisionIncludedSaasMailbox(
+        Website $website
+    ): void {
+        if (!$website->isSaas()) {
+            return;
+        }
+
+        $this->websiteMailboxService->provisionSaas(
+            $website
+        );
     }
 
     protected function recordResult(

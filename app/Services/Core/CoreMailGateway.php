@@ -265,17 +265,12 @@ class CoreMailGateway
 
         $now = now();
 
-        return DB::connection(
-            'website_tenant'
-        )
-            ->table('email_messages')
-            ->where('id', $messageId)
-            ->where(
-                'email_box_id',
-                (int) $mailbox->id
-            )
-            ->where('folder', 'draft')
-            ->update([
+        $db =
+            DB::connection(
+                'website_tenant'
+            );
+
+        $update = [
                 'source_type' =>
                     $source,
 
@@ -339,7 +334,46 @@ class CoreMailGateway
                         ?? null,
 
                 'updated_at' => $now,
-            ]) > 0;
+        ];
+
+        $schema =
+            $db->getSchemaBuilder();
+
+        if (
+            $schema->hasColumn(
+                'email_messages',
+                'in_reply_to'
+            )
+        ) {
+            $update['in_reply_to'] =
+                $message['in_reply_to']
+                    ?? null;
+        }
+
+        if (
+            $schema->hasColumn(
+                'email_messages',
+                'message_references'
+            )
+        ) {
+            $update[
+                'message_references'
+            ] =
+                $message['message_references']
+                    ?? null;
+        }
+
+        return $db
+            ->table('email_messages')
+            ->where('id', $messageId)
+            ->where(
+                'email_box_id',
+                (int) $mailbox->id
+            )
+            ->where('folder', 'draft')
+            ->update(
+                $update
+            ) > 0;
     }
 
     /**
@@ -537,9 +571,7 @@ class CoreMailGateway
 
         $now = now();
 
-        return (int) $db
-            ->table('email_messages')
-            ->insertGetId([
+        $payload = [
                 'email_box_id' =>
                     (int) $mailbox->id,
 
@@ -575,6 +607,20 @@ class CoreMailGateway
 
                 'thread_key' =>
                     $message['thread_key']
+                    ?? null,
+
+                /*
+                 * ESUBIZ_CORE_MAIL_THREAD_CORRELATION_PERSISTENCE_V2
+                 *
+                 * The payload is filtered below for tenants that have
+                 * not executed the 7G1 migration yet.
+                 */
+                'in_reply_to' =>
+                    $message['in_reply_to']
+                    ?? null,
+
+                'message_references' =>
+                    $message['message_references']
                     ?? null,
 
                 'from_address' =>
@@ -658,7 +704,40 @@ class CoreMailGateway
                 'trashed_at' => null,
                 'created_at' => $now,
                 'updated_at' => $now,
-            ]);
+            ];
+
+        $schema =
+            $db->getSchemaBuilder();
+
+        if (
+            !$schema->hasColumn(
+                'email_messages',
+                'in_reply_to'
+            )
+        ) {
+            unset(
+                $payload['in_reply_to']
+            );
+        }
+
+        if (
+            !$schema->hasColumn(
+                'email_messages',
+                'message_references'
+            )
+        ) {
+            unset(
+                $payload[
+                    'message_references'
+                ]
+            );
+        }
+
+        return (int) $db
+            ->table('email_messages')
+            ->insertGetId(
+                $payload
+            );
     }
 
     private function normalizeSource(

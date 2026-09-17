@@ -11,7 +11,8 @@ class TenantCoreInstallationService
 {
     public function __construct(
         protected WebsiteTenantDatabaseService $tenantDatabaseService,
-        protected TenantCoreInitializer $tenantCoreInitializer
+        protected TenantCoreInitializer $tenantCoreInitializer,
+        protected WebsiteMailboxService $websiteMailboxService
     ) {
     }
 
@@ -62,6 +63,35 @@ class TenantCoreInstallationService
         } finally {
 
             $this->tenantDatabaseService->disconnect();
+        }
+
+        /*
+         * ESUBIZ_SAAS_INCLUDED_MAILBOX_AUTO_PROVISION_V1
+         *
+         * A newly installed SaaS Core must leave provisioning with its
+         * included managed mailbox already created and registered inside
+         * the tenant Email workspace.
+         *
+         * WebsiteMailboxService is the single provisioning authority:
+         *
+         * - creates/reconciles the real DirectAdmin mailbox;
+         * - retains its encrypted Core mail-client credential centrally;
+         * - synchronizes the mailbox into tenant email_boxes;
+         * - marks the included mailbox as the Core primary mailbox;
+         * - synchronizes the canonical Core site_email.
+         *
+         * Core administrators therefore never perform a second mailbox
+         * login. Access to Email is governed by the authenticated Core
+         * administrator session.
+         *
+         * Keep this AFTER the tenant installation connection lifecycle.
+         * WebsiteMailboxService owns its own tenant connection lifecycle
+         * while synchronizing the mailbox into Core.
+         */
+        if ($website->isSaas()) {
+            $this->websiteMailboxService->provisionSaas(
+                $website
+            );
         }
     }
 

@@ -10,10 +10,383 @@ use App\Services\Core\EmailServiceSettingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Schema;
 
 class CoreEmailController extends Controller
 {
+
+    /**
+     * ESUBIZ_CORE_EXTERNAL_MAILBOX_CONNECT_V1
+     *
+     * Off-server Core mailbox registration.
+     *
+     * Normal flow:
+     * email + password -> automatic SMTP/IMAP discovery ->
+     * authenticate BOTH -> encrypt credential -> register mailbox.
+     *
+     * If automatic discovery/authentication fails, the client receives
+     * manual_required=true and may retry with explicit SMTP/IMAP
+     * connection parameters.
+     *
+     * SaaS must never use this endpoint. SaaS mailboxes are provisioned
+     * through the Central-owned managed-mailbox architecture.
+     */
+    public function connectExternalMailbox(Request $request)
+    {
+        $website = $this->centralWebsite($request);
+
+        abort_if(
+            $website->isSaas(),
+            403,
+            'External mailbox connection is available only to off-server Core installations.'
+        );
+
+        $validated = $request->validate([
+            'email' => [
+                'required',
+                'email:rfc',
+                'max:255',
+            ],
+
+            'password' => [
+                'required',
+                'string',
+                'max:4096',
+            ],
+
+            'manual' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'smtp_host' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
+            'smtp_port' => [
+                'nullable',
+                'integer',
+                'min:1',
+                'max:65535',
+            ],
+
+            'smtp_encryption' => [
+                'nullable',
+                'in:ssl,tls,none',
+            ],
+
+            'imap_host' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
+            'imap_port' => [
+                'nullable',
+                'integer',
+                'min:1',
+                'max:65535',
+            ],
+
+            'imap_encryption' => [
+                'nullable',
+                'in:ssl,tls,none',
+            ],
+        ]);
+
+        $email = strtolower(
+            trim((string) $validated['email'])
+        );
+
+        $password =
+            (string) $validated['password'];
+
+        $manual =
+            (bool) ($validated['manual'] ?? false);
+
+        $schema =
+            Schema::connection('website_tenant');
+
+        if (!$schema->hasTable('email_boxes')) {
+            return response()->json([
+                'ok' => false,
+                'message' =>
+                    'The Core mailbox registry is unavailable.',
+            ], 422);
+        }
+
+        if (
+            !$schema->hasColumn(
+                'email_boxes',
+                'credential_secret'
+            )
+        ) {
+            return response()->json([
+                'ok' => false,
+                'message' =>
+                    'The secure mailbox credential update has not been applied to this Core installation.',
+            ], 409);
+        }
+
+        $db =
+            DB::connection('website_tenant');
+
+        if (
+            $db->table('email_boxes')
+                ->whereRaw(
+                    'LOWER(email) = ?',
+                    [$email]
+                )
+                ->exists()
+        ) {
+            return response()->json([
+                'ok' => false,
+                'message' =>
+                    'This email address is already registered in Core.',
+            ], 422);
+        }
+
+        $connector = app(
+            \App\Services\Core\CoreMailboxAutoConnectionService::class
+        );
+
+        try {
+            if ($manual) {
+                $result = $connector->testManual(
+                    $email,
+                    $password,
+                    [
+                        'host' =>
+                            $validated['smtp_host']
+                                ?? '',
+
+                        'port' =>
+                            $validated['smtp_port']
+                                ?? 0,
+
+                        'encryption' =>
+                            $validated['smtp_encryption']
+                                ?? 'tls',
+
+                        'verify_peer' => true,
+                    ],
+                    [
+                        'host' =>
+                            $validated['imap_host']
+                                ?? '',
+
+                        'port' =>
+                            $validated['imap_port']
+                                ?? 0,
+
+                        'encryption' =>
+                            $validated['imap_encryption']
+                                ?? 'ssl',
+
+                        'verify_peer' => true,
+                    ]
+                );
+            } else {
+                $result = $connector->connect(
+                    $email,
+                    $password
+                );
+            }
+        } catch (\Throwable $e) {
+            /*
+             * ESUBIZ_CORE_MAILBOX_SAFE_CONNECTION_ERRORS_V2
+             *
+             * Connection libraries can expose server/authentication
+             * details in exception strings. Keep those server-side.
+             */
+            report($e);
+
+            return response()->json([
+                'ok' => false,
+                'manual_required' => $manual,
+                'message' =>
+                    $manual
+                        ? 'The mailbox could not be authenticated with the supplied server settings.'
+                        : 'Automatic mailbox setup could not be completed. Try the manual server settings.',
+            ], 422);
+        }
+
+        if (!($result['success'] ?? false)) {
+            return response()->json([
+                'ok' => false,
+                'manual_required' =>
+                    (bool) (
+                        $result['manual_required']
+                        ?? true
+                    ),
+
+                'message' =>
+                    (string) (
+                        $result['reason']
+                        ?? (
+                            $manual
+                                ? 'The supplied SMTP/IMAP settings could not authenticate this mailbox.'
+                                : 'Automatic mailbox setup could not authenticate both SMTP and IMAP. Enter the server settings manually.'
+                        )
+                    ),
+
+                'suggested' =>
+                    $result['suggested']
+                        ?? null,
+
+            ], 422);
+        }
+
+        $connection =
+            $result['connection']
+                ?? null;
+
+        if (
+            !is_array($connection)
+            || !is_array($connection['smtp'] ?? null)
+            || !is_array($connection['imap'] ?? null)
+        ) {
+            return response()->json([
+                'ok' => false,
+                'message' =>
+                    'The authenticated mailbox connection is incomplete.',
+            ], 422);
+        }
+
+        $settings = [
+            'provider' => 'external',
+            'managed_by_esubiz' => false,
+
+            'connection' => [
+                'smtp' => [
+                    'host' =>
+                        (string) (
+                            $connection['smtp']['host']
+                            ?? ''
+                        ),
+
+                    'port' =>
+                        (int) (
+                            $connection['smtp']['port']
+                            ?? 0
+                        ),
+
+                    'encryption' =>
+                        (string) (
+                            $connection['smtp']['encryption']
+                            ?? 'tls'
+                        ),
+
+                    'verify_peer' => true,
+                ],
+
+                'imap' => [
+                    'host' =>
+                        (string) (
+                            $connection['imap']['host']
+                            ?? ''
+                        ),
+
+                    'port' =>
+                        (int) (
+                            $connection['imap']['port']
+                            ?? 0
+                        ),
+
+                    'encryption' =>
+                        (string) (
+                            $connection['imap']['encryption']
+                            ?? 'ssl'
+                        ),
+
+                    'verify_peer' => true,
+                ],
+            ],
+
+            'discovery' => [
+                'mode' =>
+                    ($result['automatic'] ?? false)
+                        ? 'automatic'
+                        : 'manual',
+
+                'verified_at' =>
+                    now()->toIso8601String(),
+            ],
+        ];
+
+        /*
+         * Encrypt BEFORE persistence.
+         *
+         * The raw mailbox password must never enter email_boxes.settings,
+         * logs, responses or any other plaintext tenant field.
+         */
+        $encryptedCredential =
+            Crypt::encryptString($password);
+
+        try {
+            $mailboxId = $db->transaction(
+                function () use (
+                    $db,
+                    $email,
+                    $encryptedCredential,
+                    $settings
+                ) {
+                    $now = now();
+
+                    return $db
+                        ->table('email_boxes')
+                        ->insertGetId([
+                            'name' => $email,
+                            'email' => $email,
+                            'username' => $email,
+
+                            'credential_secret' =>
+                                $encryptedCredential,
+
+                            'status' => 'active',
+
+                            'settings' =>
+                                json_encode(
+                                    $settings,
+                                    JSON_UNESCAPED_SLASHES
+                                ),
+
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ]);
+                }
+            );
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'ok' => false,
+                'message' =>
+                    'The mailbox authenticated successfully but Core could not save it.',
+            ], 500);
+        }
+
+        return response()->json([
+            'ok' => true,
+
+            'message' =>
+                'Email address connected successfully.',
+
+            'mailbox' => [
+                'id' => (int) $mailboxId,
+                'email' => $email,
+
+                'connection_mode' =>
+                    ($result['automatic'] ?? false)
+                        ? 'automatic'
+                        : 'manual',
+            ],
+        ]);
+    }
+
     private const PER_PAGE = 10;
 
     /**
@@ -66,7 +439,7 @@ class CoreEmailController extends Controller
         $emailSenderTransport =
             $this->emailSenderTransport($website);
 
-        
+
         /*
          * ESUBIZ_CORE_EMAIL_SITE_SETTINGS_CONTEXT_V9
          *
@@ -91,7 +464,8 @@ class CoreEmailController extends Controller
         }
 
 return view('tenant.admin.email.index', [
-                'coreEmailSiteSettings' => $coreEmailSiteSettings,
+            'website' => $website,
+            'coreEmailSiteSettings' => $coreEmailSiteSettings,
             'mailboxes' => $mailboxes,
             'selectedMailboxId' => $selectedMailboxId,
             'emailServiceData' => $emailServiceData,
@@ -509,6 +883,384 @@ return view('tenant.admin.email.index', [
      * the canonical mailbox attachment storage contract is
      * wired. We never create a second attachment copy here.
      */
+    /**
+     * ESUBIZ_CORE_EMAIL_REAL_SEND_V1
+     *
+     * Transport one direct email through the selected real mailbox.
+     *
+     * The canonical email_messages row is created/updated as Draft
+     * before transport so attachments always have one stable owner.
+     *
+     * SMTP failure leaves that same row in Draft.
+     * SMTP success converts that same row to Sent.
+     */
+    public function sendEmail(Request $request)
+    {
+        $validated = $request->validate([
+            'mailbox' => [
+                'required',
+                'integer',
+                'min:1',
+            ],
+            'to' => [
+                'required',
+                'string',
+                'max:4000',
+            ],
+            'cc' => [
+                'nullable',
+                'string',
+                'max:4000',
+            ],
+            'bcc' => [
+                'nullable',
+                'string',
+                'max:4000',
+            ],
+            'subject' => [
+                'nullable',
+                'string',
+                'max:998',
+            ],
+            'body' => [
+                'nullable',
+                'string',
+            ],
+            'body_html' => [
+                'nullable',
+                'string',
+            ],
+            'draft_id' => [
+                'nullable',
+                'integer',
+                'min:1',
+            ],
+            'attachments' => [
+                'nullable',
+                'array',
+            ],
+            'attachments.*' => [
+                'file',
+                'max:25600',
+            ],
+        ]);
+
+        $website =
+            $this->centralWebsite($request);
+
+        $mailboxId =
+            (int) $validated['mailbox'];
+
+        $db =
+            DB::connection('website_tenant');
+
+        $schema =
+            Schema::connection('website_tenant');
+
+        abort_unless(
+            $schema->hasTable('email_boxes')
+                && $schema->hasTable(
+                    'email_messages'
+                )
+                && $schema->hasTable(
+                    'email_attachments'
+                ),
+            404
+        );
+
+        $mailbox =
+            $db->table('email_boxes')
+                ->where('id', $mailboxId)
+                ->where('status', 'active')
+                ->first();
+
+        abort_unless($mailbox, 404);
+
+        $gateway =
+            app(CoreMailGateway::class);
+
+        $message = [
+            'source_type' =>
+                'direct_email',
+
+            'source_label' =>
+                'Direct Email',
+
+            'from' =>
+                (string) $mailbox->email,
+
+            'to' =>
+                $validated['to'],
+
+            'cc' =>
+                $validated['cc']
+                    ?? '',
+
+            'bcc' =>
+                $validated['bcc']
+                    ?? '',
+
+            'subject' =>
+                $validated['subject']
+                    ?? null,
+
+            'body' =>
+                $validated['body']
+                    ?? null,
+
+            'body_html' =>
+                $validated['body_html']
+                    ?? null,
+        ];
+
+        $draftId =
+            (int) (
+                $validated['draft_id']
+                    ?? 0
+            );
+
+        /*
+         * Existing Draft:
+         * update the canonical row in place.
+         *
+         * New Compose:
+         * create exactly one canonical Draft row before SMTP.
+         */
+        if ($draftId > 0) {
+            $updated =
+                $gateway->updateDraft(
+                    $draftId,
+                    $message,
+                    $mailboxId
+                );
+
+            if (!$updated) {
+                return response()->json([
+                    'ok' => false,
+                    'message' =>
+                        'This draft is unavailable or could not be updated.',
+                ], 422);
+            }
+        } else {
+            $draftId =
+                (int) (
+                    $gateway->saveDraft(
+                        $message,
+                        $mailboxId
+                    )
+                    ?? 0
+                );
+
+            if ($draftId < 1) {
+                return response()->json([
+                    'ok' => false,
+                    'message' =>
+                        'Direct Email is disabled for this mailbox.',
+                ], 422);
+            }
+        }
+
+        /*
+         * Store newly uploaded attachments against the canonical
+         * Draft row. Existing Draft attachments are not copied.
+         */
+        $files =
+            $request->file(
+                'attachments',
+                []
+            );
+
+        if (!is_array($files)) {
+            $files = [$files];
+        }
+
+        if ($files !== []) {
+            $attachmentService =
+                app(
+                    CoreMailboxAttachmentService::class
+                );
+
+            foreach ($files as $file) {
+                if (!$file) {
+                    continue;
+                }
+
+                $attachmentService->store(
+                    $website,
+                    $mailboxId,
+                    $draftId,
+                    $file
+                );
+            }
+        }
+
+        /*
+         * Resolve attachment metadata and physical paths from the
+         * single mailbox-owned attachment records.
+         */
+        $attachmentRows =
+            $db->table('email_attachments')
+                ->where(
+                    'email_message_id',
+                    $draftId
+                )
+                ->orderBy('id')
+                ->get([
+                    'original_name',
+                    'mime_type',
+                    'mailbox_locator',
+                ]);
+
+        $transportAttachments = [];
+
+        foreach (
+            $attachmentRows
+            as $attachment
+        ) {
+            $locator =
+                ltrim(
+                    (string)
+                        $attachment
+                            ->mailbox_locator,
+                    '/'
+                );
+
+            if ($locator === '') {
+                continue;
+            }
+
+            /*
+             * CoreMailboxAttachmentService uses Laravel's local disk.
+             * Laravel's default local disk root is storage/app/private.
+             */
+            $physicalPath =
+                storage_path(
+                    'app/private/'
+                    . $locator
+                );
+
+            if (!is_file($physicalPath)) {
+                report(
+                    new \RuntimeException(
+                        'Core mailbox attachment is missing: '
+                        . $locator
+                    )
+                );
+
+                return response()->json([
+                    'ok' => false,
+                    'draft_id' =>
+                        $draftId,
+                    'message' =>
+                        'One or more attachments are unavailable. The email remains in Draft.',
+                ], 422);
+            }
+
+            $transportAttachments[] = [
+                'path' =>
+                    $physicalPath,
+
+                'name' =>
+                    (string)
+                        $attachment
+                            ->original_name,
+
+                'mime_type' =>
+                    $attachment
+                        ->mime_type
+                        ?: null,
+            ];
+        }
+
+        $transportMessage =
+            $message;
+
+        $transportMessage['attachments'] =
+            $transportAttachments;
+
+        /*
+         * Direct Email now converges on the universal Core Mail Engine.
+         *
+         * The canonical Draft already exists, so sendDraft() performs
+         * real SMTP transport and transitions THIS SAME row to Sent.
+         */
+        try {
+            $sendResult =
+                app(
+                    \App\Services\Core\CoreMailEngine::class
+                )->sendDraft(
+                    $website,
+                    $mailboxId,
+                    $draftId,
+                    $transportMessage
+                );
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'ok' =>
+                    false,
+
+                'draft_id' =>
+                    $draftId,
+
+                'message' =>
+                    'Email could not be sent. It has been kept in Draft so you can retry.',
+            ], 422);
+        }
+
+        if (
+            $sendResult[
+                'ledger_warning'
+            ]
+                ?? false
+        ) {
+            return response()->json([
+                'ok' =>
+                    true,
+
+                'sent' =>
+                    true,
+
+                'ledger_warning' =>
+                    true,
+
+                'message_id' =>
+                    $draftId,
+
+                'provider_message_id' =>
+                    $sendResult[
+                        'provider_message_id'
+                    ]
+                        ?? null,
+
+                'message' =>
+                    'Email was sent, but its Sent-folder status needs synchronization.',
+            ]);
+        }
+
+        return response()->json([
+            'ok' =>
+                true,
+
+            'sent' =>
+                true,
+
+            'message_id' =>
+                $draftId,
+
+            'provider_message_id' =>
+                $sendResult[
+                    'provider_message_id'
+                ]
+                    ?? null,
+
+            'message' =>
+                'Email sent successfully.',
+        ]);
+    }
+
+
     public function saveDraft(Request $request)
     {
         $validated = $request->validate([
@@ -553,7 +1305,6 @@ return view('tenant.admin.email.index', [
             'attachments' => [
                 'nullable',
                 'array',
-                'max:10',
             ],
             'attachments.*' => [
                 'file',
@@ -990,4 +1741,370 @@ return view('tenant.admin.email.index', [
             'has_next' => false,
         ]);
     }
+
+
+    /**
+     * ESUBIZ_CORE_EMAIL_MAILBOX_ACTIONS_V16
+     *
+     * Canonical mailbox message mutation boundary.
+     *
+     * Messages remain owned by email_messages.
+     * Every mutation is scoped to the selected website
+     * tenant database and mailbox.
+     */
+    public function messageAction(
+        Request $request,
+        int $message
+    ) {
+        $website = $this->centralWebsite($request);
+
+        $validated = $request->validate([
+            'mailbox_id' => [
+                'required',
+                'integer',
+                'min:1',
+            ],
+            'action' => [
+                'required',
+                'string',
+                'in:read,unread,spam,inbox,delete,restore,delete_permanently',
+            ],
+        ]);
+
+        $mailboxId =
+            (int) $validated['mailbox_id'];
+
+        $action =
+            (string) $validated['action'];
+
+        $connection =
+            DB::connection('website_tenant');
+
+        $mailbox =
+            $connection
+                ->table('email_boxes')
+                ->where('id', $mailboxId)
+                ->first();
+
+        if (!$mailbox) {
+            abort(404);
+        }
+
+        $record =
+            $connection
+                ->table('email_messages')
+                ->where('id', $message)
+                ->where('mailbox_id', $mailboxId)
+                ->first();
+
+        if (!$record) {
+            abort(404);
+        }
+
+        $folder =
+            strtolower(
+                trim(
+                    (string) (
+                        $record->folder ?? ''
+                    )
+                )
+            );
+
+        $direction =
+            strtolower(
+                trim(
+                    (string) (
+                        $record->direction
+                        ?? 'inbound'
+                    )
+                )
+            );
+
+        $updates = [
+            'updated_at' => now(),
+        ];
+
+        if ($action === 'read') {
+            $updates['read_at'] = now();
+        }
+
+        if ($action === 'unread') {
+            $updates['read_at'] = null;
+        }
+
+        if ($action === 'spam') {
+            if (!in_array(
+                $folder,
+                ['inbox', 'spam'],
+                true
+            )) {
+                return response()->json([
+                    'ok' => false,
+                    'message' =>
+                        'Only Inbox or Spam messages can be moved to Spam.',
+                ], 422);
+            }
+
+            $updates['folder'] = 'spam';
+        }
+
+        if ($action === 'inbox') {
+            if (!in_array(
+                $folder,
+                ['inbox', 'spam'],
+                true
+            )) {
+                return response()->json([
+                    'ok' => false,
+                    'message' =>
+                        'Only Inbox or Spam messages can be moved to Inbox.',
+                ], 422);
+            }
+
+            $updates['folder'] = 'inbox';
+        }
+
+        if ($action === 'delete') {
+            if ($folder === 'trash') {
+                return response()->json([
+                    'ok' => false,
+                    'message' =>
+                        'Use Delete Permanently for messages already in Trash.',
+                ], 422);
+            }
+
+            /*
+             * Preserve the canonical origin inside metadata
+             * when the schema exposes metadata.
+             *
+             * If metadata is not available, Restore falls
+             * back safely by direction.
+             */
+            if (
+                Schema::connection('website_tenant')
+                    ->hasColumn(
+                        'email_messages',
+                        'metadata'
+                    )
+            ) {
+                $metadata = [];
+
+                if (!empty($record->metadata)) {
+                    $decoded =
+                        json_decode(
+                            (string) $record->metadata,
+                            true
+                        );
+
+                    if (is_array($decoded)) {
+                        $metadata = $decoded;
+                    }
+                }
+
+                $metadata[
+                    'trash_previous_folder'
+                ] = $folder;
+
+                $updates['metadata'] =
+                    json_encode(
+                        $metadata,
+                        JSON_UNESCAPED_SLASHES
+                        | JSON_UNESCAPED_UNICODE
+                    );
+            }
+
+            $updates['folder'] = 'trash';
+        }
+
+        if ($action === 'restore') {
+            if ($folder !== 'trash') {
+                return response()->json([
+                    'ok' => false,
+                    'message' =>
+                        'Only Trash messages can be restored.',
+                ], 422);
+            }
+
+            $restoreFolder = null;
+
+            if (
+                Schema::connection('website_tenant')
+                    ->hasColumn(
+                        'email_messages',
+                        'metadata'
+                    )
+                && !empty($record->metadata)
+            ) {
+                $decoded =
+                    json_decode(
+                        (string) $record->metadata,
+                        true
+                    );
+
+                if (is_array($decoded)) {
+                    $candidate =
+                        strtolower(
+                            trim(
+                                (string) (
+                                    $decoded[
+                                        'trash_previous_folder'
+                                    ]
+                                    ?? ''
+                                )
+                            )
+                        );
+
+                    if (in_array(
+                        $candidate,
+                        [
+                            'inbox',
+                            'spam',
+                            'sent',
+                            'draft',
+                        ],
+                        true
+                    )) {
+                        $restoreFolder =
+                            $candidate;
+                    }
+                }
+            }
+
+            if (!$restoreFolder) {
+                $restoreFolder =
+                    $direction === 'outbound'
+                        ? 'sent'
+                        : 'inbox';
+            }
+
+            $updates['folder'] =
+                $restoreFolder;
+        }
+
+        if (
+            $action ===
+            'delete_permanently'
+        ) {
+            if ($folder !== 'trash') {
+                return response()->json([
+                    'ok' => false,
+                    'message' =>
+                        'Only Trash messages can be permanently deleted.',
+                ], 422);
+            }
+
+            /*
+             * Delete mailbox-owned attachment bytes first.
+             * Metadata is removed only after the physical
+             * mailbox file is addressed.
+             */
+            $attachments =
+                $connection
+                    ->table('email_attachments')
+                    ->where(
+                        'message_id',
+                        $message
+                    )
+                    ->get();
+
+            foreach ($attachments as $attachment) {
+                $locator =
+                    trim(
+                        (string) (
+                            $attachment
+                                ->mailbox_locator
+                            ?? ''
+                        )
+                    );
+
+                if ($locator !== '') {
+                    try {
+                        \Illuminate\Support\Facades\Storage
+                            ::disk('local')
+                            ->delete($locator);
+                    } catch (\Throwable $e) {
+                        report($e);
+
+                        return response()->json([
+                            'ok' => false,
+                            'message' =>
+                                'An attachment could not be removed safely.',
+                        ], 500);
+                    }
+                }
+            }
+
+            $connection->transaction(
+                function () use (
+                    $connection,
+                    $message,
+                    $mailboxId
+                ) {
+                    $connection
+                        ->table(
+                            'email_attachments'
+                        )
+                        ->where(
+                            'message_id',
+                            $message
+                        )
+                        ->delete();
+
+                    $connection
+                        ->table(
+                            'email_messages'
+                        )
+                        ->where(
+                            'id',
+                            $message
+                        )
+                        ->where(
+                            'mailbox_id',
+                            $mailboxId
+                        )
+                        ->delete();
+                }
+            );
+
+            return response()->json([
+                'ok' => true,
+                'action' =>
+                    'delete_permanently',
+                'message_id' =>
+                    $message,
+            ]);
+        }
+
+        $connection
+            ->table('email_messages')
+            ->where('id', $message)
+            ->where(
+                'mailbox_id',
+                $mailboxId
+            )
+            ->update($updates);
+
+        $fresh =
+            $connection
+                ->table('email_messages')
+                ->where('id', $message)
+                ->where(
+                    'mailbox_id',
+                    $mailboxId
+                )
+                ->first();
+
+        return response()->json([
+            'ok' => true,
+            'action' => $action,
+            'message_id' => $message,
+            'folder' =>
+                (string) (
+                    $fresh->folder ?? ''
+                ),
+            'read_at' =>
+                $fresh->read_at ?? null,
+        ]);
+    }
+
 }

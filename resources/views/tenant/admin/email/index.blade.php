@@ -11,6 +11,7 @@
     class="mx-auto max-w-7xl"
     data-messages-url="{{ route('tenant.cms.email.messages', ['subdomain' => request()->route('subdomain')]) }}"
     data-save-draft-url="{{ route('tenant.cms.email.drafts.store', ['subdomain' => request()->route('subdomain')]) }}"
+    data-send-url="{{ route('tenant.cms.email.send', ['subdomain' => request()->route('subdomain')]) }}"
     data-remove-draft-attachment-url-template="{{ route('tenant.cms.email.drafts.attachments.destroy', ['subdomain' => request()->route('subdomain'), 'message' => 0, 'attachment' => 0]) }}"
     data-message-url-template="{{ route('tenant.cms.email.message', ['subdomain' => request()->route('subdomain'), 'message' => 0]) }}"
     data-premium-url="{{ route('tenant.cms.email.premium-data', ['subdomain' => request()->route('subdomain')]) }}"
@@ -39,7 +40,103 @@
             $emailSenderTransport === 'premium_smtp';
     @endphp
 
-    <div class="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div
+        id="core-email-info-modal"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/50 p-4"
+    >
+        <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <h3
+                        id="core-email-info-title"
+                        class="text-lg font-bold text-slate-900"
+                    ></h3>
+
+                    <p
+                        id="core-email-info-description"
+                        class="mt-2 text-sm text-slate-500"
+                    ></p>
+                </div>
+
+                <button
+                    id="core-email-info-close"
+                    type="button"
+                    class="rounded-lg px-3 py-1 text-xl text-slate-400 hover:bg-slate-100"
+                >
+                    &times;
+                </button>
+            </div>
+
+            <div
+                id="core-email-info-content"
+                class="mt-5 whitespace-pre-line rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-700"
+            ></div>
+        </div>
+    </div>
+
+        {{-- ESUBIZ_CORE_EMAIL_LEVEL1_MAILBOX_NAV_V1 --}}
+    {{--
+        LEVEL 1
+
+        Every real mailbox is its own primary tab.
+
+        SaaS:
+        + Add Email Address opens Esubiz-managed mailbox
+        provisioning/purchase options.
+
+        Off-server:
+        + Add Email Address opens external mailbox connection
+        setup. It must never invoke Esubiz DirectAdmin.
+    --}}
+    <div class="mb-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div class="overflow-x-auto px-4">
+            <div class="flex min-w-max items-end gap-2 pt-4">
+
+                {{-- ESUBIZ_CORE_EMAIL_SENDER_LEVEL1_TAB_V7 --}}
+                <button
+                    type="button"
+                    id="core-email-sender-level1"
+                    data-email-level1="sender"
+                    class="rounded-t-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+                >
+                    Email Sender
+                </button>
+
+                @foreach($mailboxes as $mailbox)
+                    <button
+                        type="button"
+                        data-mailbox-id="{{ $mailbox->id }}"
+                        data-mailbox-address="{{ $mailbox->email }}"
+                        data-email-level1="mailbox"
+                        class="core-mailbox-tab rounded-t-xl px-4 py-3 text-sm font-semibold transition
+                            {{ (int) $selectedMailboxId === (int) $mailbox->id
+                                ? 'bg-blue-800 text-white'
+                                : 'bg-blue-600 text-white hover:bg-blue-700' }}"
+                    >
+                        {{ $mailbox->email }}
+                    </button>
+                @endforeach
+
+                <button
+                    type="button"
+                    id="core-email-add-address"
+                    data-email-level1="add-address"
+                    class="rounded-t-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+                >
+                    <span class="mr-1 text-base leading-none">+</span>
+                    Add Email Address
+                </button>
+
+            </div>
+        </div>
+    </div>
+
+    {{-- ESUBIZ_CORE_EMAIL_SENDER_LEVEL1_WORKSPACE_V8B --}}
+    <div
+        id="core-email-sender-workspace"
+        class="hidden"
+    >
+<div class="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
                 <h2 class="text-base font-bold text-slate-900">
@@ -213,99 +310,513 @@
         </div>
     </div>
 
-    <div
-        id="core-email-info-modal"
-        class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/50 p-4"
-    >
-        <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-            <div class="flex items-start justify-between gap-4">
-                <div>
-                    <h3
-                        id="core-email-info-title"
-                        class="text-lg font-bold text-slate-900"
-                    ></h3>
+        </div>
 
-                    <p
-                        id="core-email-info-description"
-                        class="mt-2 text-sm text-slate-500"
-                    ></p>
+{{-- ESUBIZ_CORE_EMAIL_ADD_ADDRESS_WORKSPACE_V1 --}}
+    <div
+        id="core-email-add-address-workspace"
+        class="mb-4 hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+    >
+        <div class="mb-6">
+            <h2 class="text-lg font-bold text-slate-900">
+                Add Email Address
+            </h2>
+
+            @if($website->isSaas())
+                <p class="mt-1 text-sm text-slate-500">
+                    Create an additional email address for this website.
+                </p>
+            @else
+                <p class="mt-1 text-sm text-slate-500">
+                    Connect an email address from your own mail server.
+                </p>
+            @endif
+        </div>
+
+        @if($website->isSaas())
+
+            {{--
+                ESUBIZ_CORE_SAAS_ADD_MAILBOX_COMMERCE_PLACEHOLDER_V1
+
+                Central Admin will own:
+                - included mailbox allowance;
+                - additional mailbox price;
+                - purchasable quantity/allowance;
+                - provisioning availability;
+                - related commercial controls.
+
+                Do not hard-code price here.
+            --}}
+            <div class="rounded-xl border border-blue-200 bg-blue-50 p-5">
+                <div class="text-sm font-bold text-slate-900">
+                    Additional Email Address
+                </div>
+
+                <p class="mt-2 text-sm leading-6 text-slate-600">
+                    Additional mailbox pricing and allowance will be supplied by Esubiz Central.
+                </p>
+
+                <div
+                    id="core-email-add-address-central-options"
+                    class="mt-4"
+                ></div>
+            </div>
+
+        @else
+
+            {{-- ESUBIZ_CORE_OFFSERVER_REAL_MAILBOX_FORM_V2 --}}
+            <form
+                id="core-email-external-mailbox-form"
+                class="max-w-2xl space-y-4"
+            >
+                @csrf
+
+                <div
+                    id="core-email-external-status"
+                    class="hidden rounded-xl border px-4 py-3 text-sm"
+                ></div>
+
+                <div>
+                    <label
+                        for="core-email-external-address"
+                        class="mb-1.5 block text-sm font-semibold text-slate-700"
+                    >
+                        Email Address
+                    </label>
+
+                    <input
+                        id="core-email-external-address"
+                        name="email"
+                        type="email"
+                        autocomplete="username"
+                        required
+                        placeholder="mail@example.com"
+                        class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                    >
+                </div>
+
+                <div>
+                    <label
+                        for="core-email-external-password"
+                        class="mb-1.5 block text-sm font-semibold text-slate-700"
+                    >
+                        Password
+                    </label>
+
+                    <input
+                        id="core-email-external-password"
+                        name="password"
+                        type="password"
+                        autocomplete="current-password"
+                        required
+                        placeholder="Mailbox password"
+                        class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                    >
+                </div>
+
+                <input
+                    id="core-email-external-manual"
+                    name="manual"
+                    type="hidden"
+                    value="0"
+                >
+
+                <div
+                    id="core-email-external-manual-fields"
+                    class="hidden space-y-5 rounded-xl border border-amber-200 bg-amber-50 p-5"
+                >
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-900">
+                            Manual Mail Server Settings
+                        </h3>
+
+                        <p class="mt-1 text-sm leading-6 text-slate-600">
+                            Automatic setup could not verify this mailbox. Enter the real SMTP and IMAP settings supplied by your email provider.
+                        </p>
+                    </div>
+
+                    <div class="grid gap-4 sm:grid-cols-3">
+                        <div class="sm:col-span-2">
+                            <label
+                                for="core-email-external-smtp-host"
+                                class="mb-1.5 block text-sm font-semibold text-slate-700"
+                            >
+                                SMTP Server
+                            </label>
+
+                            <input
+                                id="core-email-external-smtp-host"
+                                name="smtp_host"
+                                type="text"
+                                placeholder="smtp.example.com"
+                                class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                            >
+                        </div>
+
+                        <div>
+                            <label
+                                for="core-email-external-smtp-port"
+                                class="mb-1.5 block text-sm font-semibold text-slate-700"
+                            >
+                                SMTP Port
+                            </label>
+
+                            <input
+                                id="core-email-external-smtp-port"
+                                name="smtp_port"
+                                type="number"
+                                min="1"
+                                max="65535"
+                                value="587"
+                                class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                            >
+                        </div>
+                    </div>
+
+                    <div>
+                        <label
+                            for="core-email-external-smtp-encryption"
+                            class="mb-1.5 block text-sm font-semibold text-slate-700"
+                        >
+                            SMTP Security
+                        </label>
+
+                        <select
+                            id="core-email-external-smtp-encryption"
+                            name="smtp_encryption"
+                            class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm"
+                        >
+                            <option value="tls">TLS / STARTTLS</option>
+                            <option value="ssl">SSL / Implicit TLS</option>
+                            <option value="none">None</option>
+                        </select>
+                    </div>
+
+                    <div class="grid gap-4 sm:grid-cols-3">
+                        <div class="sm:col-span-2">
+                            <label
+                                for="core-email-external-imap-host"
+                                class="mb-1.5 block text-sm font-semibold text-slate-700"
+                            >
+                                IMAP Server
+                            </label>
+
+                            <input
+                                id="core-email-external-imap-host"
+                                name="imap_host"
+                                type="text"
+                                placeholder="imap.example.com"
+                                class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                            >
+                        </div>
+
+                        <div>
+                            <label
+                                for="core-email-external-imap-port"
+                                class="mb-1.5 block text-sm font-semibold text-slate-700"
+                            >
+                                IMAP Port
+                            </label>
+
+                            <input
+                                id="core-email-external-imap-port"
+                                name="imap_port"
+                                type="number"
+                                min="1"
+                                max="65535"
+                                value="993"
+                                class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                            >
+                        </div>
+                    </div>
+
+                    <div>
+                        <label
+                            for="core-email-external-imap-encryption"
+                            class="mb-1.5 block text-sm font-semibold text-slate-700"
+                        >
+                            IMAP Security
+                        </label>
+
+                        <select
+                            id="core-email-external-imap-encryption"
+                            name="imap_encryption"
+                            class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm"
+                        >
+                            <option value="ssl">SSL / Implicit TLS</option>
+                            <option value="tls">TLS / STARTTLS</option>
+                            <option value="none">None</option>
+                        </select>
+                    </div>
                 </div>
 
                 <button
-                    id="core-email-info-close"
-                    type="button"
-                    class="rounded-lg px-3 py-1 text-xl text-slate-400 hover:bg-slate-100"
+                    type="submit"
+                    id="core-email-connect-external-address"
+                    class="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                    &times;
+                    Add Email Address
                 </button>
-            </div>
+            </form>
 
-            <div
-                id="core-email-info-content"
-                class="mt-5 whitespace-pre-line rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-700"
-            ></div>
-        </div>
+            <script>
+                /*
+                 * ESUBIZ_CORE_OFFSERVER_REAL_MAILBOX_JS_V1
+                 *
+                 * Password exists only in the browser request and is
+                 * encrypted server-side before tenant persistence.
+                 */
+                document.addEventListener('DOMContentLoaded', function () {
+                    const form =
+                        document.getElementById(
+                            'core-email-external-mailbox-form'
+                        );
+
+                    if (!form) {
+                        return;
+                    }
+
+                    const button =
+                        document.getElementById(
+                            'core-email-connect-external-address'
+                        );
+
+                    const status =
+                        document.getElementById(
+                            'core-email-external-status'
+                        );
+
+                    const manual =
+                        document.getElementById(
+                            'core-email-external-manual'
+                        );
+
+                    const manualFields =
+                        document.getElementById(
+                            'core-email-external-manual-fields'
+                        );
+
+                    const smtpHost =
+                        document.getElementById(
+                            'core-email-external-smtp-host'
+                        );
+
+                    const smtpPort =
+                        document.getElementById(
+                            'core-email-external-smtp-port'
+                        );
+
+                    const smtpEncryption =
+                        document.getElementById(
+                            'core-email-external-smtp-encryption'
+                        );
+
+                    const imapHost =
+                        document.getElementById(
+                            'core-email-external-imap-host'
+                        );
+
+                    const imapPort =
+                        document.getElementById(
+                            'core-email-external-imap-port'
+                        );
+
+                    const imapEncryption =
+                        document.getElementById(
+                            'core-email-external-imap-encryption'
+                        );
+
+                    const setStatus = function (
+                        message,
+                        success
+                    ) {
+                        status.textContent = message || '';
+                        status.classList.remove(
+                            'hidden',
+                            'border-green-200',
+                            'bg-green-50',
+                            'text-green-700',
+                            'border-red-200',
+                            'bg-red-50',
+                            'text-red-700'
+                        );
+
+                        status.classList.add(
+                            success
+                                ? 'border-green-200'
+                                : 'border-red-200',
+
+                            success
+                                ? 'bg-green-50'
+                                : 'bg-red-50',
+
+                            success
+                                ? 'text-green-700'
+                                : 'text-red-700'
+                        );
+                    };
+
+                    const applySuggestion = function (
+                        suggested
+                    ) {
+                        if (!suggested) {
+                            return;
+                        }
+
+                        if (suggested.smtp) {
+                            smtpHost.value =
+                                suggested.smtp.host || '';
+
+                            smtpPort.value =
+                                suggested.smtp.port || 587;
+
+                            smtpEncryption.value =
+                                suggested.smtp.encryption
+                                    || 'tls';
+                        }
+
+                        if (suggested.imap) {
+                            imapHost.value =
+                                suggested.imap.host || '';
+
+                            imapPort.value =
+                                suggested.imap.port || 993;
+
+                            imapEncryption.value =
+                                suggested.imap.encryption
+                                    || 'ssl';
+                        }
+                    };
+
+                    form.addEventListener(
+                        'submit',
+                        async function (event) {
+                            event.preventDefault();
+
+                            if (button.disabled) {
+                                return;
+                            }
+
+                            const originalText =
+                                button.textContent;
+
+                            button.disabled = true;
+                            button.textContent =
+                                manual.value === '1'
+                                    ? 'Testing Mail Server...'
+                                    : 'Detecting Mail Server...';
+
+                            status.classList.add('hidden');
+
+                            try {
+                                const response = await fetch(
+                                    @json(route(
+                                        'tenant.cms.email.mailboxes.external.store'
+                                    )),
+                                    {
+                                        method: 'POST',
+
+                                        headers: {
+                                            'Accept':
+                                                'application/json',
+
+                                            'X-Requested-With':
+                                                'XMLHttpRequest',
+                                        },
+
+                                        body:
+                                            new FormData(form),
+                                    }
+                                );
+
+                                let data = {};
+
+                                try {
+                                    data =
+                                        await response.json();
+                                } catch (error) {
+                                    data = {};
+                                }
+
+                                if (
+                                    response.ok
+                                    && data.ok
+                                ) {
+                                    setStatus(
+                                        data.message
+                                            || 'Email address connected successfully.',
+                                        true
+                                    );
+
+                                    button.textContent =
+                                        'Connected';
+
+                                    window.setTimeout(
+                                        function () {
+                                            window.location.reload();
+                                        },
+                                        650
+                                    );
+
+                                    return;
+                                }
+
+                                if (
+                                    data.manual_required
+                                ) {
+                                    manual.value = '1';
+
+                                    manualFields.classList.remove(
+                                        'hidden'
+                                    );
+
+                                    applySuggestion(
+                                        data.suggested
+                                    );
+                                }
+
+                                setStatus(
+                                    data.message
+                                        || 'The mailbox could not be connected.',
+                                    false
+                                );
+
+                            } catch (error) {
+                                setStatus(
+                                    'Core could not reach the mailbox connection service. Please try again.',
+                                    false
+                                );
+                            } finally {
+                                if (
+                                    button.textContent
+                                    !== 'Connected'
+                                ) {
+                                    button.disabled = false;
+
+                                    button.textContent =
+                                        manual.value === '1'
+                                            ? 'Test & Add Email Address'
+                                            : originalText;
+                                }
+                            }
+                        }
+                    );
+                });
+            </script>
+        @endif
     </div>
-
-    {{-- LEVEL 1: AVAILABLE EMAIL ADDRESSES --}}
-    {{-- ESUBIZ_CORE_MAIL_INTERFACE_V2 --}}
-    {{-- ESUBIZ_CORE_MAIL_EMPTY_WORKSPACE_V3 --}}
-    <div class="mb-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div class="flex flex-col gap-4 border-b border-slate-200 px-5 pt-5 sm:flex-row sm:items-end sm:justify-between">
-            <div class="min-w-0 flex-1 overflow-x-auto">
-                @if($mailboxes->isNotEmpty())
-                    <div class="flex min-w-max gap-2">
-                        @foreach($mailboxes as $mailbox)
-                            <button
-                                type="button"
-                                data-mailbox-id="{{ $mailbox->id }}"
-                                data-mailbox-address="{{ $mailbox->email }}"
-                                class="core-mailbox-tab rounded-t-xl px-4 py-3 text-sm font-semibold
-                                    {{ (int) $selectedMailboxId === (int) $mailbox->id
-                                        ? 'bg-slate-900 text-white'
-                                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100' }}"
-                            >
-                                {{ $mailbox->email }}
-                            </button>
-                        @endforeach
-                    </div>
-                @else
-                    <div class="pb-4">
-                        <p class="text-sm font-semibold text-slate-900">
-                            Email Addresses
-                        </p>
-
-                        <p class="mt-1 text-sm text-slate-500">
-                            Manage the email addresses available to this website.
-                        </p>
-                    </div>
-                @endif
-            </div>
-
-            <button
-                type="button"
-                id="core-email-add-address"
-                class="mb-4 inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
-            >
-                <span class="text-lg leading-none">+</span>
-                <span>Add Email Address</span>
-            </button>
-        </div>
-
-        {{-- ESUBIZ_CORE_MAIL_EMPTY_HERO_REMOVED_V5 --}}
-        {{-- Folder tabs are the canonical zero-mailbox state. --}}
-    </div>
-
-    {{-- ESUBIZ_CORE_MAIL_ZERO_MAILBOX_FOLDERS_V4 --}}
-    {{-- The Email workspace remains visible even before the first mailbox exists. --}}
-    {{-- Mailbox-dependent actions render their own empty/disabled state. --}}
 
         {{-- LEVEL 2: SELECTED MAILBOX --}}
-        <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        {{-- ESUBIZ_CORE_EMAIL_MAILBOX_WORKSPACE_V1 --}}
+        <div
+            id="core-email-mailbox-workspace"
+            class="rounded-2xl border border-slate-200 bg-white shadow-sm"
+        >
 
             <div class="overflow-x-auto border-b border-slate-200 px-4">
                 <div class="flex min-w-max gap-1 py-3">
 
+                    {{-- ESUBIZ_CORE_EMAIL_BLUE_LEVEL2_TABS_V1 --}}
                     @foreach([
                         'compose' => 'Create Email',
                         'inbox' => 'Inbox',
@@ -320,10 +831,10 @@
                         <button
                             type="button"
                             data-email-section="{{ $key }}"
-                            class="core-email-section rounded-lg px-4 py-2 text-sm font-semibold
+                            class="core-email-section rounded-lg px-4 py-2 text-sm font-semibold text-white transition
                                 {{ $key === 'inbox'
-                                    ? 'bg-slate-900 text-white'
-                                    : 'text-slate-600 hover:bg-slate-100' }}"
+                                    ? 'bg-blue-800'
+                                    : 'bg-blue-600 hover:bg-blue-700' }}"
                         >
                             {{ $label }}
                         </button>
@@ -654,6 +1165,17 @@
                                 multiple
                                 class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-600"
                             >
+                        {{-- ESUBIZ_CORE_EMAIL_ATTACHMENT_PREVIEW_V2 --}}
+                        <div
+                            id="core-email-compose-attachment-previews"
+                            class="mt-3 hidden"
+                        >
+                            <div
+                                id="core-email-compose-attachment-preview-list"
+                                class="flex flex-wrap gap-2"
+                            ></div>
+                        </div>
+
 
                             <div
                                 id="core-email-compose-existing-attachments"
@@ -1536,522 +2058,11 @@ The Team</p>
          Level-2 workspace intentionally remains visible with zero mailboxes. --}}
 </div>
 
-{{-- ESUBIZ_CORE_EMAIL_BRANDING_TAB_JS_V3 --}}
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    const brandingTab =
-        document.querySelector('[data-email-section="branding"]');
+{{-- ESUBIZ_CORE_EMAIL_LEVEL1_NAV_MERGED_V7 --}}
 
-    const brandingPanel =
-        document.getElementById('core-email-branding-panel');
 
-    if (!brandingTab || !brandingPanel) {
-        return;
-    }
-
-    const sectionTabs =
-        Array.from(document.querySelectorAll('.core-email-section'));
-
-    const listPanel =
-        document.getElementById('core-email-list-panel');
-
-    const composePanel =
-        document.getElementById('core-email-compose-panel');
-
-    const settingsPanel =
-        document.getElementById('core-email-settings-panel');
-
-    function selectBranding() {
-        sectionTabs.forEach(tab => {
-            const active = tab === brandingTab;
-
-            tab.classList.toggle('bg-slate-900', active);
-            tab.classList.toggle('text-white', active);
-
-            if (!active) {
-                tab.classList.remove('bg-slate-900', 'text-white');
-                tab.classList.add('text-slate-600');
-            }
-        });
-
-        listPanel?.classList.add('hidden');
-        composePanel?.classList.add('hidden');
-        settingsPanel?.classList.add('hidden');
-        brandingPanel.classList.remove('hidden');
-    }
-
-    brandingTab.addEventListener(
-        'click',
-        selectBranding
-    );
-
-    sectionTabs
-        .filter(tab => tab !== brandingTab)
-        .forEach(tab => {
-            tab.addEventListener('click', () => {
-                brandingPanel.classList.add('hidden');
-            });
-        });
-
-    const modal =
-        document.getElementById(
-            'core-email-branding-preview-modal'
-        );
-
-    const close =
-        document.getElementById(
-            'core-email-branding-preview-close'
-        );
-
-    const header =
-        document.getElementById(
-            'core-email-branding-header'
-        );
-
-    const footer =
-        document.getElementById(
-            'core-email-branding-footer'
-        );
-
-    const signature =
-        document.getElementById(
-            'core-email-branding-signature'
-        );
-
-    const background =
-        document.getElementById(
-            'core-email-branding-background'
-        );
-
-    const accent =
-        document.getElementById(
-            'core-email-branding-accent'
-        );
-
-    const width =
-        document.getElementById(
-            'core-email-branding-width'
-        );
-
-    const font =
-        document.getElementById(
-            'core-email-branding-font'
-        );
-
-    const previewHeader =
-        document.getElementById(
-            'core-email-branding-preview-header'
-        );
-
-    const previewFooter =
-        document.getElementById(
-            'core-email-branding-preview-footer'
-        );
-
-    const previewSignature =
-        document.getElementById(
-            'core-email-branding-preview-signature'
-        );
-
-    const previewStage =
-        document.getElementById(
-            'core-email-branding-preview-stage'
-        );
-
-    const previewCard =
-        document.getElementById(
-            'core-email-branding-preview-card'
-        );
-
-    const previewLogo =
-        document.getElementById(
-            'core-email-branding-preview-logo'
-        );
-
-    const logoInput =
-        document.getElementById(
-            'core-email-branding-logo'
-        );
-
-    let temporaryLogoUrl = null;
-
-    const footerContactEnabled =
-        document.getElementById('core-email-footer-contact-enabled');
-
-    const footerSocialEnabled =
-        document.getElementById('core-email-footer-social-enabled');
-
-    const footerUnsubscribeEnabled =
-        document.getElementById('core-email-footer-unsubscribe-enabled');
-
-    const footerContactFields =
-        document.getElementById('core-email-footer-contact-fields');
-
-    const footerSocialFields =
-        document.getElementById('core-email-footer-social-fields');
-
-    const footerUnsubscribeFields =
-        document.getElementById('core-email-footer-unsubscribe-fields');
-
-    const footerPhone =
-        document.getElementById('core-email-footer-phone');
-
-    const footerEmail =
-        document.getElementById('core-email-footer-email');
-
-    const footerWebsite =
-        document.getElementById('core-email-footer-website');
-
-    const footerAddress =
-        document.getElementById('core-email-footer-address');
-
-    const footerUnsubscribeText =
-        document.getElementById('core-email-footer-unsubscribe-text');
-
-    const previewContact =
-        document.getElementById('core-email-branding-preview-contact');
-
-    const previewSocial =
-        document.getElementById('core-email-branding-preview-social');
-
-    const previewUnsubscribe =
-        document.getElementById('core-email-branding-preview-unsubscribe');
-
-    const socialNetworks = [
-        ['facebook', 'Facebook'],
-        ['instagram', 'Instagram'],
-        ['linkedin', 'LinkedIn'],
-        ['x', 'X'],
-        ['youtube', 'YouTube'],
-        ['tiktok', 'TikTok'],
-    ];
-
-    function setFooterGroupState(enabled, container) {
-        if (!container) {
-            return;
-        }
-
-        container.classList.toggle(
-            'opacity-50',
-            !enabled
-        );
-
-        container
-            .querySelectorAll('input, textarea, select')
-            .forEach(control => {
-                control.disabled = !enabled;
-            });
-    }
-
-    function updateFooterPreview() {
-        const showContact =
-            footerContactEnabled?.checked ?? true;
-
-        const showSocial =
-            footerSocialEnabled?.checked ?? true;
-
-        const showUnsubscribe =
-            footerUnsubscribeEnabled?.checked ?? true;
-
-        setFooterGroupState(
-            showContact,
-            footerContactFields
-        );
-
-        setFooterGroupState(
-            showSocial,
-            footerSocialFields
-        );
-
-        setFooterGroupState(
-            showUnsubscribe,
-            footerUnsubscribeFields
-        );
-
-        if (previewContact) {
-            const contactItems = [];
-
-            if (footerPhone?.value.trim()) {
-                contactItems.push(
-                    footerPhone.value.trim()
-                );
-            }
-
-            if (footerEmail?.value.trim()) {
-                contactItems.push(
-                    footerEmail.value.trim()
-                );
-            }
-
-            if (footerWebsite?.value.trim()) {
-                contactItems.push(
-                    footerWebsite.value.trim()
-                );
-            }
-
-            if (footerAddress?.value.trim()) {
-                contactItems.push(
-                    footerAddress.value.trim()
-                );
-            }
-
-            previewContact.textContent =
-                contactItems.join(' • ');
-
-            previewContact.classList.toggle(
-                'hidden',
-                !showContact
-                    || contactItems.length === 0
-            );
-        }
-
-        if (previewSocial) {
-            previewSocial.replaceChildren();
-
-            let socialCount = 0;
-
-            if (showSocial) {
-                socialNetworks.forEach(
-                    ([key, label]) => {
-                        const input =
-                            document.getElementById(
-                                `core-email-footer-social-${key}`
-                            );
-
-                        const url =
-                            input?.value.trim();
-
-                        if (!url) {
-                            return;
-                        }
-
-                        const link =
-                            document.createElement('a');
-
-                        link.href = url;
-                        link.target = '_blank';
-                        link.rel = 'noopener noreferrer';
-                        link.textContent = label;
-                        link.className =
-                            'text-slate-600 underline';
-
-                        previewSocial.appendChild(
-                            link
-                        );
-
-                        socialCount++;
-                    }
-                );
-            }
-
-            previewSocial.classList.toggle(
-                'hidden',
-                !showSocial || socialCount === 0
-            );
-
-            previewSocial.classList.toggle(
-                'flex',
-                showSocial && socialCount > 0
-            );
-        }
-
-        if (previewUnsubscribe) {
-            previewUnsubscribe.classList.toggle(
-                'hidden',
-                !showUnsubscribe
-            );
-
-            const link =
-                previewUnsubscribe.querySelector('a');
-
-            if (link) {
-                link.textContent =
-                    footerUnsubscribeText?.value.trim()
-                    || 'Unsubscribe from these emails';
-            }
-        }
-    }
-
-    function updatePreview() {
-        updateFooterPreview();
-
-        if (previewHeader) {
-            previewHeader.textContent =
-                header?.value?.trim()
-                || 'Thank you for connecting with us.';
-        }
-
-        if (previewFooter) {
-            previewFooter.textContent =
-                footer?.value?.trim() || '';
-        }
-
-        if (previewSignature) {
-            previewSignature.textContent =
-                signature?.value?.trim() || '';
-        }
-
-        if (previewStage && background) {
-            previewStage.style.backgroundColor =
-                background.value;
-        }
-
-        if (previewCard && width) {
-            previewCard.style.maxWidth =
-                `${parseInt(width.value, 10) || 640}px`;
-        }
-
-        if (previewLogo && accent) {
-            previewLogo.style.color =
-                accent.value;
-        }
-
-        if (previewCard && font) {
-            previewCard.style.fontFamily =
-                font.value === 'serif'
-                    ? 'Georgia, Cambria, "Times New Roman", serif'
-                    : font.value === 'clean'
-                        ? 'Arial, Helvetica, sans-serif'
-                        : 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-        }
-    }
-
-    function openPreview() {
-        if (!modal) {
-            return;
-        }
-
-        updatePreview();
-
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-
-        document.body.classList.add('overflow-hidden');
-    }
-
-    function closePreview() {
-        if (!modal) {
-            return;
-        }
-
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-
-        document.body.classList.remove('overflow-hidden');
-    }
-
-    document
-        .querySelectorAll(
-            '#core-email-branding-preview, [data-core-email-branding-preview]'
-        )
-        .forEach(button => {
-            button.addEventListener(
-                'click',
-                openPreview
-            );
-        });
-
-    close?.addEventListener(
-        'click',
-        closePreview
-    );
-
-    modal?.addEventListener(
-        'click',
-        event => {
-            if (event.target === modal) {
-                closePreview();
-            }
-        }
-    );
-
-    document.addEventListener(
-        'keydown',
-        event => {
-            if (
-                event.key === 'Escape'
-                && modal
-                && !modal.classList.contains('hidden')
-            ) {
-                closePreview();
-            }
-        }
-    );
-
-    [
-        header,
-        footer,
-        signature,
-        background,
-        accent,
-        width,
-        font,
-        footerContactEnabled,
-        footerSocialEnabled,
-        footerUnsubscribeEnabled,
-        footerPhone,
-        footerEmail,
-        footerWebsite,
-        footerAddress,
-        footerUnsubscribeText,
-        ...socialNetworks.map(
-            ([key]) =>
-                document.getElementById(
-                    `core-email-footer-social-${key}`
-                )
-        )
-    ].forEach(control => {
-        control?.addEventListener(
-            'input',
-            updatePreview
-        );
-
-        control?.addEventListener(
-            'change',
-            updatePreview
-        );
-    });
-
-    logoInput?.addEventListener(
-        'change',
-        () => {
-            const file =
-                logoInput.files?.[0];
-
-            if (!file) {
-                return;
-            }
-
-            if (temporaryLogoUrl) {
-                URL.revokeObjectURL(
-                    temporaryLogoUrl
-                );
-            }
-
-            temporaryLogoUrl =
-                URL.createObjectURL(file);
-
-            const html =
-                `<img src="${temporaryLogoUrl}" alt="Email logo" class="mx-auto max-h-16 max-w-[220px] object-contain">`;
-
-            const localPreview =
-                document.getElementById(
-                    'core-email-branding-logo-preview'
-                );
-
-            if (localPreview) {
-                localPreview.innerHTML = html;
-            }
-
-            if (previewLogo) {
-                previewLogo.innerHTML = html;
-            }
-        }
-    );
-
-    updatePreview();
-});
-</script>
+{{-- ESUBIZ_CORE_EMAIL_BRANDING_NAV_MERGED_V5:
+     Branding navigation is owned by authoritative activateSection(). --}}
 
 {{-- ESUBIZ_CORE_EMAIL_SENDER_SELECTOR_JS_V3 --}}
 <script>
@@ -2416,6 +2427,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const settingsPanel =
         document.getElementById('core-email-settings-panel');
 
+    /*
+     * ESUBIZ_CORE_EMAIL_AUTHORITATIVE_LEVEL2_V5
+     *
+     * All Level-2 workspaces are controlled by activateSection().
+     * Exactly one content workspace is visible at a time.
+     */
+    const brandingPanel =
+        document.getElementById('core-email-branding-panel');
+
+    const messageViewPanel =
+        document.getElementById('core-email-message-view-panel');
+
     const results =
         document.getElementById('core-email-message-results');
 
@@ -2575,43 +2598,88 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function activateSection(tab) {
-        const section = tab.dataset.emailSection;
+        const section =
+            tab.dataset.emailSection;
 
+        /*
+         * ESUBIZ_CORE_EMAIL_EXCLUSIVE_LEVEL2_V5
+         *
+         * Paint every Level-2 tab blue/white.
+         * Selected = darker blue.
+         */
         sectionTabs.forEach(item => {
             item.classList.remove(
+                'bg-blue-600',
+                'bg-blue-700',
+                'bg-blue-800',
                 'bg-slate-900',
-                'text-white'
+                'bg-white',
+                'text-slate-600'
             );
 
-            item.classList.add('text-slate-600');
+            item.classList.add(
+                item === tab
+                    ? 'bg-blue-800'
+                    : 'bg-blue-600',
+                'text-white'
+            );
         });
 
-        tab.classList.remove('text-slate-600');
+        /*
+         * Start from a completely closed workspace.
+         * The requested section below is the only panel reopened.
+         */
+        listPanel?.classList.add('hidden');
+        composePanel?.classList.add('hidden');
+        settingsPanel?.classList.add('hidden');
+        brandingPanel?.classList.add('hidden');
+        messageViewPanel?.classList.add('hidden');
 
-        tab.classList.add(
-            'bg-slate-900',
-            'text-white'
-        );
-
-        listPanel.classList.add('hidden');
-        composePanel.classList.add('hidden');
-        settingsPanel.classList.add('hidden');
-
+        /*
+         * ESUBIZ_CORE_EMAIL_LEVEL2_CLICK_REGRESSION_FIX_V6
+         *
+         * Navigation must not depend on draft-editor variables
+         * declared later in this script. Draft loading already
+         * enters Compose by clicking the Compose tab.
+         */
         if (section === 'compose') {
-            composePanel.classList.remove('hidden');
+            composePanel?.classList.remove(
+                'hidden'
+            );
+
             return;
         }
 
         if (section === 'settings') {
-            settingsPanel.classList.remove('hidden');
+            settingsPanel?.classList.remove(
+                'hidden'
+            );
+
             return;
         }
 
-        if (
-            section === 'compose'
-            && !openingExistingDraft
-        ) {
-            resetDraftEditing();
+        if (section === 'branding') {
+            brandingPanel?.classList.remove(
+                'hidden'
+            );
+
+            return;
+        }
+
+        /*
+         * Only actual mail folders are allowed to reach
+         * the message loader.
+         */
+        const mailFolders = [
+            'inbox',
+            'spam',
+            'draft',
+            'sent',
+            'trash',
+        ];
+
+        if (!mailFolders.includes(section)) {
+            return;
         }
 
         folder = section;
@@ -2620,11 +2688,19 @@ document.addEventListener('DOMContentLoaded', () => {
         folderTitle.textContent =
             folderLabels[folder] || 'Inbox';
 
-        listPanel.classList.remove('hidden');
+        listPanel?.classList.remove(
+            'hidden'
+        );
 
         loadMessages();
     }
 
+    /*
+     * ESUBIZ_CORE_EMAIL_REAL_NAVIGATION_LISTENERS_V8B
+     *
+     * Existing Core Email runtime remains authoritative for
+     * mailbox state, Level-2 sections and AJAX message loading.
+     */
     mailboxTabs.forEach(tab => {
         tab.addEventListener(
             'click',
@@ -2638,6 +2714,7 @@ document.addEventListener('DOMContentLoaded', () => {
             () => activateSection(tab)
         );
     });
+
 
     previous.addEventListener('click', () => {
         if (page <= 1) {
@@ -2730,6 +2807,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const resetDraftEditing = () => {
         activeDraftId = null;
+        root.dataset.activeDraftId = '';
         renderDraftAttachments([]);
     };
 
@@ -2737,6 +2815,11 @@ document.addEventListener('DOMContentLoaded', () => {
         openingExistingDraft = true;
         activeDraftId =
             Number(message.id) || null;
+
+        root.dataset.activeDraftId =
+            activeDraftId
+                ? String(activeDraftId)
+                : '';
 
         if (composeTo) {
             composeTo.value =
@@ -2965,6 +3048,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     Number(
                         payload.draft_id
                     ) || activeDraftId;
+
+                root.dataset.activeDraftId =
+                    activeDraftId
+                        ? String(activeDraftId)
+                        : '';
 
                 if (composeAttachments) {
                     composeAttachments.value = '';
@@ -3638,5 +3726,2482 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 @endif
+
+
+{{-- ESUBIZ_CORE_EMAIL_LEVEL1_NAVIGATION_V8B --}}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const senderTab =
+        document.getElementById(
+            'core-email-sender-level1'
+        );
+
+    const senderWorkspace =
+        document.getElementById(
+            'core-email-sender-workspace'
+        );
+
+    const addTab =
+        document.getElementById(
+            'core-email-add-address'
+        );
+
+    const addWorkspace =
+        document.getElementById(
+            'core-email-add-address-workspace'
+        );
+
+    const mailboxWorkspace =
+        document.getElementById(
+            'core-email-mailbox-workspace'
+        );
+
+    const mailboxTabs =
+        Array.from(
+            document.querySelectorAll(
+                '[data-email-level1="mailbox"]'
+            )
+        );
+
+    if (
+        !senderTab
+        || !senderWorkspace
+        || !addTab
+        || !addWorkspace
+        || !mailboxWorkspace
+    ) {
+        return;
+    }
+
+    const level1Tabs = [
+        senderTab,
+        ...mailboxTabs,
+        addTab
+    ];
+
+    const paint = active => {
+        level1Tabs.forEach(tab => {
+            tab.classList.remove(
+                'bg-blue-600',
+                'bg-blue-700',
+                'bg-blue-800',
+                'bg-slate-900',
+                'bg-white',
+                'text-slate-600'
+            );
+
+            tab.classList.add(
+                tab === active
+                    ? 'bg-blue-800'
+                    : 'bg-blue-600',
+                'text-white'
+            );
+        });
+    };
+
+    const hideAll = () => {
+        senderWorkspace.classList.add(
+            'hidden'
+        );
+
+        addWorkspace.classList.add(
+            'hidden'
+        );
+
+        mailboxWorkspace.classList.add(
+            'hidden'
+        );
+    };
+
+    senderTab.addEventListener(
+        'click',
+        () => {
+            hideAll();
+
+            senderWorkspace.classList.remove(
+                'hidden'
+            );
+
+            paint(senderTab);
+        }
+    );
+
+    addTab.addEventListener(
+        'click',
+        () => {
+            hideAll();
+
+            addWorkspace.classList.remove(
+                'hidden'
+            );
+
+            paint(addTab);
+        }
+    );
+
+    mailboxTabs.forEach(tab => {
+        /*
+         * This listener controls Level-1 visibility only.
+         * The existing Core Email listener separately calls
+         * activateMailbox(tab).
+         */
+        tab.addEventListener(
+            'click',
+            () => {
+                hideAll();
+
+                mailboxWorkspace.classList.remove(
+                    'hidden'
+                );
+
+                paint(tab);
+            }
+        );
+    });
+
+    /*
+     * DEFAULT:
+     * First real email address opens first.
+     * Email Sender remains visually first in Level 1.
+     */
+    hideAll();
+
+    if (mailboxTabs.length > 0) {
+        mailboxWorkspace.classList.remove(
+            'hidden'
+        );
+
+        paint(mailboxTabs[0]);
+    } else {
+        addWorkspace.classList.remove(
+            'hidden'
+        );
+
+        paint(addTab);
+    }
+});
+</script>
+
+
+
+{{-- ESUBIZ_CORE_EMAIL_ATTACHMENT_PREVIEW_JS_V2 --}}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const input =
+        document.getElementById(
+            'core-email-compose-attachments'
+        );
+
+    const wrapper =
+        document.getElementById(
+            'core-email-compose-attachment-previews'
+        );
+
+    const list =
+        document.getElementById(
+            'core-email-compose-attachment-preview-list'
+        );
+
+    if (!input || !wrapper || !list) {
+        return;
+    }
+
+    /*
+     * ESUBIZ_CORE_EMAIL_ATTACHMENT_SELECTION_V2
+     *
+     * This is the canonical pending-upload selection for
+     * Create Email. Multiple selection events accumulate.
+     */
+    let selectedFiles = [];
+
+    const extensionOf = name => {
+        const value =
+            String(name || '');
+
+        const dot =
+            value.lastIndexOf('.');
+
+        if (
+            dot <= 0
+            || dot === value.length - 1
+        ) {
+            return '';
+        }
+
+        return value
+            .slice(dot + 1)
+            .toLowerCase();
+    };
+
+    const fileType = file => {
+        const ext =
+            extensionOf(file.name);
+
+        const known = {
+            pdf: 'PDF',
+            doc: 'DOC',
+            docx: 'DOCX',
+            xls: 'XLS',
+            xlsx: 'XLSX',
+            csv: 'CSV',
+            ppt: 'PPT',
+            pptx: 'PPTX',
+            txt: 'TXT',
+            rtf: 'RTF',
+            zip: 'ZIP',
+            rar: 'RAR',
+            '7z': '7Z',
+            jpg: 'JPG',
+            jpeg: 'JPEG',
+            png: 'PNG',
+            gif: 'GIF',
+            webp: 'WEBP',
+            svg: 'SVG',
+            mp3: 'MP3',
+            wav: 'WAV',
+            mp4: 'MP4',
+            mov: 'MOV'
+        };
+
+        if (ext && known[ext]) {
+            return known[ext];
+        }
+
+        if (ext) {
+            return ext
+                .slice(0, 5)
+                .toUpperCase();
+        }
+
+        const mime =
+            String(file.type || '');
+
+        if (mime.startsWith('image/')) {
+            return 'IMG';
+        }
+
+        if (mime.startsWith('video/')) {
+            return 'VIDEO';
+        }
+
+        if (mime.startsWith('audio/')) {
+            return 'AUDIO';
+        }
+
+        return 'FILE';
+    };
+
+    const readableSize = bytes => {
+        const size =
+            Number(bytes || 0);
+
+        if (size < 1024) {
+            return `${size} B`;
+        }
+
+        if (size < 1024 * 1024) {
+            return `${
+                (size / 1024).toFixed(1)
+            } KB`;
+        }
+
+        return `${
+            (
+                size
+                / 1024
+                / 1024
+            ).toFixed(1)
+        } MB`;
+    };
+
+    const keyOf = file => [
+        file.name,
+        file.size,
+        file.lastModified
+    ].join('::');
+
+    const syncNativeInput = () => {
+        const transfer =
+            new DataTransfer();
+
+        selectedFiles.forEach(file => {
+            transfer.items.add(file);
+        });
+
+        input.files =
+            transfer.files;
+    };
+
+    const clearPreview = () => {
+        list.replaceChildren();
+
+        if (selectedFiles.length === 0) {
+            wrapper.classList.add(
+                'hidden'
+            );
+        } else {
+            wrapper.classList.remove(
+                'hidden'
+            );
+        }
+    };
+
+    const render = () => {
+        clearPreview();
+
+        selectedFiles.forEach(
+            (file, index) => {
+                const card =
+                    document.createElement(
+                        'div'
+                    );
+
+                card.className =
+                    'flex max-w-full items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 shadow-sm';
+
+                const icon =
+                    document.createElement(
+                        'div'
+                    );
+
+                icon.className =
+                    'flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-white text-[10px] font-bold text-slate-600';
+
+                if (
+                    String(file.type || '')
+                        .startsWith('image/')
+                ) {
+                    const image =
+                        document.createElement(
+                            'img'
+                        );
+
+                    const url =
+                        URL.createObjectURL(
+                            file
+                        );
+
+                    image.src =
+                        url;
+
+                    image.alt =
+                        file.name;
+
+                    image.className =
+                        'h-full w-full object-cover';
+
+                    image.addEventListener(
+                        'load',
+                        () => {
+                            URL.revokeObjectURL(
+                                url
+                            );
+                        },
+                        {
+                            once: true
+                        }
+                    );
+
+                    icon.appendChild(
+                        image
+                    );
+                } else {
+                    icon.textContent =
+                        fileType(file);
+                }
+
+                const info =
+                    document.createElement(
+                        'div'
+                    );
+
+                info.className =
+                    'min-w-0 max-w-52';
+
+                const name =
+                    document.createElement(
+                        'div'
+                    );
+
+                name.className =
+                    'truncate text-xs font-semibold text-slate-700';
+
+                name.textContent =
+                    file.name;
+
+                name.title =
+                    file.name;
+
+                const meta =
+                    document.createElement(
+                        'div'
+                    );
+
+                meta.className =
+                    'mt-0.5 text-[10px] text-slate-500';
+
+                meta.textContent =
+                    `${fileType(file)} • ${readableSize(file.size)}`;
+
+                info.append(
+                    name,
+                    meta
+                );
+
+                const remove =
+                    document.createElement(
+                        'button'
+                    );
+
+                remove.type =
+                    'button';
+
+                remove.className =
+                    'ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-lg leading-none text-slate-400 hover:bg-red-50 hover:text-red-600';
+
+                remove.textContent =
+                    '×';
+
+                remove.title =
+                    `Remove ${file.name}`;
+
+                remove.setAttribute(
+                    'aria-label',
+                    `Remove ${file.name}`
+                );
+
+                remove.addEventListener(
+                    'click',
+                    () => {
+                        selectedFiles.splice(
+                            index,
+                            1
+                        );
+
+                        syncNativeInput();
+                        render();
+                    }
+                );
+
+                card.append(
+                    icon,
+                    info,
+                    remove
+                );
+
+                list.appendChild(
+                    card
+                );
+            }
+        );
+    };
+
+    input.addEventListener(
+        'change',
+        () => {
+            const incoming =
+                Array.from(
+                    input.files || []
+                );
+
+            const existing =
+                new Set(
+                    selectedFiles.map(
+                        keyOf
+                    )
+                );
+
+            incoming.forEach(file => {
+                const key =
+                    keyOf(file);
+
+                if (existing.has(key)) {
+                    return;
+                }
+
+                selectedFiles.push(
+                    file
+                );
+
+                existing.add(key);
+            });
+
+            syncNativeInput();
+            render();
+        }
+    );
+
+    /*
+     * Save/Send can dispatch this after the canonical
+     * attachment operation succeeds.
+     */
+    document.addEventListener(
+        'esubiz:core-email-attachments-reset',
+        () => {
+            selectedFiles = [];
+
+            syncNativeInput();
+            render();
+        }
+    );
+});
+</script>
+
+
+{{-- ESUBIZ_CORE_EMAIL_SAVE_DRAFT_RUNTIME_V10 --}}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const root =
+        document.getElementById('core-email-workspace');
+
+    const button =
+        document.getElementById('core-email-save-draft');
+
+    if (!root || !button) {
+        return;
+    }
+
+    const field = id =>
+        document.getElementById(id);
+
+    const to =
+        field('core-email-compose-to');
+
+    const cc =
+        field('core-email-compose-cc');
+
+    const bcc =
+        field('core-email-compose-bcc');
+
+    const subject =
+        field('core-email-compose-subject');
+
+    const body =
+        field('core-email-compose-body');
+
+    const attachments =
+        field('core-email-compose-attachments');
+
+    const status =
+        field('core-email-compose-status');
+
+    const csrf =
+        document.querySelector(
+            'meta[name="csrf-token"]'
+        )?.content || '';
+
+    let draftId = null;
+    let saving = false;
+
+    const mailboxId = () => {
+        const tabs =
+            Array.from(
+                root.querySelectorAll(
+                    '[data-email-level1="mailbox"]'
+                )
+            );
+
+        const active =
+            tabs.find(tab =>
+                tab.classList.contains('bg-blue-800')
+            );
+
+        return Number(
+            (
+                active
+                || tabs[0]
+            )?.dataset.mailboxId || 0
+        );
+    };
+
+    const notify = (
+        message,
+        success = false
+    ) => {
+        if (!status) {
+            return;
+        }
+
+        status.textContent = message;
+
+        status.className =
+            success
+                ? 'rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700'
+                : 'rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700';
+    };
+
+    button.addEventListener(
+        'click',
+        async event => {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+
+            if (saving) {
+                return;
+            }
+
+            const mailbox =
+                mailboxId();
+
+            if (!mailbox) {
+                notify(
+                    'Select an email address first.'
+                );
+                return;
+            }
+
+            const url =
+                root.dataset.saveDraftUrl;
+
+            if (!url) {
+                notify(
+                    'Draft endpoint is unavailable.'
+                );
+                return;
+            }
+
+            saving = true;
+            button.disabled = true;
+
+            const original =
+                button.textContent;
+
+            button.textContent =
+                'Saving...';
+
+            try {
+                const data =
+                    new FormData();
+
+                data.append(
+                    'mailbox',
+                    String(mailbox)
+                );
+
+                data.append(
+                    'to',
+                    to?.value || ''
+                );
+
+                data.append(
+                    'cc',
+                    cc?.value || ''
+                );
+
+                data.append(
+                    'bcc',
+                    bcc?.value || ''
+                );
+
+                data.append(
+                    'subject',
+                    subject?.value || ''
+                );
+
+                data.append(
+                    'body',
+                    body?.innerText || ''
+                );
+
+                data.append(
+                    'body_html',
+                    body?.innerHTML || ''
+                );
+
+                if (draftId) {
+                    data.append(
+                        'draft_id',
+                        String(draftId)
+                    );
+                }
+
+                Array.from(
+                    attachments?.files || []
+                ).forEach(file => {
+                    data.append(
+                        'attachments[]',
+                        file
+                    );
+                });
+
+                const response =
+                    await fetch(
+                        url,
+                        {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRF-TOKEN': csrf,
+                                'Accept': 'application/json'
+                            },
+                            credentials: 'same-origin',
+                            body: data
+                        }
+                    );
+
+                let payload = {};
+
+                try {
+                    payload =
+                        await response.json();
+                } catch (_) {
+                    payload = {};
+                }
+
+                if (!response.ok) {
+                    const errors =
+                        payload?.errors
+                            ? Object.values(
+                                payload.errors
+                            )
+                                .flat()
+                                .join(' ')
+                            : '';
+
+                    throw new Error(
+                        errors
+                        || payload?.message
+                        || `Draft could not be saved (${response.status}).`
+                    );
+                }
+
+                draftId =
+                    Number(
+                        payload?.draft_id
+                        || payload?.message?.id
+                        || draftId
+                        || 0
+                    ) || null;
+
+                if (
+                    attachments
+                    && attachments.files.length
+                ) {
+                    document.dispatchEvent(
+                        new CustomEvent(
+                            'esubiz:core-email-attachments-reset'
+                        )
+                    );
+                }
+
+                notify(
+                    'Draft saved successfully.',
+                    true
+                );
+            } catch (error) {
+                notify(
+                    error?.message
+                    || 'Draft could not be saved.'
+                );
+            } finally {
+                saving = false;
+                button.disabled = false;
+                button.textContent =
+                    original;
+            }
+        },
+        true
+    );
+});
+</script>
+
+
+
+
+{{-- ESUBIZ_CORE_EMAIL_REAL_SEND_JS_V1 --}}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const root =
+        document.getElementById(
+            'core-email-workspace'
+        );
+
+    const sendButton =
+        document.getElementById(
+            'core-email-send'
+        );
+
+    if (!root || !sendButton) {
+        return;
+    }
+
+    const get =
+        id => document.getElementById(id);
+
+    const to =
+        get('core-email-compose-to');
+
+    const cc =
+        get('core-email-compose-cc');
+
+    const bcc =
+        get('core-email-compose-bcc');
+
+    const subject =
+        get('core-email-compose-subject');
+
+    const body =
+        get('core-email-compose-body');
+
+    const attachmentInput =
+        get('core-email-compose-attachments');
+
+    const status =
+        get('core-email-compose-status');
+
+    const csrf =
+        document.querySelector(
+            'meta[name="csrf-token"]'
+        )?.getAttribute('content') || '';
+
+    let sending = false;
+
+    const selectedMailboxId = () => {
+        const tabs =
+            Array.from(
+                root.querySelectorAll(
+                    '[data-email-level1="mailbox"]'
+                )
+            );
+
+        const selected =
+            tabs.find(
+                tab =>
+                    tab.classList.contains(
+                        'bg-blue-800'
+                    )
+            );
+
+        return Number(
+            selected?.dataset.mailboxId
+                || 0
+        );
+    };
+
+    const showStatus = (
+        message,
+        success = false
+    ) => {
+        if (!status) {
+            return;
+        }
+
+        status.textContent =
+            String(message || '');
+
+        status.className =
+            success
+                ? 'rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700'
+                : 'rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700';
+    };
+
+    const value =
+        element =>
+            element
+                ? String(element.value || '')
+                : '';
+
+    const bodyText = () => {
+        if (!body) {
+            return '';
+        }
+
+        if (
+            body instanceof HTMLTextAreaElement
+            || body instanceof HTMLInputElement
+        ) {
+            return String(
+                body.value || ''
+            );
+        }
+
+        return String(
+            body.innerText || ''
+        );
+    };
+
+    const bodyHtml = () => {
+        if (!body) {
+            return '';
+        }
+
+        if (
+            body instanceof HTMLTextAreaElement
+            || body instanceof HTMLInputElement
+        ) {
+            return String(
+                body.value || ''
+            );
+        }
+
+        return String(
+            body.innerHTML || ''
+        );
+    };
+
+    sendButton.addEventListener(
+        'click',
+        async event => {
+            /*
+             * This is the single authoritative Send owner.
+             * Capture phase prevents any obsolete/placeholder Send
+             * handler from causing a second request.
+             */
+            event.preventDefault();
+            event.stopImmediatePropagation();
+
+            if (sending) {
+                return;
+            }
+
+            const mailboxId =
+                selectedMailboxId();
+
+            if (!mailboxId) {
+                showStatus(
+                    'Select an email address before sending.'
+                );
+                return;
+            }
+
+            if (
+                !to
+                || value(to).trim() === ''
+            ) {
+                showStatus(
+                    'Enter at least one recipient.'
+                );
+
+                to?.focus();
+
+                return;
+            }
+
+            const sendUrl =
+                root.dataset.sendUrl || '';
+
+            if (!sendUrl) {
+                showStatus(
+                    'The email Send endpoint is unavailable.'
+                );
+                return;
+            }
+
+            const formData =
+                new FormData();
+
+            formData.append(
+                'mailbox',
+                String(mailboxId)
+            );
+
+            formData.append(
+                'to',
+                value(to)
+            );
+
+            formData.append(
+                'cc',
+                value(cc)
+            );
+
+            formData.append(
+                'bcc',
+                value(bcc)
+            );
+
+            formData.append(
+                'subject',
+                value(subject)
+            );
+
+            formData.append(
+                'body',
+                bodyText()
+            );
+
+            formData.append(
+                'body_html',
+                bodyHtml()
+            );
+
+            const draftId =
+                Number(
+                    root.dataset.activeDraftId
+                        || 0
+                );
+
+            if (draftId > 0) {
+                formData.append(
+                    'draft_id',
+                    String(draftId)
+                );
+            }
+
+            Array.from(
+                attachmentInput?.files || []
+            ).forEach(file => {
+                formData.append(
+                    'attachments[]',
+                    file
+                );
+            });
+
+            sending = true;
+            sendButton.disabled = true;
+
+            const originalText =
+                sendButton.textContent;
+
+            sendButton.textContent =
+                'Sending...';
+
+            try {
+                const response =
+                    await fetch(
+                        sendUrl,
+                        {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRF-TOKEN':
+                                    csrf,
+
+                                'Accept':
+                                    'application/json',
+
+                                'X-Requested-With':
+                                    'XMLHttpRequest',
+                            },
+                            credentials:
+                                'same-origin',
+                            body:
+                                formData,
+                        }
+                    );
+
+                const payload =
+                    await response
+                        .json()
+                        .catch(
+                            () => ({})
+                        );
+
+                if (!response.ok) {
+                    if (payload?.draft_id) {
+                        root.dataset.activeDraftId =
+                            String(
+                                payload.draft_id
+                            );
+                    }
+
+                    const validationErrors =
+                        payload?.errors
+                            ? Object.values(
+                                payload.errors
+                            )
+                                .flat()
+                                .join(' ')
+                            : '';
+
+                    throw new Error(
+                        validationErrors
+                        || payload?.message
+                        || `Email could not be sent (${response.status}).`
+                    );
+                }
+
+                root.dataset.activeDraftId =
+                    '';
+
+                if (attachmentInput) {
+                    attachmentInput.value =
+                        '';
+                }
+
+                showStatus(
+                    payload?.message
+                        || 'Email sent successfully.',
+                    true
+                );
+
+                /*
+                 * Notify the authoritative folder runtime. If V17
+                 * does not currently consume this event, the Sent
+                 * folder will still show the message when selected.
+                 */
+                document.dispatchEvent(
+                    new CustomEvent(
+                        'esubiz:core-email-sent',
+                        {
+                            detail: {
+                                messageId:
+                                    Number(
+                                        payload?.message_id
+                                            || 0
+                                    )
+                            }
+                        }
+                    )
+                );
+            } catch (error) {
+                showStatus(
+                    error?.message
+                        || 'Email could not be sent.'
+                );
+            } finally {
+                sending = false;
+                sendButton.disabled =
+                    false;
+                sendButton.textContent =
+                    originalText;
+            }
+        },
+        true
+    );
+});
+</script>
+
+
+{{-- ESUBIZ_CORE_EMAIL_UNIFIED_MAILBOX_RUNTIME_V17 --}}
+<style>
+.core-email-v17-menu-wrap{position:relative;display:inline-flex}
+.core-email-v17-menu{display:none;position:absolute;right:0;top:100%;z-index:100;width:190px;margin-top:4px}
+.core-email-v17-menu.open{display:block}
+.core-email-v17-row{cursor:pointer}
+.core-email-v17-row:hover{background:rgb(239 246 255/.7)}
+.core-email-v17-row.selected{background:rgb(239 246 255)}
+.core-email-v17-bulk{display:none}
+.core-email-v17-bulk.visible{display:flex}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const root =
+        document.getElementById(
+            'core-email-workspace'
+        );
+
+    const results =
+        document.getElementById(
+            'core-email-message-results'
+        );
+
+    if (!root || !results) {
+        return;
+    }
+
+    const folders = [
+        'inbox',
+        'spam',
+        'draft',
+        'sent',
+        'trash'
+    ];
+
+    const ACTION_URL =
+        @json(
+            url(
+                '/admin/email/messages/__MESSAGE__/action'
+            )
+        );
+
+    const csrf =
+        document.querySelector(
+            'meta[name="csrf-token"]'
+        )?.content || '';
+
+    const previous =
+        document.getElementById(
+            'core-email-previous'
+        );
+
+    const next =
+        document.getElementById(
+            'core-email-next'
+        );
+
+    const pageLabel =
+        document.getElementById(
+            'core-email-page-label'
+        );
+
+    let folder = 'inbox';
+    let page = 1;
+    let serial = 0;
+    let rows = [];
+    let selected = new Set();
+
+    const esc = value =>
+        String(value ?? '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+
+    const mailboxId = () => {
+        const tabs =
+            Array.from(
+                document.querySelectorAll(
+                    '[data-email-level1="mailbox"]'
+                )
+            );
+
+        const active =
+            tabs.find(
+                tab =>
+                    tab.classList.contains(
+                        'bg-blue-800'
+                    )
+            );
+
+        return Number(
+            (
+                active || tabs[0]
+            )?.dataset.mailboxId || 0
+        );
+    };
+
+    const status = message => {
+        if (folder === 'sent') {
+            return ['Sent',
+                'bg-emerald-50 text-emerald-700'];
+        }
+
+        if (folder === 'draft') {
+            return ['Draft',
+                'bg-amber-50 text-amber-700'];
+        }
+
+        if (folder === 'spam') {
+            return ['Spam',
+                'bg-orange-50 text-orange-700'];
+        }
+
+        if (folder === 'trash') {
+            return ['Deleted',
+                'bg-red-50 text-red-700'];
+        }
+
+        return message?.read_at
+            ? ['Read',
+               'bg-slate-100 text-slate-600']
+            : ['Unread',
+               'bg-blue-50 text-blue-700'];
+    };
+
+    const counterpartyHeading = () =>
+        folder === 'sent'
+        || folder === 'draft'
+            ? 'To'
+            : folder === 'trash'
+                ? 'From / To'
+                : 'From';
+
+    const actions = message => {
+        const read =
+            Boolean(message?.read_at);
+
+        if (folder === 'inbox') {
+            return [
+                [
+                    read ? 'unread' : 'read',
+                    read
+                        ? 'Mark unread'
+                        : 'Mark read'
+                ],
+                ['spam', 'Move to Spam'],
+                ['delete', 'Delete']
+            ];
+        }
+
+        if (folder === 'spam') {
+            return [
+                [
+                    read ? 'unread' : 'read',
+                    read
+                        ? 'Mark unread'
+                        : 'Mark read'
+                ],
+                ['inbox', 'Move to Inbox'],
+                ['delete', 'Delete']
+            ];
+        }
+
+        if (folder === 'sent') {
+            return [
+                ['delete', 'Delete']
+            ];
+        }
+
+        if (folder === 'draft') {
+            return [
+                ['edit', 'Edit'],
+                ['delete', 'Delete']
+            ];
+        }
+
+        if (folder === 'trash') {
+            return [
+                ['restore', 'Restore'],
+                [
+                    'delete_permanently',
+                    'Delete permanently'
+                ]
+            ];
+        }
+
+        return [];
+    };
+
+    const bulkActions = () => {
+        if (folder === 'inbox') {
+            return [
+                ['read', 'Mark read'],
+                ['unread', 'Mark unread'],
+                ['spam', 'Move to Spam'],
+                ['delete', 'Delete']
+            ];
+        }
+
+        if (folder === 'spam') {
+            return [
+                ['read', 'Mark read'],
+                ['unread', 'Mark unread'],
+                ['inbox', 'Move to Inbox'],
+                ['delete', 'Delete']
+            ];
+        }
+
+        if (
+            folder === 'sent'
+            || folder === 'draft'
+        ) {
+            return [
+                ['delete', 'Delete']
+            ];
+        }
+
+        if (folder === 'trash') {
+            return [
+                ['restore', 'Restore'],
+                [
+                    'delete_permanently',
+                    'Delete permanently'
+                ]
+            ];
+        }
+
+        return [];
+    };
+
+    const formatDate = message => {
+        const value =
+            message?.sent_at
+            || message?.received_at
+            || message?.created_at;
+
+        if (!value) {
+            return '—';
+        }
+
+        const date =
+            new Date(value);
+
+        if (
+            Number.isNaN(
+                date.getTime()
+            )
+        ) {
+            return String(value);
+        }
+
+        return date.toLocaleString();
+    };
+
+    const requestAction =
+        async (id, action) => {
+            const response =
+                await fetch(
+                    ACTION_URL.replace(
+                        '__MESSAGE__',
+                        String(id)
+                    ),
+                    {
+                        method: 'POST',
+
+                        credentials:
+                            'same-origin',
+
+                        headers: {
+                            'Accept':
+                                'application/json',
+
+                            'Content-Type':
+                                'application/json',
+
+                            'X-Requested-With':
+                                'XMLHttpRequest',
+
+                            'X-CSRF-TOKEN':
+                                csrf
+                        },
+
+                        body:
+                            JSON.stringify({
+                                mailbox_id:
+                                    mailboxId(),
+                                action
+                            })
+                    }
+                );
+
+            const data =
+                await response.json();
+
+            if (
+                !response.ok
+                || data?.ok === false
+            ) {
+                throw new Error(
+                    data?.message
+                    || 'Email action failed.'
+                );
+            }
+
+            return data;
+        };
+
+    const updateSelection = () => {
+        const toolbar =
+            document.querySelector(
+                '[data-v17-bulk]'
+            );
+
+        toolbar?.classList.toggle(
+            'visible',
+            selected.size > 0
+        );
+
+        const count =
+            document.querySelector(
+                '[data-v17-count]'
+            );
+
+        if (count) {
+            count.textContent =
+                `${selected.size} selected`;
+        }
+
+        document
+            .querySelectorAll(
+                '[data-v17-row]'
+            )
+            .forEach(row => {
+                row.classList.toggle(
+                    'selected',
+                    selected.has(
+                        Number(
+                            row.dataset.messageId
+                        )
+                    )
+                );
+            });
+
+        const all =
+            document.querySelector(
+                '[data-v17-all]'
+            );
+
+        if (all) {
+            all.checked =
+                rows.length > 0
+                && selected.size ===
+                    rows.length;
+
+            all.indeterminate =
+                selected.size > 0
+                && selected.size <
+                    rows.length;
+        }
+    };
+
+    const render = messages => {
+        rows =
+            Array.isArray(messages)
+                ? messages
+                : [];
+
+        selected.clear();
+
+        if (!rows.length) {
+            results.innerHTML = `
+                <div
+                    class="py-12 text-center text-sm font-semibold text-slate-600"
+                >
+                    ${
+                        folder === 'inbox'
+                            ? 'No emails in Inbox.'
+                            : folder === 'sent'
+                                ? 'No sent emails yet.'
+                                : folder === 'draft'
+                                    ? 'No drafts yet.'
+                                    : folder === 'spam'
+                                        ? 'No spam emails.'
+                                        : 'Trash is empty.'
+                    }
+                </div>
+            `;
+            return;
+        }
+
+        const bulk =
+            bulkActions()
+                .map(([action, label]) => `
+                    <button
+                        type="button"
+                        data-v17-bulk-action="${esc(action)}"
+                        class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-blue-300 hover:text-blue-700"
+                    >
+                        ${esc(label)}
+                    </button>
+                `)
+                .join('');
+
+        const body =
+            rows.map(message => {
+                const id =
+                    Number(message.id);
+
+                const state =
+                    status(message);
+
+                const menu =
+                    actions(message)
+                        .map(
+                            ([action, label]) => `
+                                <button
+                                    type="button"
+                                    data-v17-action="${esc(action)}"
+                                    data-message-id="${id}"
+                                    class="block w-full px-4 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+                                >
+                                    ${esc(label)}
+                                </button>
+                            `
+                        )
+                        .join('');
+
+                return `
+                    <tr
+                        data-v17-row
+                        data-message-id="${id}"
+                        class="core-email-v17-row border-b border-slate-100"
+                    >
+                        <td class="w-12 px-4 py-4">
+                            <input
+                                type="checkbox"
+                                data-v17-select="${id}"
+                                class="h-4 w-4 rounded border-slate-300"
+                            >
+                        </td>
+
+                        <td
+                            class="px-4 py-4 font-medium text-slate-800"
+                        >
+                            ${esc(
+                                message.counterparty
+                                || '—'
+                            )}
+                        </td>
+
+                        <td class="px-4 py-4">
+                            <span
+                                class="font-medium text-slate-800"
+                            >
+                                ${esc(
+                                    message.subject
+                                    || '(No subject)'
+                                )}
+                            </span>
+
+                            ${
+                                message.has_attachments
+                                    ? `
+                                        <span
+                                            class="ml-2 rounded bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600"
+                                        >
+                                            Attachment
+                                        </span>
+                                    `
+                                    : ''
+                            }
+                        </td>
+
+                        <td class="px-4 py-4">
+                            <span
+                                class="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700"
+                            >
+                                ${esc(
+                                    message.source_label
+                                    || 'Direct Email'
+                                )}
+                            </span>
+                        </td>
+
+                        <td class="px-4 py-4">
+                            <span
+                                class="rounded-full px-2.5 py-1 text-xs font-semibold ${state[1]}"
+                            >
+                                ${esc(state[0])}
+                            </span>
+                        </td>
+
+                        <td
+                            class="whitespace-nowrap px-4 py-4 text-sm text-slate-500"
+                        >
+                            ${esc(
+                                formatDate(message)
+                            )}
+                        </td>
+
+                        <td
+                            class="w-20 px-4 py-4 text-center"
+                        >
+                            <div
+                                class="core-email-v17-menu-wrap"
+                            >
+                                <button
+                                    type="button"
+                                    data-v17-menu
+                                    aria-label="Action"
+                                    class="flex h-8 w-8 items-center justify-center rounded-full text-lg font-bold text-slate-600 hover:bg-slate-100 hover:text-blue-700"
+                                >
+                                    ⋮
+                                </button>
+
+                                <div
+                                    class="core-email-v17-menu rounded-xl border border-slate-200 bg-white py-1 shadow-xl"
+                                >
+                                    ${menu}
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+        results.innerHTML = `
+            <div
+                data-v17-bulk
+                class="core-email-v17-bulk mb-3 flex-wrap items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2"
+            >
+                <strong
+                    data-v17-count
+                    class="mr-2 text-xs text-blue-800"
+                >
+                    0 selected
+                </strong>
+
+                ${bulk}
+            </div>
+
+            <div
+                class="overflow-visible rounded-xl border border-slate-200 bg-white"
+            >
+                <div class="overflow-x-auto">
+                    <table
+                        class="min-w-full border-collapse text-left"
+                    >
+                        <thead
+                            class="border-b border-slate-200 bg-slate-50"
+                        >
+                            <tr>
+                                <th class="w-12 px-4 py-3">
+                                    <input
+                                        type="checkbox"
+                                        data-v17-all
+                                        class="h-4 w-4 rounded border-slate-300"
+                                    >
+                                </th>
+
+                                <th class="px-4 py-3 text-xs font-bold uppercase text-slate-500">
+                                    ${esc(
+                                        counterpartyHeading()
+                                    )}
+                                </th>
+
+                                <th class="px-4 py-3 text-xs font-bold uppercase text-slate-500">
+                                    Subject
+                                </th>
+
+                                <th class="px-4 py-3 text-xs font-bold uppercase text-slate-500">
+                                    Source
+                                </th>
+
+                                <th class="px-4 py-3 text-xs font-bold uppercase text-slate-500">
+                                    Status
+                                </th>
+
+                                <th class="px-4 py-3 text-xs font-bold uppercase text-slate-500">
+                                    Date
+                                </th>
+
+                                <th class="w-20 px-4 py-3 text-center text-xs font-bold uppercase text-slate-500">
+                                    Action
+                                </th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            ${body}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    };
+
+    const load =
+        async (
+            targetFolder = folder,
+            targetPage = page
+        ) => {
+            if (
+                !folders.includes(
+                    targetFolder
+                )
+            ) {
+                return;
+            }
+
+            const mailbox =
+                mailboxId();
+
+            const base =
+                root.dataset.messagesUrl;
+
+            if (!mailbox || !base) {
+                return;
+            }
+
+            folder =
+                targetFolder;
+
+            page =
+                Math.max(
+                    1,
+                    Number(targetPage || 1)
+                );
+
+            const request =
+                ++serial;
+
+            selected.clear();
+
+            results.innerHTML = `
+                <div
+                    class="py-10 text-center text-sm text-slate-500"
+                >
+                    Loading emails...
+                </div>
+            `;
+
+            try {
+                const url =
+                    new URL(
+                        base,
+                        window.location.origin
+                    );
+
+                url.searchParams.set(
+                    'mailbox',
+                    String(mailbox)
+                );
+
+                url.searchParams.set(
+                    'folder',
+                    folder
+                );
+
+                url.searchParams.set(
+                    'page',
+                    String(page)
+                );
+
+                const response =
+                    await fetch(
+                        url.toString(),
+                        {
+                            headers: {
+                                'Accept':
+                                    'application/json',
+
+                                'X-Requested-With':
+                                    'XMLHttpRequest'
+                            },
+
+                            credentials:
+                                'same-origin',
+
+                            cache:
+                                'no-store'
+                        }
+                    );
+
+                const data =
+                    await response.json();
+
+                if (request !== serial) {
+                    return;
+                }
+
+                if (
+                    !response.ok
+                    || data?.ok === false
+                ) {
+                    throw new Error(
+                        data?.message
+                        || 'Email folder could not be loaded.'
+                    );
+                }
+
+                page =
+                    Number(
+                        data?.page || page
+                    );
+
+                if (pageLabel) {
+                    pageLabel.textContent =
+                        `Page ${page}`;
+                }
+
+                if (previous) {
+                    previous.disabled =
+                        !Boolean(
+                            data?.has_previous
+                        );
+                }
+
+                if (next) {
+                    next.disabled =
+                        !Boolean(
+                            data?.has_next
+                        );
+                }
+
+                render(
+                    data?.messages || []
+                );
+            } catch (error) {
+                results.innerHTML = `
+                    <div
+                        class="rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700"
+                    >
+                        ${esc(
+                            error?.message
+                            || 'Email folder could not be loaded.'
+                        )}
+                    </div>
+                `;
+            }
+        };
+
+    /*
+     * Full message opening:
+     * use the existing authoritative message-detail
+     * listener by emitting the same message row/open
+     * contract it already understands.
+     */
+    const openMessage = id => {
+        const bridge =
+            document.createElement(
+                'button'
+            );
+
+        bridge.type = 'button';
+
+        bridge.dataset.messageId =
+            String(id);
+
+        bridge.className =
+            'core-email-message-open';
+
+        bridge.style.display =
+            'none';
+
+        results.appendChild(
+            bridge
+        );
+
+        bridge.click();
+
+        bridge.remove();
+    };
+
+    document.addEventListener(
+        'click',
+        async event => {
+            const menu =
+                event.target.closest(
+                    '[data-v17-menu]'
+                );
+
+            if (menu) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                const target =
+                    menu.nextElementSibling;
+
+                document
+                    .querySelectorAll(
+                        '.core-email-v17-menu.open'
+                    )
+                    .forEach(item => {
+                        if (item !== target) {
+                            item.classList.remove(
+                                'open'
+                            );
+                        }
+                    });
+
+                target?.classList.toggle(
+                    'open'
+                );
+
+                return;
+            }
+
+            const action =
+                event.target.closest(
+                    '[data-v17-action]'
+                );
+
+            if (action) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                const id =
+                    Number(
+                        action.dataset
+                            .messageId
+                    );
+
+                const name =
+                    action.dataset
+                        .v17Action;
+
+                if (name === 'edit') {
+                    openMessage(id);
+                    return;
+                }
+
+                if (
+                    name ===
+                    'delete_permanently'
+                    && !window.confirm(
+                        'Permanently delete this email? This cannot be undone.'
+                    )
+                ) {
+                    return;
+                }
+
+                try {
+                    await requestAction(
+                        id,
+                        name
+                    );
+
+                    await load(
+                        folder,
+                        page
+                    );
+                } catch (error) {
+                    window.alert(
+                        error?.message
+                        || 'Email action failed.'
+                    );
+                }
+
+                return;
+            }
+
+            const bulk =
+                event.target.closest(
+                    '[data-v17-bulk-action]'
+                );
+
+            if (bulk) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                const ids =
+                    Array.from(selected);
+
+                if (!ids.length) {
+                    return;
+                }
+
+                const name =
+                    bulk.dataset
+                        .v17BulkAction;
+
+                if (
+                    name ===
+                    'delete_permanently'
+                    && !window.confirm(
+                        `Permanently delete ${ids.length} selected email(s)? This cannot be undone.`
+                    )
+                ) {
+                    return;
+                }
+
+                try {
+                    for (const id of ids) {
+                        await requestAction(
+                            id,
+                            name
+                        );
+                    }
+
+                    await load(
+                        folder,
+                        page
+                    );
+                } catch (error) {
+                    window.alert(
+                        error?.message
+                        || 'Bulk action failed.'
+                    );
+                }
+
+                return;
+            }
+
+            const select =
+                event.target.closest(
+                    '[data-v17-select]'
+                );
+
+            if (select) {
+                event.stopPropagation();
+
+                const id =
+                    Number(
+                        select.dataset
+                            .v17Select
+                    );
+
+                if (select.checked) {
+                    selected.add(id);
+                } else {
+                    selected.delete(id);
+                }
+
+                updateSelection();
+                return;
+            }
+
+            const all =
+                event.target.closest(
+                    '[data-v17-all]'
+                );
+
+            if (all) {
+                event.stopPropagation();
+
+                selected.clear();
+
+                if (all.checked) {
+                    rows.forEach(
+                        message =>
+                            selected.add(
+                                Number(
+                                    message.id
+                                )
+                            )
+                    );
+                }
+
+                document
+                    .querySelectorAll(
+                        '[data-v17-select]'
+                    )
+                    .forEach(box => {
+                        box.checked =
+                            all.checked;
+                    });
+
+                updateSelection();
+                return;
+            }
+
+            const row =
+                event.target.closest(
+                    '[data-v17-row]'
+                );
+
+            if (row) {
+                event.preventDefault();
+
+                openMessage(
+                    Number(
+                        row.dataset
+                            .messageId
+                    )
+                );
+
+                return;
+            }
+
+            document
+                .querySelectorAll(
+                    '.core-email-v17-menu.open'
+                )
+                .forEach(item =>
+                    item.classList.remove(
+                        'open'
+                    )
+                );
+        },
+        true
+    );
+
+    /*
+     * Folder navigation.
+     */
+    document.addEventListener(
+        'click',
+        event => {
+            const tab =
+                event.target.closest(
+                    '[data-email-section]'
+                );
+
+            if (!tab) {
+                return;
+            }
+
+            const value =
+                String(
+                    tab.dataset
+                        .emailSection || ''
+                );
+
+            if (
+                !folders.includes(
+                    value
+                )
+            ) {
+                return;
+            }
+
+            window.setTimeout(
+                () => load(
+                    value,
+                    1
+                ),
+                0
+            );
+        },
+        true
+    );
+
+    /*
+     * Mailbox switching.
+     */
+    document.addEventListener(
+        'click',
+        event => {
+            const mailbox =
+                event.target.closest(
+                    '[data-email-level1="mailbox"]'
+                );
+
+            if (!mailbox) {
+                return;
+            }
+
+            window.setTimeout(
+                () => load(
+                    'inbox',
+                    1
+                ),
+                0
+            );
+        },
+        true
+    );
+
+    previous?.addEventListener(
+        'click',
+        event => {
+            if (page <= 1) {
+                return;
+            }
+
+            event.preventDefault();
+
+            load(
+                folder,
+                page - 1
+            );
+        },
+        true
+    );
+
+    next?.addEventListener(
+        'click',
+        event => {
+            event.preventDefault();
+
+            load(
+                folder,
+                page + 1
+            );
+        },
+        true
+    );
+
+    window.setTimeout(
+        () => load(
+            'inbox',
+            1
+        ),
+        100
+    );
+});
+</script>
+
+
+
+
+
+{{-- ESUBIZ_CORE_EMAIL_LEVEL2_NAVIGATION_V9 --}}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const workspace =
+        document.getElementById(
+            'core-email-mailbox-workspace'
+        );
+
+    if (!workspace) {
+        return;
+    }
+
+    const tabs =
+        Array.from(
+            workspace.querySelectorAll(
+                '[data-email-section]'
+            )
+        );
+
+    const listPanel =
+        document.getElementById(
+            'core-email-list-panel'
+        );
+
+    const messagePanel =
+        document.getElementById(
+            'core-email-message-view-panel'
+        );
+
+    const composePanel =
+        document.getElementById(
+            'core-email-compose-panel'
+        );
+
+    const settingsPanel =
+        document.getElementById(
+            'core-email-settings-panel'
+        );
+
+    const brandingPanel =
+        document.getElementById(
+            'core-email-branding-panel'
+        );
+
+    const folderTitle =
+        document.getElementById(
+            'core-email-folder-title'
+        );
+
+    if (
+        tabs.length === 0
+        || !listPanel
+        || !composePanel
+        || !settingsPanel
+        || !brandingPanel
+    ) {
+        return;
+    }
+
+    const folders = {
+        inbox: 'Inbox',
+        spam: 'Spam',
+        draft: 'Draft',
+        sent: 'Sent',
+        trash: 'Trash'
+    };
+
+    const paint = active => {
+        tabs.forEach(tab => {
+            tab.classList.remove(
+                'bg-blue-600',
+                'bg-blue-700',
+                'bg-blue-800',
+                'bg-slate-900',
+                'bg-white',
+                'text-slate-600',
+                'text-slate-700'
+            );
+
+            tab.classList.add(
+                tab === active
+                    ? 'bg-blue-800'
+                    : 'bg-blue-600',
+                'text-white'
+            );
+        });
+    };
+
+    const closePanels = () => {
+        listPanel.classList.add('hidden');
+        messagePanel?.classList.add('hidden');
+        composePanel.classList.add('hidden');
+        settingsPanel.classList.add('hidden');
+        brandingPanel.classList.add('hidden');
+    };
+
+    const openSection = tab => {
+        const section =
+            String(
+                tab.dataset.emailSection || ''
+            ).toLowerCase();
+
+        paint(tab);
+        closePanels();
+
+        if (section === 'compose') {
+            composePanel.classList.remove(
+                'hidden'
+            );
+
+            return;
+        }
+
+        if (section === 'settings') {
+            settingsPanel.classList.remove(
+                'hidden'
+            );
+
+            return;
+        }
+
+        if (section === 'branding') {
+            brandingPanel.classList.remove(
+                'hidden'
+            );
+
+            return;
+        }
+
+        if (
+            !Object.prototype.hasOwnProperty.call(
+                folders,
+                section
+            )
+        ) {
+            return;
+        }
+
+        /*
+         * Keep the existing Core Email runtime as the source
+         * of truth for folder/mailbox state whenever it is
+         * available.
+         */
+        try {
+            if (
+                typeof folder !== 'undefined'
+            ) {
+                folder = section;
+            }
+
+            if (
+                typeof page !== 'undefined'
+            ) {
+                page = 1;
+            }
+        } catch (error) {
+            // UI remains functional even if the older runtime
+            // is unavailable.
+        }
+
+        if (folderTitle) {
+            folderTitle.textContent =
+                folders[section];
+        }
+
+        listPanel.classList.remove(
+            'hidden'
+        );
+
+        try {
+            if (
+                typeof loadMessages ===
+                    'function'
+            ) {
+                loadMessages();
+            }
+        } catch (error) {
+            console.error(
+                'Core Email folder load failed.',
+                error
+            );
+        }
+    };
+
+    /*
+     * Capture phase makes this navigation independent of
+     * broken/older bubble-phase handlers.
+     */
+    tabs.forEach(tab => {
+        tab.addEventListener(
+            'click',
+            event => {
+                event.preventDefault();
+
+                openSection(tab);
+            },
+            true
+        );
+    });
+
+    /*
+     * Inbox is the default Level-2 panel beneath the default
+     * first real email-address Level-1 tab.
+     */
+    const inbox =
+        tabs.find(
+            tab =>
+                tab.dataset.emailSection ===
+                    'inbox'
+        );
+
+    if (inbox) {
+        paint(inbox);
+        closePanels();
+
+        listPanel.classList.remove(
+            'hidden'
+        );
+
+        if (folderTitle) {
+            folderTitle.textContent =
+                'Inbox';
+        }
+    }
+});
+</script>
 
 @endsection

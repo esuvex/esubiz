@@ -136,40 +136,30 @@ class WebsiteMailboxService
         }
 
         /*
-         * ESUBIZ_SAAS_MAILBOX_ADMIN_PASSWORD_V3
+         * ESUBIZ_SAAS_MAILBOX_DIRECTADMIN_SAFE_CREDENTIAL_V4
          *
-         * First deployment:
-         * the managed mailbox starts with the same plaintext password
-         * entered for the Website Administrator.
+         * The mailbox is a real mail-service credential and must not
+         * depend on the Core Administrator password.
          *
-         * Retry:
-         * if the WebsiteMailbox already has an encrypted credential,
-         * reuse it rather than silently changing the remote password.
+         * A previously ACTIVE mailbox keeps its existing credential
+         * through the reconciliation path above.
          *
-         * Legacy/manual recovery:
-         * retain a strong random fallback when neither credential is
-         * available.
+         * A new or FAILED provisioning attempt receives a fresh,
+         * DirectAdmin-safe credential. This prevents a rejected
+         * credential from being reused indefinitely during Central
+         * Migration & Updates retries.
+         *
+         * The credential is stored encrypted by WebsiteMailbox and is
+         * used server-side by Core Email. Core administrators never
+         * need a separate mailbox login.
          */
-        $initialAdministratorPassword =
-            trim(
-                (string) (
-                    $website->mailbox_provisioning_password
-                    ?? ''
-                )
-            );
-
         $password =
-            $mailbox->password
-            ?: (
-                $initialAdministratorPassword !== ''
-                    ? $initialAdministratorPassword
-                    : Str::password(
-                        length: 32,
-                        letters: true,
-                        numbers: true,
-                        symbols: true,
-                        spaces: false
-                    )
+            Str::password(
+                length: 32,
+                letters: true,
+                numbers: true,
+                symbols: false,
+                spaces: false
             );
 
         $mailbox->fill([

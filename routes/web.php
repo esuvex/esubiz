@@ -501,6 +501,18 @@ Route::get(
     ]
 )->name('tenant.cms.email.premium-data');
 
+/*
+ * ESUBIZ_CORE_EXTERNAL_MAILBOX_ROUTE_V1
+ */
+Route::post(
+    '/admin/communication/email/mailboxes/external',
+    [
+        \App\Http\Controllers\Core\CoreEmailController::class,
+        'connectExternalMailbox',
+    ]
+)->name('tenant.cms.email.mailboxes.external.store');
+
+
 Route::post(
     '/admin/communication/email/sender-mode',
     [
@@ -537,6 +549,18 @@ Route::delete(
         'tenant.cms.email.drafts.attachments.destroy'
     );
 
+/*
+ * ESUBIZ_CORE_EMAIL_REAL_SEND_ROUTE_V1
+ */
+Route::post(
+    '/admin/communication/email/send',
+    [
+        \App\Http\Controllers\Core\CoreEmailController::class,
+        'sendEmail',
+    ]
+)->name('tenant.cms.email.send');
+
+
 Route::post(
     '/admin/communication/email/drafts',
     [
@@ -557,6 +581,16 @@ Route::get(
     ]
 )->whereNumber('message')
     ->name('tenant.cms.email.message');
+
+// ESUBIZ_CORE_EMAIL_MAILBOX_ACTIONS_V16
+Route::post(
+    '/admin/email/messages/{message}/action',
+    [
+        \App\Http\Controllers\Core\CoreEmailController::class,
+        'messageAction',
+    ]
+)->name('core.email.messages.action');
+
 
 
 
