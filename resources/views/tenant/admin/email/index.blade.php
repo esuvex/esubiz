@@ -16,8 +16,8 @@
     data-remove-draft-attachment-url-template="{{ route('tenant.cms.email.drafts.attachments.destroy', ['subdomain' => request()->route('subdomain'), 'message' => 0, 'attachment' => 0]) }}"
     data-message-url-template="{{ route('tenant.cms.email.message', ['subdomain' => request()->route('subdomain'), 'message' => 0]) }}"
     data-message-action-url-template="{{ route('core.email.messages.action', ['subdomain' => request()->route('subdomain'), 'message' => 0]) }}"
-    data-settings-show-url="{{ route('core.email.settings.show') }}"
-    data-settings-save-url="{{ route('core.email.settings.save') }}"
+    data-settings-show-url="{{ route('core.email.settings.show', ['subdomain' => request()->route('subdomain')]) }}"
+    data-settings-save-url="{{ route('core.email.settings.save', ['subdomain' => request()->route('subdomain')]) }}"
     data-attachment-url-template="{{ route('core.email.attachments.download', ['subdomain' => request()->route('subdomain'), 'attachment' => 0]) }}"
     data-attachment-preview-url-template="{{ route('core.email.attachments.preview', ['subdomain' => request()->route('subdomain'), 'attachment' => 0]) }}"
     data-premium-url="{{ route('tenant.cms.email.premium-data', ['subdomain' => request()->route('subdomain')]) }}"
@@ -1411,12 +1411,15 @@
                     </div>
 
                     <div class="space-y-6">
+                        {{-- ESUBIZ_CORE_EMAIL_SETTINGS_TWO_CARD_GRID_V4 --}}
+                        <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
                         <section class="rounded-xl border border-slate-200 p-5">
                             <h3 class="font-bold text-slate-900">
                                 Email Account
                             </h3>
 
-                            <div class="mt-4 grid gap-4 md:grid-cols-2">
+                            <div
+class="mt-4">
                                 <div>
                                     <label class="mb-1.5 block text-sm font-semibold text-slate-700">
                                         Email Address
@@ -1430,19 +1433,11 @@
                                     >
                                 </div>
 
-                                <div>
-                                    <label class="mb-1.5 block text-sm font-semibold text-slate-700">
-                                        Change Password
-                                    </label>
-
-                                    <input
-                                        id="core-email-settings-password"
-                                        type="password"
-                                        autocomplete="new-password"
-                                        placeholder="Enter new mailbox password"
-                                        class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-slate-500"
-                                    >
-                                </div>
+                                {{-- ESUBIZ_CORE_EMAIL_NO_MAILBOX_PASSWORD_V1 --}}
+                                {{--
+                                    Core Email uses the authenticated Core session.
+                                    No separate mailbox password is exposed here.
+                                --}}
                             </div>
                         </section>
 
@@ -1463,6 +1458,7 @@
                             >
                         </section>
 
+                        </div>
                         <section class="rounded-xl border border-slate-200 p-5">
                             <h3 class="font-bold text-slate-900">
                                 Automatic Email Deletion
@@ -3332,6 +3328,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 'hidden'
             );
 
+            /*
+             * ESUBIZ_CORE_EMAIL_SETTINGS_TAB_LOAD_V1
+             */
+            loadCoreEmailSettings()
+                .catch(error => {
+                    window.alert(
+                        error?.message
+                        || 'Unable to load mailbox settings.'
+                    );
+                });
+
             return;
         }
 
@@ -4345,6 +4352,14 @@ document.addEventListener('DOMContentLoaded', () => {
             'core-email-settings-address'
         );
 
+    /*
+     * ESUBIZ_CORE_EMAIL_FORWARD_SETTINGS_RUNTIME_V1
+     */
+    const coreEmailForwardAddress =
+        document.getElementById(
+            'core-email-forward-address'
+        );
+
     const coreEmailRetentionFields =
         Array.from(
             document.querySelectorAll(
@@ -4416,6 +4431,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (coreEmailSettingsAddress) {
                 coreEmailSettingsAddress.textContent =
                     payload.mailbox?.email || '';
+            }
+
+            if (coreEmailForwardAddress) {
+                coreEmailForwardAddress.value =
+                    payload.forward_address || '';
             }
 
             const retention =
@@ -4514,7 +4534,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                     retention,
 
                                 source_visibility:
-                                    visibility
+                                    visibility,
+
+                                forward_address:
+                                    coreEmailForwardAddress
+                                        ? coreEmailForwardAddress.value.trim()
+                                        : ''
                             })
                         }
                     );

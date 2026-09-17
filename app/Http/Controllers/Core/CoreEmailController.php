@@ -552,6 +552,16 @@ return view('tenant.admin.email.index', [
                 $settings['source_visibility']
                 ?? []
             ),
+
+            /*
+             * ESUBIZ_CORE_EMAIL_FORWARD_SETTING_V1
+             */
+            'forward_address' => trim(
+                (string) (
+                    $settings['forward_address']
+                    ?? ''
+                )
+            ),
         ]);
     }
 
@@ -605,6 +615,12 @@ return view('tenant.admin.email.index', [
             'source_visibility' => [
                 'required',
                 'array',
+            ],
+
+            'forward_address' => [
+                'nullable',
+                'email:rfc',
+                'max:254',
             ],
         ]);
 
@@ -673,6 +689,15 @@ return view('tenant.admin.email.index', [
         $settings['retention_days'] = $retention;
         $settings['source_visibility'] = $visibility;
 
+        $settings['forward_address'] = strtolower(
+            trim(
+                (string) (
+                    $validated['forward_address']
+                    ?? ''
+                )
+            )
+        );
+
         $db
             ->table('email_boxes')
             ->where('id', (int) $mailbox->id)
@@ -691,6 +716,8 @@ return view('tenant.admin.email.index', [
             'message' => 'Mailbox settings saved.',
             'retention_days' => $retention,
             'source_visibility' => $visibility,
+            'forward_address' =>
+                $settings['forward_address'],
         ]);
     }
 

@@ -455,6 +455,29 @@ class CoreMailboxImapSyncService
                             ?: null
                     );
 
+                /*
+                 * ESUBIZ_CORE_EMAIL_INBOUND_FORWARDING_V1
+                 *
+                 * Forward only a newly discovered remote message.
+                 *
+                 * Existing provider_message_id rows are deliberately
+                 * excluded so repeated IMAP synchronization cannot
+                 * repeatedly forward the same message.
+                 *
+                 * Forwarding uses the same universal Core Mail Engine
+                 * as every other Core email source.
+                 */
+                if (
+                    $existingCanonicalMessageId === null
+                ) {
+                    $this->forwardInboundMessage(
+                        $website,
+                        $mailbox,
+                        $normalized,
+                        $providerMessageId
+                    );
+                }
+
                 if (
                     $recorded[
                         'mailbox_recorded'
@@ -529,6 +552,236 @@ class CoreMailboxImapSyncService
 
         return $result;
     }
+
+    /**
+     * Execute the Core Email forwarding rule for one new inbound
+     * remote message.
+     *
+     * The forwarding address is a normal Core mailbox setting.
+     * No separate mailbox login/password is involved.
+     */
+    protected function forwardInboundMessage(
+        Website $website,
+        WebsiteMailbox $mailbox,
+        array $message,
+        ?string $providerMessageId
+    ): void {
+        $settings =
+            is_array($mailbox->settings)
+                ? $mailbox->settings
+                : (
+                    json_decode(
+                        (string) (
+                            $mailbox->settings
+                            ?? ''
+                        ),
+                        true
+                    )
+                        ?: []
+                );
+
+        $forwardAddress =
+            strtolower(
+                trim(
+                    (string) (
+                        $settings[
+                            'forward_address'
+                        ]
+                            ?? ''
+                    )
+                )
+            );
+
+        if ($forwardAddress === '') {
+            return;
+        }
+
+        $mailboxAddress =
+            strtolower(
+                trim(
+                    (string) (
+                        $mailbox->email
+                        ?? ''
+                    )
+                )
+            );
+
+        /*
+         * Never permit a mailbox to forward to itself.
+         */
+        if (
+            $mailboxAddress !== ''
+            && $forwardAddress === $mailboxAddress
+        ) {
+            return;
+        }
+
+        /*
+         * Do not auto-forward an inbound message whose sender is
+         * already the configured forwarding destination. This is
+         * an additional simple loop guard.
+         */
+        $fromAddress =
+            strtolower(
+                trim(
+                    (string) (
+                        $message[
+                            'from_address'
+                        ]
+                            ?? ''
+                    )
+                )
+            );
+
+        if (
+            $fromAddress !== ''
+            && $fromAddress === $forwardAddress
+        ) {
+            return;
+        }
+
+        $subject =
+            trim(
+                (string) (
+                    $message['subject']
+                    ?? ''
+                )
+            );
+
+        if ($subject === '') {
+            $subject = '(No subject)';
+        }
+
+        $body =
+            (string) (
+                $message['body']
+                ?? ''
+            );
+
+        $bodyHtml =
+            $message['body_html']
+                ?? null;
+
+        /*
+         * Preserve the original sender visibly while the actual
+         * SMTP sender remains the selected Core mailbox.
+         */
+        $forwardHeader =
+            "Forwarded message\n"
+            . "From: "
+            . (
+                $fromAddress !== ''
+                    ? $fromAddress
+                    : 'Unknown sender'
+            )
+            . "\n"
+            . "Subject: "
+            . $subject
+            . "\n\n";
+
+        $forwardBody =
+            $forwardHeader
+            . $body;
+
+        $forwardHtml = null;
+
+        if (
+            is_string($bodyHtml)
+            && trim($bodyHtml) !== ''
+        ) {
+            $safeFrom =
+                htmlspecialchars(
+                    $fromAddress !== ''
+                        ? $fromAddress
+                        : 'Unknown sender',
+                    ENT_QUOTES
+                        | ENT_SUBSTITUTE,
+                    'UTF-8'
+                );
+
+            $safeSubject =
+                htmlspecialchars(
+                    $subject,
+                    ENT_QUOTES
+                        | ENT_SUBSTITUTE,
+                    'UTF-8'
+                );
+
+            $forwardHtml =
+                '<div>'
+                . '<p><strong>Forwarded message</strong></p>'
+                . '<p><strong>From:</strong> '
+                . $safeFrom
+                . '<br><strong>Subject:</strong> '
+                . $safeSubject
+                . '</p><hr>'
+                . $bodyHtml
+                . '</div>';
+        }
+
+        $sourceReference =
+            $providerMessageId !== null
+                ? 'forward:'
+                    . hash(
+                        'sha256',
+                        $providerMessageId
+                        . '|'
+                        . $forwardAddress
+                    )
+                : null;
+
+        /*
+         * Transport through the universal Core Email engine.
+         *
+         * This creates the normal canonical Sent event for the
+         * forwarded outbound message, subject to Core source
+         * visibility rules, while the original inbound message
+         * remains the single canonical Inbox copy.
+         */
+        $this->engine->send(
+            $website,
+            (int) $mailbox->id,
+            [
+                'to_addresses' => [
+                    $forwardAddress,
+                ],
+
+                'subject' =>
+                    'Fwd: ' . $subject,
+
+                'body' =>
+                    $forwardBody,
+
+                'body_html' =>
+                    $forwardHtml,
+
+                'source_type' =>
+                    'direct_email',
+
+                'source_label' =>
+                    'Core Email Forwarding',
+
+                'source_reference' =>
+                    $sourceReference,
+
+                'thread_key' =>
+                    $message[
+                        'thread_key'
+                    ]
+                        ?? null,
+
+                'in_reply_to' =>
+                    null,
+
+                'message_references' =>
+                    $message[
+                        'message_references'
+                    ]
+                        ?? null,
+            ]
+        );
+    }
+
 
     /**
      * Normalize one Webklex IMAP message into the universal
@@ -841,6 +1094,25 @@ class CoreMailboxImapSyncService
                 $mailbox
             );
 
+        $managed =
+            (bool) (
+                $settings[
+                    'managed_by_esubiz'
+                ]
+                    ?? false
+            );
+
+        /*
+         * ESUBIZ_CORE_MANAGED_IMAP_PLATFORM_CONNECTION_V1
+         *
+         * Managed SaaS mailbox credentials remain in Central.
+         * The IMAP server itself is Esubiz platform infrastructure,
+         * so managed mailboxes do not require duplicated connection
+         * settings inside each tenant database.
+         *
+         * Off-server mailboxes continue to require their verified
+         * tenant-specific IMAP connection.
+         */
         $connection =
             (array) (
                 $settings[
@@ -848,7 +1120,14 @@ class CoreMailboxImapSyncService
                 ][
                     'imap'
                 ]
-                    ?? []
+                    ?? (
+                        $managed
+                            ? config(
+                                'esubiz_mail.managed_mail.imap',
+                                []
+                            )
+                            : []
+                    )
             );
 
         if (
@@ -864,17 +1143,11 @@ class CoreMailboxImapSyncService
             )
         ) {
             throw new RuntimeException(
-                'The selected mailbox has no verified IMAP connection.'
+                $managed
+                    ? 'The Esubiz managed IMAP connection is unavailable.'
+                    : 'The selected mailbox has no verified IMAP connection.'
             );
         }
-
-        $managed =
-            (bool) (
-                $settings[
-                    'managed_by_esubiz'
-                ]
-                    ?? false
-            );
 
         if ($managed) {
             $centralMailboxId =
@@ -1051,6 +1324,13 @@ class CoreMailboxImapSyncService
         ]);
     }
 
+    /*
+     * ESUBIZ_CORE_IMAP_DIRECTIONAL_IDEMPOTENCY_V1
+     *
+     * Sent/outbound and Inbox/inbound may legitimately share the
+     * same RFC Message-ID. Only an existing inbound canonical row
+     * suppresses another IMAP inbound record.
+     */
     protected function recordedMessageId(
         int $mailboxId,
         string $providerMessageId
@@ -1079,6 +1359,10 @@ class CoreMailboxImapSyncService
                 ->where(
                     'provider_message_id',
                     $providerMessageId
+                )
+                ->where(
+                    'direction',
+                    'inbound'
                 )
                 ->value(
                     'id'
