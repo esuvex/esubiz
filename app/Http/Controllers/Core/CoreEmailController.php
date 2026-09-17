@@ -497,6 +497,215 @@ return view('tenant.admin.email.index', [
      * email_boxes.settings. Existing transport/discovery settings are
      * merged and preserved rather than replaced.
      */
+    /**
+     * ESUBIZ_CORE_EMAIL_BRANDING_SAVE_V1
+     *
+     * Website-wide Core email branding is stored in site_settings.
+     * These settings are later consumed by the outgoing email renderer.
+     */
+    public function saveEmailBranding(Request $request)
+    {
+        /*
+     * ESUBIZ_CORE_EMAIL_BRANDING_SIMPLE_HANDLES_V1
+     *
+     * Layman-friendly input:
+     *
+     * Website:
+     *   esuvex.com -> https://esuvex.com
+     *
+     * Social media:
+     *   User enters only the username/handle.
+     *   Esubiz constructs the complete profile URL.
+     */
+
+    $websiteValue = trim(
+        (string) $request->input('contact_website', '')
+    );
+
+    if ($websiteValue !== '') {
+        if (!preg_match('#^https?://#i', $websiteValue)) {
+            $websiteValue = 'https://' . $websiteValue;
+        }
+
+        $request->merge([
+            'contact_website' => $websiteValue,
+        ]);
+    }
+
+    $socialProfiles = [
+        'social_facebook' => [
+            'base' => 'https://facebook.com/',
+            'at' => false,
+        ],
+        'social_instagram' => [
+            'base' => 'https://instagram.com/',
+            'at' => false,
+        ],
+        'social_linkedin' => [
+            'base' => 'https://linkedin.com/company/',
+            'at' => false,
+        ],
+        'social_x' => [
+            'base' => 'https://x.com/',
+            'at' => false,
+        ],
+        'social_youtube' => [
+            'base' => 'https://youtube.com/',
+            'at' => true,
+        ],
+        'social_tiktok' => [
+            'base' => 'https://tiktok.com/',
+            'at' => true,
+        ],
+    ];
+
+    foreach ($socialProfiles as $field => $profile) {
+        $username = trim(
+            (string) $request->input($field, '')
+        );
+
+        if ($username === '') {
+            continue;
+        }
+
+        /*
+         * Be forgiving if the user types @esuvex.
+         * Internally we normalize it back to esuvex.
+         */
+        $username = ltrim($username, '@');
+
+        /*
+         * Social fields are username/handle fields, not URL fields.
+         * Remove accidental surrounding slashes/spaces.
+         */
+        $username = trim($username, " \t\n\r\0\x0B/");
+
+        $prefix = $profile['at'] ? '@' : '';
+
+        $request->merge([
+            $field =>
+                $profile['base']
+                . $prefix
+                . $username,
+        ]);
+    }
+
+    $validated = $request->validate([
+            'header' => ['nullable', 'string', 'max:2000'],
+            'footer' => ['nullable', 'string', 'max:2000'],
+            'signature' => ['nullable', 'string', 'max:2000'],
+
+            'contact_enabled' => ['required', 'boolean'],
+            'contact_phone' => ['nullable', 'string', 'max:100'],
+            'contact_email' => ['nullable', 'email', 'max:255'],
+            'contact_website' => ['nullable', 'url', 'max:2048'],
+            'contact_address' => ['nullable', 'string', 'max:500'],
+
+            'social_enabled' => ['required', 'boolean'],
+            'social_facebook' => ['nullable', 'url', 'max:2048'],
+            'social_instagram' => ['nullable', 'url', 'max:2048'],
+            'social_linkedin' => ['nullable', 'url', 'max:2048'],
+            'social_x' => ['nullable', 'url', 'max:2048'],
+            'social_youtube' => ['nullable', 'url', 'max:2048'],
+            'social_tiktok' => ['nullable', 'url', 'max:2048'],
+
+            'unsubscribe_enabled' => ['required', 'boolean'],
+            'unsubscribe_text' => ['nullable', 'string', 'max:120'],
+
+            'background' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'accent' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'text_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'width' => ['required', 'in:560,640,720'],
+            'font' => ['required', 'in:system,serif,clean'],
+
+            'logo' => [
+                'nullable',
+                'file',
+                'max:5120',
+                'mimes:png,jpg,jpeg,webp,svg',
+            ],
+        ]);
+
+        $db = DB::connection('website_tenant');
+
+        abort_unless(
+            Schema::connection('website_tenant')->hasTable('site_settings'),
+            503,
+            'Core site settings are unavailable.'
+        );
+
+        $settings = [
+            'email_branding_header' => trim((string) ($validated['header'] ?? '')),
+            'email_branding_footer' => trim((string) ($validated['footer'] ?? '')),
+            'email_branding_signature' => trim((string) ($validated['signature'] ?? '')),
+
+            'email_branding_contact_enabled' => $validated['contact_enabled'] ? '1' : '0',
+            'email_branding_contact_phone' => trim((string) ($validated['contact_phone'] ?? '')),
+            'email_branding_contact_email' => trim((string) ($validated['contact_email'] ?? '')),
+            'email_branding_contact_website' => trim((string) ($validated['contact_website'] ?? '')),
+            'email_branding_contact_address' => trim((string) ($validated['contact_address'] ?? '')),
+
+            'email_branding_social_enabled' => $validated['social_enabled'] ? '1' : '0',
+            'email_branding_social_facebook' => trim((string) ($validated['social_facebook'] ?? '')),
+            'email_branding_social_instagram' => trim((string) ($validated['social_instagram'] ?? '')),
+            'email_branding_social_linkedin' => trim((string) ($validated['social_linkedin'] ?? '')),
+            'email_branding_social_x' => trim((string) ($validated['social_x'] ?? '')),
+            'email_branding_social_youtube' => trim((string) ($validated['social_youtube'] ?? '')),
+            'email_branding_social_tiktok' => trim((string) ($validated['social_tiktok'] ?? '')),
+
+            'email_branding_unsubscribe_enabled' => $validated['unsubscribe_enabled'] ? '1' : '0',
+            'email_branding_unsubscribe_text' => trim((string) ($validated['unsubscribe_text'] ?? '')),
+
+            'email_branding_background' => strtolower($validated['background']),
+            'email_branding_accent' => strtolower($validated['accent']),
+            'email_branding_text_color' => strtolower($validated['text_color']),
+            'email_branding_width' => (string) $validated['width'],
+            'email_branding_font' => $validated['font'],
+        ];
+
+        $now = now();
+
+        foreach ($settings as $key => $value) {
+            $db->table('site_settings')->updateOrInsert(
+                ['key' => $key],
+                [
+                    'value' => $value,
+                    'updated_at' => $now,
+                    'created_at' => $now,
+                ]
+            );
+        }
+
+        /*
+         * Email logo is an optional feature-specific override.
+         * When absent, outgoing emails continue using the canonical
+         * website logo from Core Site Settings.
+         */
+        if ($request->hasFile('logo')) {
+            $website = $this->centralWebsite($request);
+
+            $path = $request->file('logo')->storePublicly(
+                'email-branding',
+                'public'
+            );
+
+            $db->table('site_settings')->updateOrInsert(
+                ['key' => 'email_branding_logo_path'],
+                [
+                    'value' => $path,
+                    'updated_at' => $now,
+                    'created_at' => $now,
+                ]
+            );
+        }
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Email branding saved successfully.',
+        ]);
+    }
+
+
     public function mailboxSettings(Request $request)
     {
         $validated = $request->validate([

@@ -3,6 +3,63 @@
 return [
 
     /*
+     * ESUBIZ_MANAGED_MAIL_CONNECTION_V1
+     *
+     * Public connection parameters for mailboxes hosted on the
+     * Esubiz server. Credentials remain in Central website_mailboxes.
+     *
+     * These values are intentionally independent of Laravel's
+     * default application mailer.
+     */
+    'managed_mail' => [
+        'smtp' => [
+            'host' => env(
+                'ESUBIZ_MANAGED_SMTP_HOST',
+                'server-162-35-174-157.da.direct'
+            ),
+            'port' => (int) env(
+                'ESUBIZ_MANAGED_SMTP_PORT',
+                587
+            ),
+            'encryption' => env(
+                'ESUBIZ_MANAGED_SMTP_ENCRYPTION',
+                'tls'
+            ),
+            'verify_peer' => filter_var(
+                env(
+                    'ESUBIZ_MANAGED_SMTP_VERIFY_PEER',
+                    true
+                ),
+                FILTER_VALIDATE_BOOL
+            ),
+        ],
+
+        'imap' => [
+            'host' => env(
+                'ESUBIZ_MANAGED_IMAP_HOST',
+                'server-162-35-174-157.da.direct'
+            ),
+            'port' => (int) env(
+                'ESUBIZ_MANAGED_IMAP_PORT',
+                993
+            ),
+            'encryption' => env(
+                'ESUBIZ_MANAGED_IMAP_ENCRYPTION',
+                'ssl'
+            ),
+            'verify_peer' => filter_var(
+                env(
+                    'ESUBIZ_MANAGED_IMAP_VERIFY_PEER',
+                    false
+                ),
+                FILTER_VALIDATE_BOOL
+            ),
+        ],
+    ],
+
+
+
+    /*
     |--------------------------------------------------------------------------
     | Esubiz Managed Mail
     |--------------------------------------------------------------------------

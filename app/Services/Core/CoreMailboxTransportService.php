@@ -14,6 +14,11 @@ use Symfony\Component\Mime\Email;
 
 class CoreMailboxTransportService
 {
+    public function __construct(
+        protected CoreEmailBrandingService $branding
+    ) {
+    }
+
     /*
      * ESUBIZ_CORE_REAL_SMTP_TRANSPORT_V1
      *
@@ -94,6 +99,30 @@ class CoreMailboxTransportService
                 $username,
                 $password
             );
+
+        /*
+         * ESUBIZ_CORE_OUTGOING_EMAIL_BRANDING_V1
+         *
+         * Apply the website's saved Core Email Branding immediately
+         * before the MIME message is built and transported.
+         *
+         * Only HTML is wrapped. The plain-text alternative remains
+         * unchanged for clients that prefer text email.
+         */
+        $bodyHtml = trim(
+            (string) (
+                $message['body_html']
+                    ?? ''
+            )
+        );
+
+        if ($bodyHtml !== '') {
+            $message['body_html'] =
+                $this->branding->render(
+                    $website,
+                    $bodyHtml
+                );
+        }
 
         $email =
             $this->buildMessage(

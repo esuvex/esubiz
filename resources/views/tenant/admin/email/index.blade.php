@@ -1818,10 +1818,11 @@ class="mt-4">
 
                                             <input
                                                 id="core-email-footer-website"
-                                                type="url"
-                                                placeholder="https://example.com"
+                                                type="text"
+                                                placeholder="e.g. esuvex.com"
                                                 class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                                            >
+                                            
+                                                inputmode="url">
                                         </div>
 
                                         <div>
@@ -1868,30 +1869,54 @@ class="mt-4">
                                         </label>
                                     </div>
 
+                                    <p class="mt-3 text-xs leading-5 text-slate-500">
+                                        Enter only your username or handle. Example: <strong>esuvex</strong>.
+                                        Esubiz will create the complete social media link automatically.
+                                    </p>
+
                                     <div
                                         id="core-email-footer-social-fields"
                                         class="mt-4 grid gap-4 md:grid-cols-2"
                                     >
                                         @foreach([
-                                            'facebook' => 'Facebook',
-                                            'instagram' => 'Instagram',
-                                            'linkedin' => 'LinkedIn',
-                                            'x' => 'X (Twitter)',
-                                            'youtube' => 'YouTube',
-                                            'tiktok' => 'TikTok',
-                                        ] as $socialKey => $socialLabel)
+                                            'facebook' => [
+                                                'label' => 'Facebook',
+                                                'placeholder' => 'e.g. esuvex',
+                                            ],
+                                            'instagram' => [
+                                                'label' => 'Instagram',
+                                                'placeholder' => 'e.g. esuvex',
+                                            ],
+                                            'linkedin' => [
+                                                'label' => 'LinkedIn',
+                                                'placeholder' => 'e.g. esuvex',
+                                            ],
+                                            'x' => [
+                                                'label' => 'X (Twitter)',
+                                                'placeholder' => 'e.g. esuvex',
+                                            ],
+                                            'youtube' => [
+                                                'label' => 'YouTube',
+                                                'placeholder' => 'e.g. esuvex',
+                                            ],
+                                            'tiktok' => [
+                                                'label' => 'TikTok',
+                                                'placeholder' => 'e.g. esuvex',
+                                            ],
+                                        ] as $socialKey => $social)
                                             <div>
                                                 <label
                                                     for="core-email-footer-social-{{ $socialKey }}"
                                                     class="mb-1.5 block text-xs font-semibold text-slate-600"
                                                 >
-                                                    {{ $socialLabel }}
+                                                    {{ $social['label'] }}
                                                 </label>
 
                                                 <input
                                                     id="core-email-footer-social-{{ $socialKey }}"
-                                                    type="url"
-                                                    placeholder="Paste your {{ $socialLabel }} link"
+                                                    type="text"
+                                                    inputmode="url"
+                                                    placeholder="{{ $social['placeholder'] }}"
                                                     class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                                                 >
                                             </div>
@@ -1982,14 +2007,14 @@ The Team</textarea>
                                 Fine-tune the appearance of your emails to complement your brand.
                             </p>
 
-                            <div class="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                            <div class="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
 
                                 <div>
                                     <label
                                         for="core-email-branding-background"
                                         class="mb-1.5 block text-sm font-semibold text-slate-700"
                                     >
-                                        Background
+                                        Email Background
                                     </label>
 
                                     <div class="flex items-center gap-2">
@@ -1997,12 +2022,21 @@ The Team</textarea>
                                             id="core-email-branding-background"
                                             type="color"
                                             value="#f8fafc"
-                                            class="h-11 w-14 cursor-pointer rounded-lg border border-slate-300 bg-white p-1"
+                                            title="Choose Email Background"
+                                            class="h-11 w-14 shrink-0 cursor-pointer rounded-lg border border-slate-300 bg-white p-1"
                                         >
 
-                                        <span class="text-sm text-slate-500">
-                                            Soft
-                                        </span>
+                                        <input
+                                            id="core-email-branding-background-hex"
+                                            type="text"
+                                            value="#F8FAFC"
+                                            maxlength="7"
+                                            spellcheck="false"
+                                            aria-label="Email Background color code"
+                                            class="h-11 w-24 rounded-lg border border-slate-300 bg-white px-2 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                        >
+
+
                                     </div>
                                 </div>
 
@@ -2011,7 +2045,7 @@ The Team</textarea>
                                         for="core-email-branding-accent"
                                         class="mb-1.5 block text-sm font-semibold text-slate-700"
                                     >
-                                        Accent Color
+                                        Brand Color
                                     </label>
 
                                     <div class="flex items-center gap-2">
@@ -2019,12 +2053,52 @@ The Team</textarea>
                                             id="core-email-branding-accent"
                                             type="color"
                                             value="#0f172a"
-                                            class="h-11 w-14 cursor-pointer rounded-lg border border-slate-300 bg-white p-1"
+                                            title="Choose Brand Color"
+                                            class="h-11 w-14 shrink-0 cursor-pointer rounded-lg border border-slate-300 bg-white p-1"
                                         >
 
-                                        <span class="text-sm text-slate-500">
-                                            Classic
-                                        </span>
+                                        <input
+                                            id="core-email-branding-accent-hex"
+                                            type="text"
+                                            value="#0F172A"
+                                            maxlength="7"
+                                            spellcheck="false"
+                                            aria-label="Brand Color color code"
+                                            class="h-11 w-24 rounded-lg border border-slate-300 bg-white px-2 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                        >
+
+
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label
+                                        for="core-email-branding-text-color"
+                                        class="mb-1.5 block text-sm font-semibold text-slate-700"
+                                    >
+                                        Text Color
+                                    </label>
+
+                                    <div class="flex items-center gap-2">
+                                        <input
+                                            id="core-email-branding-text-color"
+                                            type="color"
+                                            value="#334155"
+                                            title="Choose Text Color"
+                                            class="h-11 w-14 shrink-0 cursor-pointer rounded-lg border border-slate-300 bg-white p-1"
+                                        >
+
+                                        <input
+                                            id="core-email-branding-text-color-hex"
+                                            type="text"
+                                            value="#334155"
+                                            maxlength="7"
+                                            spellcheck="false"
+                                            aria-label="Text Color color code"
+                                            class="h-11 w-24 rounded-lg border border-slate-300 bg-white px-2 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                        >
+
+
                                     </div>
                                 </div>
 
@@ -2241,6 +2315,650 @@ The Team</p>
 
 {{-- ESUBIZ_CORE_EMAIL_BRANDING_NAV_MERGED_V5:
      Branding navigation is owned by authoritative activateSection(). --}}
+
+{{-- ESUBIZ_CORE_EMAIL_BRANDING_RUNTIME_V1 --}}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const saveButton = document.getElementById('core-email-save-branding');
+
+    if (!saveButton) {
+        return;
+    }
+
+    const settings = @json($coreEmailSiteSettings ?? []);
+    const saveUrl = @json(route('core.email.branding.save', [
+        'subdomain' => request()->route('subdomain'),
+    ]));
+
+    const el = id => document.getElementById(id);
+
+    const value = (id, key, fallback = '') => {
+        const node = el(id);
+        if (!node) return;
+
+        node.value =
+            settings[key] !== undefined &&
+            settings[key] !== null
+                ? settings[key]
+                : fallback;
+    };
+
+    const checked = (id, key, fallback = true) => {
+        const node = el(id);
+        if (!node) return;
+
+        if (settings[key] === undefined) {
+            node.checked = fallback;
+            return;
+        }
+
+        node.checked =
+            String(settings[key]) === '1' ||
+            settings[key] === true;
+    };
+
+    value(
+        'core-email-branding-header',
+        'email_branding_header',
+        'Thank you for connecting with us. We’re pleased to keep you updated.'
+    );
+
+    value(
+        'core-email-branding-footer',
+        'email_branding_footer',
+        'Thank you for choosing us. We value your trust and look forward to serving you.'
+    );
+
+    value(
+        'core-email-branding-signature',
+        'email_branding_signature',
+        'Warm regards,\nThe Team'
+    );
+
+    checked(
+        'core-email-footer-contact-enabled',
+        'email_branding_contact_enabled'
+    );
+
+    value('core-email-footer-phone', 'email_branding_contact_phone');
+    value('core-email-footer-email', 'email_branding_contact_email');
+    value('core-email-footer-website', 'email_branding_contact_website');
+    value('core-email-footer-address', 'email_branding_contact_address');
+
+    checked(
+        'core-email-footer-social-enabled',
+        'email_branding_social_enabled'
+    );
+
+    ['facebook', 'instagram', 'linkedin', 'x', 'youtube', 'tiktok']
+        .forEach(network => {
+            value(
+                `core-email-footer-social-${network}`,
+                `email_branding_social_${network}`
+            );
+        });
+
+    checked(
+        'core-email-footer-unsubscribe-enabled',
+        'email_branding_unsubscribe_enabled'
+    );
+
+    value(
+        'core-email-footer-unsubscribe-text',
+        'email_branding_unsubscribe_text',
+        'Unsubscribe from these emails'
+    );
+
+    value(
+        'core-email-branding-background',
+        'email_branding_background',
+        '#f8fafc'
+    );
+
+    value(
+        'core-email-branding-accent',
+        'email_branding_accent',
+        '#0f172a'
+    );
+
+    value(
+        'core-email-branding-text-color',
+        'email_branding_text_color',
+        '#334155'
+    );
+
+    value(
+        'core-email-branding-width',
+        'email_branding_width',
+        '640'
+    );
+
+    value(
+        'core-email-branding-font',
+        'email_branding_font',
+        'system'
+    );
+
+    const contactEnabled = el('core-email-footer-contact-enabled');
+    const socialEnabled = el('core-email-footer-social-enabled');
+    const unsubscribeEnabled = el('core-email-footer-unsubscribe-enabled');
+
+    const syncVisibility = () => {
+        el('core-email-footer-contact-fields')
+            ?.classList.toggle('hidden', !contactEnabled?.checked);
+
+        el('core-email-footer-social-fields')
+            ?.classList.toggle('hidden', !socialEnabled?.checked);
+
+        el('core-email-footer-unsubscribe-fields')
+            ?.classList.toggle('hidden', !unsubscribeEnabled?.checked);
+    };
+
+    [contactEnabled, socialEnabled, unsubscribeEnabled]
+        .forEach(node => node?.addEventListener('change', syncVisibility));
+
+    syncVisibility();
+
+    saveButton.addEventListener('click', async () => {
+        const form = new FormData();
+
+        form.append(
+            '_token',
+            document.querySelector('meta[name="csrf-token"]')
+                ?.getAttribute('content') || ''
+        );
+
+        form.append('header', el('core-email-branding-header')?.value || '');
+        form.append('footer', el('core-email-branding-footer')?.value || '');
+        form.append('signature', el('core-email-branding-signature')?.value || '');
+
+        form.append('contact_enabled', contactEnabled?.checked ? '1' : '0');
+        form.append('contact_phone', el('core-email-footer-phone')?.value || '');
+        form.append('contact_email', el('core-email-footer-email')?.value || '');
+        form.append('contact_website', el('core-email-footer-website')?.value || '');
+        form.append('contact_address', el('core-email-footer-address')?.value || '');
+
+        form.append('social_enabled', socialEnabled?.checked ? '1' : '0');
+
+        ['facebook', 'instagram', 'linkedin', 'x', 'youtube', 'tiktok']
+            .forEach(network => {
+                form.append(
+                    `social_${network}`,
+                    el(`core-email-footer-social-${network}`)?.value || ''
+                );
+            });
+
+        form.append(
+            'unsubscribe_enabled',
+            unsubscribeEnabled?.checked ? '1' : '0'
+        );
+
+        form.append(
+            'unsubscribe_text',
+            el('core-email-footer-unsubscribe-text')?.value || ''
+        );
+
+        form.append(
+            'background',
+            el('core-email-branding-background')?.value || '#f8fafc'
+        );
+
+        form.append(
+            'accent',
+            el('core-email-branding-accent')?.value || '#0f172a'
+        );
+
+        form.append(
+            'text_color',
+            el('core-email-branding-text-color')?.value || '#334155'
+        );
+
+        form.append(
+            'width',
+            el('core-email-branding-width')?.value || '640'
+        );
+
+        form.append(
+            'font',
+            el('core-email-branding-font')?.value || 'system'
+        );
+
+        const logo = el('core-email-branding-logo')?.files?.[0];
+
+        if (logo) {
+            form.append('logo', logo);
+        }
+
+        const originalText = saveButton.textContent;
+
+        saveButton.disabled = true;
+        saveButton.textContent = 'Saving...';
+
+        try {
+            const response = await fetch(saveUrl, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: form,
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.message ||
+                    Object.values(data.errors || {}).flat()[0] ||
+                    'Unable to save email branding.'
+                );
+            }
+
+            saveButton.textContent = 'Saved';
+
+            setTimeout(() => {
+                saveButton.textContent = originalText;
+            }, 1500);
+        } catch (error) {
+            alert(error.message || 'Unable to save email branding.');
+            saveButton.textContent = originalText;
+        } finally {
+            saveButton.disabled = false;
+        }
+    });
+});
+</script>
+
+{{-- ESUBIZ_CORE_EMAIL_BRANDING_PREVIEW_RUNTIME_V1 --}}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const previewButton =
+        document.querySelector('[data-core-email-branding-preview]');
+
+    const modal =
+        document.getElementById('core-email-branding-preview-modal');
+
+    if (!previewButton || !modal) {
+        return;
+    }
+
+    const el = id => document.getElementById(id);
+
+    const closeButton =
+        el('core-email-branding-preview-close');
+
+    const card =
+        el('core-email-branding-preview-card');
+
+    const stage =
+        el('core-email-branding-preview-stage');
+
+    const previewLogo =
+        el('core-email-branding-preview-logo');
+
+    const previewHeader =
+        el('core-email-branding-preview-header');
+
+    const previewSignature =
+        el('core-email-branding-preview-signature');
+
+    const previewFooter =
+        el('core-email-branding-preview-footer');
+
+    const previewContact =
+        el('core-email-branding-preview-contact');
+
+    const previewSocial =
+        el('core-email-branding-preview-social');
+
+    const previewUnsubscribe =
+        el('core-email-branding-preview-unsubscribe');
+
+    const websiteName = @json($coreEmailWebsiteName ?? 'Website');
+    const websiteLogo = @json($coreEmailWebsiteLogoUrl ?? null);
+
+    let uploadedLogoUrl = null;
+
+    const logoInput =
+        el('core-email-branding-logo');
+
+    logoInput?.addEventListener('change', () => {
+        if (uploadedLogoUrl) {
+            URL.revokeObjectURL(uploadedLogoUrl);
+            uploadedLogoUrl = null;
+        }
+
+        const file = logoInput.files?.[0];
+
+        if (file) {
+            uploadedLogoUrl = URL.createObjectURL(file);
+        }
+    });
+
+    const escapeHtml = value => {
+        const div = document.createElement('div');
+        div.textContent = value ?? '';
+        return div.innerHTML;
+    };
+
+    const renderLogo = () => {
+        const src = uploadedLogoUrl || websiteLogo;
+
+        if (src) {
+            previewLogo.innerHTML = `
+                <img
+                    src="${escapeHtml(src)}"
+                    alt="${escapeHtml(websiteName)} logo"
+                    class="mx-auto max-h-16 max-w-[220px] object-contain"
+                >
+            `;
+            return;
+        }
+
+        previewLogo.textContent = websiteName;
+    };
+
+    const renderContact = () => {
+        const enabled =
+            el('core-email-footer-contact-enabled')?.checked;
+
+        if (!enabled) {
+            previewContact.classList.add('hidden');
+            previewContact.innerHTML = '';
+            return;
+        }
+
+        const items = [
+            el('core-email-footer-phone')?.value?.trim(),
+            el('core-email-footer-email')?.value?.trim(),
+            el('core-email-footer-website')?.value?.trim(),
+            el('core-email-footer-address')?.value?.trim(),
+        ].filter(Boolean);
+
+        if (!items.length) {
+            previewContact.classList.add('hidden');
+            previewContact.innerHTML = '';
+            return;
+        }
+
+        previewContact.innerHTML =
+            items.map(escapeHtml).join(' &nbsp; • &nbsp; ');
+
+        previewContact.classList.remove('hidden');
+    };
+
+    const renderSocial = () => {
+        const enabled =
+            el('core-email-footer-social-enabled')?.checked;
+
+        if (!enabled) {
+            previewSocial.classList.add('hidden');
+            previewSocial.innerHTML = '';
+            return;
+        }
+
+        const socials = {
+            facebook: {
+                label: 'Facebook',
+                color: '#1877F2',
+                svg: `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.414c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.971h-1.513c-1.49 0-1.956.931-1.956 1.887v2.262h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/></svg>`
+            },
+            instagram: {
+                label: 'Instagram',
+                color: '#E4405F',
+                svg: `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M7.75 2h8.5A5.76 5.76 0 0 1 22 7.75v8.5A5.76 5.76 0 0 1 16.25 22h-8.5A5.76 5.76 0 0 1 2 16.25v-8.5A5.76 5.76 0 0 1 7.75 2zm0 2A3.75 3.75 0 0 0 4 7.75v8.5A3.75 3.75 0 0 0 7.75 20h8.5A3.75 3.75 0 0 0 20 16.25v-8.5A3.75 3.75 0 0 0 16.25 4h-8.5z"/><path fill="currentColor" d="M12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm5.5-3.25a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5z"/></svg>`
+            },
+            linkedin: {
+                label: 'LinkedIn',
+                color: '#0A66C2',
+                svg: `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M20.45 20.45h-3.56v-5.57c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.34V8.98h3.42v1.57h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.29zM5.32 7.41a2.07 2.07 0 1 1 0-4.14 2.07 2.07 0 0 1 0 4.14zm1.78 13.04H3.54V8.98H7.1v11.47z"/></svg>`
+            },
+            x: {
+                label: 'X',
+                color: '#000000',
+                svg: `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M18.244 2H21.552l-7.227 8.26L22.827 22h-6.657l-5.214-6.817L4.99 22H1.68l7.73-8.835L1.254 2h6.826l4.713 6.231L18.244 2zm-1.161 17.93h1.833L7.084 3.966H5.117L17.083 19.93z"/></svg>`
+            },
+            youtube: {
+                label: 'YouTube',
+                color: '#FF0000',
+                svg: `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.5 3.54 12 3.54 12 3.54s-7.5 0-9.38.51A3.02 3.02 0 0 0 .5 6.19 31.5 31.5 0 0 0 0 12a31.5 31.5 0 0 0 .5 5.81 3.02 3.02 0 0 0 2.12 2.14c1.88.51 9.38.51 9.38.51s7.5 0 9.38-.51a3.02 3.02 0 0 0 2.12-2.14A31.5 31.5 0 0 0 24 12a31.5 31.5 0 0 0-.5-5.81zM9.55 15.57V8.43L15.82 12l-6.27 3.57z"/></svg>`
+            },
+            tiktok: {
+                label: 'TikTok',
+                color: '#000000',
+                svg: `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M16.6 2c.2 1.7 1.15 3.22 2.6 4.13A7.1 7.1 0 0 0 23 7.2v3.67a10.7 10.7 0 0 1-6.35-2.08v7.02A6.2 6.2 0 1 1 11.3 9.67v3.72a2.58 2.58 0 1 0 1.72 2.42V2h3.58z"/></svg>`
+            },
+        };
+
+        const links = Object.entries(socials)
+            .map(([key, social]) => {
+                const url =
+                    el(`core-email-footer-social-${key}`)
+                        ?.value?.trim();
+
+                if (!url) {
+                    return '';
+                }
+
+                return `
+                    <a
+                        href="${escapeHtml(url)}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="${escapeHtml(social.label)}"
+                        aria-label="${escapeHtml(social.label)}"
+                        style="
+                            display:inline-flex;
+                            width:34px;
+                            height:34px;
+                            align-items:center;
+                            justify-content:center;
+                            border-radius:9999px;
+                            background:${social.color};
+                            color:#ffffff;
+                            font-family:Arial,sans-serif;
+                            font-size:13px;
+                            font-weight:700;
+                            text-decoration:none;
+                        "
+                    ><span style="display:block;width:18px;height:18px;color:#ffffff;line-height:0;">${social.svg}</span></a>
+                `;
+            })
+            .filter(Boolean);
+
+        if (!links.length) {
+            previewSocial.classList.add('hidden');
+            previewSocial.innerHTML = '';
+            return;
+        }
+
+        previewSocial.innerHTML = links.join('');
+        previewSocial.classList.remove('hidden');
+        previewSocial.classList.add('flex');
+    };
+
+    const renderUnsubscribe = () => {
+        const enabled =
+            el('core-email-footer-unsubscribe-enabled')?.checked;
+
+        if (!enabled) {
+            previewUnsubscribe.classList.add('hidden');
+            return;
+        }
+
+        const text =
+            el('core-email-footer-unsubscribe-text')
+                ?.value?.trim()
+            || 'Unsubscribe from these emails';
+
+        const link = previewUnsubscribe.querySelector('a');
+
+        if (link) {
+            link.textContent = text;
+        }
+
+        previewUnsubscribe.classList.remove('hidden');
+    };
+
+    const bindBrandingColor = (pickerId, hexId) => {
+        const picker = el(pickerId);
+        const hex = el(hexId);
+
+        if (!picker || !hex) {
+            return;
+        }
+
+        hex.value = picker.value.toUpperCase();
+
+        picker.addEventListener('input', () => {
+            hex.value = picker.value.toUpperCase();
+        });
+
+        hex.addEventListener('input', () => {
+            let value = hex.value.trim();
+
+            if (value && !value.startsWith('#')) {
+                value = '#' + value;
+            }
+
+            if (/^#[0-9A-Fa-f]{6}$/.test(value)) {
+                picker.value = value;
+            }
+        });
+
+        hex.addEventListener('blur', () => {
+            let value = hex.value.trim();
+
+            if (value && !value.startsWith('#')) {
+                value = '#' + value;
+            }
+
+            if (/^#[0-9A-Fa-f]{6}$/.test(value)) {
+                picker.value = value;
+                hex.value = value.toUpperCase();
+            } else {
+                hex.value = picker.value.toUpperCase();
+            }
+        });
+    };
+
+    bindBrandingColor(
+        'core-email-branding-background',
+        'core-email-branding-background-hex'
+    );
+
+    bindBrandingColor(
+        'core-email-branding-accent',
+        'core-email-branding-accent-hex'
+    );
+
+    bindBrandingColor(
+        'core-email-branding-text-color',
+        'core-email-branding-text-color-hex'
+    );
+
+    const renderPreview = () => {
+        renderLogo();
+
+        previewHeader.textContent =
+            el('core-email-branding-header')?.value?.trim() || '';
+
+        previewSignature.textContent =
+            el('core-email-branding-signature')?.value || '';
+
+        previewFooter.textContent =
+            el('core-email-branding-footer')?.value?.trim() || '';
+
+        renderContact();
+        renderSocial();
+        renderUnsubscribe();
+
+        const background =
+            el('core-email-branding-background')?.value
+            || '#f8fafc';
+
+        const accent =
+            el('core-email-branding-accent')?.value
+            || '#0f172a';
+
+        const textColor =
+            el('core-email-branding-text-color')?.value
+            || '#334155';
+
+        const width =
+            el('core-email-branding-width')?.value
+            || '640';
+
+        const font =
+            el('core-email-branding-font')?.value
+            || 'system';
+
+        stage.style.backgroundColor = background;
+        card.style.maxWidth = `${width}px`;
+
+        const fontFamilies = {
+            system: 'Arial, Helvetica, sans-serif',
+            serif: 'Georgia, Times New Roman, serif',
+            clean: 'Helvetica, Arial, sans-serif',
+        };
+
+        card.style.fontFamily =
+            fontFamilies[font] || fontFamilies.system;
+
+        previewLogo.style.color = accent;
+        card.style.color = textColor;
+
+        card.querySelectorAll('p').forEach(node => {
+            node.style.color = textColor;
+        });
+
+        if (previewHeader) {
+            previewHeader.style.color = accent;
+        }
+
+        const unsubscribeLink =
+            previewUnsubscribe?.querySelector('a');
+
+        if (unsubscribeLink) {
+            unsubscribeLink.style.color = accent;
+        }
+    };
+
+    const openPreview = () => {
+        renderPreview();
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+
+        document.body.style.overflow = 'hidden';
+    };
+
+    const closePreview = () => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+
+        document.body.style.overflow = '';
+    };
+
+    previewButton.addEventListener('click', openPreview);
+    closeButton?.addEventListener('click', closePreview);
+
+    modal.addEventListener('click', event => {
+        if (event.target === modal) {
+            closePreview();
+        }
+    });
+
+    document.addEventListener('keydown', event => {
+        if (
+            event.key === 'Escape' &&
+            !modal.classList.contains('hidden')
+        ) {
+            closePreview();
+        }
+    });
+});
+</script>
 
 {{-- ESUBIZ_CORE_EMAIL_SENDER_SELECTOR_JS_V3 --}}
 <script>

@@ -652,6 +652,21 @@ Route::post(
 )->name('core.email.settings.save');
 
 
+/*
+ * ESUBIZ_CORE_EMAIL_BRANDING_ROUTES_V1
+ *
+ * Website-wide Core email branding. Saved independently from
+ * mailbox settings and applied to outgoing Core emails.
+ */
+Route::post(
+    '/admin/communication/email/branding',
+    [
+        \App\Http\Controllers\Core\CoreEmailController::class,
+        'saveEmailBranding',
+    ]
+)->name('core.email.branding.save');
+
+
 Route::get(
     '/admin/settings',
     [
