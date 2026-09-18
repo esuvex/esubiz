@@ -5180,4 +5180,130 @@ class MarketplaceController extends Controller
     }
 
 
+
+
+    /*
+     * ESUBIZ_MODULE_MARKETPLACE_CATALOG_V1
+     *
+     * Public authoritative Module catalog consumed by off-server Core.
+     *
+     * Module commerce remains Central-owned while installation/enabled
+     * state remains local to each Core website.
+     */
+    public function moduleCatalog(
+        \Illuminate\Http\Request $request,
+        \App\Services\Marketplace\Modules\ModuleMarketplaceResolver $resolver
+    ) {
+        $deployment = strtolower(
+            trim(
+                (string) $request->query(
+                    'deployment',
+                    $resolver::DEPLOYMENT_SAAS
+                )
+            )
+        );
+
+        if (
+            !in_array(
+                $deployment,
+                [
+                    $resolver::DEPLOYMENT_SAAS,
+                    $resolver::DEPLOYMENT_OFF_SERVER,
+                ],
+                true
+            )
+        ) {
+            return response()->json(
+                [
+                    'ok' => false,
+                    'message' => 'Invalid module deployment context.',
+                ],
+                422
+            );
+        }
+
+        $modules = $resolver->forDeployment(
+            $deployment
+        );
+
+        $items = $modules
+            ->map(
+                function ($module) use (
+                    $deployment,
+                    $resolver
+                ) {
+                    $metadata = [];
+
+                    if (
+                        isset($module->metadata)
+                        && is_array($module->metadata)
+                    ) {
+                        $metadata = $module->metadata;
+                    } elseif (
+                        isset($module->metadata)
+                        && is_string($module->metadata)
+                    ) {
+                        $decoded = json_decode(
+                            $module->metadata,
+                            true
+                        );
+
+                        if (is_array($decoded)) {
+                            $metadata = $decoded;
+                        }
+                    }
+
+                    return [
+                        'id' => (int) $module->id,
+                        'uuid' => $module->uuid ?? null,
+                        'name' => $module->name ?? null,
+                        'slug' => $module->slug ?? null,
+                        'version' => $module->version ?? null,
+                        'description' =>
+                            $module->description ?? null,
+
+                        'deployment' => $deployment,
+
+                        'price' => $resolver->price(
+                            $module,
+                            $deployment
+                        ),
+
+                        'currency' => $resolver->currency(
+                            $module,
+                            $deployment
+                        ),
+
+                        'marketplace' => [
+                            'featured' => (bool) (
+                                $module->marketplace_featured
+                                ?? false
+                            ),
+                            'category' =>
+                                $module->marketplace_category
+                                ?? null,
+                        ],
+
+                        /*
+                         * Central-owned Module configuration.
+                         *
+                         * This may contain sidebar parent menu,
+                         * Core integration selections and other
+                         * portable Module metadata.
+                         */
+                        'metadata' => $metadata,
+                    ];
+                }
+            )
+            ->values();
+
+        return response()->json(
+            [
+                'ok' => true,
+                'deployment' => $deployment,
+                'modules' => $items,
+            ]
+        );
+    }
+
 }

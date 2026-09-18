@@ -2,6 +2,7 @@
 
 namespace App\Services\Marketplace;
 
+use App\Services\Marketplace\Packages\EsubizProductPackageValidator;
 use RuntimeException;
 use ZipArchive;
 
@@ -15,7 +16,8 @@ class BundlePackageService
 
 
     public function __construct(
-        protected AddonPackageService $addons
+        protected AddonPackageService $addons,
+        protected EsubizProductPackageValidator $productPackageValidator
     ) {
     }
 
@@ -34,6 +36,16 @@ class BundlePackageService
     public function validatePackage(
         string $absolutePackagePath
     ): array {
+
+        /*
+         * Universal Esubiz package identity.
+         * This ZIP must identify itself as a Bundle before
+         * bundle-specific validation is allowed to continue.
+         */
+        $this->productPackageValidator->validate(
+            $absolutePackagePath,
+            'bundle'
+        );
 
         if (
             !is_file(

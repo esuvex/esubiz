@@ -29,6 +29,70 @@ class CoreFeatureBootstrapper
 
     public function boot(): void
     {
+        /*
+         * ESUBIZ_CORE_ADMIN_NAV_SITE_MANAGEMENT_V1
+         *
+         * Structured representation of the existing Core sidebar:
+         *
+         * Site Management
+         *   - Pages
+         *   - Media
+         *   - Menus
+         *   - Forms
+         *   - Users
+         *   - QR Code
+         *   - Add-ons
+         *   - Themes
+         *   - Modules
+         *
+         * This does not render or relocate the sidebar.
+         */
+        app(\App\Services\Core\CoreAdminNavigationRegistry::class)
+            ->register(
+                'site_management',
+                [
+                    'label' => 'Site Management',
+                    'order' => 100,
+                    'children' => [
+                        'pages' => [
+                            'label' => 'Pages',
+                            'order' => 10,
+                        ],
+                        'media' => [
+                            'label' => 'Media',
+                            'order' => 20,
+                        ],
+                        'menus' => [
+                            'label' => 'Menus',
+                            'order' => 30,
+                        ],
+                        'forms' => [
+                            'label' => 'Forms',
+                            'order' => 40,
+                        ],
+                        'users' => [
+                            'label' => 'Users',
+                            'order' => 50,
+                        ],
+                        'qr_code' => [
+                            'label' => 'QR Code',
+                            'order' => 60,
+                        ],
+                        'addons' => [
+                            'label' => 'Add-ons',
+                            'order' => 70,
+                        ],
+                        'themes' => [
+                            'label' => 'Themes',
+                            'order' => 80,
+                        ],
+                        'modules' => [
+                            'label' => 'Modules',
+                            'order' => 90,
+                        ],
+                    ],
+                ]
+            );
         $this->registerDashboard();
         $this->registerUsers();
         $this->registerRoles();

@@ -341,23 +341,15 @@ class EsubizCurrencyPricingService
      */
     public function centralCurrencyCode(): string
     {
-        $code = strtoupper(
-            trim(
-                (string) (
-                    $this->settings->get(
-                        'platform.default_currency'
-                    )
-                    ?: $this->settings->get(
-                        'currency.default'
-                    )
-                    ?: 'NGN'
-                )
-            )
-        );
-
-        return $code !== ''
-            ? $code
-            : 'NGN';
+        /*
+         * ESUBIZ_CENTRAL_CURRENCY_AUTHORITY_V1
+         *
+         * Central Admin's configured primary currency is the single
+         * currency authority for all Esubiz products and services.
+         *
+         * Secondary currencies are converted dynamically against it.
+         */
+        return $this->primaryCurrency();
     }
 
     public function currencySymbol(

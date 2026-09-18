@@ -28,6 +28,7 @@ class EsubizImageOptimizer
     public const PROFILE_PHOTO = 'profile';
     public const PROFILE_LOGO = 'logo';
     public const PROFILE_FAVICON = 'favicon';
+    public const PROFILE_MARKETPLACE_PREVIEW = 'marketplace_preview';
 
     /**
      * Optimize an uploaded raster image and store it.
@@ -147,17 +148,39 @@ class EsubizImageOptimizer
                 );
 
                 if ($crop) {
-                    $cropSize = min(
-                        $sourceWidth,
-                        $sourceHeight
-                    );
+                    /*
+                     * Centre-crop to the TARGET aspect ratio.
+                     *
+                     * This preserves the existing square Profile Photo
+                     * behaviour while allowing Marketplace previews to
+                     * use the canonical 8:5 canvas without distortion.
+                     */
+                    $sourceRatio =
+                        $sourceWidth / $sourceHeight;
+
+                    $targetRatio =
+                        $targetWidth / $targetHeight;
+
+                    if ($sourceRatio > $targetRatio) {
+                        $cropHeight = $sourceHeight;
+
+                        $cropWidth = (int) round(
+                            $sourceHeight * $targetRatio
+                        );
+                    } else {
+                        $cropWidth = $sourceWidth;
+
+                        $cropHeight = (int) round(
+                            $sourceWidth / $targetRatio
+                        );
+                    }
 
                     $sourceX = (int) floor(
-                        ($sourceWidth - $cropSize) / 2
+                        ($sourceWidth - $cropWidth) / 2
                     );
 
                     $sourceY = (int) floor(
-                        ($sourceHeight - $cropSize) / 2
+                        ($sourceHeight - $cropHeight) / 2
                     );
 
                     imagecopyresampled(
@@ -169,8 +192,8 @@ class EsubizImageOptimizer
                         $sourceY,
                         $targetWidth,
                         $targetHeight,
-                        $cropSize,
-                        $cropSize
+                        $cropWidth,
+                        $cropHeight
                     );
                 } else {
                     imagecopyresampled(
@@ -293,6 +316,16 @@ class EsubizImageOptimizer
     ): array {
         if ($profile === self::PROFILE_PHOTO) {
             return [512, 512, true];
+        }
+
+        /*
+         * Canonical Esubiz Marketplace preview canvas.
+         *
+         * Used for Themes, Modules, Add-ons, Bundles and
+         * Website Types irrespective of publisher.
+         */
+        if ($profile === self::PROFILE_MARKETPLACE_PREVIEW) {
+            return [1600, 1000, true];
         }
 
         $maxWidth = match ($profile) {

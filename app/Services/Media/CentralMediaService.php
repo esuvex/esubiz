@@ -1617,6 +1617,7 @@ public function storeMediaToDisk(
                     EsubizImageOptimizer::PROFILE_PHOTO,
                     EsubizImageOptimizer::PROFILE_LOGO,
                     EsubizImageOptimizer::PROFILE_FAVICON,
+                    EsubizImageOptimizer::PROFILE_MARKETPLACE_PREVIEW,
                 ],
                 true
             )

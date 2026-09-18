@@ -537,6 +537,21 @@
             </button>
 
             <div x-show="marketplaceMenu" x-cloak class="ml-4 mt-1 space-y-1">
+
+                {{-- ESUBIZ_CENTRAL_MARKETPLACE_SETTINGS_FIRST_V1 --}}
+                <a
+                    href="{{ route('admin.marketplace.settings.index') }}"
+                    class="block rounded-xl px-5 py-2 text-sm
+                        {{
+                            request()->routeIs('admin.marketplace.settings.*')
+                                || request()->routeIs('admin.marketplace.categories.*')
+                                ? 'bg-blue-600 text-white'
+                                : 'hover:bg-slate-800'
+                        }}"
+                >
+                    Settings
+                </a>
+
                 <a href="{{ config('sso.clients.marketplace.url') }}/sso/login"
                    class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
                     Marketplace Dashboard

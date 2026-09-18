@@ -2,12 +2,18 @@
 
 namespace App\Services\Marketplace;
 
+use App\Services\Marketplace\Packages\EsubizProductPackageValidator;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use ZipArchive;
 
 class ThemePackageService
 {
+    public function __construct(
+        protected EsubizProductPackageValidator $productPackageValidator
+    ) {
+    }
+
     public const SCHEMA =
         'esubiz-theme-package';
 
@@ -24,6 +30,15 @@ class ThemePackageService
     public function validatePackage(
         string $absolutePackagePath
     ): array {
+        /*
+         * Universal Esubiz package identity validation runs first.
+         * A Theme upload must identify itself as product_type=theme.
+         */
+        $this->productPackageValidator->validate(
+            $absolutePackagePath,
+            'theme'
+        );
+
         if (
             !is_file(
                 $absolutePackagePath

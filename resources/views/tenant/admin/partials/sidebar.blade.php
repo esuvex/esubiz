@@ -753,8 +753,11 @@
                 </a>
 
                 <a
-                    href="#"
-                    class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white"
+                    href="{{ route(
+                        'tenant.cms.modules.index',
+                        ['subdomain' => $website->subdomain]
+                    ) }}"
+                    class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white {{ request()->routeIs('tenant.cms.modules.*') ? 'bg-white/10 text-white' : '' }}"
                 >
                     Modules
                 </a>

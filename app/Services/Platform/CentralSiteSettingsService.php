@@ -181,18 +181,45 @@ class CentralSiteSettingsService
 
     public function primaryCurrency(): string
     {
+        /*
+         * ESUBIZ_CENTRAL_PRIMARY_CURRENCY_AUTHORITY_V2
+         *
+         * 1. Central Admin configured primary currency is authoritative.
+         * 2. currencies.is_base is the database fallback/source.
+         * 3. No currency code is hardcoded here.
+         */
         $currency = strtoupper(
             trim(
                 (string) $this->get(
                     'platform.currency.primary',
-                    'NGN'
+                    ''
                 )
             )
         );
 
-        return $currency !== ''
-            ? $currency
-            : 'NGN';
+        if ($currency !== '') {
+            return $currency;
+        }
+
+        $baseCurrency = \Illuminate\Support\Facades\DB::table(
+            'currencies'
+        )
+            ->where('is_base', true)
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->value('code');
+
+        $baseCurrency = strtoupper(
+            trim((string) $baseCurrency)
+        );
+
+        if ($baseCurrency !== '') {
+            return $baseCurrency;
+        }
+
+        throw new \RuntimeException(
+            'Central primary currency has not been configured.'
+        );
     }
 
     public function secondaryCurrencies(): array

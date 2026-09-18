@@ -400,6 +400,19 @@ class AppServiceProvider extends ServiceProvider
 
 
         /*
+         * ESUBIZ_CORE_MODULE_RUNTIME_BOOTSTRAP_V1
+         *
+         * Load only installed + enabled portable Core modules after
+         * built-in Core features have been registered.
+         *
+         * Modules then register their own Core-compatible integrations.
+         */
+        $this->app->make(
+            \App\Services\Core\Modules\CoreModuleLoader::class
+        )->load();
+
+
+        /*
          * ESUBIZ_CORE_BLADE_PERMISSION_DIRECTIVES_V1
          *
          * Universal Core authorization helpers for:

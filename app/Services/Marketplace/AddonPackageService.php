@@ -2,11 +2,16 @@
 
 namespace App\Services\Marketplace;
 
+use App\Services\Marketplace\Packages\EsubizProductPackageValidator;
 use RuntimeException;
 use ZipArchive;
 
 class AddonPackageService
 {
+    public function __construct(
+        protected EsubizProductPackageValidator $productPackageValidator
+    ) {
+    }
     public const SCHEMA =
         'esubiz-addon-package';
 
@@ -31,6 +36,14 @@ class AddonPackageService
     public function validatePackage(
         string $absolutePackagePath
     ): array {
+        /*
+         * Universal package identity must confirm this ZIP is an Add-on.
+         */
+        $this->productPackageValidator->validate(
+            $absolutePackagePath,
+            'addon'
+        );
+
 
         if (
             !is_file(

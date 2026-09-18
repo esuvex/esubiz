@@ -7,6 +7,7 @@
  * No new checkout implementation.
  */
 use App\Http\Controllers\Admin\CentralSiteSettingsController;
+use App\Http\Controllers\Admin\DeveloperProductTypePolicyController;
 
 Route::post(
     '/esubiz-addon-checkout/{website}',
@@ -961,6 +962,51 @@ Route::post(
     );
 
 
+        /*
+        |--------------------------------------------------------------------------
+        | Core CMS - Modules
+        |--------------------------------------------------------------------------
+        |
+        | Installed Modules and Module Marketplace.
+        |
+        | Website Type / Wizard provisioning remains authoritative for
+        | modules assigned during initial website composition.
+        |
+        */
+
+        Route::get(
+            '/admin/modules',
+            [
+                \App\Http\Controllers\TenantModuleController::class,
+                'index',
+            ]
+        )->name('tenant.cms.modules.index');
+
+        Route::get(
+            '/admin/modules/marketplace',
+            [
+                \App\Http\Controllers\TenantModuleController::class,
+                'marketplace',
+            ]
+        )->name('tenant.cms.modules.marketplace');
+
+        Route::post(
+            '/admin/modules/{module}/enable',
+            [
+                \App\Http\Controllers\TenantModuleController::class,
+                'enable',
+            ]
+        )->name('tenant.cms.modules.enable');
+
+        Route::post(
+            '/admin/modules/{module}/disable',
+            [
+                \App\Http\Controllers\TenantModuleController::class,
+                'disable',
+            ]
+        )->name('tenant.cms.modules.disable');
+
+
 
         /*
         |--------------------------------------------------------------------------
@@ -1720,6 +1766,85 @@ Route::get('/oauth/user', [SsoController::class, 'user'])
 
 /*
 |--------------------------------------------------------------------------
+| Admin Marketplace - Settings
+|--------------------------------------------------------------------------
+|
+| Universal Central Marketplace configuration.
+| Categories configured here are shared by Themes, Modules, Add-ons,
+| Bundles and Website Types.
+|
+*/
+
+Route::middleware(['auth'])->group(function () {
+
+    Route::get(
+        '/admin/marketplace/settings',
+        [
+            \App\Http\Controllers\Admin\MarketplaceSettingsController::class,
+            'index',
+        ]
+    )->name('admin.marketplace.settings.index');
+
+    Route::post(
+        '/admin/marketplace/settings/general',
+        [
+            \App\Http\Controllers\Admin\MarketplaceSettingsController::class,
+            'updateGeneral',
+        ]
+    )->name('admin.marketplace.settings.general.update');
+
+    Route::post(
+        '/admin/marketplace/settings/financial-rules',
+        [
+            \App\Http\Controllers\Admin\MarketplaceSettingsController::class,
+            'updateFinancialRule',
+        ]
+    )->name('admin.marketplace.settings.financial.update');
+
+    Route::post(
+        '/admin/marketplace/settings/referral-rules',
+        [
+            \App\Http\Controllers\Admin\MarketplaceSettingsController::class,
+            'storeReferralRule',
+        ]
+    )->name('admin.marketplace.settings.referrals.store');
+
+    Route::delete(
+        '/admin/marketplace/settings/referral-rules/{marketplaceReferralRule}',
+        [
+            \App\Http\Controllers\Admin\MarketplaceSettingsController::class,
+            'destroyReferralRule',
+        ]
+    )->name('admin.marketplace.settings.referrals.destroy');
+
+    Route::post(
+        '/admin/marketplace/settings/categories',
+        [
+            \App\Http\Controllers\Admin\MarketplaceCategoryController::class,
+            'store',
+        ]
+    )->name('admin.marketplace.categories.store');
+
+    Route::put(
+        '/admin/marketplace/settings/categories/{marketplaceCategory}',
+        [
+            \App\Http\Controllers\Admin\MarketplaceCategoryController::class,
+            'update',
+        ]
+    )->name('admin.marketplace.categories.update');
+
+    Route::delete(
+        '/admin/marketplace/settings/categories/{marketplaceCategory}',
+        [
+            \App\Http\Controllers\Admin\MarketplaceCategoryController::class,
+            'destroy',
+        ]
+    )->name('admin.marketplace.categories.destroy');
+});
+
+
+/*
+|--------------------------------------------------------------------------
 | Admin Marketplace - Themes
 |--------------------------------------------------------------------------
 */
@@ -1784,6 +1909,85 @@ Route::middleware(['auth'])->group(function () {
                 'storePackage'
             ]
         )->name('admin.themes.packages.store');
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Admin Marketplace - Modules
+    |--------------------------------------------------------------------------
+    |
+    | Central owns Module catalogue, package, pricing, compatibility,
+    | Wizard visibility and Core integration configuration.
+    |
+    */
+
+    Route::get(
+        '/admin/marketplace/modules',
+        [
+            \App\Http\Controllers\Admin\ModuleController::class,
+            'index',
+        ]
+    )->name('admin.modules.index');
+
+    Route::get(
+        '/admin/marketplace/modules/create',
+        [
+            \App\Http\Controllers\Admin\ModuleController::class,
+            'create',
+        ]
+    )->name('admin.modules.create');
+
+    Route::post(
+        '/admin/marketplace/modules',
+        [
+            \App\Http\Controllers\Admin\ModuleController::class,
+            'store',
+        ]
+    )->name('admin.modules.store');
+
+    Route::get(
+        '/admin/marketplace/modules/{module}',
+        [
+            \App\Http\Controllers\Admin\ModuleController::class,
+            'show',
+        ]
+    )->whereNumber('module')
+     ->name('admin.modules.show');
+
+    Route::get(
+        '/admin/marketplace/modules/{module}/edit',
+        [
+            \App\Http\Controllers\Admin\ModuleController::class,
+            'edit',
+        ]
+    )->whereNumber('module')
+     ->name('admin.modules.edit');
+
+    Route::put(
+        '/admin/marketplace/modules/{module}',
+        [
+            \App\Http\Controllers\Admin\ModuleController::class,
+            'update',
+        ]
+    )->whereNumber('module')
+     ->name('admin.modules.update');
+
+    Route::delete(
+        '/admin/marketplace/modules/{module}',
+        [
+            \App\Http\Controllers\Admin\ModuleController::class,
+            'destroy',
+        ]
+    )->whereNumber('module')
+     ->name('admin.modules.destroy');
+
+    Route::post(
+        '/admin/modules/packages',
+        [
+            \App\Http\Controllers\Admin\ModuleController::class,
+            'storePackage',
+        ]
+    )->name('admin.modules.packages.store');
 
 
     /*
@@ -3650,6 +3854,21 @@ Route::get(
     [\App\Http\Controllers\MarketplaceController::class, 'themeCatalog']
 )->name('marketplace.themes.catalog');
 
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_MODULE_MARKETPLACE_CATALOG_ROUTE_V1
+|--------------------------------------------------------------------------
+|
+| Universal Module Marketplace catalog.
+| Central commerce remains authoritative for SaaS and off-server Core.
+|
+*/
+Route::get(
+    '/marketplace/modules/catalog',
+    [\App\Http\Controllers\MarketplaceController::class, 'moduleCatalog']
+)->name('marketplace.modules.catalog');
+
 /*
  * ESUBIZ_THEME_MARKETPLACE_PREVIEW_ROUTE_V1
  */
@@ -4021,6 +4240,11 @@ Route::post(
 | settings used by Central, SaaS and off-server integrations.
 |
 */
+Route::post(
+    '/admin/site-settings/developer-product-policy',
+    [DeveloperProductTypePolicyController::class, 'update']
+)->name('admin.site-settings.developer-product-policy.update');
+
 Route::middleware('auth')
     ->patch(
         '/admin/site-settings/main',
