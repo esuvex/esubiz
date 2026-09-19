@@ -2,19 +2,13 @@
 
 namespace App\Services\Marketplace\Developer;
 
+use App\Services\Marketplace\Settings\MarketplaceProductRegistry;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use RuntimeException;
 
 class DeveloperProductTypePolicyService
 {
-    public const PRODUCT_TYPES = [
-        'theme',
-        'module',
-        'addon',
-        'bundle',
-        'website_type',
-    ];
 
     public function policy(string $productType): object
     {
@@ -30,11 +24,25 @@ class DeveloperProductTypePolicyService
          */
         return $policy ?? (object) [
             'product_type' => $productType,
+            'admin_build_enabled' => false,
             'developer_build_enabled' => false,
             'developer_publish_enabled' => false,
+            'developer_resell_enabled' => false,
             'saas_max_price' => null,
             'off_server_max_price' => null,
         ];
+    }
+
+    public function canAdminBuild(string $productType): bool
+    {
+        return (bool) $this->policy($productType)
+            ->admin_build_enabled;
+    }
+
+    public function canDeveloperResell(string $productType): bool
+    {
+        return (bool) $this->policy($productType)
+            ->developer_resell_enabled;
     }
 
     public function canBuild(string $productType): bool
@@ -140,13 +148,24 @@ class DeveloperProductTypePolicyService
             trim($productType)
         );
 
-        if (
-            !in_array(
-                $productType,
-                static::PRODUCT_TYPES,
-                true
-            )
-        ) {
+        if ($productType === '') {
+            throw new InvalidArgumentException(
+                'Esubiz product type cannot be empty.'
+            );
+        }
+
+        /*
+         * Marketplace product families are configuration-first.
+         *
+         * A product may be registered in Central before its Admin page,
+         * builder, sales flow or other implementation exists.
+         * Missing implementation must never create a 500 here.
+         */
+        $registeredTypes = app(
+            MarketplaceProductRegistry::class
+        )->types();
+
+        if (!in_array($productType, $registeredTypes, true)) {
             throw new InvalidArgumentException(
                 "Unsupported Esubiz product type [{$productType}]."
             );
@@ -154,4 +173,5 @@ class DeveloperProductTypePolicyService
 
         return $productType;
     }
+
 }

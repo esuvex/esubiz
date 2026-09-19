@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\MarketplaceCategory;
+use App\Services\Marketplace\MarketplaceProductRegistry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -11,14 +12,6 @@ use Illuminate\Validation\Rule;
 
 class MarketplaceCategoryController extends Controller
 {
-    private const PRODUCT_TYPES = [
-        'theme',
-        'module',
-        'addon',
-        'bundle',
-        'website_type',
-    ];
-
     public function index(Request $request)
     {
         $categories = MarketplaceCategory::query()
@@ -31,7 +24,7 @@ class MarketplaceCategoryController extends Controller
             'admin.marketplace.settings.index',
             [
                 'categories' => $categories,
-                'productTypes' => self::PRODUCT_TYPES,
+                'productTypes' => app(MarketplaceProductRegistry::class)->types(),
             ]
         );
     }
@@ -127,7 +120,7 @@ class MarketplaceCategoryController extends Controller
 
             'product_types.*' => [
                 'string',
-                Rule::in(self::PRODUCT_TYPES),
+                Rule::in(app(MarketplaceProductRegistry::class)->types()),
             ],
 
             'is_active' => [

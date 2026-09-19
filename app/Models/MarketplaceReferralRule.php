@@ -10,12 +10,15 @@ class MarketplaceReferralRule extends Model
     protected $fillable = [
         'product_type',
         'referrer_role',
+        'calculation_type',
+        'commission_value',
         'level_one_commission_percent',
         'is_active',
     ];
 
     protected $casts = [
         'level_one_commission_percent' => 'decimal:4',
+        'commission_value' => 'decimal:4',
         'is_active' => 'boolean',
     ];
 

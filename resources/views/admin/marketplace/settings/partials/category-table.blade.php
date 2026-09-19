@@ -63,6 +63,23 @@
                     </td>
 
                     <td class="px-5 py-4 text-right">
+                        <button
+                            type="button"
+                            data-category-edit
+                            data-update-action="{{ route(
+                                'admin.marketplace.categories.update',
+                                $category
+                            ) }}"
+                            data-category-name="{{ $category->name }}"
+                            data-category-description="{{ $category->description }}"
+                            data-category-types="{{ e(json_encode($category->product_types ?? [])) }}"
+                            data-category-active="{{ $category->is_active ? '1' : '0' }}"
+                            data-category-sort="{{ $category->sort_order }}"
+                            class="mr-3 text-sm font-medium text-blue-600 hover:text-blue-700"
+                        >
+                            Edit
+                        </button>
+
                         <form
                             method="POST"
                             action="{{ route(

@@ -1794,6 +1794,14 @@ Route::middleware(['auth'])->group(function () {
     )->name('admin.marketplace.settings.general.update');
 
     Route::post(
+        '/admin/marketplace/settings/product-availability',
+        [
+            \App\Http\Controllers\Admin\MarketplaceSettingsController::class,
+            'updateProductAvailability',
+        ]
+    )->name('admin.marketplace.settings.availability.update');
+
+    Route::post(
         '/admin/marketplace/settings/financial-rules',
         [
             \App\Http\Controllers\Admin\MarketplaceSettingsController::class,
@@ -1802,12 +1810,57 @@ Route::middleware(['auth'])->group(function () {
     )->name('admin.marketplace.settings.financial.update');
 
     Route::post(
+        '/admin/marketplace/settings/product-taxes',
+        [
+            \App\Http\Controllers\Admin\MarketplaceSettingsController::class,
+            'updateProductTax',
+        ]
+    )->name('admin.marketplace.settings.product-taxes.update');
+
+    Route::delete(
+        '/admin/marketplace/settings/product-taxes/{productTax}',
+        [
+            \App\Http\Controllers\Admin\MarketplaceSettingsController::class,
+            'destroyProductTax',
+        ]
+    )->name('admin.marketplace.settings.product-taxes.destroy');
+
+    Route::post(
+        '/admin/marketplace/settings/expense-rules',
+        [
+            \App\Http\Controllers\Admin\MarketplaceSettingsController::class,
+            'storeExpenseRule',
+        ]
+    )->name('admin.marketplace.settings.expenses.store');
+
+    Route::put(
+        '/admin/marketplace/settings/expense-rules/{marketplaceExpenseRule}',
+        [
+            \App\Http\Controllers\Admin\MarketplaceSettingsController::class,
+            'updateExpenseRule',
+        ]
+    )->name('admin.marketplace.settings.expenses.update');
+
+    Route::delete(
+        '/admin/marketplace/settings/expense-rules/{marketplaceExpenseRule}',
+        [
+            \App\Http\Controllers\Admin\MarketplaceSettingsController::class,
+            'destroyExpenseRule',
+        ]
+    )->name('admin.marketplace.settings.expenses.destroy');
+
+    Route::post(
         '/admin/marketplace/settings/referral-rules',
         [
             \App\Http\Controllers\Admin\MarketplaceSettingsController::class,
             'storeReferralRule',
         ]
     )->name('admin.marketplace.settings.referrals.store');
+
+    Route::put(
+        '/admin/marketplace/settings/referral-rules/{marketplaceReferralRule}',
+        [\App\Http\Controllers\Admin\MarketplaceSettingsController::class, 'updateReferralRule']
+    )->name('admin.marketplace.settings.referrals.update');
 
     Route::delete(
         '/admin/marketplace/settings/referral-rules/{marketplaceReferralRule}',
@@ -4241,9 +4294,9 @@ Route::post(
 |
 */
 Route::post(
-    '/admin/site-settings/developer-product-policy',
+    '/admin/marketplace/settings/developer-product-policy',
     [DeveloperProductTypePolicyController::class, 'update']
-)->name('admin.site-settings.developer-product-policy.update');
+)->name('admin.marketplace.settings.developer-product-policy.update');
 
 Route::middleware('auth')
     ->patch(
