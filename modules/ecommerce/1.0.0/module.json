@@ -1,0 +1,30 @@
+{
+    "name": "Ecommerce",
+    "slug": "ecommerce",
+    "version": "1.0.0",
+    "description": "Esubiz commerce module for products, orders, inventory, checkout, shipping and storefront commerce.",
+    "start_url": "/admin/ecommerce",
+    "pages": [
+        "dashboard",
+        "products",
+        "categories",
+        "inventory",
+        "collections",
+        "orders",
+        "customers",
+        "discounts",
+        "checkout_links",
+        "shipping",
+        "returns",
+        "reviews",
+        "currencies",
+        "payments",
+        "settings",
+        "reports"
+    ],
+    "core_integrations": {
+        "mode": "central_configuration",
+        "dynamic": true,
+        "entitlements_authoritative": true
+    }
+}

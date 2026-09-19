@@ -53,7 +53,10 @@ class TenantModuleController extends Controller
      */
     protected function installedModules(): array
     {
-        return $this->installedProducts->all('module');
+        return $this->installedProducts->all(
+            'module',
+            (int) $this->website()->id
+        );
     }
 
     /**
@@ -87,7 +90,10 @@ class TenantModuleController extends Controller
         $website = $this->website();
 
         $modules = $this->marketplaceCatalog
-            ->modules()
+            ->modules(
+                null,
+                (int) $website->id
+            )
             ->values();
 
         $categories = $modules
@@ -142,11 +148,14 @@ class TenantModuleController extends Controller
     public function enable(
         string $module
     ) {
-        $this->website();
+        $website = $this->website();
+        $websiteId = (int) $website->id;
 
         $installed = $this->installedProducts->find(
             'module',
-            $module
+            $module,
+            null,
+            $websiteId
         );
 
         abort_unless(
@@ -158,7 +167,8 @@ class TenantModuleController extends Controller
         $this->installedProducts->enable(
             'module',
             $module,
-            $installed['product_version'] ?? null
+            $installed['product_version'] ?? null,
+            $websiteId
         );
 
         return redirect()
@@ -185,11 +195,14 @@ class TenantModuleController extends Controller
     public function disable(
         string $module
     ) {
-        $this->website();
+        $website = $this->website();
+        $websiteId = (int) $website->id;
 
         $installed = $this->installedProducts->find(
             'module',
-            $module
+            $module,
+            null,
+            $websiteId
         );
 
         abort_unless(
@@ -201,7 +214,8 @@ class TenantModuleController extends Controller
         $this->installedProducts->disable(
             'module',
             $module,
-            $installed['product_version'] ?? null
+            $installed['product_version'] ?? null,
+            $websiteId
         );
 
         return redirect()

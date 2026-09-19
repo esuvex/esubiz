@@ -31,7 +31,19 @@ class CoreModuleLoader
 
     public function load(): void
     {
-        foreach ($this->installedProducts->all('module') as $installed) {
+        $tenant = \App\Models\WebsiteTenant::current();
+        $websiteId = (int) ($tenant?->website_id ?? 0);
+
+        if ($websiteId <= 0) {
+            return;
+        }
+
+        foreach (
+            $this->installedProducts->all(
+                'module',
+                (int) $websiteId
+            ) as $installed
+        ) {
             if (($installed['is_enabled'] ?? false) !== true) {
                 continue;
             }

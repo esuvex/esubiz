@@ -1,0 +1,8 @@
+{
+    "schema": "esubiz-product-package",
+    "schema_version": "1.0",
+    "product_type": "module",
+    "name": "Ecommerce",
+    "slug": "ecommerce",
+    "version": "1.0.0"
+}

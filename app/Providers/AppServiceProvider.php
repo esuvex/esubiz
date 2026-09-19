@@ -31,6 +31,32 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        /*
+         * ESUBIZ_CORE_MODULE_RUNTIME_REGISTRIES_V2
+         *
+         * Module runtime registrations must live for the complete
+         * application/request lifecycle.
+         *
+         * Enabled modules register their pages, widgets and runtime
+         * definitions into these shared registries. Disabled modules
+         * are not loaded, so their runtime functions disappear without
+         * deleting module files or stored business data.
+         */
+        $this->app->singleton(
+            \App\Services\Core\Modules\CoreModuleRegistry::class,
+            fn ($app) => new \App\Services\Core\Modules\CoreModuleRegistry()
+        );
+
+        $this->app->singleton(
+            \App\Services\Core\Modules\Registries\CoreModulePageRegistry::class,
+            fn ($app) => new \App\Services\Core\Modules\Registries\CoreModulePageRegistry()
+        );
+
+        $this->app->singleton(
+            \App\Services\Core\Modules\Registries\CoreModuleWidgetRegistry::class,
+            fn ($app) => new \App\Services\Core\Modules\Registries\CoreModuleWidgetRegistry()
+        );
+
         // ESUBIZ_REGISTRATION_PLUGIN_REGISTRIES_V1
         //
         // One registry per request/application lifecycle.
@@ -400,16 +426,9 @@ class AppServiceProvider extends ServiceProvider
 
 
         /*
-         * ESUBIZ_CORE_MODULE_RUNTIME_BOOTSTRAP_V1
-         *
-         * Load only installed + enabled portable Core modules after
-         * built-in Core features have been registered.
-         *
-         * Modules then register their own Core-compatible integrations.
+         * Portable website modules are loaded after tenant resolution
+         * by ResolveWebsiteTenant middleware.
          */
-        $this->app->make(
-            \App\Services\Core\Modules\CoreModuleLoader::class
-        )->load();
 
 
         /*

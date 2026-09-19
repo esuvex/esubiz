@@ -34,6 +34,16 @@ class ResolveWebsiteTenant
          */
         $tenant->makeCurrent();
 
+        /*
+         * ESUBIZ_CORE_MODULE_RUNTIME_AFTER_TENANT_V1
+         *
+         * Portable modules are website-scoped, so they must load only
+         * after Spatie has established the current WebsiteTenant.
+         */
+        app(
+            \App\Services\Core\Modules\CoreModuleLoader::class
+        )->load();
+
         try {
             return $next($request);
         } finally {

@@ -25,11 +25,16 @@ class CoreInstalledProductRegistry
     protected string $table = 'core_installed_products';
 
     public function all(
-        ?string $productType = null
+        ?string $productType = null,
+        ?int $websiteId = null
     ): array {
         $this->ensureTable();
 
         $query = DB::table($this->table);
+
+        if ($websiteId !== null) {
+            $query->where('website_id', $websiteId);
+        }
 
         if (
             is_string($productType)
@@ -53,7 +58,8 @@ class CoreInstalledProductRegistry
     public function find(
         string $productType,
         string $slug,
-        ?string $version = null
+        ?string $version = null,
+        ?int $websiteId = null
     ): ?array {
         $this->ensureTable();
 
@@ -63,6 +69,10 @@ class CoreInstalledProductRegistry
         $query = DB::table($this->table)
             ->where('product_type', $type)
             ->where('product_slug', $slug);
+
+        if ($websiteId !== null) {
+            $query->where('website_id', $websiteId);
+        }
 
         if (
             is_string($version)
@@ -86,14 +96,43 @@ class CoreInstalledProductRegistry
     public function isInstalled(
         string $productType,
         string $slug,
-        ?string $version = null
+        ?string $version = null,
+        ?int $websiteId = null
     ): bool {
         return $this->find(
             $productType,
             $slug,
-            $version
+            $version,
+            $websiteId
         ) !== null;
     }
+
+    /**
+     * Determine whether any website still references this exact
+     * shared product package/version.
+     */
+    public function hasAnyReference(
+        string $productType,
+        string $slug,
+        string $version
+    ): bool {
+        $this->ensureTable();
+
+        $type = $this->normalizeType($productType);
+        $slug = $this->normalizeSlug($slug);
+        $version = trim($version);
+
+        if ($version === '') {
+            return false;
+        }
+
+        return DB::table($this->table)
+            ->where('product_type', $type)
+            ->where('product_slug', $slug)
+            ->where('product_version', $version)
+            ->exists();
+    }
+
 
     public function registerInstalled(
         string $productType,
@@ -115,7 +154,12 @@ class CoreInstalledProductRegistry
 
         $now = now();
 
+        $websiteId = $this->nullableInteger(
+            $data['website_id'] ?? null
+        );
+
         $identity = [
+            'website_id' => $websiteId,
             'product_type' => $type,
             'product_slug' => $slug,
             'product_version' => $version,
@@ -206,7 +250,8 @@ class CoreInstalledProductRegistry
         $installed = $this->find(
             $type,
             $slug,
-            $version
+            $version,
+            $websiteId
         );
 
         if (!$installed) {
@@ -221,7 +266,8 @@ class CoreInstalledProductRegistry
     public function enable(
         string $productType,
         string $slug,
-        string $version
+        string $version,
+        ?int $websiteId = null
     ): array {
         $this->ensureTable();
 
@@ -232,7 +278,8 @@ class CoreInstalledProductRegistry
         $installed = $this->find(
             $type,
             $slug,
-            $version
+            $version,
+            $websiteId
         );
 
         if (!$installed) {
@@ -244,13 +291,15 @@ class CoreInstalledProductRegistry
         DB::transaction(function () use (
             $type,
             $slug,
-            $version
+            $version,
+            $websiteId
         ) {
             /*
              * Only one version of the same product slug should be enabled
              * at a time. Other products of the same type remain untouched.
              */
             DB::table($this->table)
+                ->where('website_id', $websiteId)
                 ->where('product_type', $type)
                 ->where('product_slug', $slug)
                 ->update([
@@ -260,6 +309,7 @@ class CoreInstalledProductRegistry
                 ]);
 
             DB::table($this->table)
+                ->where('website_id', $websiteId)
                 ->where('product_type', $type)
                 ->where('product_slug', $slug)
                 ->where('product_version', $version)
@@ -273,7 +323,8 @@ class CoreInstalledProductRegistry
         $enabled = $this->find(
             $type,
             $slug,
-            $version
+            $version,
+            $websiteId
         );
 
         if (!$enabled || !$enabled['is_enabled']) {
@@ -288,7 +339,8 @@ class CoreInstalledProductRegistry
     public function disable(
         string $productType,
         string $slug,
-        string $version
+        string $version,
+        ?int $websiteId = null
     ): array {
         $this->ensureTable();
 
@@ -297,6 +349,7 @@ class CoreInstalledProductRegistry
         $version = trim($version);
 
         DB::table($this->table)
+            ->where('website_id', $websiteId)
             ->where('product_type', $type)
             ->where('product_slug', $slug)
             ->where('product_version', $version)
@@ -309,7 +362,8 @@ class CoreInstalledProductRegistry
         $product = $this->find(
             $type,
             $slug,
-            $version
+            $version,
+            $websiteId
         );
 
         if (!$product) {
@@ -324,7 +378,8 @@ class CoreInstalledProductRegistry
     public function remove(
         string $productType,
         string $slug,
-        string $version
+        string $version,
+        ?int $websiteId = null
     ): bool {
         $this->ensureTable();
 
@@ -335,7 +390,8 @@ class CoreInstalledProductRegistry
         $installed = $this->find(
             $type,
             $slug,
-            $version
+            $version,
+            $websiteId
         );
 
         if (!$installed) {

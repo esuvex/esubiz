@@ -307,12 +307,14 @@ class TenantThemeController extends Controller
      * SaaS and off-server Core use the same installed-theme registry.
      */
     protected function installedThemes(
-        string $activeTheme = ''
+        string $activeTheme = '',
+        ?int $websiteId = null
     ): array {
         return app(
             \App\Services\Core\Themes\InstalledThemeRegistry::class
         )->all(
-            $activeTheme
+            $activeTheme,
+            $websiteId
         );
     }
 
@@ -331,7 +333,8 @@ class TenantThemeController extends Controller
          */
         $themes =
             $this->installedThemes(
-                $activeTheme
+                $activeTheme,
+                (int) $website->id
             );
 
         /*
@@ -347,7 +350,10 @@ class TenantThemeController extends Controller
         $marketplaceThemes =
             app(
                 \App\Services\Core\Themes\ThemeMarketplaceCatalogService::class
-            )->themes();
+            )->themes(
+                null,
+                (int) $website->id
+            );
 
         return view(
             'tenant.admin.themes.index',
@@ -381,7 +387,10 @@ class TenantThemeController extends Controller
         $themes =
             app(
                 \App\Services\Core\Themes\ThemeMarketplaceCatalogService::class
-            )->themes();
+            )->themes(
+                null,
+                (int) $website->id
+            );
 
         $categories =
             $themes
@@ -2532,12 +2541,15 @@ $this->tenantDatabaseService
     public function themePreview(
         string $theme
     ) {
-        $this->website();
+        $website = $this->website();
 
         $definition = null;
 
         foreach (
-            $this->installedThemes()
+            $this->installedThemes(
+                '',
+                (int) $website->id
+            )
             as $installedTheme
         ) {
             $slug =

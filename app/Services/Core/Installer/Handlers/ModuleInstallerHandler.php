@@ -80,9 +80,22 @@ class ModuleInstallerHandler implements CoreProductInstallerHandler
     ): array {
         $this->validate($extractedPath, $manifest, $context);
 
+        $websiteId = (int) ($context['website_id'] ?? 0);
+
+        if ($websiteId < 1) {
+            throw new \InvalidArgumentException(
+                'website_id is required for website product installation.'
+            );
+        }
+
         $identity = $this->identity($manifest);
         $root = $this->moduleRoot($context);
-        $destination = $root . DIRECTORY_SEPARATOR . $identity['slug'];
+        $destination =
+            $root
+            . DIRECTORY_SEPARATOR
+            . $identity['slug']
+            . DIRECTORY_SEPARATOR
+            . $identity['version'];
 
         File::ensureDirectoryExists($root);
 
@@ -120,6 +133,7 @@ class ModuleInstallerHandler implements CoreProductInstallerHandler
                 $identity['slug'],
                 $identity['version'],
                 [
+                    'website_id' => $websiteId,
                     'name' => $identity['name'],
                     'install_path' => $destination,
                     'entitlement_id' => $context['entitlement_id'] ?? null,
@@ -173,10 +187,19 @@ class ModuleInstallerHandler implements CoreProductInstallerHandler
     ): array {
         $identity = $this->identity($manifest);
 
+        $websiteId = (int) ($context['website_id'] ?? 0);
+
+        if ($websiteId < 1) {
+            throw new \InvalidArgumentException(
+                'website_id is required for Module enablement.'
+            );
+        }
+
         $registered = $this->registry->enable(
             'module',
             $identity['slug'],
-            $identity['version']
+            $identity['version'],
+            $websiteId
         );
 
         return [
@@ -237,10 +260,17 @@ class ModuleInstallerHandler implements CoreProductInstallerHandler
         }
 
         if ($version !== '') {
+            $websiteId = (int) ($context['website_id'] ?? 0);
+
+            if ($websiteId < 1) {
+                return;
+            }
+
             $record = $this->registry->find(
                 'module',
                 $slug,
-                $version
+                $version,
+                $websiteId
             );
 
             if ($record) {
@@ -248,14 +278,16 @@ class ModuleInstallerHandler implements CoreProductInstallerHandler
                     $this->registry->disable(
                         'module',
                         $slug,
-                        $version
+                        $version,
+                        $websiteId
                     );
                 }
 
                 $this->registry->remove(
                     'module',
                     $slug,
-                    $version
+                    $version,
+                    $websiteId
                 );
             }
         }
@@ -265,9 +297,24 @@ class ModuleInstallerHandler implements CoreProductInstallerHandler
 
         $target = rtrim((string) $root, DIRECTORY_SEPARATOR)
             . DIRECTORY_SEPARATOR
-            . $slug;
+            . $slug
+            . DIRECTORY_SEPARATOR
+            . $version;
 
-        if (is_dir($target)) {
+        /*
+         * Module package files are shared across Core websites.
+         * Remove them only when the final website reference to
+         * this exact Module/version has been removed.
+         */
+        if (
+            $version !== ''
+            && !$this->registry->hasAnyReference(
+                'module',
+                $slug,
+                $version
+            )
+            && is_dir($target)
+        ) {
             $this->deleteDirectory($target);
         }
     }

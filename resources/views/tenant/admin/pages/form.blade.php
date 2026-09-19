@@ -730,19 +730,7 @@
             />
 
 
-            <div class="mt-6 rounded-2xl border border-blue-100 bg-blue-50 p-4">
-
-                <div class="text-xs font-black uppercase tracking-wide text-blue-900">
-                    Module Widgets
-                </div>
-
-                <p class="mt-2 text-xs leading-5 text-blue-700">
-                    Installed Esubiz modules can register compatible widgets here.
-                    Ecommerce, Hotel and other Website Type modules will extend the
-                    same builder without changing Core.
-                </p>
-
-            </div>
+            
 
         </div>
 
@@ -1617,6 +1605,85 @@
     }
 
     /*
+     * ESUBIZ_MODULE_WIDGET_UI_REGISTRY_V1
+     *
+     * Enabled modules may extend the existing Basic Page Builder.
+     * Core remains authoritative for the builder and saved document.
+     *
+     * Module widgets:
+     * - are supplied through CoreModuleWidgetRegistry;
+     * - cannot replace Core/basic or another module widget;
+     * - retain module ownership for library grouping;
+     * - disappear from the active catalogue when their module is disabled;
+     * - do not delete previously saved page content.
+     */
+    const moduleWidgetDefinitions =
+        {{ Js::from(
+            app(
+                \App\Services\Core\Modules\Registries\CoreModuleWidgetRegistry::class
+            )->all()
+        ) }};
+
+    moduleWidgetDefinitions.forEach(
+        (definition) => {
+            const type =
+                String(
+                    definition.type
+                    || ''
+                ).trim();
+
+            if (!type) {
+                return;
+            }
+
+            /*
+             * Core/basic widgets always win.
+             * The first registered module also owns its widget type,
+             * preventing another module from silently replacing it.
+             */
+            if (
+                Object.prototype
+                    .hasOwnProperty
+                    .call(
+                        widgetDefinitions,
+                        type
+                    )
+            ) {
+                console.warn(
+                    `Module widget [${type}] was not loaded because that type already exists.`
+                );
+
+                return;
+            }
+
+            const moduleSlug =
+                String(
+                    definition.module_slug
+                    || definition.source_key
+                    || 'module'
+                ).trim()
+                || 'module';
+
+            const moduleName =
+                String(
+                    definition.module_name
+                    || definition.moduleName
+                    || definition.module
+                    || moduleSlug
+                ).trim()
+                || moduleSlug;
+
+            widgetDefinitions[type] = {
+                ...definition,
+                source: `module:${moduleSlug}`,
+                module: moduleSlug,
+                moduleName: moduleName
+            };
+        }
+    );
+
+
+    /*
      * ESUBIZ_PAGE_BUILDER_PRO_WIDGET_UI_REGISTRY_V1
      *
      * Central integration:
@@ -1901,7 +1968,7 @@
                 'mt-3 rounded-2xl border border-slate-200 bg-white p-3';
 
             moduleDetails.open =
-                Boolean(query);
+                true;
 
             const moduleSummary =
                 document.createElement(
@@ -1982,13 +2049,13 @@
         /*
          * Pro Widgets:
          * section exists only when Pro definitions are supplied.
-         * Closed by default.
+         * Open by default.
          */
         const proSection =
             section(
                 'Pro Widgets',
                 groups.pro,
-                false
+                true
             );
 
         if (proSection) {

@@ -94,6 +94,14 @@ class AddonInstallerHandler implements CoreProductInstallerHandler
             $context
         );
 
+        $websiteId = (int) ($context['website_id'] ?? 0);
+
+        if ($websiteId < 1) {
+            throw new \InvalidArgumentException(
+                'website_id is required for website product installation.'
+            );
+        }
+
         $identity = $this->identity($manifest);
 
         $root = $this->addonRoot($context);
@@ -101,7 +109,9 @@ class AddonInstallerHandler implements CoreProductInstallerHandler
         $destination =
             $root
             . DIRECTORY_SEPARATOR
-            . $identity['slug'];
+            . $identity['slug']
+            . DIRECTORY_SEPARATOR
+            . $identity['version'];
 
         File::ensureDirectoryExists($root);
 
@@ -143,6 +153,7 @@ class AddonInstallerHandler implements CoreProductInstallerHandler
                 $identity['slug'],
                 $identity['version'],
                 [
+                    'website_id' => $websiteId,
                     'name' => $identity['name'],
                     'install_path' => $destination,
 
@@ -228,10 +239,19 @@ class AddonInstallerHandler implements CoreProductInstallerHandler
     ): array {
         $identity = $this->identity($manifest);
 
+        $websiteId = (int) ($context['website_id'] ?? 0);
+
+        if ($websiteId < 1) {
+            throw new \InvalidArgumentException(
+                'website_id is required for Add-on enablement.'
+            );
+        }
+
         $registered = $this->registry->enable(
             'addon',
             $identity['slug'],
-            $identity['version']
+            $identity['version'],
+            $websiteId
         );
 
         return [
@@ -296,10 +316,17 @@ class AddonInstallerHandler implements CoreProductInstallerHandler
         }
 
         if ($version !== '') {
+            $websiteId = (int) ($context['website_id'] ?? 0);
+
+            if ($websiteId < 1) {
+                return;
+            }
+
             $record = $this->registry->find(
                 'addon',
                 $slug,
-                $version
+                $version,
+                $websiteId
             );
 
             if ($record) {
@@ -307,14 +334,16 @@ class AddonInstallerHandler implements CoreProductInstallerHandler
                     $this->registry->disable(
                         'addon',
                         $slug,
-                        $version
+                        $version,
+                        $websiteId
                     );
                 }
 
                 $this->registry->remove(
                     'addon',
                     $slug,
-                    $version
+                    $version,
+                    $websiteId
                 );
             }
         }
@@ -324,9 +353,24 @@ class AddonInstallerHandler implements CoreProductInstallerHandler
 
         $target = rtrim((string) $root, DIRECTORY_SEPARATOR)
             . DIRECTORY_SEPARATOR
-            . $slug;
+            . $slug
+            . DIRECTORY_SEPARATOR
+            . $version;
 
-        if (is_dir($target)) {
+        /*
+         * Add-on package files are shared across Core websites.
+         * Remove them only when the final website reference to
+         * this exact Add-on/version has been removed.
+         */
+        if (
+            $version !== ''
+            && !$this->registry->hasAnyReference(
+                'addon',
+                $slug,
+                $version
+            )
+            && is_dir($target)
+        ) {
             $this->deleteDirectory($target);
         }
     }

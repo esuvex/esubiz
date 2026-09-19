@@ -99,10 +99,23 @@ class ThemeInstallerHandler implements CoreProductInstallerHandler
             $context
         );
 
+        $websiteId = (int) ($context['website_id'] ?? 0);
+
+        if ($websiteId < 1) {
+            throw new \InvalidArgumentException(
+                'website_id is required for website product installation.'
+            );
+        }
+
         $identity = $this->identity($manifest);
 
         $destinationRoot = $this->themeRoot($context);
-        $destination = $destinationRoot . DIRECTORY_SEPARATOR . $identity['slug'];
+        $destination =
+            $destinationRoot
+            . DIRECTORY_SEPARATOR
+            . $identity['slug']
+            . DIRECTORY_SEPARATOR
+            . $identity['version'];
 
         File::ensureDirectoryExists($destinationRoot);
 
@@ -141,6 +154,7 @@ class ThemeInstallerHandler implements CoreProductInstallerHandler
                 $identity['slug'],
                 $identity['version'],
                 [
+                    'website_id' => $websiteId,
                     'name' => $identity['name'],
 
                     'preview_path' =>
@@ -230,9 +244,18 @@ class ThemeInstallerHandler implements CoreProductInstallerHandler
     ): array {
         $identity = $this->identity($manifest);
 
+        $websiteId = (int) ($context['website_id'] ?? 0);
+
+        if ($websiteId < 1) {
+            throw new \InvalidArgumentException(
+                'website_id is required for Theme enablement.'
+            );
+        }
+
         $active = $this->themes->activate(
             $identity['slug'],
-            $identity['version']
+            $identity['version'],
+            $websiteId
         );
 
         return [
@@ -251,7 +274,15 @@ class ThemeInstallerHandler implements CoreProductInstallerHandler
     ): array {
         $identity = $this->identity($manifest);
 
-        $currentlyInstalled = $this->themes->collection()
+        $websiteId = (int) ($context['website_id'] ?? 0);
+
+        if ($websiteId < 1) {
+            throw new \InvalidArgumentException(
+                'website_id is required for Theme update.'
+            );
+        }
+
+        $currentlyInstalled = $this->themes->collection('', $websiteId)
             ->first(
                 fn (array $theme) =>
                     ($theme['slug'] ?? null) === $identity['slug']
@@ -309,9 +340,16 @@ class ThemeInstallerHandler implements CoreProductInstallerHandler
             return;
         }
 
+        $websiteId = (int) ($context['website_id'] ?? 0);
+
+        if ($websiteId < 1) {
+            return;
+        }
+
         $theme = $this->themes->find(
             $slug,
-            $version
+            $version,
+            $websiteId
         );
 
         if (!$theme) {
@@ -330,11 +368,21 @@ class ThemeInstallerHandler implements CoreProductInstallerHandler
 
         $this->themes->remove(
             $slug,
-            $version
+            $version,
+            $websiteId
         );
 
+        /*
+         * Theme package files are shared across Core websites.
+         * Remove them only when no website still references this
+         * exact Theme/version.
+         */
         if (
-            is_string($installPath)
+            !$this->themes->hasAnyReference(
+                $slug,
+                $version
+            )
+            && is_string($installPath)
             && $installPath !== ''
             && is_dir($installPath)
         ) {

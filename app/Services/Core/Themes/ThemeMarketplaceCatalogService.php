@@ -36,7 +36,8 @@ class ThemeMarketplaceCatalogService
      * Resolve Marketplace Themes for the current Core deployment.
      */
     public function themes(
-        ?string $deployment = null
+        ?string $deployment = null,
+        ?int $websiteId = null
     ): Collection {
         $deployment =
             $deployment
@@ -47,7 +48,8 @@ class ThemeMarketplaceCatalogService
             === ThemeMarketplaceResolver::DEPLOYMENT_SAAS
         ) {
             return $this->withInstallationState(
-                $this->saasThemes()
+                $this->saasThemes(),
+                $websiteId
             );
         }
 
@@ -56,7 +58,8 @@ class ThemeMarketplaceCatalogService
             === ThemeMarketplaceResolver::DEPLOYMENT_OFF_SERVER
         ) {
             return $this->withInstallationState(
-                $this->offServerThemes()
+                $this->offServerThemes(),
+                $websiteId
             );
         }
 
@@ -310,7 +313,8 @@ class ThemeMarketplaceCatalogService
      * universal database-backed InstalledThemeRegistry.
      */
     protected function withInstallationState(
-        Collection $themes
+        Collection $themes,
+        ?int $websiteId
     ): Collection {
         $registry = app(
             \App\Services\Core\Themes\InstalledThemeRegistry::class
@@ -318,11 +322,12 @@ class ThemeMarketplaceCatalogService
 
         return $themes
             ->map(
-                function (array $theme) use ($registry) {
+                function (array $theme) use ($registry, $websiteId) {
                     $installedHere =
                         $registry->isInstalled(
                             $theme['slug'] ?? null,
-                            $theme['version'] ?? null
+                            $theme['version'] ?? null,
+                            $websiteId
                         );
 
                     $theme['installed'] =

@@ -65,6 +65,23 @@ class CoreModuleWidgetRegistry
         return $this->widgets[$moduleSlug . ':' . $widgetType] ?? null;
     }
 
+    public function getByType(string $widgetType): ?array
+    {
+        $widgetType = trim($widgetType);
+
+        if ($widgetType === '') {
+            return null;
+        }
+
+        foreach ($this->widgets as $widget) {
+            if (($widget['type'] ?? null) === $widgetType) {
+                return $widget;
+            }
+        }
+
+        return null;
+    }
+
     public function has(string $moduleSlug, string $widgetType): bool
     {
         return $this->get($moduleSlug, $widgetType) !== null;

@@ -94,8 +94,39 @@ class ThemeWidgetRegistry
                 $theme
             );
 
-        return $this->themeNamespaces[$theme]
-            ?? null;
+        /*
+         * Built-in themes may keep compatibility aliases where their
+         * public slug differs from the historical view directory.
+         */
+        if (isset($this->themeNamespaces[$theme])) {
+            return $this->themeNamespaces[$theme];
+        }
+
+        /*
+         * ESUBIZ_DYNAMIC_THEME_WIDGET_NAMESPACE_V1
+         *
+         * Portable installed themes follow the universal convention:
+         *
+         * resources/views/tenant/themes/{theme}/builder/widgets/
+         *
+         * A compatible theme therefore becomes plug-and-play simply
+         * by supplying Blade views for the widget types it supports.
+         */
+        $theme = trim(
+            str_replace(
+                ['..', '/', '\\\\'],
+                '',
+                $theme
+            )
+        );
+
+        if ($theme === '') {
+            return null;
+        }
+
+        return 'tenant.themes.'
+            . $theme
+            . '.builder.widgets';
     }
 
     public function coreWidgets(): array

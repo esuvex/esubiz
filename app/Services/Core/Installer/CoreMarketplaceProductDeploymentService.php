@@ -189,6 +189,22 @@ class CoreMarketplaceProductDeploymentService
             );
         }
 
+        /*
+         * Every deployable Core product belongs to one explicit website.
+         * This applies equally to SaaS and licensed off-server Core.
+         */
+        $websiteId =
+            (int) (
+                $context['website_id']
+                ?? 0
+            );
+
+        if ($websiteId <= 0) {
+            throw new RuntimeException(
+                'Core Marketplace deployment requires an authorized website.'
+            );
+        }
+
         $entitlementId =
             (int) (
                 $context['entitlement_id']

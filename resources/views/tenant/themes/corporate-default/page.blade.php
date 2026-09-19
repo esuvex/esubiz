@@ -3918,9 +3918,94 @@
 
                                             @default
 
-                                                <div class="builder-placeholder">
-                                                    {{ ucfirst($type ?: 'Widget') }}
-                                                </div>
+                                                @php
+                                                    /*
+                                                     * ESUBIZ_MODULE_WIDGET_PUBLIC_RENDER_V1
+                                                     *
+                                                     * Unknown Core widget types may belong
+                                                     * to an enabled Module.
+                                                     *
+                                                     * The active Theme may provide its own
+                                                     * presentation view. Business logic
+                                                     * remains owned by the Module.
+                                                     */
+                                                    $moduleWidget =
+                                                        app(
+                                                            \App\Services\Core\Modules\Registries\CoreModuleWidgetRegistry::class
+                                                        )->getByType($type);
+
+                                                    $themeWidgetView =
+                                                        $moduleWidget
+                                                            ? app(
+                                                                \App\Services\Core\PageBuilder\ThemeWidgetRegistry::class
+                                                            )->resolveView(
+                                                                $activeTheme
+                                                                    ?? 'business',
+                                                                $type
+                                                            )
+                                                            : null;
+                                                @endphp
+
+                                                @if(
+                                                    $moduleWidget
+                                                    && $themeWidgetView
+                                                )
+                                                    @include(
+                                                        $themeWidgetView,
+                                                        [
+                                                            'widget' => $widget,
+                                                            'data' => $data,
+                                                            'settings' => $settings,
+                                                            'moduleWidget' => $moduleWidget,
+                                                        ]
+                                                    )
+
+                                                @elseif(
+                                                    $moduleWidget
+                                                    && !empty(
+                                                        $moduleWidget['fallback_view']
+                                                        ?? null
+                                                    )
+                                                    && view()->exists(
+                                                        $moduleWidget['fallback_view']
+                                                    )
+                                                )
+
+                                                    @include(
+                                                        $moduleWidget['fallback_view'],
+                                                        [
+                                                            'widget' => $widget,
+                                                            'data' => $data,
+                                                            'settings' => $settings,
+                                                            'moduleWidget' => $moduleWidget,
+                                                        ]
+                                                    )
+
+                                                @elseif($moduleWidget)
+
+                                                    <div
+                                                        class="builder-placeholder"
+                                                        data-module-widget="{{ $type }}"
+                                                    >
+                                                        {{
+                                                            $moduleWidget['label']
+                                                            ?? ucfirst(
+                                                                str_replace(
+                                                                    '_',
+                                                                    ' ',
+                                                                    $type
+                                                                )
+                                                            )
+                                                        }}
+                                                    </div>
+
+                                                @else
+
+                                                    <div class="builder-placeholder">
+                                                        {{ ucfirst($type ?: 'Widget') }}
+                                                    </div>
+
+                                                @endif
 
                                         @endswitch
 

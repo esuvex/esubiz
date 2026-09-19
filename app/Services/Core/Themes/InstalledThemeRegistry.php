@@ -18,7 +18,8 @@ class InstalledThemeRegistry
      */
 
     public function all(
-        string $activeTheme = ''
+        string $activeTheme = '',
+        ?int $websiteId = null
     ): array {
         if (
             !Schema::hasTable(
@@ -28,9 +29,15 @@ class InstalledThemeRegistry
             return [];
         }
 
-        return DB::table(
+        $query = DB::table(
             'core_installed_themes'
-        )
+        );
+
+        if ($websiteId !== null) {
+            $query->where('website_id', $websiteId);
+        }
+
+        return $query
             ->orderByDesc('is_active')
             ->orderBy('name')
             ->get()
@@ -160,19 +167,21 @@ class InstalledThemeRegistry
 
 
     public function collection(
-        string $activeTheme = ''
+        string $activeTheme = '',
+        ?int $websiteId = null
     ): Collection {
         return collect(
             $this->all(
-                $activeTheme
+                $activeTheme,
+                $websiteId
             )
         );
     }
 
 
-    public function keys(): Collection
+    public function keys(?int $websiteId = null): Collection
     {
-        return $this->collection()
+        return $this->collection('', $websiteId)
             ->map(
                 fn (array $theme) =>
                     $this->key(
@@ -188,7 +197,8 @@ class InstalledThemeRegistry
 
     public function isInstalled(
         ?string $slug,
-        ?string $version
+        ?string $version,
+        ?int $websiteId = null
     ): bool {
         $key =
             $this->key(
@@ -200,16 +210,47 @@ class InstalledThemeRegistry
             return false;
         }
 
-        return $this->keys()
+        return $this->keys($websiteId)
             ->contains(
                 $key
             );
     }
 
 
+    /**
+     * Determine whether any website still references this exact
+     * shared Theme package/version.
+     */
+    public function hasAnyReference(
+        string $slug,
+        string $version
+    ): bool {
+        if (
+            !Schema::hasTable(
+                'core_installed_themes'
+            )
+        ) {
+            return false;
+        }
+
+        $slug = strtolower(trim($slug));
+        $version = $this->normalizeVersion($version);
+
+        if ($slug === '' || $version === '') {
+            return false;
+        }
+
+        return DB::table('core_installed_themes')
+            ->where('theme_slug', $slug)
+            ->where('theme_version', $version)
+            ->exists();
+    }
+
+
     public function find(
         ?string $slug,
-        ?string $version
+        ?string $version,
+        ?int $websiteId = null
     ): ?array {
         $key =
             $this->key(
@@ -221,7 +262,7 @@ class InstalledThemeRegistry
             return null;
         }
 
-        return $this->collection()
+        return $this->collection('', $websiteId)
             ->first(
                 fn (array $theme) =>
                     $this->key(
@@ -261,7 +302,12 @@ class InstalledThemeRegistry
             );
         }
 
+        $websiteId = isset($data['website_id'])
+            ? (int) $data['website_id']
+            : null;
+
         $existing = DB::table('core_installed_themes')
+            ->where('website_id', $websiteId)
             ->where('theme_slug', $slug)
             ->where('theme_version', $version)
             ->first();
@@ -273,6 +319,8 @@ class InstalledThemeRegistry
         }
 
         $values = [
+            'website_id' => $websiteId,
+
             'name' =>
                 trim((string) ($data['name'] ?? '')) !== ''
                     ? trim((string) $data['name'])
@@ -321,7 +369,7 @@ class InstalledThemeRegistry
                 ->insert($values);
         }
 
-        $theme = $this->find($slug, $version);
+        $theme = $this->find($slug, $version, $websiteId);
 
         if (!$theme) {
             throw new \RuntimeException(
@@ -335,12 +383,13 @@ class InstalledThemeRegistry
 
     public function activate(
         string $slug,
-        string $version
+        string $version,
+        ?int $websiteId = null
     ): array {
         $slug = strtolower(trim($slug));
         $version = $this->normalizeVersion($version);
 
-        $theme = $this->find($slug, $version);
+        $theme = $this->find($slug, $version, $websiteId);
 
         if (!$theme) {
             throw new \RuntimeException(
@@ -348,8 +397,9 @@ class InstalledThemeRegistry
             );
         }
 
-        DB::transaction(function () use ($theme) {
+        DB::transaction(function () use ($theme, $websiteId) {
             DB::table('core_installed_themes')
+                ->where('website_id', $websiteId)
                 ->where('is_active', true)
                 ->update([
                     'is_active' => false,
@@ -365,7 +415,7 @@ class InstalledThemeRegistry
                 ]);
         });
 
-        $active = $this->find($slug, $version);
+        $active = $this->find($slug, $version, $websiteId);
 
         if (!$active || empty($active['active'])) {
             throw new \RuntimeException(
@@ -379,7 +429,8 @@ class InstalledThemeRegistry
 
     public function remove(
         string $slug,
-        string $version
+        string $version,
+        ?int $websiteId = null
     ): bool {
         $slug = strtolower(trim($slug));
         $version = $this->normalizeVersion($version);
@@ -388,7 +439,7 @@ class InstalledThemeRegistry
             return false;
         }
 
-        $theme = $this->find($slug, $version);
+        $theme = $this->find($slug, $version, $websiteId);
 
         if (!$theme) {
             return false;

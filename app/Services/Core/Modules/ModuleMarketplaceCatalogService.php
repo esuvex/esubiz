@@ -30,7 +30,8 @@ class ModuleMarketplaceCatalogService
     }
 
     public function modules(
-        ?string $deployment = null
+        ?string $deployment = null,
+        ?int $websiteId = null
     ): Collection {
         $deployment = $deployment ?: $this->deployment();
 
@@ -39,7 +40,8 @@ class ModuleMarketplaceCatalogService
             === ModuleMarketplaceResolver::DEPLOYMENT_SAAS
         ) {
             return $this->withInstallationState(
-                $this->saasModules()
+                $this->saasModules(),
+                $websiteId
             );
         }
 
@@ -48,7 +50,8 @@ class ModuleMarketplaceCatalogService
             === ModuleMarketplaceResolver::DEPLOYMENT_OFF_SERVER
         ) {
             return $this->withInstallationState(
-                $this->offServerModules()
+                $this->offServerModules(),
+                $websiteId
             );
         }
 
@@ -221,16 +224,18 @@ class ModuleMarketplaceCatalogService
     }
 
     protected function withInstallationState(
-        Collection $modules
+        Collection $modules,
+        ?int $websiteId
     ): Collection {
         return $modules
             ->map(
-                function (array $module) {
+                function (array $module) use ($websiteId) {
                     $installed =
                         $this->installedProducts->isInstalled(
                             'module',
                             (string) ($module['slug'] ?? ''),
-                            $module['version'] ?? null
+                            $module['version'] ?? null,
+                            $websiteId
                         );
 
                     $module['installed'] = $installed;
