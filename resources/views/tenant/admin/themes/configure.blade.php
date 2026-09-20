@@ -88,7 +88,7 @@
 
 @extends('tenant.admin.layouts.app')
 
-@section('title', 'Configure Business Theme')
+@section('title', 'Configure ' . ($themeDisplayName ?? 'Theme'))
 
 @section('content')
 
@@ -188,7 +188,10 @@
 
         <div>
             <div class="text-xs font-black uppercase tracking-[.16em] text-blue-600">
-                Business · v1.0
+                {{ $themeDisplayName ?? ($installedTheme['name'] ?? $themeSlug ?? 'Theme') }}
+                @if(!empty($installedTheme['version']))
+                    · v{{ $installedTheme['version'] }}
+                @endif
             </div>
 
             <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-900">

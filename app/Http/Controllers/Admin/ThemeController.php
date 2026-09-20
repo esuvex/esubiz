@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Services\Platform\CentralSiteSettingsService;
 use App\Http\Controllers\Controller;
 use App\Models\WebsiteType;
+use App\Models\MarketplaceCategory;
 use App\Services\Marketplace\ThemePackageService;
 use App\Services\Marketplace\ThemePackageStorageService;
 use Illuminate\Http\Request;
@@ -115,10 +117,30 @@ class ThemeController extends Controller
             $this->themePackageStorage
                 ->packages();
 
+        $websiteTypes =
+            WebsiteType::query()
+                ->whereNull('deleted_at')
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get();
+
+        $marketplaceCategories =
+            MarketplaceCategory::query()
+                ->active()
+                ->ordered()
+                ->get()
+                ->filter(
+                    fn ($category) =>
+                        $category->supportsProductType('theme')
+                )
+                ->values();
+
         return view(
             'admin.themes.create',
             compact(
-                'storageThemePackages'
+                'storageThemePackages',
+                'websiteTypes',
+                'marketplaceCategories'
             )
         );
     }
@@ -150,11 +172,87 @@ class ThemeController extends Controller
                 'max:255',
                 'required_if:package_source,storage',
             ],
+
+            'saas_price' => ['nullable', 'numeric', 'min:0'],
+            'saas_billing_period' => ['nullable', 'integer', 'min:1'],
+            'saas_billing_interval' => ['nullable', 'string', 'max:30'],
+
+            'off_server_price' => ['nullable', 'numeric', 'min:0'],
+
+            'marketplace_category_ids' => ['nullable', 'array'],
+            'marketplace_category_ids.*' => [
+                'integer',
+                'exists:marketplace_categories,id',
+            ],
+            'release_notes' => ['nullable', 'string'],
+
+            'website_type_ids' => ['nullable', 'array'],
+            'website_type_ids.*' => [
+                'integer',
+                'exists:website_types,id',
+            ],
         ]);
+
+        /*
+         * Product currency is always inherited from the
+         * authoritative Esubiz Central system currency.
+         */
+        $centralSettings = app(CentralSiteSettingsService::class);
+
+        $systemCurrency = strtoupper(
+            trim(
+                (string) $centralSettings->get(
+                    'platform.currency.primary'
+                )
+            )
+        );
+
+        if ($systemCurrency === '') {
+            throw new \RuntimeException(
+                'Esubiz system default currency is not configured.'
+            );
+        }
+
 
 
         $source =
             $data['package_source'];
+
+        $saasAvailable =
+            $request->boolean('saas_available');
+
+        $offServerAvailable =
+            $request->boolean('off_server_available');
+
+        $marketplaceEnabled =
+            $request->boolean('marketplace_enabled');
+
+        $marketplaceFeatured =
+            $request->boolean('marketplace_featured');
+
+        $isActive =
+            $request->boolean('is_active');
+
+        $showInUserWizard =
+            $request->boolean('show_in_user_wizard');
+
+        $showInDeveloperWizard =
+            $request->boolean('show_in_developer_wizard');
+
+        $websiteTypeIds =
+            collect($data['website_type_ids'] ?? [])
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+
+        $marketplaceCategoryIds =
+            collect($data['marketplace_category_ids'] ?? [])
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+
 
 
         /*
@@ -510,7 +608,17 @@ class ThemeController extends Controller
             function () use (
                 $slug,
                 $version,
-                $packageFacts
+                $packageFacts,
+                $data,
+                $saasAvailable,
+                $offServerAvailable,
+                $marketplaceEnabled,
+                $marketplaceFeatured,
+                $isActive,
+                $showInUserWizard,
+                $showInDeveloperWizard,
+                $websiteTypeIds,
+                $marketplaceCategoryIds
             ) {
 
                 $existing =
@@ -534,19 +642,12 @@ class ThemeController extends Controller
                 if ($existing) {
 
                     /*
-                     * Re-registering a package refreshes ONLY package
-                     * facts.
+                     * Add Theme is the unified package + commercial
+                     * configuration workflow.
                      *
-                     * It must NOT reset:
-                     * - SaaS/off-server prices
-                     * - SaaS duration
-                     * - deployment sales availability
-                     * - active state
-                     * - Marketplace enabled/featured state
-                     * - wizard visibility
-                     * - Website Type assignment
-                     * - release configuration
-                     * - commissions
+                     * When Admin selects an already-known package from
+                     * Search Folder, refresh its package facts AND save
+                     * the configuration submitted on this Add Theme form.
                      */
                     DB::table(
                         'theme_packages'
@@ -556,22 +657,90 @@ class ThemeController extends Controller
                             $existing->id
                         )
                         ->update(
-                            $packageFacts
+                            array_merge(
+                                [
+                                    'saas_available' =>
+                                        $saasAvailable,
+
+                                    'saas_price' =>
+                                        $data['saas_price'] ?? null,
+
+                                    'saas_currency' =>
+                                        $systemCurrency,
+
+                                    'saas_billing_period' =>
+                                        $data['saas_billing_period'] ?? 1,
+
+                                    'saas_billing_interval' =>
+                                        $data['saas_billing_interval'] ?? 'year',
+
+                                    'off_server_available' =>
+                                        $offServerAvailable,
+
+                                    'off_server_price' =>
+                                        $data['off_server_price'] ?? null,
+
+                                    'off_server_currency' =>
+                                        $systemCurrency,
+
+                                    'marketplace_enabled' =>
+                                        $marketplaceEnabled,
+
+                                    'marketplace_featured' =>
+                                        $marketplaceFeatured,
+
+                                    'release_notes' =>
+                                        $data['release_notes'] ?? null,
+
+                                    'is_active' =>
+                                        $isActive,
+
+                                    'show_in_user_wizard' =>
+                                        $showInUserWizard,
+
+                                    'show_in_developer_wizard' =>
+                                        $showInDeveloperWizard,
+
+                                    'updated_at' =>
+                                        now(),
+                                ],
+                                $packageFacts
+                            )
                         );
+
+                    DB::table('theme_package_website_type')
+                        ->where('theme_package_id', $existing->id)
+                        ->delete();
+
+                    if ($websiteTypeIds) {
+                        $now = now();
+
+                        DB::table('theme_package_website_type')
+                            ->insert(
+                                collect($websiteTypeIds)
+                                    ->map(fn ($websiteTypeId) => [
+                                        'theme_package_id' => $existing->id,
+                                        'website_type_id' => $websiteTypeId,
+                                        'created_at' => $now,
+                                        'updated_at' => $now,
+                                    ])
+                                    ->all()
+                            );
+                    }
 
                     return;
                 }
 
 
                 /*
-                 * A new Theme package gets neutral/default commercial
+                 * A new Theme package gets its Admin configuration
                  * configuration. Admin configures sales after package
                  * registration.
                  */
-                DB::table(
+                $themeId = DB::table(
                     'theme_packages'
                 )
-                    ->insert(
+                    ->insertGetId(
                         array_merge(
                             [
                                 'uuid' =>
@@ -588,25 +757,46 @@ class ThemeController extends Controller
                                  * explicitly controlled by Admin.
                                  */
                                 'saas_available' =>
-                                    false,
+                                    $saasAvailable,
+
+                                'saas_price' =>
+                                    $data['saas_price'] ?? null,
+
+                                'saas_currency' =>
+                                    $systemCurrency,
+
+                                'saas_billing_period' =>
+                                    $data['saas_billing_period'] ?? 1,
+
+                                'saas_billing_interval' =>
+                                    $data['saas_billing_interval'] ?? 'year',
 
                                 'off_server_available' =>
-                                    false,
+                                    $offServerAvailable,
+
+                                'off_server_price' =>
+                                    $data['off_server_price'] ?? null,
+
+                                'off_server_currency' =>
+                                    $systemCurrency,
 
                                 'marketplace_enabled' =>
-                                    false,
+                                    $marketplaceEnabled,
 
                                 'marketplace_featured' =>
-                                    false,
+                                    $marketplaceFeatured,
+
+                                'release_notes' =>
+                                    $data['release_notes'] ?? null,
 
                                 'is_active' =>
-                                    true,
+                                    $isActive,
 
                                 'show_in_user_wizard' =>
-                                    true,
+                                    $showInUserWizard,
 
                                 'show_in_developer_wizard' =>
-                                    true,
+                                    $showInDeveloperWizard,
 
                                 'created_at' =>
                                     now(),
@@ -614,6 +804,54 @@ class ThemeController extends Controller
                             $packageFacts
                         )
                     );
+
+                if ($websiteTypeIds) {
+                    $now = now();
+
+                    DB::table('theme_package_website_type')
+                        ->insert(
+                            collect($websiteTypeIds)
+                                ->map(fn ($websiteTypeId) => [
+                                    'theme_package_id' => $themeId,
+                                    'website_type_id' => $websiteTypeId,
+                                    'created_at' => $now,
+                                    'updated_at' => $now,
+                                ])
+                                ->all()
+                        );
+                }
+
+                $createdTheme =
+                    DB::table('theme_packages')
+                        ->where('id', $themeId)
+                        ->first();
+
+                if ($createdTheme?->catalog_product_id) {
+                    DB::table('catalog_product_marketplace_category')
+                        ->where(
+                            'catalog_product_id',
+                            $createdTheme->catalog_product_id
+                        )
+                        ->delete();
+
+                    if ($marketplaceCategoryIds) {
+                        $now = now();
+
+                        DB::table('catalog_product_marketplace_category')
+                            ->insert(
+                                collect($marketplaceCategoryIds)
+                                    ->map(fn ($categoryId) => [
+                                        'catalog_product_id' =>
+                                            $createdTheme->catalog_product_id,
+                                        'marketplace_category_id' =>
+                                            $categoryId,
+                                        'created_at' => $now,
+                                        'updated_at' => $now,
+                                    ])
+                                    ->all()
+                            );
+                    }
+                }
             }
         );
 
@@ -624,7 +862,7 @@ class ThemeController extends Controller
             )
             ->with(
                 'success',
-                'Theme package processed successfully.'
+                'Theme added successfully.'
             );
     }
 
@@ -737,6 +975,32 @@ class ThemeController extends Controller
                 ->all();
 
 
+        $marketplaceCategories =
+            MarketplaceCategory::query()
+                ->active()
+                ->ordered()
+                ->get()
+                ->filter(
+                    fn ($category) =>
+                        $category->supportsProductType('theme')
+                )
+                ->values();
+
+        $selectedMarketplaceCategories =
+            $themePackage->catalog_product_id
+                ? DB::table(
+                    'catalog_product_marketplace_category'
+                )
+                    ->where(
+                        'catalog_product_id',
+                        $themePackage->catalog_product_id
+                    )
+                    ->pluck('marketplace_category_id')
+                    ->map(fn ($id) => (int) $id)
+                    ->all()
+                : [];
+
+
         return view(
             'admin.themes.edit',
             [
@@ -748,6 +1012,12 @@ class ThemeController extends Controller
 
                 'selectedWebsiteTypes' =>
                     $selectedWebsiteTypes,
+
+                'marketplaceCategories' =>
+                    $marketplaceCategories,
+
+                'selectedMarketplaceCategories' =>
+                    $selectedMarketplaceCategories,
             ]
         );
     }
@@ -794,12 +1064,6 @@ class ThemeController extends Controller
                 'min:0',
             ],
 
-            'saas_currency' => [
-                'nullable',
-                'string',
-                'size:3',
-            ],
-
             'saas_billing_period' => [
                 'nullable',
                 'integer',
@@ -818,23 +1082,14 @@ class ThemeController extends Controller
                 'min:0',
             ],
 
-            'off_server_currency' => [
+            'marketplace_category_ids' => [
                 'nullable',
-                'string',
-                'size:3',
+                'array',
             ],
 
-            'marketplace_category' => [
-                'nullable',
-                'string',
-                'max:100',
-            ],
-
-            'commission_rate' => [
-                'nullable',
-                'numeric',
-                'min:0',
-                'max:100',
+            'marketplace_category_ids.*' => [
+                'integer',
+                'exists:marketplace_categories,id',
             ],
 
             'show_in_user_wizard' => [
@@ -862,6 +1117,27 @@ class ThemeController extends Controller
                 'string',
             ],
         ]);
+
+        /*
+         * Product currency is always inherited from the
+         * authoritative Esubiz Central system currency.
+         */
+        $centralSettings = app(CentralSiteSettingsService::class);
+
+        $systemCurrency = strtoupper(
+            trim(
+                (string) $centralSettings->get(
+                    'platform.currency.primary'
+                )
+            )
+        );
+
+        if ($systemCurrency === '') {
+            throw new \RuntimeException(
+                'Esubiz system default currency is not configured.'
+            );
+        }
+
 
 
         $saasAvailable =
@@ -909,6 +1185,17 @@ class ThemeController extends Controller
             ->all();
 
 
+        $marketplaceCategoryIds =
+            collect(
+                $data['marketplace_category_ids']
+                ?? []
+            )
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+
+
         DB::transaction(
             function () use (
                 $record,
@@ -920,8 +1207,9 @@ class ThemeController extends Controller
                 $isActive,
                 $showInUserWizard,
                 $showInDeveloperWizard,
-                $websiteTypeIds
-            ) {
+                $websiteTypeIds,
+                $marketplaceCategoryIds,
+                $systemCurrency) {
 
                 DB::table('theme_packages')
                     ->where(
@@ -950,10 +1238,7 @@ class ThemeController extends Controller
                             ?? null,
 
                         'saas_currency' =>
-                            strtoupper(
-                                $data['saas_currency']
-                                ?? 'NGN'
-                            ),
+                            $systemCurrency,
 
                         'saas_billing_interval' =>
                             $data['saas_billing_interval']
@@ -967,10 +1252,7 @@ class ThemeController extends Controller
                             ?? null,
 
                         'off_server_currency' =>
-                            strtoupper(
-                                $data['off_server_currency']
-                                ?? 'NGN'
-                            ),
+                            $systemCurrency,
 
                         'marketplace_enabled' =>
                             $marketplaceEnabled,
@@ -983,14 +1265,6 @@ class ThemeController extends Controller
 
                         'marketplace_featured' =>
                             $marketplaceFeatured,
-
-                        'marketplace_category' =>
-                            $data['marketplace_category']
-                            ?? null,
-
-                        'commission_rate' =>
-                            $data['commission_rate']
-                            ?? 0,
 
                         'release_notes' =>
                             $data['release_notes']
@@ -1042,6 +1316,50 @@ class ThemeController extends Controller
                             )
                             ->all()
                     );
+                }
+
+
+                /*
+                 * Keep canonical Marketplace Categories synchronized.
+                 */
+                if ($record->catalog_product_id) {
+
+                    DB::table(
+                        'catalog_product_marketplace_category'
+                    )
+                        ->where(
+                            'catalog_product_id',
+                            $record->catalog_product_id
+                        )
+                        ->delete();
+
+                    if ($marketplaceCategoryIds) {
+
+                        $now = now();
+
+                        DB::table(
+                            'catalog_product_marketplace_category'
+                        )
+                            ->insert(
+                                collect($marketplaceCategoryIds)
+                                    ->map(
+                                        fn ($categoryId) => [
+                                            'catalog_product_id' =>
+                                                $record->catalog_product_id,
+
+                                            'marketplace_category_id' =>
+                                                $categoryId,
+
+                                            'created_at' =>
+                                                $now,
+
+                                            'updated_at' =>
+                                                $now,
+                                        ]
+                                    )
+                                    ->all()
+                            );
+                    }
                 }
 
 

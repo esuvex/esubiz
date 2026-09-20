@@ -239,6 +239,81 @@
             flex-direction: column;
         }
     }
+
+.esu-category-field{position:relative}
+.esu-category-trigger{
+    width:100%;min-height:46px;padding:10px 13px;
+    border:1px solid #d8dee8;border-radius:10px;background:#fff;
+    display:flex;align-items:center;justify-content:space-between;
+    gap:12px;text-align:left;cursor:pointer
+}
+.esu-category-trigger:focus{
+    outline:none;border-color:#2563eb;
+    box-shadow:0 0 0 3px rgba(37,99,235,.10)
+}
+.esu-category-dropdown{
+    position:absolute;z-index:50;left:0;right:0;top:calc(100% - 18px);
+    background:#fff;border:1px solid #d8dee8;border-radius:12px;
+    box-shadow:0 16px 35px rgba(15,23,42,.14);
+    overflow:hidden
+}
+.esu-category-search-wrap{padding:10px;border-bottom:1px solid #edf0f5}
+.esu-category-search{
+    width:100%;min-height:40px;padding:8px 11px;
+    border:1px solid #d8dee8;border-radius:8px
+}
+.esu-category-options{max-height:240px;overflow:auto;padding:6px}
+.esu-category-option{
+    display:flex;align-items:center;gap:9px;padding:9px 10px;
+    border-radius:8px;cursor:pointer
+}
+.esu-category-option:hover{background:#f6f8fb}
+.esu-category-option input{width:16px;height:16px}
+.esu-category-empty{padding:14px;color:#64748b;font-size:13px}
+
+
+/* ESUBIZ_STANDARD_BINARY_TOGGLE_V273 */
+.esu-toggle-control{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    cursor:pointer;
+}
+.esu-toggle-control > input[type="checkbox"]{
+    position:absolute;
+    opacity:0;
+    pointer-events:none;
+}
+.esu-toggle-track{
+    position:relative;
+    flex:0 0 42px;
+    width:42px;
+    height:24px;
+    border-radius:999px;
+    background:#cbd5e1;
+    transition:background .18s ease;
+}
+.esu-toggle-knob{
+    position:absolute;
+    width:18px;
+    height:18px;
+    left:3px;
+    top:3px;
+    border-radius:50%;
+    background:#fff;
+    box-shadow:0 1px 3px rgba(15,23,42,.25);
+    transition:transform .18s ease;
+}
+.esu-toggle-control > input[type="checkbox"]:checked + .esu-toggle-track{
+    background:#2563eb;
+}
+.esu-toggle-control > input[type="checkbox"]:checked + .esu-toggle-track .esu-toggle-knob{
+    transform:translateX(18px);
+}
+.esu-toggle-control > input[type="checkbox"]:focus-visible + .esu-toggle-track{
+    box-shadow:0 0 0 3px rgba(37,99,235,.18);
+}
+
 </style>
 
 
@@ -385,14 +460,17 @@
 
                     <div class="esubiz-theme-check-grid mb-4">
 
-                        <label class="esubiz-theme-check">
+                        <label class="esu-toggle-control esubiz-theme-check">
 
                             <input
                                 type="checkbox"
                                 name="saas_available"
                                 value="1"
-                                @checked($theme->saas_available)
+                                @checked((bool) old('saas_available', $theme->saas_available))
                             >
+                            <span class="esu-toggle-track" aria-hidden="true">
+                                <span class="esu-toggle-knob"></span>
+                            </span>
 
                             <span>
                                 <strong>
@@ -428,10 +506,10 @@
                         <div class="esubiz-theme-field">
                             <label>Currency</label>
 
-                            <input
-                                type="text"
-                                name="saas_currency"
-                                value="{{ old('saas_currency', $theme->saas_currency ?? 'NGN') }}"
+                            <input type="hidden" name="saas_currency" value="{{ strtoupper($centralCurrencyCode) }}">
+                            <div class="esu-field-static">
+                                {{ strtoupper($centralCurrencyCode) }}
+                            </div>
                             >
                         </div>
 
@@ -514,14 +592,17 @@
 
                     <div class="esubiz-theme-check-grid mb-4">
 
-                        <label class="esubiz-theme-check">
+                        <label class="esu-toggle-control esubiz-theme-check">
 
                             <input
                                 type="checkbox"
                                 name="off_server_available"
                                 value="1"
-                                @checked($theme->off_server_available)
+                                @checked((bool) old('off_server_available', $theme->off_server_available))
                             >
+                            <span class="esu-toggle-track" aria-hidden="true">
+                                <span class="esu-toggle-knob"></span>
+                            </span>
 
                             <span>
                                 <strong>
@@ -557,10 +638,10 @@
                         <div class="esubiz-theme-field">
                             <label>Currency</label>
 
-                            <input
-                                type="text"
-                                name="off_server_currency"
-                                value="{{ old('off_server_currency', $theme->off_server_currency ?? 'NGN') }}"
+                            <input type="hidden" name="off_server_currency" value="{{ strtoupper($centralCurrencyCode) }}">
+                            <div class="esu-field-static">
+                                {{ strtoupper($centralCurrencyCode) }}
+                            </div>
                             >
                         </div>
 
@@ -586,7 +667,7 @@
                     <div class="esubiz-theme-check-grid">
 
                         {{-- ESUBIZ_THEME_STATUS_CONTROL_V1 --}}
-                        <label class="esubiz-theme-check">
+                        <label class="esu-toggle-control esubiz-theme-check">
 
                             <input
                                 type="hidden"
@@ -600,6 +681,9 @@
                                 value="1"
                                 @checked((bool) old('is_active', $theme->is_active))
                             >
+                            <span class="esu-toggle-track" aria-hidden="true">
+                                <span class="esu-toggle-knob"></span>
+                            </span>
 
                             <span>
                                 <strong>Theme Active</strong>
@@ -613,14 +697,17 @@
                         </label>
 
 
-                        <label class="esubiz-theme-check">
+                        <label class="esu-toggle-control esubiz-theme-check">
 
                             <input
                                 type="checkbox"
                                 name="marketplace_enabled"
                                 value="1"
-                                @checked($theme->marketplace_enabled)
+                                @checked((bool) old('marketplace_enabled', $theme->marketplace_enabled))
                             >
+                            <span class="esu-toggle-track" aria-hidden="true">
+                                <span class="esu-toggle-knob"></span>
+                            </span>
 
                             <span>
                                 <strong>Marketplace Enabled</strong>
@@ -634,14 +721,17 @@
                         </label>
 
 
-                        <label class="esubiz-theme-check">
+                        <label class="esu-toggle-control esubiz-theme-check">
 
                             <input
                                 type="checkbox"
                                 name="marketplace_featured"
                                 value="1"
-                                @checked($theme->marketplace_featured)
+                                @checked((bool) old('marketplace_featured', $theme->marketplace_featured))
                             >
+                            <span class="esu-toggle-track" aria-hidden="true">
+                                <span class="esu-toggle-knob"></span>
+                            </span>
 
                             <span>
                                 <strong>Featured Theme</strong>
@@ -655,53 +745,86 @@
                         </label>
 
 
-                        <label class="esubiz-theme-check">
-
-                            <input
-                                type="checkbox"
-                                name="is_active"
-                                value="1"
-                                @checked($theme->is_active)
-                            >
-
-                            <span>
-                                <strong>Active</strong>
-
-                                <span>
-                                    Master commerce switch for
-                                    this Theme package.
-                                </span>
-                            </span>
-
-                        </label>
+                        
 
                     </div>
 
 
                     <div class="esubiz-theme-fields mt-4">
 
-                        <div class="esubiz-theme-field">
-                            <label>Marketplace Category</label>
+                        <div class="esu-category-field" data-esu-category-select>
+                            <label>Marketplace Categories</label>
 
-                            <input
-                                type="text"
-                                name="marketplace_category"
-                                value="{{ old('marketplace_category', $theme->marketplace_category) }}"
+                            @php
+                                $esuSelectedCategories = collect(
+                                    old(
+                                        'marketplace_category_ids',
+                                        $selectedMarketplaceCategories ?? []
+                                    )
+                                )
+                                    ->map(fn ($id) => (int) $id)
+                                    ->all();
+                            @endphp
+
+                            <button
+                                type="button"
+                                class="esu-category-trigger"
+                                data-esu-category-trigger
+                                aria-expanded="false"
                             >
-                        </div>
+                                <span data-esu-category-summary>
+                                    Select categories
+                                </span>
+                                <span aria-hidden="true">⌄</span>
+                            </button>
 
-
-                        <div class="esubiz-theme-field">
-                            <label>Commission Rate (%)</label>
-
-                            <input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                max="100"
-                                name="commission_rate"
-                                value="{{ old('commission_rate', $theme->commission_rate) }}"
+                            <div
+                                class="esu-category-dropdown"
+                                data-esu-category-dropdown
+                                hidden
                             >
+                                <div class="esu-category-search-wrap">
+                                    <input
+                                        type="search"
+                                        class="esu-category-search"
+                                        placeholder="Search categories..."
+                                        autocomplete="off"
+                                        data-esu-category-search
+                                    >
+                                </div>
+
+                                <div class="esu-category-options">
+                                    @forelse($marketplaceCategories as $category)
+                                        <label
+                                            class="esu-category-option"
+                                            data-esu-category-option
+                                            data-category-name="{{ strtolower($category->name) }}"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                name="marketplace_category_ids[]"
+                                                value="{{ $category->id }}"
+                                                @checked(
+                                                    in_array(
+                                                        (int) $category->id,
+                                                        $esuSelectedCategories,
+                                                        true
+                                                    )
+                                                )
+                                            >
+                                            <span>{{ $category->name }}</span>
+                                        </label>
+                                    @empty
+                                        <div class="esu-category-empty">
+                                            No active Marketplace Categories are configured for Themes.
+                                        </div>
+                                    @endforelse
+                                </div>
+                            </div>
+
+                            <small>
+                                Choose one or more categories configured in Marketplace Settings.
+                            </small>
                         </div>
 
 
@@ -733,7 +856,7 @@
 
                     <div class="esubiz-theme-check-grid">
 
-                        <label class="esubiz-theme-check">
+                        <label class="esu-toggle-control esubiz-theme-check">
 
                             <input
                                 type="hidden"
@@ -745,8 +868,11 @@
                                 type="checkbox"
                                 name="show_in_user_wizard"
                                 value="1"
-                                @checked($theme->show_in_user_wizard)
+                                @checked((bool) old('show_in_user_wizard', $theme->show_in_user_wizard))
                             >
+                            <span class="esu-toggle-track" aria-hidden="true">
+                                <span class="esu-toggle-knob"></span>
+                            </span>
 
                             <span>
                                 <strong>
@@ -762,7 +888,7 @@
                         </label>
 
 
-                        <label class="esubiz-theme-check">
+                        <label class="esu-toggle-control esubiz-theme-check">
 
                             <input
                                 type="hidden"
@@ -774,8 +900,11 @@
                                 type="checkbox"
                                 name="show_in_developer_wizard"
                                 value="1"
-                                @checked($theme->show_in_developer_wizard)
+                                @checked((bool) old('show_in_developer_wizard', $theme->show_in_developer_wizard))
                             >
+                            <span class="esu-toggle-track" aria-hidden="true">
+                                <span class="esu-toggle-knob"></span>
+                            </span>
 
                             <span>
                                 <strong>
@@ -810,40 +939,80 @@
 
                 <div class="esubiz-theme-section-body">
 
-                    <div class="esubiz-theme-type-grid">
+                    <div class="esu-category-field" data-esu-multi-select>
+                            <label>Website Types</label>
 
-                        @forelse($websiteTypes as $websiteType)
-
-                            <label class="esubiz-theme-type">
-
-                                <input
-                                    type="checkbox"
-                                    name="website_type_ids[]"
-                                    value="{{ $websiteType->id }}"
-                                    @checked(
-                                        in_array(
-                                            (int) $websiteType->id,
-                                            $selectedWebsiteTypes,
-                                            true
-                                        )
+                            @php
+                                $esuSelectedWebsiteTypes = collect(
+                                    old(
+                                        'website_type_ids',
+                                        $selectedWebsiteTypes ?? []
                                     )
-                                >
+                                )
+                                    ->map(fn ($id) => (int) $id)
+                                    ->all();
+                            @endphp
 
-                                <span>
-                                    {{ $websiteType->name }}
+                            <button
+                                type="button"
+                                class="esu-category-trigger"
+                                data-esu-multi-trigger
+                                aria-expanded="false"
+                            >
+                                <span data-esu-multi-summary>
+                                    Select website types
                                 </span>
+                                <span aria-hidden="true">⌄</span>
+                            </button>
 
-                            </label>
+                            <div
+                                class="esu-category-dropdown"
+                                data-esu-multi-dropdown
+                                hidden
+                            >
+                                <div class="esu-category-search-wrap">
+                                    <input
+                                        type="search"
+                                        class="esu-category-search"
+                                        placeholder="Search website types..."
+                                        autocomplete="off"
+                                        data-esu-multi-search
+                                    >
+                                </div>
 
-                        @empty
-
-                            <div class="esubiz-theme-help">
-                                No active Website Types are configured.
+                                <div class="esu-category-options">
+                                    @forelse($websiteTypes as $websiteType)
+                                        <label
+                                            class="esu-category-option"
+                                            data-esu-multi-option
+                                            data-option-name="{{ strtolower($websiteType->name) }}"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                name="website_type_ids[]"
+                                                value="{{ $websiteType->id }}"
+                                                @checked(
+                                                    in_array(
+                                                        (int) $websiteType->id,
+                                                        $esuSelectedWebsiteTypes,
+                                                        true
+                                                    )
+                                                )
+                                            >
+                                            <span>{{ $websiteType->name }}</span>
+                                        </label>
+                                    @empty
+                                        <div class="esu-category-empty">
+                                            No active Website Types are available.
+                                        </div>
+                                    @endforelse
+                                </div>
                             </div>
 
-                        @endforelse
-
-                    </div>
+                            <small>
+                                Choose one or more compatible Website Types.
+                            </small>
+                        </div>
 
                 </div>
 
@@ -867,5 +1036,127 @@
     </form>
 
 </div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-esu-category-select]').forEach(function (root) {
+        const trigger = root.querySelector('[data-esu-category-trigger]');
+        const dropdown = root.querySelector('[data-esu-category-dropdown]');
+        const search = root.querySelector('[data-esu-category-search]');
+        const summary = root.querySelector('[data-esu-category-summary]');
+        const checks = Array.from(
+            root.querySelectorAll('input[name="marketplace_category_ids[]"]')
+        );
+
+        function refreshSummary() {
+            const selected = checks
+                .filter(input => input.checked)
+                .map(input => input.closest('label').innerText.trim());
+
+            summary.textContent = selected.length
+                ? selected.join(', ')
+                : 'Select categories';
+        }
+
+        trigger.addEventListener('click', function () {
+            const opening = dropdown.hidden;
+            dropdown.hidden = !opening;
+            trigger.setAttribute('aria-expanded', opening ? 'true' : 'false');
+
+            if (opening && search) {
+                setTimeout(() => search.focus(), 0);
+            }
+        });
+
+        checks.forEach(input => {
+            input.addEventListener('change', refreshSummary);
+        });
+
+        if (search) {
+            search.addEventListener('input', function () {
+                const term = this.value.trim().toLowerCase();
+
+                root.querySelectorAll('[data-esu-category-option]').forEach(function (option) {
+                    option.hidden = !option.dataset.categoryName.includes(term);
+                });
+            });
+        }
+
+        document.addEventListener('click', function (event) {
+            if (!root.contains(event.target)) {
+                dropdown.hidden = true;
+                trigger.setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        refreshSummary();
+    });
+});
+</script>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-esu-multi-select]').forEach(function (root) {
+        const trigger = root.querySelector('[data-esu-multi-trigger]');
+        const dropdown = root.querySelector('[data-esu-multi-dropdown]');
+        const search = root.querySelector('[data-esu-multi-search]');
+        const summary = root.querySelector('[data-esu-multi-summary]');
+        const checks = Array.from(
+            root.querySelectorAll('input[name="website_type_ids[]"]')
+        );
+
+        function refreshSummary() {
+            const selected = checks
+                .filter(input => input.checked)
+                .map(input => input.closest('label').innerText.trim());
+
+            summary.textContent = selected.length
+                ? selected.join(', ')
+                : 'Select website types';
+        }
+
+        trigger.addEventListener('click', function () {
+            const opening = dropdown.hidden;
+            dropdown.hidden = !opening;
+            trigger.setAttribute(
+                'aria-expanded',
+                opening ? 'true' : 'false'
+            );
+
+            if (opening && search) {
+                setTimeout(() => search.focus(), 0);
+            }
+        });
+
+        checks.forEach(function (input) {
+            input.addEventListener('change', refreshSummary);
+        });
+
+        if (search) {
+            search.addEventListener('input', function () {
+                const term = this.value.trim().toLowerCase();
+
+                root.querySelectorAll(
+                    '[data-esu-multi-option]'
+                ).forEach(function (option) {
+                    option.hidden =
+                        !option.dataset.optionName.includes(term);
+                });
+            });
+        }
+
+        document.addEventListener('click', function (event) {
+            if (!root.contains(event.target)) {
+                dropdown.hidden = true;
+                trigger.setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        refreshSummary();
+    });
+});
+</script>
 
 @endsection

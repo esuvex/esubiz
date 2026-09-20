@@ -7,22 +7,6 @@
 
 <div class="mx-auto max-w-7xl space-y-8">
 
-    <div>
-        <div class="text-xs font-black uppercase tracking-[.16em] text-blue-600">
-            Installed Website Products
-        </div>
-
-        <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-900">
-            Themes
-        </h1>
-
-        <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-            View, activate and configure themes installed on this website.
-            Only one theme can be active at a time.
-        </p>
-    </div>
-
-
     @if(session('success'))
         <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-bold text-emerald-700">
             {{ session('success') }}

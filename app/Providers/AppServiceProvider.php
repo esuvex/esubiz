@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Services\Core\Setup\CoreSetupCompletionRegistry;
+
 
 use App\Services\Platform\CentralAuthUiService;
 use App\Services\Platform\CentralRegistrationAccessService;
@@ -32,6 +34,32 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         /*
+         * ESUBIZ_CORE_DASHBOARD_PROVIDER_REGISTRY_V1
+         *
+         * Universal plug-and-play Core Admin dashboard registries.
+         */
+        $this->app->singleton(
+            \App\Services\Core\Dashboard\CoreDashboardProviderRegistry::class
+        );
+
+        $this->app->singleton(
+            \App\Services\Core\Dashboard\CoreDashboardFinancialRegistry::class
+        );
+
+
+        /*
+         * ESUBIZ_CORE_SETUP_COMPLETION_REGISTRY_V1
+         *
+         * Universal post-provisioning setup completion state.
+         * Core and installed products contribute requirements here.
+         */
+        $this->app->singleton(
+            CoreSetupCompletionRegistry::class,
+            fn () => new CoreSetupCompletionRegistry()
+        );
+
+
+        /*
          * ESUBIZ_CORE_MODULE_RUNTIME_REGISTRIES_V2
          *
          * Module runtime registrations must live for the complete
@@ -56,6 +84,19 @@ class AppServiceProvider extends ServiceProvider
             \App\Services\Core\Modules\Registries\CoreModuleWidgetRegistry::class,
             fn ($app) => new \App\Services\Core\Modules\Registries\CoreModuleWidgetRegistry()
         );
+
+        /*
+         * ESUBIZ_CORE_MODULE_DASHBOARD_REGISTRY_V1
+         *
+         * Enabled modules contribute live analytics to the existing
+         * Core dashboards. Core remains responsible for presentation,
+         * permissions and responsive multi-module distribution.
+         */
+        $this->app->singleton(
+            \App\Services\Core\Modules\Registries\CoreModuleDashboardRegistry::class,
+            fn ($app) => new \App\Services\Core\Modules\Registries\CoreModuleDashboardRegistry()
+        );
+
 
         // ESUBIZ_REGISTRATION_PLUGIN_REGISTRIES_V1
         //
@@ -362,10 +403,12 @@ class AppServiceProvider extends ServiceProvider
 
                 $view->with(
                     'centralCurrencyCode',
-                    (string) (
-                        $service->get('platform.default_currency')
-                        ?: $service->get('currency.default')
-                        ?: 'NGN'
+                    strtoupper(
+                        trim(
+                            (string) $service->get(
+                                'platform.currency.primary'
+                            )
+                        )
                     )
                 );
 

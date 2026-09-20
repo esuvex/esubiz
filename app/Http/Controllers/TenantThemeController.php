@@ -355,6 +355,57 @@ class TenantThemeController extends Controller
                 (int) $website->id
             );
 
+        /*
+         * ESUBIZ_CORE_THEME_DISPLAY_NAME_SYNC_V1
+         *
+         * Installed Theme identity remains local and immutable:
+         * slug + version + Marketplace package ID.
+         *
+         * Presentation metadata such as the Theme display name follows
+         * the current authoritative Marketplace catalog value whenever
+         * that value is available.
+         *
+         * The locally stored installed name remains the safe fallback
+         * for unavailable/offline catalog records.
+         */
+        $marketplaceThemeNames =
+            collect($marketplaceThemes)
+                ->filter(
+                    fn ($theme) =>
+                        (int) ($theme['id'] ?? 0) > 0
+                        && trim((string) ($theme['name'] ?? '')) !== ''
+                )
+                ->mapWithKeys(
+                    fn ($theme) => [
+                        (int) $theme['id'] =>
+                            trim((string) $theme['name']),
+                    ]
+                );
+
+        $themes =
+            collect($themes)
+                ->map(
+                    function (array $theme) use ($marketplaceThemeNames) {
+                        $packageId =
+                            (int) (
+                                $theme['marketplace_theme_package_id']
+                                ?? 0
+                            );
+
+                        if (
+                            $packageId > 0
+                            && $marketplaceThemeNames->has($packageId)
+                        ) {
+                            $theme['name'] =
+                                $marketplaceThemeNames->get($packageId);
+                        }
+
+                        return $theme;
+                    }
+                )
+                ->values()
+                ->all();
+
         return view(
             'tenant.admin.themes.index',
             compact(
@@ -446,24 +497,126 @@ class TenantThemeController extends Controller
 
     public function configureBusiness(): View
     {
+        /*
+         * Legacy route compatibility only.
+         * Configuration itself is resolved by the universal Core method.
+         */
         return $this->configure('business');
     }
 
     public function configure(
         string $theme
     ): View {
-        abort_unless(
-            in_array(
+        $website = $this->website();
+
+        $installedTheme =
+            app(
+                \App\Services\Core\Themes\InstalledThemeRegistry::class
+            )->find(
                 $theme,
-                ['business', 'corporate-default'],
-                true
-            ),
+                null,
+                (int) $website->id
+            );
+
+        /*
+         * Some legacy routes use an alias rather than the canonical
+         * installed slug. Resolve aliases through the same registry.
+         */
+        if (!$installedTheme) {
+            $installedTheme =
+                collect(
+                    $this->installedThemes(
+                        $this->activeTheme($website),
+                        (int) $website->id
+                    )
+                )->first(
+                    function (array $candidate) use ($theme) {
+                        if (
+                            strtolower(
+                                (string) ($candidate['slug'] ?? '')
+                            ) === strtolower($theme)
+                        ) {
+                            return true;
+                        }
+
+                        return in_array(
+                            strtolower($theme),
+                            array_map(
+                                'strtolower',
+                                $candidate['aliases'] ?? []
+                            ),
+                            true
+                        );
+                    }
+                );
+        }
+
+        abort_unless(
+            is_array($installedTheme),
             404,
             'Theme not found.'
         );
 
-        $website =
-            $this->website();
+        $themeSlug =
+            (string) (
+                $installedTheme['slug']
+                ?? $theme
+            );
+
+        /*
+         * Current Central/Marketplace display metadata overlays the
+         * local installed snapshot. Technical identity never changes.
+         */
+        try {
+            $marketplaceThemes =
+                app(
+                    \App\Services\Core\Themes\ThemeMarketplaceCatalogService::class
+                )->themes(
+                    null,
+                    (int) $website->id
+                );
+
+            $packageId =
+                (int) (
+                    $installedTheme['marketplace_theme_package_id']
+                    ?? 0
+                );
+
+            if ($packageId > 0) {
+                $centralTheme =
+                    collect($marketplaceThemes)->first(
+                        fn ($candidate) =>
+                            (int) ($candidate['id'] ?? 0)
+                            === $packageId
+                    );
+
+                if (
+                    is_array($centralTheme)
+                    && trim(
+                        (string) ($centralTheme['name'] ?? '')
+                    ) !== ''
+                ) {
+                    $installedTheme['name'] =
+                        trim(
+                            (string) $centralTheme['name']
+                        );
+                }
+            }
+        } catch (\Throwable $exception) {
+            /*
+             * Central catalog availability must never break
+             * an installed Theme's configuration page.
+             */
+            report($exception);
+        }
+
+        $themeDisplayName =
+            trim(
+                (string) (
+                    $installedTheme['name']
+                    ?? $themeSlug
+                )
+            );
 
         $themeSettings =
             $this->themeSettings($website);
@@ -509,6 +662,9 @@ class TenantThemeController extends Controller
             [
                 'website' => $website,
                 'theme' => $themeSettings,
+                'themeSlug' => $themeSlug,
+                'themeDisplayName' => $themeDisplayName,
+                'installedTheme' => $installedTheme,
                 'features' => $features,
                 'testimonials' => $testimonials,
                 'footerLinks' => $footerLinks,
