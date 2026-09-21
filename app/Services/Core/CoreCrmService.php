@@ -10,7 +10,7 @@ use RuntimeException;
 class CoreCrmService
 {
     public function __construct(
-        protected CoreCrmEntitlementService $entitlements,
+        protected CoreEntitlementService $entitlements,
         protected WebsiteTenantDatabaseService $tenantDatabase
     ) {}
 
@@ -37,7 +37,7 @@ class CoreCrmService
 
     public function createContact(Website $website, array $data)
     {
-        $this->entitlements->enforce($website, 'clients', 'crm_contacts');
+        $this->entitlements->enforceAllocation('clients', null, $website->id);
 
         Validator::make($data, [
             'first_name' => ['required', 'string', 'max:255'],
@@ -70,7 +70,7 @@ class CoreCrmService
 
     public function createLead(Website $website, array $data)
     {
-        $this->entitlements->enforce($website, 'leads', 'crm_leads');
+        $this->entitlements->enforceAllocation('leads', null, $website->id);
 
         Validator::make($data, [
             'name' => ['required', 'string', 'max:255'],
@@ -101,7 +101,7 @@ class CoreCrmService
 
     public function createTask(Website $website, array $data)
     {
-        $this->entitlements->enforce($website, 'tasks', 'crm_tasks');
+        $this->entitlements->enforceAllocation('tasks', null, $website->id);
 
         Validator::make($data, [
             'title' => ['required', 'string', 'max:255'],

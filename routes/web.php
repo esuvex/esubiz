@@ -3159,6 +3159,15 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::get('/core/features', [\App\Http\Controllers\Admin\CoreFeatureController::class, 'index'])
         ->name('core-features.index');
 
+    Route::get('/core/features/list', [\App\Http\Controllers\Admin\CoreFeatureController::class, 'features'])
+        ->name('core-features.list');
+
+    Route::get('/core/features/tenant-tables', [\App\Http\Controllers\Admin\CoreFeatureController::class, 'tenantTables'])
+        ->name('core-features.tenant-tables');
+
+    Route::get('/core/features/{id}/management', [\App\Http\Controllers\Admin\CoreFeatureController::class, 'management'])
+        ->name('core-features.management');
+
     Route::post('/core/features', [\App\Http\Controllers\Admin\CoreFeatureController::class, 'storeFeature'])
         ->name('core-features.store');
 
@@ -3168,6 +3177,12 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::post('/core/features/{id}/toggle', [\App\Http\Controllers\Admin\CoreFeatureController::class, 'toggleFeature'])
         ->name('core-features.toggle');
 
+    Route::post('/core/features/{id}/delete', [\App\Http\Controllers\Admin\CoreFeatureController::class, 'destroyFeature'])
+        ->name('core-features.destroy');
+
+    Route::get('/core/features/{featureId}/limits', [\App\Http\Controllers\Admin\CoreFeatureController::class, 'limits'])
+        ->name('core-features.limits.index');
+
     Route::post('/core/features/{featureId}/limits', [\App\Http\Controllers\Admin\CoreFeatureController::class, 'storeLimit'])
         ->name('core-features.limits.store');
 
@@ -3176,6 +3191,9 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 
     Route::post('/core/features/limits/{id}/toggle', [\App\Http\Controllers\Admin\CoreFeatureController::class, 'toggleLimit'])
         ->name('core-features.limits.toggle');
+
+    Route::post('/core/features/limits/{id}/delete', [\App\Http\Controllers\Admin\CoreFeatureController::class, 'destroyLimit'])
+        ->name('core-features.limits.destroy');
 
     Route::get('/credit-packages', [\App\Http\Controllers\Admin\CreditPackageController::class, 'index'])
         ->name('credit-packages.index');

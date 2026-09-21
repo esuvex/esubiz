@@ -250,6 +250,63 @@ class CoreEntitlementService
             );
     }
 
+    /**
+     * Resolve current usage through the universal Core usage registry.
+     *
+     * Explicit providers remain authoritative for special meters such as
+     * Storage/Bandwidth. Ordinary resources can be configured centrally
+     * through core_feature_limits.metadata without capability-specific PHP.
+     */
+    public function currentUsage(
+        string $capabilityKey,
+        ?int $websiteId = null
+    ): int|float {
+        $websiteId = $this->resolveWebsiteId($websiteId);
+
+        if ($websiteId === null) {
+            throw new RuntimeException(
+                "A website is required to resolve usage for [{$capabilityKey}]."
+            );
+        }
+
+        return app(CoreCapabilityUsageRegistry::class)
+            ->configuredUsage($capabilityKey, $websiteId);
+    }
+
+    /**
+     * Determine whether another quantity can be consumed under the live
+     * universal SaaS allocation.
+     *
+     * Off-server Core is unlimited and therefore always passes.
+     */
+    public function allowsConfiguredAllocation(
+        string $capabilityKey,
+        int|float $additional = 1,
+        ?int $websiteId = null
+    ): bool {
+        $websiteId = $this->resolveWebsiteId($websiteId);
+
+        if ($websiteId === null) {
+            return false;
+        }
+
+        $limit = $this->effectiveAllocation(
+            $capabilityKey,
+            $websiteId
+        );
+
+        if ($limit === null) {
+            return true;
+        }
+
+        $usage = $this->currentUsage(
+            $capabilityKey,
+            $websiteId
+        );
+
+        return ($usage + max(0, $additional)) <= $limit;
+    }
+
     public function effectiveAllocation(
         string $capabilityKey,
         ?int $websiteId = null,
@@ -258,9 +315,67 @@ class CoreEntitlementService
         $websiteId = $this->resolveWebsiteId($websiteId);
 
         if ($websiteId === null) {
-            return $coreDefault;
+            throw new RuntimeException(
+                'A website context is required to resolve an effective allocation.'
+            );
         }
 
+        $website = \App\Models\Website::query()->find($websiteId);
+
+        if (!$website) {
+            throw new RuntimeException(
+                "Website [{$websiteId}] could not be resolved."
+            );
+        }
+
+        /*
+         * ESUBIZ_UNIVERSAL_SAAS_LIMIT_AUTHORITY_V1
+         *
+         * Native off-server Core is unlimited for allocation-backed Core
+         * capabilities. Central Core Limits and Allocation Add-ons are a
+         * SaaS enforcement layer only.
+         */
+        if ($website->isOffServer()) {
+            return null;
+        }
+
+        /*
+         * Resolve the SaaS base allocation LIVE from Central configuration.
+         *
+         * Nothing is copied into the website. Changing a Core limit in
+         * Central therefore affects existing and future SaaS websites on
+         * their next request.
+         */
+        $limit = DB::table('core_feature_limits')
+            ->where('limit_key', $capabilityKey)
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->first();
+
+        /*
+         * No Central limit means this native Core resource is unlimited.
+         *
+         * A Central limit must explicitly exist before SaaS enforcement
+         * applies. Off-server Core remains unlimited independently.
+         */
+        if (!$limit) {
+            return null;
+        }
+
+        if (
+            (bool) $limit->is_unlimited
+            || (string) $limit->value_type === 'unlimited'
+        ) {
+            return null;
+        }
+
+        $coreDefault = $limit->default_value === null
+            ? $coreDefault
+            : (int) $limit->default_value;
+
+        /*
+         * Allocation Add-ons extend the current live SaaS base allocation.
+         */
         return app(CoreAddonEntitlementService::class)
             ->effectiveCapabilityAllocation(
                 $websiteId,
@@ -354,21 +469,38 @@ class CoreEntitlementService
 
     /**
      * Universal finite/unlimited resource or quantity check.
+     *
+     * Usage is resolved automatically through CoreCapabilityUsageRegistry
+     * unless an explicit usage value is supplied for compatibility.
      */
     public function allowsAllocation(
         string $capabilityKey,
-        int|float $currentUsage,
+        int|float|null $currentUsage = null,
         ?int $websiteId = null,
         ?int $coreDefault = 0
     ): bool {
+        $websiteId = $this->resolveWebsiteId($websiteId);
+
+        if ($websiteId === null) {
+            return false;
+        }
+
         $allocation = $this->effectiveAllocation(
             $capabilityKey,
             $websiteId,
             $coreDefault
         );
 
+        // Off-server Core and centrally unlimited SaaS resources.
         if ($allocation === null) {
             return true;
+        }
+
+        if ($currentUsage === null) {
+            $currentUsage = $this->currentUsage(
+                $capabilityKey,
+                $websiteId
+            );
         }
 
         return $currentUsage < $allocation;
@@ -395,11 +527,15 @@ class CoreEntitlementService
     }
 
     /**
-     * Enforce a finite/unlimited resource or quantity capability.
+     * Universal allocation enforcement.
+     *
+     * Usage belongs to the Core resource itself and is resolved through
+     * the universal usage registry or a registered special meter.
+     * No resource-specific limit engine is required.
      */
     public function enforceAllocation(
         string $capabilityKey,
-        int|float $currentUsage,
+        int|float|null $currentUsage = null,
         ?int $websiteId = null,
         ?int $coreDefault = 0
     ): void {
@@ -425,20 +561,18 @@ class CoreEntitlementService
     }
 
     /**
-     * Universal enforcement entry point.
+     * Universal entitlement enforcement entry point.
      *
-     * mode=feature:
-     *   enforce locked/unlocked capability access.
+     * Feature mode controls capability availability.
+     * Allocation mode uses the live Central SaaS limit plus active Allocation
+     * Add-ons and resolves usage through the universal usage registry.
      *
-     * mode=allocation:
-     *   enforce quantity/resource allocation.
-     *
-     * Used identically by SaaS and off-server Core installations.
+     * Off-server Core bypasses Central allocation limits.
      */
     public function enforceEntitlement(
         string $capabilityKey,
         string $mode = 'feature',
-        int|float $currentUsage = 0,
+        int|float|null $currentUsage = null,
         ?int $websiteId = null,
         ?int $coreDefault = 0
     ): void {

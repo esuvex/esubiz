@@ -309,6 +309,261 @@ class CoreCapabilityUsageRegistry
     }
 
     /**
+     * Resolve usage from a Central-configured Core limit.
+     *
+     * Explicit capability providers remain authoritative. When none exists,
+     * metadata may declare a generic usage source so future SaaS limits can
+     * be introduced without creating capability-specific entitlement code.
+     *
+     * Supported metadata:
+     *
+     * {
+     *   "usage": {
+     *     "driver": "database_count",
+     *     "connection": "tenant",
+     *     "table": "pages"
+     *   }
+     * }
+     */
+    /**
+     * Resolve current usage for any measurable Core resource.
+     *
+     * Resolution order:
+     *
+     * 1. Explicit usage provider.
+     * 2. Plug-and-play feature registry definition.
+     * 3. Core feature resource metadata.
+     *
+     * Usage measurement belongs to the Core resource itself.
+     * Central SaaS limits are independent and affect only the
+     * right-hand allowance through CoreEntitlementService.
+     */
+    public function configuredUsage(
+        string $capabilityKey,
+        int $websiteId
+    ): int|float {
+        if ($this->has($capabilityKey)) {
+            return $this->usage(
+                $capabilityKey,
+                $websiteId
+            );
+        }
+
+        $website = Website::query()->find($websiteId);
+
+        if (!$website) {
+            throw new RuntimeException(
+                "Website [{$websiteId}] could not be resolved."
+            );
+        }
+
+        $usage = $this->configuredUsageDefinition(
+            $capabilityKey
+        );
+
+        $driver = strtolower(
+            trim((string) ($usage['driver'] ?? ''))
+        );
+
+        if ($driver === '') {
+            throw new RuntimeException(
+                "Core resource [{$capabilityKey}] has no configured usage source."
+            );
+        }
+
+        if ($driver !== 'database_count') {
+            throw new RuntimeException(
+                "Unsupported usage driver [{$driver}] for "
+                . "[{$capabilityKey}]."
+            );
+        }
+
+        $connectionName = strtolower(
+            trim((string) ($usage['connection'] ?? 'tenant'))
+        );
+
+        $table = trim(
+            (string) ($usage['table'] ?? '')
+        );
+
+        if (
+            $table === ''
+            || !preg_match('/^[A-Za-z0-9_]+$/', $table)
+        ) {
+            throw new RuntimeException(
+                "Core resource [{$capabilityKey}] has an invalid usage table."
+            );
+        }
+
+        if (
+            !in_array(
+                $connectionName,
+                ['tenant', 'website_tenant'],
+                true
+            )
+        ) {
+            throw new RuntimeException(
+                "Unsupported usage connection [{$connectionName}] for "
+                . "[{$capabilityKey}]."
+            );
+        }
+
+        $tenantDatabase = app(
+            \App\Services\Website\WebsiteTenantDatabaseService::class
+        );
+
+        $tenantDatabase->connect($website);
+
+        try {
+            /*
+             * WebsiteTenantDatabaseService is authoritative for the
+             * active website database. Historical logical labels
+             * tenant / website_tenant both resolve through it.
+             */
+            $connection = $tenantDatabase->connection();
+
+            if (!$connection->getSchemaBuilder()->hasTable($table)) {
+                throw new RuntimeException(
+                    "Configured usage table [{$table}] does not exist "
+                    . "for [{$capabilityKey}]."
+                );
+            }
+
+            return (int) $connection
+                ->table($table)
+                ->count();
+        } finally {
+            $tenantDatabase->disconnect();
+        }
+    }
+
+    /**
+     * Resolve the feature-owned usage definition for a Core resource.
+     */
+    protected function configuredUsageDefinition(
+        string $capabilityKey
+    ): array {
+        /*
+         * CRM functions are plug-and-play and own their measurement
+         * definitions through CoreCrmFeatureRegistry.
+         */
+        try {
+            $crmFeature = app(
+                \App\Services\Core\CoreCrmFeatureRegistry::class
+            )->get($capabilityKey);
+
+            if (
+                is_array($crmFeature)
+                && is_array($crmFeature['usage'] ?? null)
+            ) {
+                return $crmFeature['usage'];
+            }
+        } catch (\Throwable $e) {
+            /*
+             * A registry failure must not prevent other Core resources
+             * from resolving through their own metadata.
+             */
+        }
+
+        /*
+         * Direct feature:
+         *
+         * pages -> Pages
+         * forms -> Forms
+         * users -> Users
+         */
+        $feature = \Illuminate\Support\Facades\DB::table(
+            'core_features'
+        )
+            ->where('key', $capabilityKey)
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->first();
+
+        /*
+         * Direct feature resource.
+         */
+        if ($feature) {
+            $metadata = $feature->metadata
+                ? json_decode($feature->metadata, true)
+                : [];
+
+            $resources = is_array($metadata)
+                ? ($metadata['resources'] ?? [])
+                : [];
+
+            $usage = is_array($resources)
+                ? ($resources[$capabilityKey]['usage'] ?? [])
+                : [];
+
+            if (is_array($usage) && !empty($usage)) {
+                return $usage;
+            }
+        }
+
+        /*
+         * Child resource discovery is independent of Central limits.
+         *
+         * Search active Core feature resource maps directly so a built
+         * resource can resolve usage and display Unlimited before any
+         * SaaS limit has ever been created for it.
+         */
+        $features = \Illuminate\Support\Facades\DB::table(
+            'core_features'
+        )
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->select(['key', 'metadata'])
+            ->get();
+
+        foreach ($features as $candidate) {
+            $metadata = $candidate->metadata
+                ? json_decode($candidate->metadata, true)
+                : [];
+
+            $resources = is_array($metadata)
+                ? ($metadata['resources'] ?? [])
+                : [];
+
+            if (!is_array($resources)) {
+                continue;
+            }
+
+            $usage = $resources[$capabilityKey]['usage'] ?? [];
+
+            if (is_array($usage) && !empty($usage)) {
+                return $usage;
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * Determine whether current usage can be resolved without depending
+     * on the existence of a Central SaaS limit.
+     */
+    public function canResolve(
+        string $capabilityKey
+    ): bool {
+        if ($this->has($capabilityKey)) {
+            return true;
+        }
+
+        try {
+            $usage = $this->configuredUsageDefinition(
+                $capabilityKey
+            );
+
+            return !empty(
+                trim((string) ($usage['driver'] ?? ''))
+            );
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /**
      * Return registered capability keys.
      */
     public function keys(): array

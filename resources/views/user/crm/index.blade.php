@@ -10,6 +10,19 @@
         </p>
     </div>
 
+    @if(($crmFeatures ?? collect())->isNotEmpty())
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            @foreach($crmFeatures as $crmFeature)
+                @include('tenant.admin.components.resource-measurement', [
+                    'resourceKey' => $crmFeature['key'],
+                    'label' => $crmFeature['label'] . ' Usage',
+                    'salesTriggerLocation' =>
+                        $crmFeature['sales_trigger_location'] ?? null,
+                ])
+            @endforeach
+        </div>
+    @endif
+
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
 
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

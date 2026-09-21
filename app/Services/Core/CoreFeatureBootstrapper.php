@@ -93,6 +93,14 @@ class CoreFeatureBootstrapper
                     ],
                 ]
             );
+        /*
+         * Boot the canonical CRM function registry.
+         *
+         * CRM functions own their navigation and measurement definitions.
+         * SaaS limits remain independent live Central configuration.
+         */
+        app(\App\Services\Core\CoreCrmFeatureRegistry::class);
+
         $this->registerDashboard();
         $this->registerUsers();
         $this->registerRoles();

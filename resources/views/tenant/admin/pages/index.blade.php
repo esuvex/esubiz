@@ -125,6 +125,10 @@
 
         </div>
 
+        @include('tenant.admin.components.resource-measurement', [
+            'resourceKey' => 'pages',
+            'label' => 'Pages Usage',
+        ])
 
         <section
             class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"

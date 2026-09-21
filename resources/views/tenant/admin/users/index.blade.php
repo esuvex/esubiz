@@ -33,6 +33,11 @@
 
     </div>
 
+    @include('tenant.admin.components.resource-measurement', [
+        'resourceKey' => 'users',
+        'label' => 'Users Usage',
+    ])
+
     {{-- =====================================================
          MAIN MANAGEMENT TABS
          Add Role remains on Roles & Permissions page.

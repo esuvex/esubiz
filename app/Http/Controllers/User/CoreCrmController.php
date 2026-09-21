@@ -30,9 +30,14 @@ class CoreCrmController extends Controller
         $website = $this->website();
 
         return view('user.crm.index', [
+            'website' => $website,
             'contacts' => $this->crm->contacts($website),
             'leads' => $this->crm->leads($website),
             'tasks' => $this->crm->tasks($website),
+            'crmFeatures' => collect(
+                app(\App\Services\Core\CoreCrmFeatureRegistry::class)
+                    ->available()
+            ),
         ]);
     }
 
