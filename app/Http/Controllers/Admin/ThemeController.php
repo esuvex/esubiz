@@ -8,6 +8,8 @@ use App\Models\WebsiteType;
 use App\Models\MarketplaceCategory;
 use App\Services\Marketplace\ThemePackageService;
 use App\Services\Marketplace\ThemePackageStorageService;
+use App\Services\Media\CentralMediaService;
+use App\Services\Media\EsubizImageOptimizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -185,6 +187,13 @@ class ThemeController extends Controller
                 'exists:marketplace_categories,id',
             ],
             'release_notes' => ['nullable', 'string'],
+
+            'preview_image' => [
+                'nullable',
+                'image',
+                'mimes:jpeg,jpg,png,webp',
+                'max:10240',
+            ],
 
             'website_type_ids' => ['nullable', 'array'],
             'website_type_ids.*' => [
@@ -737,6 +746,23 @@ class ThemeController extends Controller
                  * configuration. Admin configures sales after package
                  * registration.
                  */
+                /*
+                 * Marketplace Preview Photo is managed independently
+                 * from the Theme ZIP package.
+                 *
+                 * An uploaded preview overrides the package-manifest
+                 * preview while the manifest preview remains the
+                 * fallback when no independent photo is supplied.
+                 */
+                if (!empty($data['preview_image'])) {
+                    $packageFacts['preview_path'] =
+                        app(CentralMediaService::class)->store(
+                            $data['preview_image'],
+                            'marketplace/themes/' . $slug . '/previews',
+                            EsubizImageOptimizer::PROFILE_MARKETPLACE_PREVIEW
+                        );
+                }
+
                 $themeId = DB::table(
                     'theme_packages'
                 )
@@ -1116,6 +1142,13 @@ class ThemeController extends Controller
                 'nullable',
                 'string',
             ],
+
+            'preview_image' => [
+                'nullable',
+                'image',
+                'mimes:jpeg,jpg,png,webp',
+                'max:10240',
+            ],
         ]);
 
         /*
@@ -1415,6 +1448,27 @@ class ThemeController extends Controller
             }
         );
 
+
+        /*
+         * Preview Photo is a Marketplace asset, not Theme package
+         * identity. It can therefore be replaced without rebuilding
+         * or changing the Theme ZIP/version.
+         */
+        if (!empty($data['preview_image'])) {
+            $previewPath =
+                app(CentralMediaService::class)->store(
+                    $data['preview_image'],
+                    'marketplace/themes/' . $record->slug . '/previews',
+                    EsubizImageOptimizer::PROFILE_MARKETPLACE_PREVIEW
+                );
+
+            DB::table('theme_packages')
+                ->where('id', $record->id)
+                ->update([
+                    'preview_path' => $previewPath,
+                    'updated_at' => now(),
+                ]);
+        }
 
         return back()->with(
             'success',

@@ -2770,6 +2770,11 @@ class MarketplaceController extends Controller
 
     public function developerAddons()
     {
+        return view('marketplace.developer-addons');
+    }
+
+    public function developerAddonsOffServer()
+    {
         $addons = DB::table('core_addons')
             ->where('is_active', true)
             ->where('off_server_available', true)
@@ -2844,7 +2849,7 @@ class MarketplaceController extends Controller
             }
         }
 
-        return view('marketplace.developer-addons', [
+        return view('marketplace.developer-addons-off-server', [
             'addons' => $addons,
             'bundles' => $bundles,
             'bundleItems' => $bundleItems,

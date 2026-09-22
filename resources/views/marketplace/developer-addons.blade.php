@@ -6,269 +6,82 @@
 
         <div class="mb-8">
             <h1 class="text-2xl font-black text-slate-900">
-                Developer Add-ons
+                Add-ons
             </h1>
             <p class="mt-2 text-sm text-slate-500">
-                Purchase add-ons for your off-server websites.
+                Choose the Esubiz environment you want to manage add-ons for.
             </p>
         </div>
 
-        @if($addons->isEmpty())
-            <div class="rounded-3xl border border-slate-200 bg-white p-10 text-center">
-                <div class="text-lg font-bold text-slate-900">
-                    No off-server add-ons available
+        <div class="grid gap-6 lg:grid-cols-2">
+
+            <a
+                href="{{ route('marketplace.addons') }}"
+                class="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-8 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl"
+            >
+                <div class="flex items-start justify-between gap-6">
+                    <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+                        <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 3v18m9-9H3" />
+                        </svg>
+                    </div>
+
+                    <span class="rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-blue-700">
+                        SaaS
+                    </span>
                 </div>
-                <p class="mt-2 text-sm text-slate-500">
-                    There are currently no add-ons enabled for off-server websites.
-                </p>
-            </div>
-        @else
-            <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                @foreach($addons as $addon)
-                    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-xl">
 
-                        <h2 class="text-lg font-black text-slate-900">
-                            {{ $addon->name }}
-                        </h2>
+                <div class="mt-8">
+                    <h2 class="text-xl font-black text-slate-900">
+                        SaaS Add-ons
+                    </h2>
+                    <p class="mt-3 max-w-lg text-sm leading-6 text-slate-500">
+                        Browse and purchase add-ons and bundles for websites hosted and managed on Esubiz.
+                    </p>
+                </div>
 
-                        @if($addon->description)
-                            <p class="mt-2 text-sm leading-6 text-slate-500">
-                                {{ $addon->description }}
-                            </p>
-                        @endif
+                <div class="mt-8 flex items-center gap-2 text-sm font-black text-blue-600">
+                    Open SaaS Add-ons
+                    <svg class="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </div>
+            </a>
 
-                        <div class="mt-5 rounded-2xl bg-slate-50 p-4">
-                            <div class="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                                Included
-                            </div>
-
-                            <div class="space-y-2">
-                                @forelse($addon->capability_allocations as $allocation)
-                                    <div class="flex items-center justify-between gap-3 text-sm">
-                                        <span class="font-semibold text-slate-800">
-                                            {{ ucwords(str_replace(['_', '-'], ' ', $allocation->capability_key)) }}
-                                        </span>
-
-                                        <span class="whitespace-nowrap rounded-full bg-white px-3 py-1 text-[10px] font-black text-slate-700 ring-1 ring-slate-200">
-                                            @if($allocation->is_unlimited)
-                                                Unlimited
-                                            @elseif($allocation->allocation !== null)
-                                                {{ number_format((float) $allocation->allocation) }}
-                                                {{ $addon->allocation_unit ?? '' }}
-                                            @else
-                                                Not configured
-                                            @endif
-                                        </span>
-                                    </div>
-                                @empty
-                                    <div class="text-sm text-slate-400">
-                                        No allocation details available.
-                                    </div>
-                                @endforelse
-                            </div>
-                        </div>
-
-                        <div class="mt-6 flex items-center justify-between">
-                            <div>
-                                <div class="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                                    Off-server
-                                </div>
-                                <div class="mt-1 text-lg font-black text-slate-900">
-                                    {{ $addon->off_server_currency ?? 'NGN' }}
-                                    {{ number_format((float) ($addon->off_server_price ?? 0), 2) }}
-                                </div>
-                            </div>
-
-                            <div x-data="{ purchasing: false, quantity: 1 }" class="flex flex-col items-end gap-3">
-
-    <button
-        type="button"
-        x-show="!purchasing"
-        x-transition
-        @click="purchasing = true"
-        style="color:#fff !important;" class="rounded-xl bg-blue-600 px-6 py-3 text-xs font-black !text-white shadow-sm transition-all duration-300 ease-out hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-md"
-    >
-        Purchase
-    </button>
-
-    <div
-        x-show="purchasing"
-        x-cloak
-        x-transition
-        class="w-48 rounded-2xl border border-blue-100 bg-blue-50 p-3"
-    >
-        <div class="text-[10px] font-black uppercase tracking-wider text-blue-700">
-            Quantity
-        </div>
-
-        <input
-            type="number"
-            min="1"
-            step="1"
-            x-model.number="quantity"
-            class="mt-2 w-full rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm font-bold text-slate-900"
-        >
-
-        <button
-            type="button"
-            @click.prevent.stop="purchasing = false"
-            class="mt-2 block w-full rounded-xl border border-blue-200 bg-white px-4 py-2 text-center text-xs font-black text-blue-700 transition hover:bg-blue-100"
-        >
-            Cancel
-        </button>
-
-        <a
-            :href="'{{ route('marketplace.checkout.product', ['productType' => 'addon', 'productId' => $addon->id]) }}?quantity=' + Math.max(1, quantity)"
-            style="color:#fff !important;" class="mt-2 block w-full rounded-xl bg-blue-600 px-4 py-2 text-center text-xs font-black !text-white transition hover:bg-blue-700"
-        >
-            Continue
-        </a>
-    </div>
-
-</div>
-                        </div>
-
+            <a
+                href="/developer/marketplace/addons/off-server"
+                class="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-8 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl"
+            >
+                <div class="flex items-start justify-between gap-6">
+                    <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+                        <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
                     </div>
-                @endforeach
-            </div>
-        @endif
 
+                    <span class="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-slate-700">
+                        Off-server
+                    </span>
+                </div>
 
-    @if(isset($bundles) && $bundles->isNotEmpty())
-        <div class="mt-10">
-            <div class="mb-5">
-                <h2 class="text-xl font-black text-slate-900">Bundles</h2>
-                <p class="mt-1 text-sm text-slate-500">
-                    Add-on bundles enabled for off-server websites.
-                </p>
-            </div>
+                <div class="mt-8">
+                    <h2 class="text-xl font-black text-slate-900">
+                        Off-server Add-ons
+                    </h2>
+                    <p class="mt-3 max-w-lg text-sm leading-6 text-slate-500">
+                        Browse add-ons and bundles available for Esubiz Core installations hosted outside Esubiz servers.
+                    </p>
+                </div>
 
-            <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                @foreach($bundles as $bundle)
-                    <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-xl">
-                        <h3 class="text-lg font-black text-slate-900">
-                            {{ $bundle->name }}
-                        </h3>
+                <div class="mt-8 flex items-center gap-2 text-sm font-black text-blue-600">
+                    Open Off-server Add-ons
+                    <svg class="h-4 w-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </div>
+            </a>
 
-                        @if($bundle->description)
-                            <p class="mt-2 text-sm leading-6 text-slate-500">
-                                {{ $bundle->description }}
-                            </p>
-                        @endif
-
-                        @if(isset($bundleItems) && $bundleItems->has($bundle->id))
-                            @php
-                                $developerBundleItems = collect($bundleItems->get($bundle->id));
-                            @endphp
-
-                            <div
-                                class="mt-5 space-y-2"
-                                x-data="{ expanded: false }"
-                            >
-                                @foreach($developerBundleItems as $index => $item)
-                                    <div
-                                        @if($index >= 5)
-                                            x-show="expanded"
-                                            x-cloak
-                                        @endif
-                                        class="flex items-center justify-between gap-3 text-sm"
-                                    >
-                                        <span class="font-semibold text-slate-700">
-                                            {{ $item->name }}
-                                        </span>
-
-                                        <span class="whitespace-nowrap rounded-full bg-slate-50 px-3 py-1 text-[10px] font-black text-slate-600">
-                                            @if($item->is_unlimited)
-                                                Unlimited
-                                            @elseif($item->allocation !== null && $item->allocation !== '')
-                                                {{ rtrim(rtrim(number_format((float) $item->allocation, 2), '0'), '.') }}
-                                                {{ $bundle->unit_name ?? $item->allocation_unit ?? '' }}
-                                            @else
-                                                Included
-                                            @endif
-                                        </span>
-                                    </div>
-                                @endforeach
-
-                                @if($developerBundleItems->count() > 5)
-                                    <button
-                                        type="button"
-                                        @click="expanded = !expanded"
-                                        class="mt-3 text-xs font-black text-blue-600 hover:text-blue-700"
-                                    >
-                                        <span x-show="!expanded">
-                                            See More ({{ $developerBundleItems->count() - 5 }})
-                                        </span>
-
-                                        <span x-show="expanded" x-cloak>
-                                            See Less
-                                        </span>
-                                    </button>
-                                @endif
-                            </div>
-                        @endif
-
-                        <div class="mt-6 flex items-center justify-between">
-                            <span class="text-sm font-black text-slate-900">
-                                @if($bundle->off_server_price !== null)
-                                    {{ $bundle->off_server_currency }} {{ number_format($bundle->off_server_price, 2) }}
-                                @else
-                                    Contact for price
-                                @endif
-                            </span>
-
-                            <div x-data="{ purchasing: false, quantity: 1 }" class="flex flex-col items-end gap-3">
-
-    <button
-        type="button"
-        @click="purchasing = !purchasing"
-        style="color:#fff !important;" class="rounded-xl bg-blue-600 px-6 py-3 text-xs font-black !text-white shadow-sm transition-all duration-300 ease-out hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-md"
-    >
-        Purchase
-    </button>
-
-    <div
-        x-show="purchasing"
-        x-cloak
-        x-transition
-        class="w-48 rounded-2xl border border-blue-100 bg-blue-50 p-3"
-    >
-        <div class="text-[10px] font-black uppercase tracking-wider text-blue-700">
-            Quantity
         </div>
-
-        <input
-            type="number"
-            min="1"
-            step="1"
-            x-model.number="quantity"
-            class="mt-2 w-full rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm font-bold text-slate-900"
-        >
-
-        <button
-            type="button"
-            @click.prevent.stop="purchasing = false"
-            class="mt-2 block w-full rounded-xl border border-blue-200 bg-white px-4 py-2 text-center text-xs font-black text-blue-700 transition hover:bg-blue-100"
-        >
-            Cancel
-        </button>
-
-        <a
-            :href="'{{ route('marketplace.checkout.product', ['productType' => 'bundle', 'productId' => $bundle->id]) }}?quantity=' + Math.max(1, quantity)"
-            style="color:#fff !important;" class="mt-2 block w-full rounded-xl bg-blue-600 px-4 py-2 text-center text-xs font-black !text-white transition hover:bg-blue-700"
-        >
-            Continue
-        </a>
-    </div>
-
-</div>
-                        </div>
-                    </div>
-                @endforeach
-            </div>
-        </div>
-    @endif
-
     </div>
 </div>
 @endsection

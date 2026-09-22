@@ -143,7 +143,7 @@
 
                 </a>
 
-                <a href="{{ route('marketplace.index') }}"
+                <a href="{{ route('marketplace.addons') }}"
                    class="flex items-center gap-3 rounded-xl px-4 py-3 font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-700">
 
                     <span>🛍️</span>

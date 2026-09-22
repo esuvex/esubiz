@@ -85,7 +85,7 @@
             <a
                 href="{{ session('account_mode', 'user') === 'developer'
                     ? route('developer.marketplace')
-                    : route('marketplace.index') }}"
+                    : route('marketplace.addons') }}"
                 class="flex items-center rounded-xl px-5 py-3 transition hover:bg-slate-800">
                 Marketplace
             </a>

@@ -357,6 +357,7 @@
     <form
         method="POST"
         action="{{ route('admin.themes.update', $theme->id) }}"
+        enctype="multipart/form-data"
     >
         @csrf
         @method('PUT')
@@ -439,6 +440,49 @@
                             </select>
                         </div>
 
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <section class="esubiz-theme-section">
+
+                <div class="esubiz-theme-section-head">
+                    <h3>Preview Photo</h3>
+                    <p>
+                        Replace the Marketplace preview without changing the Theme ZIP or version.
+                        Images are automatically optimized to 1600 × 1000 (8:5).
+                    </p>
+                </div>
+
+                <div class="esubiz-theme-section-body">
+
+                    <div class="esubiz-theme-field esubiz-theme-field-full">
+                        <label>Theme Preview Photo</label>
+
+                        <input
+                            type="file"
+                            name="preview_image"
+                            accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                            data-theme-preview-input
+                        >
+
+                        @error('preview_image')
+                            <div class="mt-2 text-sm text-red-600">{{ $message }}</div>
+                        @enderror
+
+                        <div
+                            data-theme-preview-box
+                            style="display:none;margin-top:16px;max-width:560px;"
+                        >
+                            <img
+                                data-theme-preview-image
+                                alt="Theme preview"
+                                style="display:block;width:100%;aspect-ratio:8/5;object-fit:cover;border-radius:16px;border:1px solid #e2e8f0;"
+                            >
+                        </div>
                     </div>
 
                 </div>
@@ -1160,3 +1204,21 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 
 @endsection
+
+<script>
+document.addEventListener('change', function (event) {
+    const input = event.target.closest('[data-theme-preview-input]');
+    if (!input || !input.files || !input.files[0]) return;
+
+    const box = document.querySelector('[data-theme-preview-box]');
+    const image = document.querySelector('[data-theme-preview-image]');
+    if (!box || !image) return;
+
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        image.src = e.target.result;
+        box.style.display = 'block';
+    };
+    reader.readAsDataURL(input.files[0]);
+});
+</script>

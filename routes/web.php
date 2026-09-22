@@ -2618,8 +2618,6 @@ Route::get('/marketplace/checkout/{order}', [\App\Http\Controllers\MarketplaceCo
     Route::get('/marketplace/orders/{order}/payment-status', [\App\Http\Controllers\MarketplaceController::class, 'paymentStatus'])
         ->name('marketplace.payment-status');
 
-    Route::get('/marketplace', [\App\Http\Controllers\MarketplaceController::class, 'index'])
-        ->name('marketplace.index');
     Route::get('/marketplace/addons', [\App\Http\Controllers\MarketplaceController::class, 'addons'])
         ->name('marketplace.addons');
 
@@ -2630,6 +2628,9 @@ Route::middleware(['auth', 'account-mode:developer'])->group(function () {
         ->name('developer.marketplace');
     Route::get('/developer/marketplace/addons', [\App\Http\Controllers\MarketplaceController::class, 'developerAddons'])
         ->name('developer.marketplace.addons');
+
+    Route::get('/developer/marketplace/addons/off-server', [\App\Http\Controllers\MarketplaceController::class, 'developerAddonsOffServer'])
+        ->name('developer.marketplace.addons.off-server');
 
 });
 
@@ -3324,6 +3325,9 @@ Route::get('/marketplace/developer/checkout/{productType}/{productId}', [Marketp
     ->name('marketplace.developer.checkout');
 Route::get('/marketplace/developer/addons', [MarketplaceController::class, 'developerAddons'])
     ->name('marketplace.developer.addons');
+
+Route::get('/marketplace/developer/addons/off-server', [MarketplaceController::class, 'developerAddonsOffServer'])
+    ->name('marketplace.developer.addons.off-server');
 
 
 Route::middleware(['auth'])->group(function () {

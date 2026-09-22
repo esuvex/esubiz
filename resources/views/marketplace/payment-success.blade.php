@@ -253,7 +253,7 @@
          */
         $returnDestination =
             $successDestination
-            ?? route('marketplace.index');
+            ?? route('marketplace.addons');
 
 
         /*

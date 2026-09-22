@@ -32,29 +32,28 @@
 <div class="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
     <div class="mx-auto max-w-7xl">
 
-        @if(session('account_mode') === 'developer')
-            <div class="mb-6">
-                <a
-                    href="/developer/marketplace/addons"
-                    class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-black text-slate-700 shadow-sm transition hover:border-blue-200 hover:text-blue-600 hover:shadow-md"
-                >
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                    </svg>
-                    Back to Add-ons
-                </a>
-            </div>
-        @endif
+
+        <div class="mb-6">
+            <a
+                href="{{ route('developer.marketplace.addons') }}"
+                class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-black text-slate-700 shadow-sm transition hover:border-blue-200 hover:text-blue-600 hover:shadow-md"
+            >
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                Back to Add-ons
+            </a>
+        </div>
 
         <div class="mb-8">
             <div class="text-xs font-black uppercase tracking-[.18em] text-blue-600">
-                Esubiz Marketplace
+                Developer Marketplace
             </div>
             <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">
-                Add-ons Marketplace
+                Off-server Add-ons Marketplace
             </h1>
             <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-                Extend your website with individual Add-ons or complete Bundles.
+                Purchase Add-ons and Bundles for your off-server Esubiz Core websites.
             </p>
         </div>
 
@@ -112,10 +111,10 @@
                     'preview' => $preview,
                     'features' => $features,
                     'items' => [],
-                    'price' => $addon->saas_price,
-                    'currency' => $addon->saas_currency ?? config('app.currency', 'NGN'),
-                    'billing_period' => $addon->saas_billing_period ?? null,
-                    'billing_interval' => $addon->saas_billing_interval ?? null,
+                    'price' => $addon->off_server_price,
+                    'currency' => $addon->off_server_currency,
+                    'billing_period' => $addon->off_server_billing_period ?? null,
+                    'billing_interval' => $addon->off_server_billing_interval ?? null,
                     'featured' => (bool) ($addon->marketplace_featured ?? false),
                     'purchase_count' => (int) ($addon->marketplace_purchase_count ?? 0),
                     'marketplace_created_at' => $addon->marketplace_created_at ?? $addon->created_at ?? null,
@@ -152,10 +151,10 @@
                     'preview' => $preview,
                     'features' => [],
                     'items' => $items,
-                    'price' => $bundle->saas_price,
-                    'currency' => $bundle->saas_currency ?? config('app.currency', 'NGN'),
-                    'billing_period' => $bundle->saas_billing_period ?? null,
-                    'billing_interval' => $bundle->saas_billing_interval ?? null,
+                    'price' => $bundle->off_server_price,
+                    'currency' => $bundle->off_server_currency,
+                    'billing_period' => $bundle->off_server_billing_period ?? null,
+                    'billing_interval' => $bundle->off_server_billing_interval ?? null,
                     'featured' => (bool) ($bundle->marketplace_featured ?? false),
                     'purchase_count' => (int) ($bundle->marketplace_purchase_count ?? 0),
                     'marketplace_created_at' => $bundle->marketplace_created_at ?? $bundle->created_at ?? null,
@@ -477,35 +476,40 @@
             </button>
         </div>
 
-        <form method="POST" action="{{ route('marketplace.checkout.create') }}" class="p-6">
-            @csrf
-
+        <form
+            id="developerOffServerPurchaseForm"
+            method="GET"
+            action=""
+            class="p-6"
+        >
             <input id="addonPurchaseType" type="hidden" name="product_type">
             <input id="addonPurchaseId" type="hidden" name="product_id">
-            <input type="hidden" name="deployment_type" value="saas">
 
-            <label class="text-xs font-black uppercase tracking-wider text-slate-500">
-                Website
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div class="text-[10px] font-black uppercase tracking-[.16em] text-slate-400">
+                    Deployment
+                </div>
+                <div class="mt-1 text-sm font-black text-slate-900">
+                    Off-server Esubiz Core
+                </div>
+                <p class="mt-1 text-xs leading-5 text-slate-500">
+                    This product will be purchased for an off-server Core installation.
+                </p>
+            </div>
+
+            <label class="mt-5 block text-xs font-black uppercase tracking-wider text-slate-500">
+                Quantity
             </label>
 
-            <select
-                name="website_id"
+            <input
+                type="number"
+                name="quantity"
+                value="1"
+                min="1"
+                step="1"
                 required
                 class="mt-2 w-full rounded-xl border-slate-200 bg-white text-sm focus:border-blue-500 focus:ring-blue-500"
             >
-                <option value="">Select website</option>
-                @foreach(
-                    \App\Models\Website::query()
-                        ->where('owner_id', auth()->id())
-                        ->orderBy('name')
-                        ->get()
-                    as $website
-                )
-                    <option value="{{ $website->id }}">
-                        {{ $website->name }}
-                    </option>
-                @endforeach
-            </select>
 
             <button
                 type="submit"
@@ -613,6 +617,35 @@ document.addEventListener('DOMContentLoaded', function () {
             purchaseModal.setAttribute('aria-hidden', 'false');
             document.documentElement.classList.add('overflow-hidden');
         });
+    });
+
+    const developerOffServerPurchaseForm =
+        document.getElementById('developerOffServerPurchaseForm');
+
+    developerOffServerPurchaseForm?.addEventListener('submit', function (event) {
+        const type =
+            document.getElementById('addonPurchaseType')?.value || '';
+
+        const id =
+            document.getElementById('addonPurchaseId')?.value || '';
+
+        if (!type || !id) {
+            event.preventDefault();
+            return;
+        }
+
+        this.action =
+            '/marketplace/developer/checkout/'
+            + encodeURIComponent(type)
+            + '/'
+            + encodeURIComponent(id);
+
+        /*
+         * product_type/product_id are already represented by the route.
+         * Prevent duplicate query parameters.
+         */
+        document.getElementById('addonPurchaseType')?.removeAttribute('name');
+        document.getElementById('addonPurchaseId')?.removeAttribute('name');
     });
 
     document.querySelectorAll('[data-addon-features-close]').forEach(button =>

@@ -59,6 +59,19 @@ class CheckAccountMode
             return $next($request);
         }
 
+        /*
+         * User-mode functionality is the shared SaaS/customer layer.
+         *
+         * Developers and Platform Admins may use these exact User-mode
+         * routes without switching their active account mode. Their
+         * Developer/Admin session remains unchanged.
+         *
+         * Developer and Admin routes remain mode-specific.
+         */
+        if ($mode === 'user') {
+            return $next($request);
+        }
+
         if (session('account_mode') !== $mode) {
             abort(
                 403,
