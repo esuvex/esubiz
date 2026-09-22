@@ -1,478 +1,783 @@
 @extends('admin.layouts.app')
 
 @section('content')
+
+{{-- ESUBIZ_ADDON_MOBILE_CARD_HEIGHT_V572 --}}
+<style>
+    .addon-marketplace-preview {
+        height: 176px;
+    }
+
+    @media (max-width: 639px) {
+        #addonMarketplaceGrid .addon-marketplace-card {
+            min-height: 0 !important;
+            height: auto !important;
+        }
+
+        #addonMarketplaceGrid .addon-marketplace-preview {
+            height: 100px !important;
+            min-height: 100px !important;
+            max-height: 100px !important;
+        }
+
+        #addonMarketplaceGrid .addon-marketplace-preview img {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover !important;
+        }
+    }
+</style>
+
+
 <div class="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
     <div class="mx-auto max-w-7xl">
 
-        {{-- Header --}}
-        <div class="mb-10">
-            <div class="text-xs font-black uppercase tracking-[0.25em] text-blue-600">
-                ESUBIZ MARKETPLACE
+        <div class="mb-8">
+            <div class="text-xs font-black uppercase tracking-[.18em] text-blue-600">
+                Esubiz Marketplace
             </div>
-
-            <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
-                Extend your website
+            <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">
+                Add-ons Marketplace
             </h1>
-
             <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-                Add the exact capabilities you need, or choose a bundle for a complete package.
+                Extend your website with individual Add-ons or complete Bundles.
             </p>
         </div>
 
+        <div class="mb-8 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <input
+                id="addonMarketplaceSearch"
+                type="search"
+                placeholder="Search Add-ons and Bundles..."
+                class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white"
+            >
+        </div>
 
-        {{-- ============================================================
-             INDIVIDUAL ADD-ONS
-        ============================================================= --}}
-        <section>
-            <div class="mb-6">
-                <h2 class="text-2xl font-black text-slate-950">
-                    Add-ons
-                </h2>
+        @php
+            $marketplaceProducts = collect();
 
-                <p class="mt-1 text-sm text-slate-500">
-                    Add individual capabilities to your website.
-                </p>
-            </div>
+            foreach ($addons as $addon) {
+                $preview = !empty($addon->preview_image)
+                    ? route('marketplace.addons.preview', [
+                        'type' => 'addon',
+                        'id' => $addon->id,
+                    ])
+                    : null;
 
-            <div class="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
+                $features = collect($addon->capability_allocations ?? [])->map(function ($allocation) use ($addon) {
+                    $name = $allocation->display_name
+                        ?? $allocation->capability_name
+                        ?? $allocation->name
+                        ?? $allocation->capability_key
+                        ?? 'Feature';
 
-                @forelse($addons as $addon)
+                    $value = (bool) ($allocation->is_unlimited ?? false)
+                        ? 'Unlimited'
+                        : (
+                            isset($allocation->allocation) && $allocation->allocation !== null
+                                ? rtrim(rtrim(number_format((float) $allocation->allocation, 2), '0'), '.')
+                                : null
+                        );
 
-                    @php
-                        $rawFeatures = $addon->capability_list ?? [];
-                        $decodedFeatures = is_string($rawFeatures)
-                            ? json_decode($rawFeatures, true)
-                            : $rawFeatures;
-                        $features = collect(is_array($decodedFeatures) ? $decodedFeatures : []);
-                        $visibleFeatures = $features->take(5);
-                        $remainingFeatures = $features->slice(5);
-                    @endphp
+                    $unit = $allocation->display_unit
+                        ?? $addon->allocation_unit
+                        ?? null;
 
-                    <div
-                        x-data="{ expanded: false, checkout: false }"
-                        class="esubiz-card flex min-h-[430px] flex-col overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm"
-                    >
+                    return [
+                        'name' => $name,
+                        'value' => trim(($value ?? '') . ($unit ? ' ' . $unit : '')),
+                    ];
+                })->values()->all();
 
-                        {{-- Card body --}}
-                        <div class="flex-1 p-5">
+                $marketplaceProducts->push([
+                    'type' => 'addon',
+                    'id' => $addon->id,
+                    'catalog_product_id' => $addon->catalog_product_id ?? null,
+                    'name' => $addon->name,
+                    'description' => $addon->description,
+                    'preview' => $preview,
+                    'features' => $features,
+                    'items' => [],
+                    'price' => $addon->saas_price,
+                    'currency' => $addon->saas_currency ?? config('app.currency', 'NGN'),
+                    'billing_period' => $addon->saas_billing_period ?? null,
+                    'billing_interval' => $addon->saas_billing_interval ?? null,
+                    'featured' => (bool) ($addon->marketplace_featured ?? false),
+                    'purchase_count' => (int) ($addon->marketplace_purchase_count ?? 0),
+                    'marketplace_created_at' => $addon->marketplace_created_at ?? $addon->created_at ?? null,
+                ]);
+            }
 
-                            <div class="flex items-start justify-between gap-3">
-                                <span class="rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-blue-700">
-                                    Add-on
-                                </span>
-                            </div>
+            foreach ($bundles as $bundle) {
+                $preview = !empty($bundle->preview_image)
+                    ? route('marketplace.addons.preview', [
+                        'type' => 'bundle',
+                        'id' => $bundle->id,
+                    ])
+                    : null;
 
-                            <h3 class="mt-4 text-xl font-black text-slate-950">
-                                {{ $addon->name }}
-                            </h3>
+                $items = collect($bundleItems->get($bundle->id, []))->map(function ($item) {
+                    return [
+                        'name' => $item->name ?? 'Add-on',
+                        'value' => (bool) ($item->is_unlimited ?? false)
+                            ? 'Unlimited'
+                            : (
+                                isset($item->allocation) && $item->allocation !== null
+                                    ? rtrim(rtrim(number_format((float) $item->allocation, 2), '0'), '.')
+                                    : 'Included'
+                            ),
+                    ];
+                })->values()->all();
 
-                            @if($addon->description)
-                                <p class="mt-2 min-h-[40px] text-xs leading-5 text-slate-500">
-                                    {{ $addon->description }}
-                                </p>
-                            @endif
+                $marketplaceProducts->push([
+                    'type' => 'bundle',
+                    'id' => $bundle->id,
+                    'catalog_product_id' => $bundle->catalog_product_id ?? null,
+                    'name' => $bundle->name,
+                    'description' => $bundle->description,
+                    'preview' => $preview,
+                    'features' => [],
+                    'items' => $items,
+                    'price' => $bundle->saas_price,
+                    'currency' => $bundle->saas_currency ?? config('app.currency', 'NGN'),
+                    'billing_period' => $bundle->saas_billing_period ?? null,
+                    'billing_interval' => $bundle->saas_billing_interval ?? null,
+                    'featured' => (bool) ($bundle->marketplace_featured ?? false),
+                    'purchase_count' => (int) ($bundle->marketplace_purchase_count ?? 0),
+                    'marketplace_created_at' => $bundle->marketplace_created_at ?? $bundle->created_at ?? null,
+                ]);
+            }
+        @endphp
 
-                            {{-- Allocated features --}}
-                            @php
-                                $allocations = collect($addon->capability_allocations ?? []);
-                            @endphp
+        {{-- ESUBIZ_ADDON_CATEGORY_TABS_V568B --}}
+@php
+    $esuAddonMarketplaceCategories =
+        \App\Models\MarketplaceCategory::query()
+            ->active()
+            ->ordered()
+            ->get()
+            ->filter(
+                fn ($category) =>
+                    $category->supportsProductType('addon')
+            )
+            ->values();
 
-                            <div
-                                x-data="{ expanded: false }"
-                                class="mt-4 rounded-2xl border border-slate-100 bg-white px-4 py-3"
+    $esuProductCategoryMap = [];
+
+    $esuCatalogIds = collect($addons ?? [])
+        ->pluck('catalog_product_id')
+        ->merge(
+            collect($bundles ?? [])
+                ->pluck('catalog_product_id')
+        )
+        ->filter()
+        ->map(fn ($id) => (int) $id)
+        ->unique()
+        ->values();
+
+    if ($esuCatalogIds->isNotEmpty()) {
+        $esuProductCategoryMap =
+            \Illuminate\Support\Facades\DB::table(
+                'catalog_product_marketplace_category'
+            )
+                ->whereIn(
+                    'catalog_product_id',
+                    $esuCatalogIds->all()
+                )
+                ->get()
+                ->groupBy('catalog_product_id')
+                ->map(
+                    fn ($rows) =>
+                        $rows->pluck('marketplace_category_id')
+                            ->map(fn ($id) => (int) $id)
+                            ->values()
+                            ->all()
+                )
+                ->all();
+
+        $esuAssignedCategoryIds = collect($esuProductCategoryMap)
+            ->flatten()
+            ->map(fn ($id) => (int) $id)
+            ->unique();
+
+        $esuAddonMarketplaceCategories =
+            $esuAddonMarketplaceCategories
+                ->filter(
+                    fn ($category) =>
+                        $esuAssignedCategoryIds->contains(
+                            (int) $category->id
+                        )
+                )
+                ->values();
+    } else {
+        $esuAddonMarketplaceCategories = collect();
+    }
+@endphp
+
+{{-- ESUBIZ_ADDON_RANKING_TABS_V590 --}}
+<div class="mb-6" data-addon-ranking-filter>
+    <div class="flex gap-2 overflow-x-auto pb-2" data-addon-ranking-tabs>
+        <button type="button"
+                data-addon-ranking-tab="all"
+                class="shrink-0 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition">
+            All Products
+        </button>
+
+        <button type="button"
+                data-addon-ranking-tab="new"
+                class="shrink-0 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:border-blue-300 hover:text-blue-600">
+            New Products
+        </button>
+
+        <button type="button"
+                data-addon-ranking-tab="featured"
+                class="shrink-0 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:border-blue-300 hover:text-blue-600">
+            Featured
+        </button>
+
+        <button type="button"
+                data-addon-ranking-tab="purchased"
+                class="shrink-0 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:border-blue-300 hover:text-blue-600">
+            Most Purchased
+        </button>
+    </div>
+</div>
+
+<div class="mb-6" data-addon-category-filter>
+    <div class="mb-2 text-sm font-semibold text-slate-700">
+        Categories
+    </div>
+
+    <div
+        class="flex gap-2 overflow-x-auto pb-2"
+        data-addon-category-tabs
+    >
+        <button
+            type="button"
+            data-addon-category-tab="all"
+            class="shrink-0 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition"
+        >
+            All
+        </button>
+
+    @foreach($esuAddonMarketplaceCategories as $esuCategory)
+        <button
+            type="button"
+            data-addon-category-tab="{{ $esuCategory->id }}"
+            class="shrink-0 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:border-blue-300 hover:text-blue-600"
+        >
+            {{ $esuCategory->name }}
+        </button>
+    @endforeach
+    </div>
+</div>
+
+        <div id="addonMarketplaceGrid" class="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
+            @forelse($marketplaceProducts as $product)
+                <article
+                    class="addon-marketplace-card flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                    data-product-type="{{ $product['type'] }}"
+                    data-product-id="{{ $product['id'] }}"
+                    data-category-ids="{{ collect($esuProductCategoryMap[(int) ($product['catalog_product_id'] ?? 0)] ?? [])->implode(',') }}"
+                    data-featured="{{ $product['featured'] ? '1' : '0' }}"
+                    data-purchase-count="{{ $product['purchase_count'] }}"
+                    data-created-at="{{ $product['marketplace_created_at'] ? \Illuminate\Support\Carbon::parse($product['marketplace_created_at'])->timestamp : 0 }}"
+                    data-original-order="{{ $loop->index }}"
+                    data-search="{{ strtolower($product['name'].' '.($product['description'] ?? '').' '.$product['type']) }}"
+                >
+                    <div class="addon-marketplace-preview relative overflow-hidden border-b border-slate-200 bg-slate-100">
+                        @if($product['preview'])
+                            <img
+                                src="{{ $product['preview'] }}"
+                                alt="{{ $product['name'] }} preview"
+                                class="h-full w-full object-cover"
+                                loading="lazy"
                             >
-                                <div class="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                                    Included features
+                        @else
+                            <div class="flex h-full items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 text-white">
+                                <div class="text-center">
+                                    <div class="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-white/10 text-xl">
+                                        ◈
+                                    </div>
+                                    <div class="mt-3 text-sm font-black">
+                                        {{ $product['name'] }}
+                                    </div>
+                                    <div class="mt-1 text-[10px] font-bold text-slate-300">
+                                        Preview unavailable
+                                    </div>
                                 </div>
+                            </div>
+                        @endif
 
-                                <div class="mt-3 space-y-2">
-                                    @forelse($allocations as $index => $allocation)
-                                        <div
-                                            x-show="expanded || {{ $index }} < 5"
-                                            class="flex items-center justify-between gap-3 text-sm"
-                                        >
-                                            <span class="font-semibold text-slate-800">
-                                                {{ $allocation->capability_name
-                                                    ?? $allocation->name
-                                                    ?? $allocation->capability_key
-                                                    ?? $allocation->key
-                                                    ?? 'Feature' }}
-                                            </span>
+                        <span class="absolute left-4 top-4 rounded-full bg-white/95 px-3 py-1 text-[9px] font-black uppercase tracking-wide text-slate-700 shadow-sm">
+                            {{ $product['type'] === 'bundle' ? 'Bundle' : 'Add-on' }}
+                        </span>
+                    </div>
 
-                                            <span class="whitespace-nowrap rounded-full bg-blue-50 px-3 py-1 text-[10px] font-black text-blue-700">
-                                                @if((bool) ($allocation->is_unlimited ?? false))
-                                                    Unlimited{{ !empty($addon->allocation_unit) ? ' ' . $addon->allocation_unit : '' }}
-                                                @elseif($allocation->allocation !== null && $allocation->allocation !== '')
-                                                    {{ number_format((float) $allocation->allocation) }}{{ !empty($addon->allocation_unit) ? ' ' . $addon->allocation_unit : '' }}
-                                                @else
-                                                    Not configured
-                                                @endif
-                                            </span>
-                                        </div>
-                                    @empty
-                                        <div class="text-sm text-slate-400">
-                                            No allocation details available.
-                                        </div>
-                                    @endforelse
-                                </div>
+                    <div class="flex flex-1 flex-col p-3 sm:p-5">
+                        <h2 class="line-clamp-1 text-sm font-black text-slate-950 sm:text-lg">
+                            {{ $product['name'] }}
+                        </h2>
 
-                                @if($allocations->count() > 5)
-                                    <button
-                                        type="button"
-                                        @click="expanded = !expanded"
-                                        class="mt-3 text-xs font-bold text-blue-600"
-                                    >
-                                        <span x-show="!expanded">See more</span>
-                                        <span x-show="expanded">See less</span>
-                                    </button>
+                        @if($product['description'])
+                            <p class="mt-1 line-clamp-1 text-xs leading-5 text-slate-500 sm:mt-2 sm:line-clamp-3 sm:text-sm sm:leading-6">
+                                {{ $product['description'] }}
+                            </p>
+                        @endif
+
+                        <div class="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 sm:mt-5 sm:rounded-xl sm:p-3">
+                            <div class="text-[9px] font-black uppercase tracking-[.14em] text-slate-400">
+                                Price
+                            </div>
+                            <div class="mt-1 text-sm font-black text-slate-950 sm:text-lg">
+                                @if($product['price'] === null || (float) $product['price'] <= 0)
+                                    Free
+                                @else
+                                    {{ strtoupper($product['currency']) }}
+                                    {{ number_format((float) $product['price'], 2) }}
                                 @endif
                             </div>
 
-                            
-                        </div>
-
-
-                        {{-- Pricing / Buy --}}
-                        <div class="border-t border-slate-100 p-5">
-
-                            <div class="mb-4 flex items-end justify-between gap-2">
-
-                                <div>
-                                    <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                        SaaS
-                                    </div>
-
-                                    <div class="mt-1 text-lg font-black text-slate-950">
-                                        {{ $addon->saas_currency ?? 'NGN' }}
-                                        {{ number_format((float)($addon->saas_price ?? 0), 2) }}
-                                    </div>
+                            @if($product['billing_period'] && $product['billing_interval'])
+                                <div class="mt-0.5 text-[11px] font-bold text-slate-500">
+                                    {{ $product['billing_period'] }}
+                                    {{ ucfirst($product['billing_interval']) }}{{ (int) $product['billing_period'] === 1 ? '' : 's' }}
                                 </div>
-
-                                <div class="pb-1 text-right text-[10px] text-slate-400">
-                                    / {{ $addon->saas_billing_period ?? 12 }}
-                                    {{ $addon->saas_billing_interval ?? 'month' }}
-                                </div>
-
-                            </div>
-
-                            <button
-                                type="button"
-                                @click="checkout = true"
-                                class="w-full rounded-2xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
-                            >
-                                Buy Add-on
-                            </button>
-
-
-                            {{-- Inline checkout --}}
-                            <div
-                                x-show="checkout"
-                                x-cloak
-                                x-transition
-                                class="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4"
-                            >
-
-                                <div class="mb-3">
-                                    <div class="text-sm font-black text-slate-950">
-                                        {{ $addon->name }}
-                                    </div>
-
-                                    <div class="mt-1 text-xs text-slate-500">
-                                        Select the website where this add-on should be deployed.
-                                    </div>
-                                </div>
-
-                                <form method="POST" action="{{ route('marketplace.checkout.create') }}">
-                                    @csrf
-
-                                    <input type="hidden" name="product_type" value="addon">
-                                    <input type="hidden" name="product_id" value="{{ $addon->id }}">
-
-                                    <select
-                                        name="website_id"
-                                        required
-                                        class="w-full rounded-xl border-slate-200 bg-white text-sm focus:border-blue-500 focus:ring-blue-500"
-                                    >
-                                        <option value="">Select website</option>
-
-                                        @foreach(
-                                            \App\Models\Website::query()
-                                                ->where('owner_id', auth()->id())
-                                                ->orderBy('name')
-                                                ->get()
-                                            as $website
-                                        )
-                                            <option value="{{ $website->id }}">
-                                                {{ $website->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-
-                                    <input type="hidden" name="deployment_type" value="saas">
-
-                                    <div class="mt-3 flex gap-2">
-                                        <button
-                                            type="submit"
-                                            class="flex-1 rounded-xl bg-blue-600 px-3 py-2.5 text-xs font-black text-white hover:bg-blue-700"
-                                        >
-                                            Continue
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            @click="checkout = false"
-                                            class="rounded-xl bg-white px-3 py-2.5 text-xs font-bold text-slate-600 ring-1 ring-slate-200"
-                                        >
-                                            Cancel
-                                        </button>
-                                    </div>
-                                </form>
-
-                            </div>
-
-                        </div>
-                    </div>
-
-                @empty
-
-                    <div class="col-span-full rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center">
-                        <div class="text-sm font-bold text-slate-600">
-                            No add-ons are currently available.
-                        </div>
-                    </div>
-
-                @endforelse
-
-            </div>
-        </section>
-
-
-        {{-- ============================================================
-             BUNDLES
-        ============================================================= --}}
-        <section class="mt-16">
-
-            <div class="mb-6">
-                <h2 class="text-2xl font-black text-slate-950">
-                    Addon Bundles
-                </h2>
-
-                <p class="mt-1 text-sm text-slate-500">
-                    Get multiple capabilities together in one package.
-                </p>
-            </div>
-
-
-            <div class="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
-
-                @forelse($bundles as $bundle)
-
-                    @php
-                        $items = collect($bundleItems->get($bundle->id, []));
-                    @endphp
-
-                    <div
-                        x-data="{ checkout: false }"
-                        class="flex min-h-[470px] flex-col overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl"
-                    >
-
-                        <div class="flex-1 p-5">
-
-                            <div class="flex items-start justify-between gap-3">
-
-                                <span class="rounded-full bg-amber-50 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-amber-700">
-                                    Bundle
-                                </span>
-
-                                <div class="text-right">
-                                    <div class="text-lg font-black text-slate-950">
-                                        {{ $bundle->saas_currency ?? 'NGN' }}
-                                        {{ number_format((float)($bundle->saas_price ?? 0), 2) }}
-                                    </div>
-
-                                    <div class="text-[10px] text-slate-400">
-                                        / {{ $bundle->saas_billing_period ?? 12 }}
-                                        {{ $bundle->saas_billing_interval ?? 'month' }}
-                                    </div>
-                                </div>
-
-                            </div>
-
-                            <h3 class="mt-4 text-xl font-black text-slate-950">
-                                {{ $bundle->name }}
-                            </h3>
-
-                            @if($bundle->description)
-                                <p class="mt-2 text-xs leading-5 text-slate-500">
-                                    {{ $bundle->description }}
-                                </p>
                             @endif
-
-
-                            {{-- Full bundle contents --}}
-                            <div class="mt-5 rounded-2xl bg-slate-50 p-4">
-
-                                <div class="mb-4 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                                    Everything included
-                                </div>
-
-                                <div class="space-y-4">
-
-                                    @forelse($items as $item)
-
-                                        <div class="border-b border-slate-200 pb-3 last:border-0 last:pb-0">
-
-                                            <div class="flex items-start justify-between gap-2">
-
-                                                <div class="flex items-start gap-2">
-                                                    <span class="font-black text-amber-600">
-                                                        ✓
-                                                    </span>
-
-                                                    <span class="text-xs font-black text-slate-800">
-                                                        {{ $item->name }}
-                                                    </span>
-                                                </div>
-
-                                                <span class="shrink-0 rounded-full bg-white px-2 py-1 text-[9px] font-bold text-slate-500 ring-1 ring-slate-200">
-                                                    @if($item->is_unlimited)
-                                                        Unlimited
-                                                    @elseif($item->allocation !== null && $item->allocation !== '')
-                                                        {{ $item->allocation }}
-                                                    @else
-                                                        Included
-                                                    @endif
-                                                </span>
-
-                                            </div>
-
-
-                                            @if(!empty($item->capability_list))
-
-                                                <div class="mt-2 ml-5 space-y-1">
-
-                                                    @foreach($item->capability_list as $feature)
-
-                                                        <div class="text-[10px] leading-4 text-slate-500">
-                                                            • {{ ucwords(str_replace(['_', '-'], ' ', $feature)) }}
-                                                        </div>
-
-                                                    @endforeach
-
-                                                </div>
-
-                                            @endif
-
-                                        </div>
-
-                                    @empty
-
-                                        <div class="text-xs text-slate-400">
-                                            No bundle contents available.
-                                        </div>
-
-                                    @endforelse
-
-                                </div>
-                            </div>
-
                         </div>
 
 
-                        {{-- Bundle purchase --}}
-                        <div class="border-t border-slate-100 p-5">
+<div class="mt-auto grid grid-cols-2 gap-2 pt-2 sm:pt-5">
+                            <button
+                                type="button"
+                                class="addon-features-trigger rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-black text-slate-700 transition hover:bg-slate-50"
+                                data-product='@json($product)'
+                            >
+                                View Features
+                            </button>
 
                             <button
                                 type="button"
-                                @click="checkout = true"
-                                class="w-full rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white shadow-lg shadow-slate-950/20 transition hover:bg-slate-800"
+                                class="addon-buy-trigger rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-black text-white transition hover:bg-blue-700"
+                                data-product-type="{{ $product['type'] }}"
+                                data-product-id="{{ $product['id'] }}"
+                                data-product-name="{{ $product['name'] }}"
                             >
-                                Buy Bundle
+                                {{ $product['price'] === null || (float) $product['price'] <= 0 ? 'Get' : 'Purchase' }}
                             </button>
-
-
-                            {{-- Inline checkout --}}
-                            <div
-                                x-show="checkout"
-                                x-cloak
-                                x-transition
-                                class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4"
-                            >
-
-                                <div class="mb-3">
-                                    <div class="text-sm font-black text-slate-950">
-                                        {{ $bundle->name }}
-                                    </div>
-
-                                    <div class="mt-1 text-xs text-slate-500">
-                                        Select the website where this bundle should be deployed.
-                                    </div>
-                                </div>
-
-                                <form method="POST" action="{{ route('marketplace.checkout.create') }}">
-                                    @csrf
-
-                                    <input type="hidden" name="product_type" value="bundle">
-                                    <input type="hidden" name="product_id" value="{{ $bundle->id }}">
-                                    <input type="hidden" name="deployment_type" value="saas">
-
-                                    <select
-                                        name="website_id"
-                                        required
-                                        class="w-full rounded-xl border-slate-200 bg-white text-sm focus:border-slate-500 focus:ring-slate-500"
-                                    >
-                                        <option value="">Select website</option>
-
-                                        @foreach(
-                                            \App\Models\Website::query()
-                                                ->where('owner_id', auth()->id())
-                                                ->orderBy('name')
-                                                ->get()
-                                            as $website
-                                        )
-                                            <option value="{{ $website->id }}">
-                                                {{ $website->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-
-                                    <div class="mt-3 flex gap-2">
-                                        <button
-                                            type="submit"
-                                            class="flex-1 rounded-xl bg-slate-950 px-3 py-2.5 text-xs font-black text-white hover:bg-slate-800"
-                                        >
-                                            Continue
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            @click="checkout = false"
-                                            class="rounded-xl bg-white px-3 py-2.5 text-xs font-bold text-slate-600 ring-1 ring-slate-200"
-                                        >
-                                            Cancel
-                                        </button>
-                                    </div>
-                                </form>
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                @empty
-
-                    <div class="col-span-full rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center">
-                        <div class="text-sm font-bold text-slate-600">
-                            No bundles are currently available.
                         </div>
                     </div>
+                </article>
+            @empty
+                <div class="col-span-full rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
+                    <div class="text-lg font-black text-slate-900">
+                        No Add-ons or Bundles available
+                    </div>
+                </div>
+            @endforelse
+        </div>
 
-                @endforelse
-
+        <div id="addonMarketplaceEmpty" class="mt-5 hidden rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center">
+            <div class="text-lg font-black text-slate-900">
+                No products match your search
             </div>
-        </section>
-
+        </div>
     </div>
 </div>
+
+{{-- FEATURES MODAL --}}
+<div
+    id="addonFeaturesModal"
+    class="fixed inset-0 z-[3500] hidden overflow-y-auto bg-slate-950/70 p-3 backdrop-blur-sm sm:p-6"
+    aria-hidden="true"
+>
+    <div
+        class="mx-auto w-full max-w-3xl overflow-hidden rounded-3xl bg-white shadow-2xl"
+        style="display:flex;flex-direction:column;position:fixed;top:calc(76px + env(safe-area-inset-top, 0px));bottom:calc(12px + env(safe-area-inset-bottom, 0px));left:12px;right:12px;width:auto;max-width:768px;margin:0 auto;"
+    >
+        <div class="relative z-20 flex shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-5 py-4 sm:px-6">
+            <div>
+                <div id="addonFeaturesType" class="text-[10px] font-black uppercase tracking-[.16em] text-blue-600">
+                    Add-on
+                </div>
+                <h2 id="addonFeaturesTitle" class="mt-1 text-xl font-black text-slate-950">
+                    Product
+                </h2>
+            </div>
+
+            <button
+                type="button"
+                data-addon-features-close
+                class="grid h-10 w-10 place-items-center rounded-xl bg-slate-100 text-xl font-black text-slate-700 transition hover:bg-slate-200"
+                aria-label="Close"
+            >
+                ×
+            </button>
+        </div>
+
+        <div
+            class="p-5 sm:p-6"
+            style="flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;"
+        >
+            <img
+                id="addonFeaturesPreview"
+                src=""
+                alt=""
+                class="mb-5 hidden max-h-[360px] w-full rounded-2xl border border-slate-200 object-cover"
+            >
+
+            <p id="addonFeaturesDescription" class="hidden text-sm leading-6 text-slate-600"></p>
+
+            <div id="addonFeaturesSection" class="mt-6">
+                <div class="mb-3 text-xs font-black uppercase tracking-[.14em] text-slate-400">
+                    Features
+                </div>
+                <div id="addonFeaturesList" class="grid gap-3 sm:grid-cols-2"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- PURCHASE MODAL --}}
+<div
+    id="addonPurchaseModal"
+    class="fixed inset-0 z-[3500] hidden overflow-y-auto bg-slate-950/70 p-3 backdrop-blur-sm sm:p-6"
+    aria-hidden="true"
+>
+    <div class="mx-auto my-auto w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl">
+        <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+            <div>
+                <div class="text-[10px] font-black uppercase tracking-[.16em] text-blue-600">
+                    Checkout
+                </div>
+                <h2 id="addonPurchaseTitle" class="mt-1 text-xl font-black text-slate-950">
+                    Product
+                </h2>
+            </div>
+            <button
+                type="button"
+                data-addon-purchase-close
+                class="grid h-10 w-10 place-items-center rounded-xl bg-slate-100 text-xl font-black text-slate-700"
+            >
+                ×
+            </button>
+        </div>
+
+        <form method="POST" action="{{ route('marketplace.checkout.create') }}" class="p-6">
+            @csrf
+
+            <input id="addonPurchaseType" type="hidden" name="product_type">
+            <input id="addonPurchaseId" type="hidden" name="product_id">
+            <input type="hidden" name="deployment_type" value="saas">
+
+            <label class="text-xs font-black uppercase tracking-wider text-slate-500">
+                Website
+            </label>
+
+            <select
+                name="website_id"
+                required
+                class="mt-2 w-full rounded-xl border-slate-200 bg-white text-sm focus:border-blue-500 focus:ring-blue-500"
+            >
+                <option value="">Select website</option>
+                @foreach(
+                    \App\Models\Website::query()
+                        ->where('owner_id', auth()->id())
+                        ->orderBy('name')
+                        ->get()
+                    as $website
+                )
+                    <option value="{{ $website->id }}">
+                        {{ $website->name }}
+                    </option>
+                @endforeach
+            </select>
+
+            <button
+                type="submit"
+                class="mt-5 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white hover:bg-blue-700"
+            >
+                Continue to Checkout
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const featureModal = document.getElementById('addonFeaturesModal');
+    const purchaseModal = document.getElementById('addonPurchaseModal');
+
+    const closeFeature = () => {
+        featureModal?.classList.add('hidden');
+        featureModal?.setAttribute('aria-hidden', 'true');
+        document.documentElement.classList.remove('overflow-hidden');
+    };
+
+    const closePurchase = () => {
+        purchaseModal?.classList.add('hidden');
+        purchaseModal?.setAttribute('aria-hidden', 'true');
+        document.documentElement.classList.remove('overflow-hidden');
+    };
+
+    document.querySelectorAll('.addon-features-trigger').forEach(button => {
+        button.addEventListener('click', function () {
+            const product = JSON.parse(this.dataset.product || '{}');
+
+            document.getElementById('addonFeaturesTitle').textContent =
+                product.name || 'Product';
+
+            document.getElementById('addonFeaturesType').textContent =
+                product.type === 'bundle' ? 'Bundle' : 'Add-on';
+
+            const description = document.getElementById('addonFeaturesDescription');
+            description.textContent = product.description || '';
+            description.classList.toggle('hidden', !product.description);
+
+            const preview = document.getElementById('addonFeaturesPreview');
+
+            if (product.preview) {
+                preview.src = product.preview;
+                preview.alt = (product.name || 'Product') + ' preview';
+                preview.classList.remove('hidden');
+            } else {
+                preview.removeAttribute('src');
+                preview.classList.add('hidden');
+            }
+
+            const list = document.getElementById('addonFeaturesList');
+            list.innerHTML = '';
+
+            const rows = product.type === 'bundle'
+                ? (product.items || [])
+                : (product.features || []);
+
+            rows.forEach(row => {
+                const item = document.createElement('div');
+                item.className =
+                    'flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3';
+
+                const name = document.createElement('span');
+                name.className = 'text-sm font-bold text-slate-800';
+                name.textContent = row.name || 'Feature';
+
+                const value = document.createElement('span');
+                value.className =
+                    'whitespace-nowrap rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-blue-700 ring-1 ring-slate-200';
+                value.textContent = row.value || 'Included';
+
+                item.append(name, value);
+                list.appendChild(item);
+            });
+
+            if (!rows.length) {
+                const empty = document.createElement('div');
+                empty.className =
+                    'sm:col-span-2 rounded-xl border border-dashed border-slate-200 p-5 text-center text-sm text-slate-400';
+                empty.textContent = 'No additional feature details available.';
+                list.appendChild(empty);
+            }
+
+            featureModal.classList.remove('hidden');
+            featureModal.setAttribute('aria-hidden', 'false');
+            document.documentElement.classList.add('overflow-hidden');
+        });
+    });
+
+    document.querySelectorAll('.addon-buy-trigger').forEach(button => {
+        button.addEventListener('click', function () {
+            document.getElementById('addonPurchaseType').value =
+                this.dataset.productType || 'addon';
+
+            document.getElementById('addonPurchaseId').value =
+                this.dataset.productId || '';
+
+            document.getElementById('addonPurchaseTitle').textContent =
+                this.dataset.productName || 'Product';
+
+            purchaseModal.classList.remove('hidden');
+            purchaseModal.setAttribute('aria-hidden', 'false');
+            document.documentElement.classList.add('overflow-hidden');
+        });
+    });
+
+    document.querySelectorAll('[data-addon-features-close]').forEach(button =>
+        button.addEventListener('click', closeFeature)
+    );
+
+    document.querySelectorAll('[data-addon-purchase-close]').forEach(button =>
+        button.addEventListener('click', closePurchase)
+    );
+
+    featureModal?.addEventListener('click', event => {
+        if (event.target === featureModal) closeFeature();
+    });
+
+    purchaseModal?.addEventListener('click', event => {
+        if (event.target === purchaseModal) closePurchase();
+    });
+
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+            closeFeature();
+            closePurchase();
+        }
+    });
+
+});
+</script>
+
 @endsection
+
+{{-- ESUBIZ_ADDON_COMBINED_FILTER_V591 --}}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const grid = document.getElementById('addonMarketplaceGrid');
+    const search = document.getElementById('addonMarketplaceSearch');
+    const empty = document.getElementById('addonMarketplaceEmpty');
+
+    const categoryRoot =
+        document.querySelector('[data-addon-category-tabs]');
+
+    const rankingRoot =
+        document.querySelector('[data-addon-ranking-tabs]');
+
+    if (!grid) return;
+
+    const cards = Array.from(
+        grid.querySelectorAll('.addon-marketplace-card')
+    );
+
+    const categoryButtons = categoryRoot
+        ? Array.from(
+            categoryRoot.querySelectorAll(
+                '[data-addon-category-tab]'
+            )
+        )
+        : [];
+
+    const rankingButtons = rankingRoot
+        ? Array.from(
+            rankingRoot.querySelectorAll(
+                '[data-addon-ranking-tab]'
+            )
+        )
+        : [];
+
+    let activeCategory = 'all';
+    let activeRanking = 'all';
+    let searchQuery = '';
+
+    function setActive(buttons, activeButton) {
+        buttons.forEach(function (button) {
+            const active = button === activeButton;
+
+            button.classList.toggle('bg-blue-600', active);
+            button.classList.toggle('text-white', active);
+            button.classList.toggle('shadow-sm', active);
+
+            button.classList.toggle('bg-white', !active);
+            button.classList.toggle('text-slate-600', !active);
+            button.classList.toggle('border', !active);
+            button.classList.toggle('border-slate-200', !active);
+        });
+    }
+
+    function applyMarketplaceState() {
+        let visible = 0;
+
+        cards.forEach(function (card) {
+            const categories = String(
+                card.dataset.categoryIds || ''
+            )
+                .split(',')
+                .map(value => value.trim())
+                .filter(Boolean);
+
+            const categoryMatch =
+                activeCategory === 'all'
+                || categories.includes(activeCategory);
+
+            const searchMatch =
+                !searchQuery
+                || String(card.dataset.search || '')
+                    .includes(searchQuery);
+
+            const rankingMatch =
+                activeRanking !== 'featured'
+                || card.dataset.featured === '1';
+
+            const show =
+                categoryMatch
+                && searchMatch
+                && rankingMatch;
+
+            card.classList.toggle('hidden', !show);
+
+            if (show) visible++;
+        });
+
+        const sorted = [...cards].sort(function (a, b) {
+            if (activeRanking === 'new') {
+                return (
+                    Number(b.dataset.createdAt || 0)
+                    - Number(a.dataset.createdAt || 0)
+                );
+            }
+
+            if (activeRanking === 'purchased') {
+                const purchases =
+                    Number(b.dataset.purchaseCount || 0)
+                    - Number(a.dataset.purchaseCount || 0);
+
+                if (purchases !== 0) {
+                    return purchases;
+                }
+
+                return (
+                    Number(b.dataset.createdAt || 0)
+                    - Number(a.dataset.createdAt || 0)
+                );
+            }
+
+            return (
+                Number(a.dataset.originalOrder || 0)
+                - Number(b.dataset.originalOrder || 0)
+            );
+        });
+
+        sorted.forEach(card => grid.appendChild(card));
+
+        empty?.classList.toggle('hidden', visible > 0);
+    }
+
+    search?.addEventListener('input', function () {
+        searchQuery = this.value.trim().toLowerCase();
+        applyMarketplaceState();
+    });
+
+    categoryButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+            activeCategory = String(
+                button.dataset.addonCategoryTab || 'all'
+            );
+
+            setActive(categoryButtons, button);
+            applyMarketplaceState();
+        });
+    });
+
+    rankingButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+            activeRanking = String(
+                button.dataset.addonRankingTab || 'all'
+            );
+
+            setActive(rankingButtons, button);
+            applyMarketplaceState();
+        });
+    });
+
+    applyMarketplaceState();
+});
+</script>

@@ -2551,7 +2551,37 @@ Route::get('/admin/site-settings/payment-gateways', [\App\Http\Controllers\Admin
     Route::post('/marketplace/checkout', [\App\Http\Controllers\MarketplaceController::class, 'checkout'])
         ->name('marketplace.checkout.create');
 
-    Route::get('/marketplace/checkout', [\App\Http\Controllers\MarketplaceController::class, 'pendingCheckouts'])
+
+/* ESUBIZ_ADDON_PREVIEW_ROUTE_V534 */
+Route::get('/marketplace/addons/{type}/{id}/preview-image', function (string $type, int $id) {
+    abort_unless(in_array($type, ['addon', 'bundle'], true), 404);
+
+    $table = $type === 'bundle'
+        ? 'core_addon_bundles'
+        : 'core_addons';
+
+    $product = \Illuminate\Support\Facades\DB::table($table)
+        ->where('id', $id)
+        ->first();
+
+    abort_unless($product && !empty($product->preview_image), 404);
+
+    $relativePath = ltrim((string) $product->preview_image, '/');
+    $path = storage_path('app/public/' . $relativePath);
+
+    abort_unless(
+        is_file($path)
+        && str_starts_with(
+            realpath($path) ?: '',
+            realpath(storage_path('app/public')) ?: '__invalid__'
+        ),
+        404
+    );
+
+    return response()->file($path);
+})->name('marketplace.addons.preview');
+
+Route::get('/marketplace/checkout', [\App\Http\Controllers\MarketplaceController::class, 'pendingCheckouts'])
         ->name('marketplace.checkout.index');
 
     Route::get('/billing/orders', [\App\Http\Controllers\MarketplaceController::class, 'userOrders'])

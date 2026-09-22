@@ -366,6 +366,33 @@ class CoreAddonSalesTriggerResolver
 
 
                                 'resource_key' => $trigger->resource_key,
+
+                                /*
+                                 * ESUBIZ_DASHBOARD_RESOURCE_USAGE_DETAILS_V1
+                                 *
+                                 * Preserve real resource information supplied
+                                 * by the Dashboard context.
+                                 */
+                                'usage_text' =>
+                                    $locationKey === 'dashboard'
+                                        ? (
+                                            $context['resources'][
+                                                $trigger->resource_key
+                                            ]['usage_text']
+                                            ?? null
+                                        )
+                                        : null,
+
+                                'percentage_text' =>
+                                    $locationKey === 'dashboard'
+                                        ? (
+                                            $context['resources'][
+                                                $trigger->resource_key
+                                            ]['percentage_text']
+                                            ?? null
+                                        )
+                                        : null,
+
                                 'threshold_percentage' => $trigger->threshold_percentage !== null
                                     ? (float) $trigger->threshold_percentage
                                     : null,

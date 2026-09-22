@@ -6,48 +6,48 @@ use App\Services\Platform\CentralSiteSettingsService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-class CoreAddonMarketplaceListingSyncService
+class CoreAddonBundleMarketplaceListingSyncService
 {
     /*
-     * ESUBIZ_CORE_ADDON_MARKETPLACE_LISTING_SYNC_V1
+     * ESUBIZ_CORE_ADDON_BUNDLE_MARKETPLACE_LISTING_SYNC_V1
      *
-     * Every Core Add-on must have a Marketplace listing so all
-     * Marketplace and placement checkout paths resolve identically.
+     * Gives every Core Add-on Bundle the same canonical Marketplace
+     * commercial identity used by individual Core Add-ons.
      */
-    public function syncById(int $addonId): ?object
+    public function syncById(int $bundleId): ?object
     {
-        $addon = DB::table('core_addons')
-            ->where('id', $addonId)
+        $bundle = DB::table('core_addon_bundles')
+            ->where('id', $bundleId)
             ->whereNull('deleted_at')
             ->first();
 
-        if (!$addon) {
+        if (!$bundle) {
             return null;
         }
 
         $existing = DB::table('marketplace_listings')
-            ->where('product_type', 'core_addon')
-            ->where('product_id', $addonId)
+            ->where('product_type', 'core_bundle')
+            ->where('product_id', $bundleId)
             ->whereNull('deleted_at')
             ->first();
 
         $price = null;
 
         if (
-            (int) ($addon->saas_available ?? 0) === 1
-            && $addon->saas_price !== null
+            (int) ($bundle->saas_available ?? 0) === 1
+            && $bundle->saas_price !== null
         ) {
-            $price = (float) $addon->saas_price;
+            $price = (float) $bundle->saas_price;
         } elseif (
-            (int) ($addon->off_server_available ?? 0) === 1
-            && $addon->off_server_price !== null
+            (int) ($bundle->off_server_available ?? 0) === 1
+            && $bundle->off_server_price !== null
         ) {
-            $price = (float) $addon->off_server_price;
+            $price = (float) $bundle->off_server_price;
         }
 
         /*
-         * All Esubiz products use the Central system currency
-         * as their single currency authority.
+         * Product currency follows the Central system currency.
+         * No Bundle-level currency authority is introduced here.
          */
         $centralSettings = app(CentralSiteSettingsService::class);
 
@@ -66,21 +66,25 @@ class CoreAddonMarketplaceListingSyncService
         }
 
         $payload = [
-            'product_type' => 'core_addon',
-            'product_id' => $addonId,
-            'title' => (string) $addon->name,
-            'slug' => 'core-addon-' . $addonId,
-            'summary' => $addon->description ?: null,
-            'description' => $addon->description ?: null,
+            'product_type' => 'core_bundle',
+            'product_id' => $bundleId,
+            'title' => (string) $bundle->name,
+            'slug' => 'core-bundle-' . $bundleId,
+            'summary' => $bundle->description ?: null,
+            'description' => $bundle->description ?: null,
             'price' => $price ?? 0,
-            'currency' => strtoupper($currency),
-            'status' => (int) ($addon->is_active ?? 0) === 1
+            'currency' => $currency,
+            'status' => (int) ($bundle->is_active ?? 0) === 1
                 ? 'published'
                 : 'draft',
             'updated_at' => now(),
         ];
 
         if ($existing) {
+            /*
+             * Do not overwrite featured here.
+             * It is an Admin-controlled Marketplace setting.
+             */
             DB::table('marketplace_listings')
                 ->where('id', $existing->id)
                 ->update($payload);
@@ -92,7 +96,7 @@ class CoreAddonMarketplaceListingSyncService
 
         $payload = array_merge([
             'vendor_id' => 1,
-            'catalog_product_id' => null,
+            'catalog_product_id' => $bundle->catalog_product_id ?? null,
             'product_key' => null,
             'workspace_id' => null,
             'uuid' => (string) Str::uuid(),
@@ -102,7 +106,8 @@ class CoreAddonMarketplaceListingSyncService
             'deleted_at' => null,
         ], $payload);
 
-        $id = DB::table('marketplace_listings')->insertGetId($payload);
+        $id = DB::table('marketplace_listings')
+            ->insertGetId($payload);
 
         return DB::table('marketplace_listings')
             ->where('id', $id)
@@ -111,21 +116,21 @@ class CoreAddonMarketplaceListingSyncService
 
     public function syncAll(): array
     {
-        $ids = DB::table('core_addons')
+        $ids = DB::table('core_addon_bundles')
             ->whereNull('deleted_at')
             ->pluck('id');
 
-        $createdOrUpdated = 0;
+        $synced = 0;
 
         foreach ($ids as $id) {
             if ($this->syncById((int) $id)) {
-                $createdOrUpdated++;
+                $synced++;
             }
         }
 
         return [
             'total' => $ids->count(),
-            'synced' => $createdOrUpdated,
+            'synced' => $synced,
         ];
     }
 }

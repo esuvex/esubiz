@@ -1,3 +1,58 @@
+
+<style>
+    /* ESUBIZ_MARKETPLACE_FEATURED_TOGGLE_V608 */
+    .esu-featured-toggle {
+        position: relative;
+        display: inline-block;
+        width: 44px;
+        height: 24px;
+        flex: 0 0 44px;
+        cursor: pointer;
+    }
+
+    .esu-featured-toggle input[type="checkbox"] {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .esu-featured-toggle-track {
+        position: absolute;
+        inset: 0;
+        border-radius: 9999px;
+        background: #cbd5e1;
+        transition: background-color .2s ease;
+    }
+
+    .esu-featured-toggle-track::after {
+        content: "";
+        position: absolute;
+        top: 4px;
+        left: 4px;
+        width: 16px;
+        height: 16px;
+        border-radius: 9999px;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, .22);
+        transition: transform .2s ease;
+    }
+
+    .esu-featured-toggle input[type="checkbox"]:checked + .esu-featured-toggle-track {
+        background: #2563eb;
+    }
+
+    .esu-featured-toggle input[type="checkbox"]:checked + .esu-featured-toggle-track::after {
+        transform: translateX(20px);
+    }
+
+    .esu-featured-toggle input[type="checkbox"]:focus-visible + .esu-featured-toggle-track {
+        outline: 3px solid rgba(37, 99, 235, .22);
+        outline-offset: 2px;
+    }
+</style>
+
 @extends('admin.layouts.app')
 
 @section('content')
@@ -32,11 +87,92 @@
 
         <form method="POST"
               action="{{ route('admin.core-addons.update', $addon->id) }}"
-              class="space-y-6">
+              class="space-y-6"
+              enctype="multipart/form-data"
+              x-data="{
+                  addonType: @js(old('implementation_type', $addon->implementation_type ?? 'allocation')),
+                  placements: @js(old('addon_placements', array_values($selectedPlacements ?? []))),
+                  setAddonType(type) {
+                      this.addonType = type;
+
+                      if (type === 'package') {
+                          this.placements = this.placements.filter(
+                              placement => placement !== 'dashboard'
+                          );
+                      }
+                  }
+              }">
 
             @csrf
             @method('PUT')
 
+            {{-- ESUBIZ_ADDON_IMPLEMENTATION_TYPE_EDIT_V1 --}}
+            <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+                 >
+
+                <input type="hidden"
+                       name="implementation_type"
+                       :value="addonType">
+
+                <div>
+                    <h2 class="text-lg font-black text-slate-900">Add-on Type</h2>
+                    <p class="mt-1 text-sm text-slate-500">
+                        Choose whether this Add-on extends a SaaS Core allowance or installs functionality.
+                    </p>
+                </div>
+
+                <div class="mt-5 flex items-center gap-4">
+                    <button type="button"
+                            @click="setAddonType('allocation')"
+                            class="text-sm font-bold transition"
+                            :class="addonType === 'allocation' ? 'text-slate-900' : 'text-slate-400'">
+                        Allocation
+                    </button>
+
+                    <button type="button"
+                            @click="setAddonType(addonType === 'allocation' ? 'package' : 'allocation')"
+                            class="relative h-7 w-12 shrink-0 rounded-full transition"
+                            :class="addonType === 'package' ? 'bg-blue-600' : 'bg-slate-300'"
+                            role="switch"
+                            :aria-checked="addonType === 'package'">
+                        <span class="absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all"
+                              :class="addonType === 'package' ? 'left-6' : 'left-1'"></span>
+                    </button>
+
+                    <button type="button"
+                            @click="setAddonType('package')"
+                            class="text-sm font-bold transition"
+                            :class="addonType === 'package' ? 'text-blue-600' : 'text-slate-400'">
+                        Package
+                    </button>
+                </div>
+
+                <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+                    <span x-show="addonType === 'allocation'">
+                        SaaS Core allowance. Central controls the resource allocation and Dashboard Trigger.
+                    </span>
+
+                    <span x-show="addonType === 'package'" x-cloak>
+                        Installable functionality for SaaS and/or off-server Core.
+                    </span>
+                </div>
+            </div>
+
+
+            {{-- ESUBIZ_PACKAGE_ADDON_SOURCE_EDIT_V1 --}}
+            <div x-show="addonType === 'package'"
+                 x-cloak>
+                @include('admin.components.product-source-toggle', [
+                    'product' => 'Add-on',
+                    'mode' => 'folder',
+                    'folderName' => 'package_name',
+                    'folderValue' => old('package_name', $addon->package_name ?? ''),
+                    'folderPlaceholder' => 'Search/select Add-on package folder',
+                    'uploadName' => 'package_file',
+                    'accept' => '.zip,application/zip',
+                    'help' => 'Package source applies only to Package Add-ons. Allocation Add-ons do not install package files.',
+                ])
+            </div>
 
             <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 
@@ -73,8 +209,151 @@
                             rows="4"
                             class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3">{{ $addon->description }}</textarea>
 
+<div class="space-y-2" data-marketplace-category-field>
+    <label class="block text-sm font-semibold text-slate-700">
+        Marketplace Categories
+    </label>
+
+    @php
+        $esuMarketplaceCategories = \App\Models\MarketplaceCategory::query()
+            ->active()
+            ->ordered()
+            ->get()
+            ->filter(
+                fn ($category) =>
+                    $category->supportsProductType('addon')
+                    || $category->supportsProductType('addons')
+                    || $category->supportsProductType('bundle')
+                    || $category->supportsProductType('bundles')
+            )
+            ->values();
+
+        $esuSavedMarketplaceCategories = $addon->catalog_product_id
+            ? DB::table('catalog_product_marketplace_category')
+                ->where('catalog_product_id', $addon->catalog_product_id)
+                ->pluck('marketplace_category_id')
+                ->map(fn ($id) => (int) $id)
+                ->values()
+                ->all()
+            : [];
+
+        $esuSelectedMarketplaceCategories = collect(
+            old('marketplace_category_ids', $esuSavedMarketplaceCategories)
+        )->map(fn ($id) => (int) $id)->all();
+    @endphp
+
+    <div class="relative" data-category-picker>
+        <button
+            type="button"
+            data-category-picker-button
+            class="flex min-h-[46px] w-full items-center justify-between gap-3 rounded-xl border border-slate-300 bg-white px-4 py-3 text-left text-sm text-slate-700"
+        >
+            <span data-category-picker-label>Select Marketplace Categories</span>
+            <span aria-hidden="true">⌄</span>
+        </button>
+
+        <div
+            data-category-picker-menu
+            class="absolute left-0 right-0 z-50 mt-2 hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+        >
+            <div class="border-b border-slate-100 p-3">
+                <input
+                    type="search"
+                    data-category-search
+                    placeholder="Search categories..."
+                    class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                >
+            </div>
+
+            <div class="max-h-64 overflow-y-auto p-2">
+                @forelse($esuMarketplaceCategories as $esuCategory)
+                    <label
+                        data-category-option
+                        data-category-name="{{ strtolower($esuCategory->name) }}"
+                        class="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 hover:bg-slate-50"
+                    >
+                        <input
+                            type="checkbox"
+                            name="marketplace_category_ids[]"
+                            value="{{ $esuCategory->id }}"
+                            @checked(in_array((int) $esuCategory->id, $esuSelectedMarketplaceCategories, true))
+                            class="h-4 w-4 rounded border-slate-300"
+                        >
+                        <span class="text-sm font-medium text-slate-700">
+                            {{ $esuCategory->name }}
+                        </span>
+                    </label>
+                @empty
+                    <div class="px-3 py-4 text-sm text-slate-500">
+                        No active Marketplace Categories are available.
+                    </div>
+                @endforelse
+            </div>
+        </div>
+    </div>
+
+    <p class="text-xs text-slate-500">
+        Products appear under the selected category tabs in the Marketplace.
+    </p>
+</div>
+
+
                     </div>
 
+
+
+                    {{-- ESUBIZ_PRODUCT_PREVIEW_FEATURES_V1 --}}
+                    @php
+
+                        $savedPreviewUrl = !empty($addon->preview_image)
+        ? route('marketplace.addons.preview', [
+            'type' => 'addon',
+            'id' => $addon->id,
+        ])
+        : null;
+                    @endphp
+
+                    <div class="md:col-span-2 grid gap-6 lg:grid-cols-2">
+
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                            <div class="text-sm font-bold text-slate-900">
+                                Preview Photo
+                            </div>
+
+                            <p class="mt-1 text-xs text-slate-500">
+                                Product image shown with this Add-on.
+                            </p>
+
+                            <label class="mt-4 block cursor-pointer rounded-2xl border-2 border-dashed border-slate-300 bg-white p-4 text-center transition hover:border-blue-400">
+
+                                <img
+                                    data-preview-image
+                                    src="{{ $savedPreviewUrl ?: '' }}"
+                                    class="mx-auto h-44 w-full rounded-xl object-cover {{ $savedPreviewUrl ? '' : 'hidden' }}"
+                                    alt="Preview">
+
+                                <div
+                                    data-preview-placeholder
+                                    class="py-8 {{ $savedPreviewUrl ? 'hidden' : '' }}">
+                                    <div class="text-sm font-bold text-slate-700">
+                                        Upload Preview Photo
+                                    </div>
+                                    <div class="mt-1 text-xs text-slate-400">
+                                        JPG, PNG or WEBP · Maximum 5MB
+                                    </div>
+                                </div>
+
+                                <input
+                                    type="file"
+                                    name="preview_image"
+                                    accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                                    class="hidden"
+                                    data-preview-input>
+                            </label>
+                        </div>
+
+                    </div>
+                    </div>
 
                     <div class="md:col-span-2 grid grid-cols-1 gap-4 md:grid-cols-2">
 
@@ -85,7 +364,8 @@
                             <span class="text-sm font-bold text-slate-700">Available for SaaS websites</span>
                         </label>
 
-                        <label class="flex items-center gap-3">
+                        <label class="flex items-center gap-3"
+ x-show="addonType === 'package'" x-cloak>
                             <input type="hidden" name="off_server_available" value="0">
                             <input type="checkbox" name="off_server_available" value="1"
                                 {{ old('off_server_available', $addon->off_server_available) ? 'checked' : '' }}>
@@ -127,7 +407,8 @@
                     </div>
 
 
-                    <div>
+                    <div
+ x-show="addonType === 'allocation'" x-cloak>
 
                         <label class="text-sm font-bold text-slate-700">
                             Allocation Unit
@@ -143,7 +424,8 @@
                     </div>
 
 
-                    <div>
+                    <div
+ x-show="addonType === 'package'" x-cloak>
 
                         <label class="text-sm font-bold text-slate-700">
                             Off-server License Price
@@ -159,6 +441,32 @@
 
                     </div>
 
+
+
+                    <div class="flex items-end">
+                        <label class="flex w-full items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <div>
+                                <div class="text-sm font-bold text-slate-700">
+                                    Marketplace Featured
+                                </div>
+                                <div class="mt-1 text-xs text-slate-500">
+                                    Feature this Add-on prominently in the Marketplace.
+                                </div>
+                            </div>
+
+                            <label class="esu-featured-toggle" aria-label="Marketplace Featured">
+                                <input type="hidden" name="featured" value="0">
+                                <input
+                                    type="checkbox"
+                                    name="featured"
+                                    value="1"
+                                    class="peer sr-only"
+                                    {{ old('featured', $addon->marketplace_featured ?? false) ? 'checked' : '' }}>
+
+                                <span class="esu-featured-toggle-track"></label>
+                            </span>
+                        </label>
+                    </div>
 
                     <div class="flex items-end">
 
@@ -245,7 +553,8 @@
 
             <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
 
-                <div>
+                <div
+ x-show="addonType === 'allocation'" x-cloak>
                     <h2 class="text-lg font-black text-slate-900">
                         Resource Settings &amp; Sales Trigger
                     </h2>
@@ -1181,3 +1490,93 @@ The Function Allocations section already renders its Unlimited checkbox
 server-side using the saved allocation record. The former JavaScript
 duplicate control was intentionally removed.
 --}}
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    document.querySelectorAll('[data-preview-input]').forEach(function (input) {
+        input.addEventListener('change', function () {
+            const scope = input.closest('label');
+            const image = scope?.querySelector('[data-preview-image]');
+            const placeholder = scope?.querySelector('[data-preview-placeholder]');
+            const file = input.files?.[0];
+
+            if (!file || !image) return;
+
+            const reader = new FileReader();
+
+            reader.onload = function (event) {
+                image.src = event.target.result;
+                image.classList.remove('hidden');
+                placeholder?.classList.add('hidden');
+            };
+
+            reader.readAsDataURL(file);
+        });
+    });
+
+
+
+});
+</script>
+
+
+{{-- ESUBIZ_MARKETPLACE_CATEGORY_PICKER_V565B --}}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-category-picker]').forEach(function (picker) {
+        const button = picker.querySelector('[data-category-picker-button]');
+        const menu = picker.querySelector('[data-category-picker-menu]');
+        const search = picker.querySelector('[data-category-search]');
+        const label = picker.querySelector('[data-category-picker-label]');
+
+        if (!button || !menu || !label) return;
+
+        const refresh = function () {
+            const checked = Array.from(
+                picker.querySelectorAll(
+                    'input[name="marketplace_category_ids[]"]:checked'
+                )
+            );
+
+            const names = checked.map(function (input) {
+                const option = input.closest('[data-category-option]');
+                const name = option ? option.querySelector('span') : null;
+                return name ? name.textContent.trim() : '';
+            }).filter(Boolean);
+
+            label.textContent = names.length
+                ? names.join(', ')
+                : 'Select Marketplace Categories';
+        };
+
+        button.addEventListener('click', function () {
+            menu.classList.toggle('hidden');
+        });
+
+        picker.querySelectorAll(
+            'input[name="marketplace_category_ids[]"]'
+        ).forEach(function (input) {
+            input.addEventListener('change', refresh);
+        });
+
+        if (search) {
+            search.addEventListener('input', function () {
+                const term = search.value.trim().toLowerCase();
+
+                picker.querySelectorAll('[data-category-option]')
+                    .forEach(function (option) {
+                        option.classList.toggle(
+                            'hidden',
+                            term !== ''
+                            && !option.dataset.categoryName.includes(term)
+                        );
+                    });
+            });
+        }
+
+        refresh();
+    });
+});
+</script>

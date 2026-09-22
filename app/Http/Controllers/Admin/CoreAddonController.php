@@ -2,28 +2,58 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Services\Media\EsubizImageOptimizer;
+
+use App\Models\MarketplaceCategory;
+
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use App\Services\Marketplace\CoreAddonMarketplaceListingSyncService;
+use App\Services\Marketplace\CoreAddonBundleMarketplaceListingSyncService;
+use App\Services\Marketplace\AddonPackageService;
+use App\Services\Marketplace\AddonPackageStorageService;
 
 class CoreAddonController extends Controller
 {
     public function index()
     {
-                $bundles = DB::table('core_addon_bundles')
-            ->orderByDesc('id')
-            ->get();
+        $storageAddonPackages =
+            app(AddonPackageStorageService::class)
+                ->packages();
 
-return view('admin.core-addons.index', [
+                return view('admin.core-addons.index', [
             'addons' => DB::table('core_addons')
                 ->whereNull('deleted_at')
                 ->orderBy('name')
-                ->get(),
+                ->paginate(10, ['*'], 'addons_page')
+                ->withQueryString(),
 
-            'bundles' => DB::table('core_addon_bundles')
+            'bundles' => DB::table('core_addon_bundles as bundles')
+                ->leftJoin('marketplace_listings as listings', function ($join) {
+                    $join->on('listings.product_id', '=', 'bundles.id')
+                        ->where('listings.product_type', '=', 'core_bundle')
+                        ->whereNull('listings.deleted_at');
+                })
+                ->whereNull('bundles.deleted_at')
+                ->select([
+                    'bundles.*',
+                    DB::raw('COALESCE(listings.featured, 0) as marketplace_featured'),
+                ])
+                ->orderBy('bundles.name')
+                ->paginate(10, ['*'], 'bundles_page')
+                ->withQueryString(),
+
+            /*
+             * Bundle composition must not depend on the paginated
+             * Add-ons management table. This is the complete active
+             * Add-on catalogue available to the Bundle builder.
+             */
+            'bundleAddonOptions' => DB::table('core_addons')
                 ->whereNull('deleted_at')
+                ->where('is_active', true)
                 ->orderBy('name')
                 ->get(),
 
@@ -107,10 +137,67 @@ return view('admin.core-addons.index', [
     {
         $data = $this->validateAddon($request);
 
+        /*
+         * ESUBIZ_ADDON_PACKAGE_IDENTITY_VALIDATION_V1
+         *
+         * mimes:zip validates only the archive container.
+         * Package Add-ons must additionally pass the canonical Esubiz
+         * Add-on package validator before any Add-on record is created.
+         */
+        if (
+            $data['implementation_type'] === 'package'
+            && $request->hasFile('package_file')
+        ) {
+            app(AddonPackageService::class)->validatePackage(
+                $request->file('package_file')->getRealPath()
+            );
+        }
+
         $data['uuid'] = (string) Str::uuid();
-        $data['saas_available'] = $request->boolean('saas_available');
-        $data['off_server_available'] = $request->boolean('off_server_available');
+
+        /*
+         * Allocation Add-ons are SaaS-only resource allowances.
+         * Package Add-ons may independently support SaaS/off-server Core.
+         */
+        if ($data['implementation_type'] === 'allocation') {
+            $data['saas_available'] = true;
+            $data['off_server_available'] = false;
+        } else {
+            $data['saas_available'] = $request->boolean('saas_available');
+            $data['off_server_available'] = $request->boolean('off_server_available');
+        }
+
         $data['is_unlimited'] = $request->boolean('is_unlimited');
+
+        /*
+         * ESUBIZ_ADDON_TYPE_PLACEMENT_RULES_V1
+         *
+         * Allocation:
+         *   SaaS-only and may use every registered placement,
+         *   including the usage/limit-driven Dashboard trigger.
+         *
+         * Package:
+         *   SaaS and/or off-server and may use registered placements
+         *   everywhere except Dashboard.
+         */
+        $addonPlacements = array_values(array_unique(array_filter(
+            (array) $request->input('addon_placements', [])
+        )));
+
+        if ($data['implementation_type'] === 'package') {
+            $addonPlacements = array_values(array_filter(
+                $addonPlacements,
+                fn ($placement) => $placement !== 'dashboard'
+            ));
+        }
+
+        $request->merge([
+            'addon_placements' => $addonPlacements,
+            'resource_saas' => $data['implementation_type'] === 'allocation'
+                ? 1
+                : 0,
+            'resource_off_server' => 0,
+        ]);
         $data['is_active'] = true;
         $data['capabilities'] = $this->jsonArray($request->input('capabilities'));
         $data['metadata'] = json_encode([
@@ -136,7 +223,16 @@ return view('admin.core-addons.index', [
          */
         $addonInsertData = $data;
 
+        $addonInsertData['preview_image'] =
+            $this->storeProductPreview(
+                $request,
+                'addons'
+            );
+
         unset(
+            $addonInsertData['package_source_mode'],
+            $addonInsertData['package_name'],
+            $addonInsertData['package_file'],
             $addonInsertData['resource_enabled'],
             $addonInsertData['resource_key'],
             $addonInsertData['resource_dashboard_threshold'],
@@ -151,6 +247,12 @@ return view('admin.core-addons.index', [
 
         $addonId = DB::table('core_addons')
             ->insertGetId($addonInsertData);
+
+        $this->syncAddonPackage(
+            $addonId,
+            $request,
+            $data
+        );
 
         $this->syncCapabilityAllocations(
             $addonId,
@@ -313,6 +415,59 @@ return view('admin.core-addons.index', [
             ]);
         }
 
+        $addonId = DB::table('core_addons')
+            ->where('uuid', $data['uuid'])
+            ->value('id');
+
+        if ($addonId) {
+            $catalogProductId = DB::table('core_addons')
+                ->where('id', $addonId)
+                ->value('catalog_product_id');
+
+            if (!$catalogProductId) {
+                $catalogProductId = DB::table('catalog_products')
+                    ->insertGetId([
+                        'catalog_category_id' => null,
+                        'uuid' => (string) Str::uuid(),
+                        'name' => $data['name'],
+                        'slug' => 'core-addon-' . $addonId,
+                        'description' => $data['description'] ?? null,
+                        'product_type' => 'addon',
+                        'credit_quantity' => null,
+                        'audience' => $request->boolean('off_server_available')
+                            ? 'both'
+                            : 'saas',
+                        'fulfilment_type' => 'instant',
+                        'is_featured' => $request->boolean('featured'),
+                        'is_active' => true,
+                        'is_public' => true,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                        'deleted_at' => null,
+                    ]);
+
+                DB::table('core_addons')
+                    ->where('id', $addonId)
+                    ->update([
+                        'catalog_product_id' => $catalogProductId,
+                        'updated_at' => now(),
+                    ]);
+            }
+
+            $this->syncAddonMarketplaceCategories(
+                (int) $catalogProductId,
+                (array) ($data['marketplace_category_ids'] ?? [])
+            );
+
+            $this->syncMarketplaceListing((int) $addonId);
+
+            $this->syncMarketplaceFeatured(
+                'core_addon',
+                (int) $addonId,
+                $request->boolean('featured')
+            );
+        }
+
         return back()->with('success', 'Core add-on created successfully.');
     }
 
@@ -331,8 +486,12 @@ return view('admin.core-addons.index', [
             'uuid' => (string) Str::uuid(),
             'key' => $data['key'],
             'name' => $data['name'],
-            'category' => $data['category'] ?? null,
+            'category' => null,
             'description' => $data['description'] ?? null,
+            'preview_image' => $this->storeProductPreview(
+                $request,
+                'bundles'
+            ),
             'unit_name' => $data['unit_name'] ?? null,
             'saas_available' => $request->boolean('saas_available'),
             'off_server_available' => $request->boolean('off_server_available'),
@@ -362,6 +521,54 @@ return view('admin.core-addons.index', [
         );
 
         $this->syncBundleItems($bundleId, $items);
+
+        $catalogProductId = DB::table('core_addon_bundles')
+            ->where('id', $bundleId)
+            ->value('catalog_product_id');
+
+        if (!$catalogProductId) {
+            $catalogProductId = DB::table('catalog_products')
+                ->insertGetId([
+                    'catalog_category_id' => null,
+                    'uuid' => (string) Str::uuid(),
+                    'name' => $data['name'],
+                    'slug' => 'core-bundle-' . $bundleId,
+                    'description' => $data['description'] ?? null,
+                    'product_type' => 'bundle',
+                    'credit_quantity' => null,
+                    'audience' => $request->boolean('off_server_available')
+                        ? 'both'
+                        : 'saas',
+                    'fulfilment_type' => 'instant',
+                    'is_featured' => $request->boolean('featured'),
+                    'is_active' => true,
+                    'is_public' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                    'deleted_at' => null,
+                ]);
+
+            DB::table('core_addon_bundles')
+                ->where('id', $bundleId)
+                ->update([
+                    'catalog_product_id' => $catalogProductId,
+                    'updated_at' => now(),
+                ]);
+        }
+
+        app(CoreAddonBundleMarketplaceListingSyncService::class)
+            ->syncById($bundleId);
+
+        $this->syncAddonMarketplaceCategories(
+            (int) $catalogProductId,
+            (array) ($data['marketplace_category_ids'] ?? [])
+        );
+
+        $this->syncMarketplaceFeatured(
+            'core_bundle',
+            $bundleId,
+            $request->boolean('featured')
+        );
         });
 
         return back()->with('success', 'Core add-on bundle created successfully.');
@@ -378,15 +585,20 @@ return view('admin.core-addons.index', [
 
         $data = $this->validateBundle($request, $bundle);
 
-        DB::transaction(function () use ($request, $bundle, $data) {
+        DB::transaction(function () use ($request, $bundle, $data, $record) {
 
             DB::table('core_addon_bundles')
                 ->where('id', $bundle)
                 ->update([
                     'key' => $data['key'],
                     'name' => $data['name'],
-                    'category' => $data['category'] ?? null,
+                    'category' => null,
                     'description' => $data['description'] ?? null,
+                    'preview_image' => $this->storeProductPreview(
+                        $request,
+                        'bundles',
+                        $record->preview_image ?? null
+                    ),
                     'unit_name' => $data['unit_name'] ?? null,
                     'saas_available' => $request->boolean('saas_available'),
                     'off_server_available' => $request->boolean('off_server_available'),
@@ -403,6 +615,24 @@ return view('admin.core-addons.index', [
             $this->syncBundleItems(
                 $bundle,
                 $request->input('items', [])
+            );
+
+            app(CoreAddonBundleMarketplaceListingSyncService::class)
+                ->syncById($bundle);
+
+            $catalogProductId = DB::table('core_addon_bundles')
+                ->where('id', $bundle)
+                ->value('catalog_product_id');
+
+            $this->syncAddonMarketplaceCategories(
+                $catalogProductId ? (int) $catalogProductId : null,
+                (array) ($data['marketplace_category_ids'] ?? [])
+            );
+
+            $this->syncMarketplaceFeatured(
+                'core_bundle',
+                $bundle,
+                $request->boolean('featured')
             );
         });
 
@@ -435,6 +665,39 @@ return view('admin.core-addons.index', [
         return back()->with('success', 'Bundle status updated.');
     }
 
+    protected function storeProductPreview(
+        Request $request,
+        string $productType,
+        ?string $existing = null
+    ): ?string {
+        if (!$request->hasFile('preview_image')) {
+            return $existing;
+        }
+
+        $file = $request->file('preview_image');
+
+        if (!$file || !$file->isValid()) {
+            return $existing;
+        }
+
+        $directory =
+            'esubiz-products/previews/'
+            . trim($productType, '/');
+
+        return app(EsubizImageOptimizer::class)
+            ->storeUploaded(
+                $file,
+                $directory,
+                EsubizImageOptimizer::PROFILE_MARKETPLACE_PREVIEW,
+                'public',
+                (string) Str::uuid()
+            );
+    }
+
+
+
+
+
     protected function validateAddon(
         Request $request,
         ?int $addon = null
@@ -448,8 +711,39 @@ return view('admin.core-addons.index', [
                 'unique:core_addons,key,' . ($addon ?? 'NULL') . ',id',
             ],
             'name' => ['required', 'string', 'max:255'],
-            'category' => ['nullable', 'string', 'max:100'],
+            'marketplace_category_ids' => ['nullable', 'array'],
+            'marketplace_category_ids.*' => [
+                'integer',
+                'exists:marketplace_categories,id',
+            ],
             'description' => ['nullable', 'string'],
+            'preview_image' => [
+                'nullable',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:5120',
+            ],
+            'implementation_type' => ['required', 'in:allocation,package'],
+
+            /*
+             * Package source applies only when implementation_type=package.
+             * Allocation Add-ons never require or install package files.
+             */
+            'package_source_mode' => [
+                'nullable',
+                'in:folder,upload',
+            ],
+            'package_name' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'package_file' => [
+                'nullable',
+                'file',
+                'mimes:zip',
+                'max:102400',
+            ],
             'parent_capability' => ['nullable', 'string', 'max:150'],
             'entitlement_type' => ['required', 'string', 'max:50'],
             'default_allocation' => ['nullable', 'numeric', 'min:0'],
@@ -525,8 +819,18 @@ return view('admin.core-addons.index', [
                 'unique:core_addon_bundles,key,' . ($bundle ?? 'NULL') . ',id',
             ],
             'name' => ['required', 'string', 'max:255'],
-            'category' => ['nullable', 'string', 'max:100'],
+            'marketplace_category_ids' => ['nullable', 'array'],
+            'marketplace_category_ids.*' => [
+                'integer',
+                'exists:marketplace_categories,id',
+            ],
             'description' => ['nullable', 'string'],
+            'preview_image' => [
+                'nullable',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:5120',
+            ],
             'unit_name' => ['nullable', 'string', 'max:64'],
 
             'saas_price' => ['nullable', 'numeric', 'min:0'],
@@ -619,8 +923,39 @@ return view('admin.core-addons.index', [
                 'unique:core_addons,key,' . $id . ',id',
             ],
             'name' => ['required', 'string', 'max:255'],
-            'category' => ['nullable', 'string', 'max:100'],
+            'marketplace_category_ids' => ['nullable', 'array'],
+            'marketplace_category_ids.*' => [
+                'integer',
+                'exists:marketplace_categories,id',
+            ],
             'description' => ['nullable', 'string'],
+            'preview_image' => [
+                'nullable',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:5120',
+            ],
+            'implementation_type' => ['required', 'in:allocation,package'],
+
+            /*
+             * Package source applies only when implementation_type=package.
+             * Allocation Add-ons never require or install package files.
+             */
+            'package_source_mode' => [
+                'nullable',
+                'in:folder,upload',
+            ],
+            'package_name' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'package_file' => [
+                'nullable',
+                'file',
+                'mimes:zip',
+                'max:102400',
+            ],
             'parent_capability' => ['nullable', 'string', 'max:150'],
             'entitlement_type' => ['nullable', 'string', 'max:50'],
             'default_allocation' => ['nullable', 'numeric', 'min:0'],
@@ -764,9 +1099,58 @@ return view('admin.core-addons.index', [
             ],
         ]);
 
+        /*
+         * ESUBIZ_ADDON_PACKAGE_IDENTITY_VALIDATION_EDIT_V1
+         *
+         * Reject ordinary ZIPs, Theme packages, Module packages and any
+         * other archive that is not a valid Esubiz Add-on package.
+         */
+        if (
+            $data['implementation_type'] === 'package'
+            && $request->hasFile('package_file')
+        ) {
+            app(AddonPackageService::class)->validatePackage(
+                $request->file('package_file')->getRealPath()
+            );
+        }
+
+        /*
+         * ESUBIZ_ADDON_UPDATE_TYPE_RULES_V1
+         */
+        if ($data['implementation_type'] === 'allocation') {
+            $data['saas_available'] = true;
+            $data['off_server_available'] = false;
+
+            $request->merge([
+                'saas_available' => 1,
+                'off_server_available' => 0,
+                'resource_saas' => 1,
+                'resource_off_server' => 0,
+            ]);
+        } else {
+            $data['saas_available'] = $request->boolean('saas_available');
+            $data['off_server_available'] = $request->boolean('off_server_available');
+
+            $request->merge([
+                'resource_saas' => 0,
+                'resource_off_server' => 0,
+            ]);
+
+            $placements = array_values(array_filter(
+                (array) $request->input('addon_placements', []),
+                fn ($placement) => $placement !== 'dashboard'
+            ));
+
+            $request->merge([
+                'addon_placements' => $placements,
+            ]);
+
+            $data['addon_placements'] = $placements;
+        }
+
         $data['key'] = $data['key'] ?? $addon->key;
         $data['entitlement_type'] = $data['entitlement_type'] ?? $addon->entitlement_type;
-        $data['category'] = $data['category'] ?? $addon->category;
+        $data['category'] = $addon->category;
         $data['parent_capability'] = $data['parent_capability'] ?? $addon->parent_capability;
 
         DB::table('core_addons')
@@ -774,8 +1158,14 @@ return view('admin.core-addons.index', [
             ->update([
                 'key' => $data['key'],
                 'name' => $data['name'],
-                'category' => $data['category'] ?? null,
+                'category' => null,
                 'description' => $data['description'] ?? null,
+                'preview_image' => $this->storeProductPreview(
+                    $request,
+                    'addons',
+                    $addon->preview_image ?? null
+                ),
+                'implementation_type' => $data['implementation_type'],
                 'parent_capability' => $data['parent_capability'] ?? null,
                 'entitlement_type' => $data['entitlement_type'],
                 'default_allocation' => $data['default_allocation'] ?? null,
@@ -821,6 +1211,12 @@ return view('admin.core-addons.index', [
                 )),
                 'updated_at' => now(),
             ]);
+
+        $this->syncAddonPackage(
+            $id,
+            $request,
+            $data
+        );
 
         /*
          * ESUBIZ_CENTRAL_RESOURCE_SETTINGS_PERSISTENCE_V1
@@ -1230,6 +1626,23 @@ return view('admin.core-addons.index', [
             $request->input('capability_unlimited', [])
         );
 
+        $catalogProductId = DB::table('core_addons')
+            ->where('id', $id)
+            ->value('catalog_product_id');
+
+        $this->syncAddonMarketplaceCategories(
+            $catalogProductId ? (int) $catalogProductId : null,
+            (array) ($data['marketplace_category_ids'] ?? [])
+        );
+
+        $this->syncMarketplaceListing($id);
+
+        $this->syncMarketplaceFeatured(
+            'core_addon',
+            $id,
+            $request->boolean('featured')
+        );
+
         return redirect()
             ->route('admin.core-addons.index')
             ->with(
@@ -1245,6 +1658,12 @@ public function editAddon(int $id)
             ->first();
 
         abort_unless($addon, 404);
+
+        $addon->marketplace_featured = (bool) DB::table('marketplace_listings')
+            ->where('product_type', 'core_addon')
+            ->where('product_id', $id)
+            ->whereNull('deleted_at')
+            ->value('featured');
 
         $allocations = DB::table('core_addon_capability_allocations')
             ->where('addon_id', $id)
@@ -1419,6 +1838,10 @@ public function editAddon(int $id)
                 $universalPlacementContentTrigger->cta_text ?? null,
         ];
 
+        $storageAddonPackages =
+            app(AddonPackageStorageService::class)
+                ->packages();
+
 return view('admin.core-addons.edit', [
             'addon' => $addon,
             'capabilities' => $capabilities,
@@ -1448,6 +1871,15 @@ return view('admin.core-addons.edit', [
         abort_unless($addon, 404);
 
         DB::transaction(function () use ($id) {
+            /*
+             * Product deletion is absolute for its Marketplace identity.
+             * No orphaned or soft-deleted Marketplace listing is retained.
+             */
+            DB::table('marketplace_listings')
+                ->where('product_type', 'core_addon')
+                ->where('product_id', $id)
+                ->delete();
+
             DB::table('core_addon_capability_allocations')
                 ->where('addon_id', $id)
                 ->delete();
@@ -1483,6 +1915,15 @@ return view('admin.core-addons.edit', [
         abort_unless($record, 404);
 
         DB::transaction(function () use ($bundle) {
+            /*
+             * Product deletion is absolute for its Marketplace identity.
+             * No orphaned or soft-deleted Marketplace listing is retained.
+             */
+            DB::table('marketplace_listings')
+                ->where('product_type', 'core_bundle')
+                ->where('product_id', $bundle)
+                ->delete();
+
             DB::table('core_addon_bundle_items')
                 ->where('bundle_id', $bundle)
                 ->delete();
@@ -1584,6 +2025,249 @@ return view('admin.core-addons.edit', [
      * Every purchase/rental of the add-on contributes the configured
      * allocation again. Unlimited is stored per capability.
      */
+    /**
+     * Persist the authoritative package version for a Package Add-on.
+     *
+     * Allocation Add-ons never own package files.
+     */
+    private function syncAddonPackage(
+        int $addonId,
+        Request $request,
+        array $data
+    ): void {
+        if (($data['implementation_type'] ?? null) !== 'package') {
+            return;
+        }
+
+        $sourceMode =
+            $data['package_source_mode']
+            ?? 'folder';
+
+        $service =
+            app(AddonPackageService::class);
+
+        $storage =
+            app(AddonPackageStorageService::class);
+
+        /*
+         * Resolve both Admin source modes into one authoritative local ZIP.
+         */
+        if ($sourceMode === 'folder') {
+            $packageName =
+                trim(
+                    (string) (
+                        $data['package_name']
+                        ?? ''
+                    )
+                );
+
+            /*
+             * On Edit, leaving Search Folder empty means keep the existing
+             * current package unchanged.
+             */
+            if ($packageName === '') {
+                return;
+            }
+
+            $sourcePath =
+                $storage->resolve(
+                    $packageName
+                );
+        } else {
+            if (!$request->hasFile('package_file')) {
+                /*
+                 * Edit may retain its existing package when no replacement
+                 * upload is submitted.
+                 */
+                return;
+            }
+
+            $sourcePath =
+                $request->file(
+                    'package_file'
+                )->getRealPath();
+        }
+
+        /*
+         * Product identity is validated again at the storage boundary.
+         * Ordinary ZIPs and all non-Add-on Esubiz packages are rejected.
+         */
+        $manifest =
+            $service->validatePackage(
+                $sourcePath
+            );
+
+        $manifestKey = trim(
+            (string) data_get($manifest, 'addon.key')
+        );
+
+        $addon = DB::table('core_addons')
+            ->where('id', $addonId)
+            ->first();
+
+        if (!$addon) {
+            throw new \RuntimeException(
+                'Add-on record is unavailable for package registration.'
+            );
+        }
+
+        /*
+         * Package technical identity must match the Add-on technical key.
+         */
+        if ($manifestKey !== (string) $addon->key) {
+            throw new \RuntimeException(
+                "Add-on package key [{$manifestKey}] does not match Add-on key [{$addon->key}]."
+            );
+        }
+
+        $version = trim(
+            (string) data_get($manifest, 'addon.version')
+        );
+
+        $deployment = array_values(
+            array_unique(
+                array_map(
+                    'strval',
+                    (array) data_get(
+                        $manifest,
+                        'compatibility.deployment',
+                        []
+                    )
+                )
+            )
+        );
+
+        /*
+         * Admin availability cannot claim a deployment mode unsupported
+         * by the uploaded package manifest.
+         */
+        if (
+            !empty($data['saas_available'])
+            && !in_array('saas', $deployment, true)
+        ) {
+            throw new \RuntimeException(
+                'This Add-on package does not support SaaS deployment.'
+            );
+        }
+
+        if (
+            !empty($data['off_server_available'])
+            && !in_array('off_server', $deployment, true)
+        ) {
+            throw new \RuntimeException(
+                'This Add-on package does not support off-server deployment.'
+            );
+        }
+
+        $relativeDirectory =
+            $addon->key
+            . DIRECTORY_SEPARATOR
+            . $version;
+
+        $absoluteDirectory =
+            $service->protectedRoot()
+            . DIRECTORY_SEPARATOR
+            . $relativeDirectory;
+
+        File::ensureDirectoryExists(
+            $absoluteDirectory,
+            0755,
+            true
+        );
+
+        $filename =
+            $addon->key
+            . '-v'
+            . $version
+            . '.zip';
+
+        $absolutePath =
+            $absoluteDirectory
+            . DIRECTORY_SEPARATOR
+            . $filename;
+
+        /*
+         * Search Folder may already point at the final protected package.
+         * Avoid copying a file onto itself.
+         */
+        $sourceRealPath =
+            realpath($sourcePath)
+            ?: $sourcePath;
+
+        $destinationRealPath =
+            realpath($absolutePath)
+            ?: $absolutePath;
+
+        if (
+            $sourceRealPath !== $destinationRealPath
+            && !File::copy(
+                $sourcePath,
+                $absolutePath
+            )
+        ) {
+            throw new \RuntimeException(
+                'Unable to store Add-on package.'
+            );
+        }
+
+        $relativePath =
+            $relativeDirectory
+            . DIRECTORY_SEPARATOR
+            . $filename;
+
+        $checksum =
+            $service->checksum(
+                $absolutePath
+            );
+
+        DB::transaction(function () use (
+            $addonId,
+            $version,
+            $relativePath,
+            $absolutePath,
+            $checksum,
+            $deployment,
+            $manifest,
+            $sourceMode
+        ) {
+            DB::table('core_addon_packages')
+                ->where('addon_id', $addonId)
+                ->update([
+                    'is_current' => false,
+                    'updated_at' => now(),
+                ]);
+
+            DB::table('core_addon_packages')
+                ->insert([
+                    'addon_id' => $addonId,
+                    'uuid' => (string) Str::uuid(),
+                    'version' => $version,
+                    'package_path' => $relativePath,
+                    'checksum_sha256' => $checksum,
+                    'package_bytes' => File::size($absolutePath),
+                    'manifest_schema' => AddonPackageService::SCHEMA,
+                    'manifest_schema_version' =>
+                        AddonPackageService::SCHEMA_VERSION,
+                    'minimum_core_version' => null,
+                    'deployment_compatibility' =>
+                        json_encode($deployment),
+                    'website_types' => null,
+                    'metadata' => json_encode([
+                        'manifest' => $manifest,
+                        'storage_owner' => 'central',
+                        'source' => $sourceMode,
+                    ]),
+                    'is_current' => true,
+                    'is_active' => true,
+                    'published_at' => now(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                    'deleted_at' => null,
+                ]);
+        });
+    }
+
+
     private function syncCapabilityAllocations(
         int $addonId,
         array $allocations,
@@ -1615,10 +2299,87 @@ return view('admin.core-addons.edit', [
     /*
      * ESUBIZ_CORE_ADDON_MARKETPLACE_AUTO_SYNC_V1
      */
+    protected function syncMarketplaceFeatured(
+        string $productType,
+        int $productId,
+        bool $featured
+    ): void {
+        DB::table('marketplace_listings')
+            ->where('product_type', $productType)
+            ->where('product_id', $productId)
+            ->whereNull('deleted_at')
+            ->update([
+                'featured' => $featured,
+                'updated_at' => now(),
+            ]);
+    }
+
     protected function syncMarketplaceListing(int $addonId): void
     {
         app(CoreAddonMarketplaceListingSyncService::class)
             ->syncById($addonId);
+    }
+
+
+
+    /**
+     * ESUBIZ_ADDON_MARKETPLACE_CATEGORIES_V563
+     */
+    protected function addonMarketplaceCategories()
+    {
+        return MarketplaceCategory::query()
+            ->active()
+            ->ordered()
+            ->get()
+            ->filter(
+                fn (MarketplaceCategory $category) =>
+                    $category->supportsProductType('addon')
+                    || $category->supportsProductType('addons')
+                    || $category->supportsProductType('bundle')
+                    || $category->supportsProductType('bundles')
+            )
+            ->values();
+    }
+
+    protected function syncAddonMarketplaceCategories(
+        ?int $catalogProductId,
+        array $categoryIds = []
+    ): void {
+        if (!$catalogProductId) {
+            return;
+        }
+
+        $allowed = $this->addonMarketplaceCategories()
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id);
+
+        $ids = collect($categoryIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $allowed->contains($id))
+            ->unique()
+            ->values();
+
+        DB::table('catalog_product_marketplace_category')
+            ->where('catalog_product_id', $catalogProductId)
+            ->delete();
+
+        if ($ids->isEmpty()) {
+            return;
+        }
+
+        $now = now();
+
+        DB::table('catalog_product_marketplace_category')
+            ->insert(
+                $ids->map(
+                    fn ($categoryId) => [
+                        'catalog_product_id' => $catalogProductId,
+                        'marketplace_category_id' => $categoryId,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]
+                )->all()
+            );
     }
 
 }

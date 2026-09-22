@@ -2525,6 +2525,87 @@ class MarketplaceController extends Controller
             ->orderBy('id')
             ->get();
 
+        /*
+         * Marketplace ranking metadata.
+         *
+         * Featured comes from the canonical Marketplace listing.
+         * Purchase counts include paid orders only.
+         */
+        $addonRankingMeta = DB::table('marketplace_listings as listings')
+            ->leftJoin('marketplace_orders as orders', function ($join) {
+                $join->on(
+                    'orders.marketplace_listing_id',
+                    '=',
+                    'listings.id'
+                )->where('orders.payment_status', 'paid');
+            })
+            ->where('listings.product_type', 'core_addon')
+            ->whereNull('listings.deleted_at')
+            ->select(
+                'listings.product_id',
+                'listings.featured',
+                'listings.created_at',
+                DB::raw('COUNT(orders.id) as purchase_count')
+            )
+            ->groupBy(
+                'listings.id',
+                'listings.product_id',
+                'listings.featured',
+                'listings.created_at'
+            )
+            ->get()
+            ->keyBy('product_id');
+
+        foreach ($addons as $addon) {
+            $meta = $addonRankingMeta->get($addon->id);
+
+            $addon->marketplace_featured =
+                (bool) ($meta->featured ?? false);
+
+            $addon->marketplace_purchase_count =
+                (int) ($meta->purchase_count ?? 0);
+
+            $addon->marketplace_created_at =
+                $meta->created_at ?? $addon->created_at ?? null;
+        }
+
+        $bundleRankingMeta = DB::table('marketplace_listings as listings')
+            ->leftJoin('marketplace_orders as orders', function ($join) {
+                $join->on(
+                    'orders.marketplace_listing_id',
+                    '=',
+                    'listings.id'
+                )->where('orders.payment_status', '=', 'paid');
+            })
+            ->where('listings.product_type', 'core_bundle')
+            ->whereNull('listings.deleted_at')
+            ->groupBy(
+                'listings.product_id',
+                'listings.featured',
+                'listings.created_at'
+            )
+            ->select(
+                'listings.product_id',
+                'listings.featured',
+                'listings.created_at',
+                DB::raw('COUNT(orders.id) as purchase_count')
+            )
+            ->get()
+            ->keyBy('product_id');
+
+        foreach ($bundles as $bundle) {
+            $meta = $bundleRankingMeta->get($bundle->id);
+
+            $bundle->marketplace_featured =
+                (bool) ($meta->featured ?? false);
+
+            $bundle->marketplace_purchase_count =
+                (int) ($meta->purchase_count ?? 0);
+
+            $bundle->marketplace_created_at =
+                $meta->created_at ?? $bundle->created_at ?? null;
+        }
+
         $bundleItems = DB::table('core_addon_bundle_items')
             ->join('core_addons', 'core_addon_bundle_items.addon_id', '=', 'core_addons.id')
             ->select(

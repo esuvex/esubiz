@@ -120,7 +120,16 @@ class MarketplaceCategoryController extends Controller
 
             'product_types.*' => [
                 'string',
-                Rule::in(app(MarketplaceProductRegistry::class)->types()),
+                Rule::in(
+                    class_exists(MarketplaceProductRegistry::class)
+                        ? app(MarketplaceProductRegistry::class)->types()
+                        : [
+                            'theme',
+                            'module',
+                            'addon',
+                            'bundle',
+                        ]
+                ),
             ],
 
             'is_active' => [

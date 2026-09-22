@@ -80,6 +80,64 @@
                                 {{ $recommendation['message'] }}
                             </div>
                         @endif
+
+                        @if((string) $location === 'dashboard')
+                            @php
+                                /*
+                                 * ESUBIZ_DASHBOARD_TRIGGER_DIRECT_RESOURCE_USAGE_V1
+                                 *
+                                 * Dashboard owns the live resource context.
+                                 * Resolve the displayed usage directly from it
+                                 * instead of depending on recommendation
+                                 * transformations preserving presentation data.
+                                 */
+                                $dashboardTriggerResourceKey =
+                                    $recommendation['resource_key']
+                                    ?? null;
+
+                                $dashboardTriggerResource =
+                                    $dashboardTriggerResourceKey
+                                    && isset(
+                                        $context['resources'][
+                                            $dashboardTriggerResourceKey
+                                        ]
+                                    )
+                                        ? $context['resources'][
+                                            $dashboardTriggerResourceKey
+                                        ]
+                                        : null;
+
+                                $dashboardTriggerUsageText =
+                                    is_array($dashboardTriggerResource)
+                                        ? (
+                                            $dashboardTriggerResource[
+                                                'usage_text'
+                                            ]
+                                            ?? null
+                                        )
+                                        : null;
+
+                                $dashboardTriggerPercentageText =
+                                    is_array($dashboardTriggerResource)
+                                        ? (
+                                            $dashboardTriggerResource[
+                                                'percentage_text'
+                                            ]
+                                            ?? null
+                                        )
+                                        : null;
+                            @endphp
+
+                            @if(!empty($dashboardTriggerUsageText))
+                                <div class="esubiz-dashboard-resource-usage">
+                                    {{ $dashboardTriggerUsageText }}
+
+                                    @if(!empty($dashboardTriggerPercentageText))
+                                        ({{ $dashboardTriggerPercentageText }})
+                                    @endif
+                                </div>
+                            @endif
+                        @endif
                     </div>
 
                     @if(!empty($recommendation['cta_text']))
