@@ -10,46 +10,97 @@ class MarketplaceController extends Controller
 {
     public function index()
     {
-        return view('marketplace.index', [
-            'addons' => DB::table('core_addons')
-                ->where('is_active', true)
-                ->where('saas_available', true)
-                ->whereNull('deleted_at')
-                ->orderBy('name')
-                ->get(),
+        /*
+         * ESUBIZ_MARKETPLACE_HOME_V1
+         *
+         * Marketplace home is intentionally product-family based.
+         * Individual product pages remain responsible for resolving their
+         * actual SaaS/off-server products, pricing and availability.
+         *
+         * Future product families may safely appear before their dedicated
+         * catalog implementation exists. Missing routes therefore resolve
+         * back to this Marketplace home instead of causing an exception.
+         */
+        $routeOrHome = static function (?string $routeName): string {
+            return $routeName && \Illuminate\Support\Facades\Route::has($routeName)
+                ? route($routeName)
+                : route('marketplace.index');
+        };
 
-            'bundles' => DB::table('core_addon_bundles')
-                ->where('is_active', true)
-                ->where('saas_available', true)
-                ->whereNull('deleted_at')
-                ->orderBy('name')
-                ->get(),
-
-            'catalogProducts' => $this->catalogProductsFor('saas'),
-
-            'bundleItems' => DB::table('core_addon_bundle_items as items')
-                ->join('core_addons as addons', 'addons.id', '=', 'items.addon_id')
-                ->whereIn(
-                    'items.bundle_id',
-                    DB::table('core_addon_bundles')
-                        ->where('is_active', true)
-                        ->where('saas_available', true)
-                        ->whereNull('deleted_at')
-                        ->pluck('id')
-                )
-                ->where('addons.is_active', true)
-                ->whereNull('addons.deleted_at')
-                ->select(
-                    'items.bundle_id',
-                    'addons.id as addon_id',
-                    'addons.name',
-                    'items.allocation',
-                    'items.is_unlimited'
-                )
-                ->orderBy('addons.name')
-                ->get()
-                ->groupBy('bundle_id'),
+        $products = collect([
+            [
+                'name' => 'Add-ons & Bundles',
+                'description' => 'Extend Esubiz with additional functionality, capacity and product bundles.',
+                'icon' => '🧩',
+                'url' => $routeOrHome('marketplace.addons'),
+                'available' => true,
+            ],
+            [
+                'name' => 'Modules',
+                'description' => 'Add complete business and industry modules to your Esubiz platform.',
+                'icon' => '🧱',
+                'url' => $routeOrHome('marketplace.modules'),
+                'available' => true,
+            ],
+            [
+                'name' => 'Themes',
+                'description' => 'Browse compatible website themes published through the Esubiz Marketplace.',
+                'icon' => '🎨',
+                'url' => $routeOrHome('marketplace.themes'),
+                'available' => true,
+            ],
+            [
+                'name' => 'Website Types',
+                'description' => 'Browse preconfigured website products for different businesses and use cases.',
+                'icon' => '🌐',
+                'url' => $routeOrHome('marketplace.website-types'),
+                'available' => \Illuminate\Support\Facades\Route::has('marketplace.website-types'),
+            ],
+            [
+                'name' => 'Credits',
+                'description' => 'Purchase Esubiz credits for supported platform services and usage.',
+                'icon' => '✨',
+                'url' => $routeOrHome('marketplace.credits'),
+                'available' => \Illuminate\Support\Facades\Route::has('marketplace.credits'),
+            ],
+            [
+                'name' => 'Licenses',
+                'description' => 'Purchase and manage eligible Esubiz product licenses.',
+                'icon' => '🔑',
+                'url' => $routeOrHome('marketplace.licenses'),
+                'available' => \Illuminate\Support\Facades\Route::has('marketplace.licenses'),
+            ],
+            [
+                'name' => 'Gift Cards',
+                'description' => 'Esubiz gift cards and developer gift-card products.',
+                'icon' => '🎁',
+                'url' => $routeOrHome('marketplace.giftcards'),
+                'available' => \Illuminate\Support\Facades\Route::has('marketplace.giftcards'),
+            ],
+            [
+                'name' => 'Esubiz Branded Link',
+                'description' => 'Manage eligible Esubiz branding and branded-link products.',
+                'icon' => '🔗',
+                'url' => $routeOrHome('marketplace.branded-link'),
+                'available' => \Illuminate\Support\Facades\Route::has('marketplace.branded-link'),
+            ],
+            [
+                'name' => 'Domains',
+                'description' => 'Search, register, transfer and manage domains through supported Esubiz services.',
+                'icon' => '🌍',
+                'url' => $routeOrHome('marketplace.domains'),
+                'available' => \Illuminate\Support\Facades\Route::has('marketplace.domains'),
+            ],
+            [
+                'name' => 'Hosting',
+                'description' => 'Browse hosting products available for supported Esubiz deployments.',
+                'icon' => '🖥️',
+                'url' => $routeOrHome('marketplace.hosting'),
+                'available' => \Illuminate\Support\Facades\Route::has('marketplace.hosting'),
+            ],
         ]);
+
+        return view('marketplace.index', compact('products'));
     }
 
 
@@ -2688,7 +2739,7 @@ class MarketplaceController extends Controller
             }
         }
 
-        return view('marketplace.index', [
+        return view('marketplace.addons', [
             'addons' => $addons,
             'bundles' => $bundles,
             'bundleItems' => $bundleItems,
@@ -4996,6 +5047,75 @@ class MarketplaceController extends Controller
 
 
     /*
+     * ESUBIZ_DEVELOPER_THEME_HUB_V1
+     *
+     * Developer Theme product home.
+     * SaaS uses the canonical User-mode Marketplace URL.
+     * Off-server remains Developer-specific.
+     */
+    public function developerThemes()
+    {
+        return view('marketplace.developer-themes');
+    }
+
+
+    /*
+     * ESUBIZ_DEVELOPER_OFF_SERVER_THEME_MARKETPLACE_V1
+     */
+    public function developerThemesOffServer(
+        ThemeMarketplaceResolver $resolver
+    ) {
+        $themes = $this->marketplaceThemes(
+            $resolver,
+            ThemeMarketplaceResolver::DEPLOYMENT_OFF_SERVER
+        );
+
+        $categories = $themes
+            ->map(fn ($theme) => data_get($theme, 'marketplace.category'))
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values();
+
+        return view(
+            'marketplace.developer-themes-off-server',
+            compact('themes', 'categories')
+        );
+    }
+
+
+    /*
+     * ESUBIZ_USER_THEME_MARKETPLACE_V1
+     *
+     * Canonical SaaS Theme Marketplace shared by User, Developer
+     * and Platform Admin accounts.
+     *
+     * Central ThemeMarketplaceResolver remains the single catalog
+     * and eligibility source of truth.
+     */
+    public function themes(
+        ThemeMarketplaceResolver $resolver
+    ) {
+        $themes = $this->marketplaceThemes(
+            $resolver,
+            ThemeMarketplaceResolver::DEPLOYMENT_SAAS
+        );
+
+        $categories = $themes
+            ->map(fn ($theme) => data_get($theme, 'marketplace.category'))
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values();
+
+        return view(
+            'marketplace.themes',
+            compact('themes', 'categories')
+        );
+    }
+
+
+    /*
      * ESUBIZ_CENTRAL_THEME_MARKETPLACE_RESOLVER_V1
      *
      * Central Theme Marketplace must use the same eligibility source
@@ -5266,6 +5386,70 @@ class MarketplaceController extends Controller
     }
 
 
+
+
+    /*
+     * ESUBIZ_USER_MODULE_MARKETPLACE_V1
+     *
+     * Canonical SaaS Module Marketplace shared by User,
+     * Developer and Platform Admin accounts.
+     */
+    public function modules(
+        \App\Services\Marketplace\Modules\ModuleMarketplaceResolver $resolver
+    ) {
+        $modules = $resolver->forDeployment(
+            $resolver::DEPLOYMENT_SAAS
+        );
+
+        $categories = $modules
+            ->map(fn ($module) =>
+                $module->marketplace_category ?? null
+            )
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values();
+
+        return view(
+            'marketplace.modules',
+            compact('modules', 'categories', 'resolver')
+        );
+    }
+
+
+    /*
+     * ESUBIZ_DEVELOPER_MODULE_HUB_V1
+     */
+    public function developerModules()
+    {
+        return view('marketplace.developer-modules');
+    }
+
+
+    /*
+     * ESUBIZ_DEVELOPER_OFF_SERVER_MODULE_MARKETPLACE_V1
+     */
+    public function developerModulesOffServer(
+        \App\Services\Marketplace\Modules\ModuleMarketplaceResolver $resolver
+    ) {
+        $modules = $resolver->forDeployment(
+            $resolver::DEPLOYMENT_OFF_SERVER
+        );
+
+        $categories = $modules
+            ->map(fn ($module) =>
+                $module->marketplace_category ?? null
+            )
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values();
+
+        return view(
+            'marketplace.developer-modules-off-server',
+            compact('modules', 'categories', 'resolver')
+        );
+    }
 
 
     /*

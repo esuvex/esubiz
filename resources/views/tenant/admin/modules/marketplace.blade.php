@@ -134,6 +134,10 @@
                     (string) ($module['currency'] ?? '')
                 );
 
+                $billing = is_array($module['billing'] ?? null)
+                    ? $module['billing']
+                    : null;
+
                 $publisher = data_get(
                     $module,
                     'publisher.name'
@@ -238,7 +242,11 @@
                             <div>
                                 @if($price !== null)
                                     <div class="text-lg font-black text-slate-950">
-                                        {{ $currency }} {{ number_format((float) $price, 2) }}
+                                        @if((float) $price <= 0)
+                                            Free
+                                        @else
+                                            {{ $currency }} {{ number_format((float) $price, 2) }}@if(!empty($billing['label'])) / {{ $billing['label'] }}@endif
+                                        @endif
                                     </div>
                                 @endif
                             </div>

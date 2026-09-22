@@ -149,14 +149,20 @@ class ModuleMarketplaceCatalogService
                 $deployment
             ),
 
+            'billing' => $this->resolver->billing(
+                $module,
+                $deployment
+            ),
+
             'marketplace' => [
                 'featured' => (bool) (
                     $module->marketplace_featured
                     ?? false
                 ),
-                'category' =>
-                    $module->marketplace_category
-                    ?? null,
+                'categories' =>
+                    $this->resolver->categories(
+                        $module
+                    ),
             ],
 
             /*
@@ -189,7 +195,14 @@ class ModuleMarketplaceCatalogService
                 ?? ModuleMarketplaceResolver::DEPLOYMENT_OFF_SERVER,
 
             'price' => $module['price'] ?? null,
-            'currency' => $module['currency'] ?? 'NGN',
+            'currency' => $module['currency'] ?? config(
+                'platform.currency.primary',
+                ''
+            ),
+            'billing' =>
+                is_array($module['billing'] ?? null)
+                    ? $module['billing']
+                    : null,
 
             'marketplace' =>
                 is_array($module['marketplace'] ?? null)

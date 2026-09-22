@@ -2618,6 +2618,9 @@ Route::get('/marketplace/checkout/{order}', [\App\Http\Controllers\MarketplaceCo
     Route::get('/marketplace/orders/{order}/payment-status', [\App\Http\Controllers\MarketplaceController::class, 'paymentStatus'])
         ->name('marketplace.payment-status');
 
+    Route::get('/marketplace', [\App\Http\Controllers\MarketplaceController::class, 'index'])
+        ->name('marketplace.index');
+
     Route::get('/marketplace/addons', [\App\Http\Controllers\MarketplaceController::class, 'addons'])
         ->name('marketplace.addons');
 
@@ -2831,6 +2834,18 @@ Route::domain('esubiz.com')
     Route::get('/developer/dashboard', [DeveloperDashboardController::class, 'index'])
         ->middleware(['permission:developer.console', 'account-mode:developer'])
         ->name('developer.dashboard');
+
+    /*
+     * ESUBIZ_DEVELOPER_WEBSITE_BUILDER_HUB_V1
+     *
+     * Developer Website Builder entry point.
+     * SaaS uses the canonical User-mode wizard.
+     * Off-server uses the existing Developer compiler/builder.
+     */
+    Route::view(
+        '/developer/website-builder',
+        'developer.website-builder'
+    )->name('developer.website-builder');
 
     Route::get('/developer/builder', [DeveloperBuilderController::class, 'index'])
         ->middleware('account-mode:developer')
@@ -3483,6 +3498,20 @@ Route::get(
     );
 
 
+
+/*
+ * ESUBIZ_PUBLIC_OFF_SERVER_MARKETPLACE_CATALOG_V1
+ *
+ * Read-only Central product feed for marketplace.esubiz.com.
+ */
+Route::get(
+    '/api/marketplace/off-server/catalog',
+    [
+        \App\Http\Controllers\Api\OffServerMarketplaceController::class,
+        'catalog',
+    ]
+)->name('api.marketplace.off-server.catalog');
+
 /*
 |--------------------------------------------------------------------------
 | ESUBIZ_CHECKPOINT5_OFF_SERVER_MARKETPLACE
@@ -3947,6 +3976,45 @@ Route::post(
 
 /*
 |--------------------------------------------------------------------------
+| ESUBIZ_DEVELOPER_THEME_MARKETPLACE_ROUTES_V1
+|--------------------------------------------------------------------------
+*/
+Route::middleware([
+    'auth',
+    'account-mode:developer',
+])->group(function () {
+    Route::get(
+        '/developer/marketplace/themes',
+        [\App\Http\Controllers\MarketplaceController::class, 'developerThemes']
+    )->name('developer.marketplace.themes');
+
+    Route::get(
+        '/developer/marketplace/themes/off-server',
+        [\App\Http\Controllers\MarketplaceController::class, 'developerThemesOffServer']
+    )->name('developer.marketplace.themes.off-server');
+});
+
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_USER_THEME_MARKETPLACE_ROUTE_V1
+|--------------------------------------------------------------------------
+|
+| Canonical SaaS Theme Marketplace.
+| User, Developer and Platform Admin accounts share this exact URL.
+|
+*/
+Route::get(
+    '/marketplace/themes',
+    [\App\Http\Controllers\MarketplaceController::class, 'themes']
+)->middleware([
+    'auth',
+    'account-mode:user',
+])->name('marketplace.themes');
+
+
+/*
+|--------------------------------------------------------------------------
 | ESUBIZ_THEME_MARKETPLACE_CATALOG_ROUTE_V1
 |--------------------------------------------------------------------------
 |
@@ -3958,6 +4026,36 @@ Route::get(
     '/marketplace/themes/catalog',
     [\App\Http\Controllers\MarketplaceController::class, 'themeCatalog']
 )->name('marketplace.themes.catalog');
+
+
+/*
+|--------------------------------------------------------------------------
+| ESUBIZ_MODULE_MARKETPLACE_PAGES_V1
+|--------------------------------------------------------------------------
+*/
+Route::get(
+    '/marketplace/modules',
+    [\App\Http\Controllers\MarketplaceController::class, 'modules']
+)->middleware([
+    'auth',
+    'account-mode:user',
+])->name('marketplace.modules');
+
+
+Route::middleware([
+    'auth',
+    'account-mode:developer',
+])->group(function () {
+    Route::get(
+        '/developer/marketplace/modules',
+        [\App\Http\Controllers\MarketplaceController::class, 'developerModules']
+    )->name('developer.marketplace.modules');
+
+    Route::get(
+        '/developer/marketplace/modules/off-server',
+        [\App\Http\Controllers\MarketplaceController::class, 'developerModulesOffServer']
+    )->name('developer.marketplace.modules.off-server');
+});
 
 
 /*

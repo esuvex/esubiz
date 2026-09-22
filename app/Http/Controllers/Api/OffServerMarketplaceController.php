@@ -15,6 +15,108 @@ use RuntimeException;
 class OffServerMarketplaceController extends Controller
 {
     /**
+     * Public read-only catalog consumed by marketplace.esubiz.com.
+     *
+     * Central remains the single source of truth. Only products available
+     * for off-server deployment are returned.
+     */
+    public function catalog(Request $request, MarketplaceProductResolver $products)
+    {
+        $requestedType = trim((string) $request->query('type', ''));
+
+        $types = [
+            'theme',
+            'module',
+            'website_type',
+        ];
+
+        if ($requestedType !== '' && in_array($requestedType, $types, true)) {
+            $types = [$requestedType];
+        }
+
+        $items = collect();
+
+        foreach ($types as $type) {
+            $rows = DB::table('catalog_products')
+                ->where('product_type', $type)
+                ->where('is_active', true)
+                ->where('is_public', true)
+                ->whereIn('audience', ['developer', 'both'])
+                ->whereNull('deleted_at')
+                ->orderByDesc('is_featured')
+                ->orderByDesc('id')
+                ->get();
+
+            foreach ($rows as $row) {
+                if (!$products->available($row, 'off_server')) {
+                    continue;
+                }
+
+                $items->push([
+                    'type' => $type,
+                    'id' => (int) $row->id,
+                    'uuid' => $row->uuid ?? null,
+                    'name' => $row->name,
+                    'slug' => $row->slug,
+                    'description' => $row->description,
+                    'featured' => (bool) ($row->is_featured ?? false),
+                    'price' => $products->price($row, 'off_server'),
+                    'currency' => $products->currency($row, 'off_server'),
+                    'deployment_type' => 'off_server',
+                ]);
+            }
+        }
+
+        foreach ([
+            'addon' => 'core_addons',
+            'bundle' => 'core_addon_bundles',
+        ] as $type => $table) {
+            if ($requestedType !== '' && $requestedType !== $type) {
+                continue;
+            }
+
+            if (!\Illuminate\Support\Facades\Schema::hasTable($table)) {
+                continue;
+            }
+
+            $query = DB::table($table)
+                ->where('is_active', true)
+                ->where('off_server_available', true);
+
+            if (\Illuminate\Support\Facades\Schema::hasColumn($table, 'deleted_at')) {
+                $query->whereNull('deleted_at');
+            }
+
+            foreach ($query->orderByDesc('id')->get() as $row) {
+                if (!$products->available($row, 'off_server')) {
+                    continue;
+                }
+
+                $items->push([
+                    'type' => $type,
+                    'id' => (int) $row->id,
+                    'uuid' => $row->uuid ?? null,
+                    'name' => $row->name ?? $row->title ?? ucfirst($type),
+                    'slug' => $row->slug ?? null,
+                    'description' => $row->description ?? null,
+                    'featured' => false,
+                    'price' => $products->price($row, 'off_server'),
+                    'currency' => $products->currency($row, 'off_server'),
+                    'deployment_type' => 'off_server',
+                ]);
+            }
+        }
+
+        return response()->json([
+            'data' => $items->values(),
+            'meta' => [
+                'deployment_type' => 'off_server',
+                'source' => 'esubiz-central',
+                'count' => $items->count(),
+            ],
+        ]);
+    }
+    /**
      * ============================================================
      * OFF-SERVER CORE -> CENTRAL MARKETPLACE CHECKOUT HANDOFF
      * ============================================================

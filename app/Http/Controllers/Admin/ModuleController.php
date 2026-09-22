@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\CatalogProduct;
+use App\Models\MarketplaceCategory;
 use App\Models\Currency;
 use App\Models\CurrencyPrice;
 use App\Models\Module;
@@ -101,6 +102,10 @@ class ModuleController extends Controller
                     $data
                 );
 
+                $catalogProduct
+                    ->marketplaceCategories()
+                    ->sync($data['marketplace_category_ids'] ?? []);
+
                 $this->syncUploads(
                     $module,
                     $request,
@@ -143,6 +148,17 @@ class ModuleController extends Controller
             ->get('saas')
             ?->price;
 
+        $saasBillingPeriod = $modulePrices
+            ->get('saas')
+            ?->billing_period;
+
+        $saasBillingInterval = (int) (
+            data_get(
+                $modulePrices->get('saas')?->conditions,
+                'billing_interval'
+            ) ?: 1
+        );
+
         $offServerPrice = $modulePrices
             ->get('developer')
             ?->price;
@@ -154,6 +170,8 @@ class ModuleController extends Controller
                 compact(
                     'module',
                     'saasPrice',
+                    'saasBillingPeriod',
+                    'saasBillingInterval',
                     'offServerPrice'
                 )
             )
@@ -208,6 +226,10 @@ class ModuleController extends Controller
                     $data
                 );
 
+                $module->catalogProduct
+                    ->marketplaceCategories()
+                    ->sync($data['marketplace_category_ids'] ?? []);
+
                 $this->syncUploads(
                     $module,
                     $request,
@@ -251,7 +273,19 @@ class ModuleController extends Controller
 
     protected function formData(): array
     {
+        $marketplaceCategories =
+            MarketplaceCategory::query()
+                ->active()
+                ->ordered()
+                ->get()
+                ->filter(
+                    fn ($category) =>
+                        $category->supportsProductType('module')
+                )
+                ->values();
+
         return [
+            'marketplaceCategories' => $marketplaceCategories,
             'websiteTypes' => WebsiteType::query()
                 ->where('is_active', true)
                 ->orderBy('name')
@@ -351,6 +385,20 @@ class ModuleController extends Controller
                 'min:0',
             ],
 
+            'saas_billing_interval' => [
+                'required_if:saas_available,1',
+                'nullable',
+                'integer',
+                'min:1',
+                'max:120',
+            ],
+
+            'saas_billing_period' => [
+                'required_if:saas_available,1',
+                'nullable',
+                'in:daily,weekly,monthly,yearly',
+            ],
+
             'off_server_price' => [
                 'required_if:off_server_available,1',
                 'nullable',
@@ -370,6 +418,15 @@ class ModuleController extends Controller
             'core_function_configuration' => ['nullable', 'array'],
             'marketplace_metadata' => ['nullable', 'array'],
             'requirements' => ['nullable', 'array'],
+
+            'marketplace_category_ids' => [
+                'nullable',
+                'array',
+            ],
+            'marketplace_category_ids.*' => [
+                'integer',
+                'exists:marketplace_categories,id',
+            ],
 
             'is_verified' => ['required', 'boolean'],
             'is_featured' => ['required', 'boolean'],
@@ -506,10 +563,14 @@ class ModuleController extends Controller
             'saas' => [
                 'enabled' => (bool) $data['saas_available'],
                 'price' => $data['saas_price'] ?? null,
+                'billing_period' => $data['saas_billing_period'] ?? 'monthly',
+                'billing_interval' => (int) ($data['saas_billing_interval'] ?? 1),
             ],
             'developer' => [
                 'enabled' => (bool) $data['off_server_available'],
                 'price' => $data['off_server_price'] ?? null,
+                'billing_period' => 'one_time',
+                'billing_interval' => 1,
             ],
         ];
 
@@ -535,9 +596,10 @@ class ModuleController extends Controller
                 'price' => (float) $priceData['price'],
                 'setup_fee' => 0,
                 'discount' => 0,
-                'billing_period' => null,
+                'billing_period' => $priceData['billing_period'],
                 'conditions' => [
                     'base_currency' => $currencyCode,
+                    'billing_interval' => $priceData['billing_interval'],
                 ],
                 'is_active' => true,
             ]);

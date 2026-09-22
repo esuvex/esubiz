@@ -99,4 +99,30 @@ class ModuleMarketplaceResolver
             $deployment
         );
     }
+
+    /**
+     * Resolve deployment-specific billing duration.
+     */
+    public function billing(
+        object $module,
+        string $deployment
+    ): ?array {
+        return $this->products->billing(
+            $module,
+            $deployment
+        );
+    }
+
+    /**
+     * Resolve canonical Admin-managed Module Marketplace categories.
+     */
+    public function categories(
+        object $module
+    ): array {
+        return $this->products->categories(
+            $module,
+            'module'
+        );
+    }
+
 }

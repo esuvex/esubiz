@@ -228,4 +228,17 @@ class ThemeMarketplaceResolver
             )
             ->distinct();
     }
+
+    /**
+     * Resolve canonical Admin-managed Theme Marketplace categories.
+     */
+    public function categories(
+        object $theme
+    ): array {
+        return $this->products->categories(
+            $theme,
+            'theme'
+        );
+    }
+
 }

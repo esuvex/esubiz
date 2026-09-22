@@ -237,10 +237,25 @@
 
             <div x-show="marketplaceMenu" x-cloak class="ml-4 mt-1 space-y-1">
 
-                <a href="{{ route('marketplace.addons') }}" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Add-ons</a>
-                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Themes</a>
-                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Modules</a>
-                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Others</a>
+                <a href="{{ route('marketplace.addons') }}"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800 {{ request()->routeIs('marketplace.addons*') ? 'bg-blue-600 text-white' : '' }}">
+                    Add-ons
+                </a>
+
+                <a href="{{ route('marketplace.themes') }}"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800 {{ request()->routeIs('marketplace.themes*') ? 'bg-blue-600 text-white' : '' }}">
+                    Themes
+                </a>
+
+                <a href="{{ route('marketplace.modules') }}"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800 {{ request()->routeIs('marketplace.modules*') ? 'bg-blue-600 text-white' : '' }}">
+                    Modules
+                </a>
+
+                <a href="{{ route('marketplace.index') }}"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800 {{ request()->routeIs('marketplace.index') ? 'bg-blue-600 text-white' : '' }}">
+                    Others
+                </a>
             </div>
         </div>
 
@@ -326,24 +341,59 @@
             Dashboard
         </a>
 
-        <!-- Website Developer -->
+        <!-- Developer Workspace -->
         <div>
-            <button @click="websiteMenu=!websiteMenu"
-                    class="w-full flex items-center justify-between rounded-xl px-5 py-3 hover:bg-slate-800">
-                <span>Website Developer</span>
+            <button
+                @click="workspaceMenu=!workspaceMenu"
+                class="w-full flex items-center justify-between rounded-xl px-5 py-3 hover:bg-slate-800
+                {{ request()->routeIs(
+                    'developer.website-builder',
+                    'developer.builder*',
+                    'websites.*',
+                    'user.websites.*',
+                    'marketplace.developer.library*'
+                ) ? 'bg-slate-800' : '' }}"
+            >
+                <span>Workspace</span>
                 <span>⌄</span>
             </button>
 
-            <div x-show="websiteMenu" x-cloak class="ml-4 mt-1 space-y-1">
-                <a href="{{ route('developer.builder') }}"
-                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
-                    Build Website
+            <div x-show="workspaceMenu" x-cloak class="ml-4 mt-1 space-y-1">
+
+                <a href="{{ route('developer.website-builder') }}"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800
+                   {{ request()->routeIs('developer.website-builder', 'developer.builder*')
+                        ? 'bg-blue-600 text-white'
+                        : '' }}">
+                    Website Builder
+                </a>
+
+                <a href="{{ route('user.websites.index') }}"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800
+                   {{ request()->routeIs('user.websites.*')
+                        ? 'bg-blue-600 text-white'
+                        : '' }}">
+                    My Websites
+                </a>
+
+                <a href="{{ route('marketplace.developer.library') }}"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800
+                   {{ request()->routeIs('marketplace.developer.library*')
+                        ? 'bg-blue-600 text-white'
+                        : '' }}">
+                    My Library
                 </a>
 
                 <a href="#"
                    class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
-                    My Websites
+                    New Project
                 </a>
+
+                <a href="#"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">
+                    My Projects
+                </a>
+
             </div>
         </div>
 
@@ -361,18 +411,25 @@
                     Marketplace Dashboard
                 </a>
 
-                <a href="{{ route('marketplace.developer.addons') }}""
-   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800
-   {{ request()->routeIs('marketplace.developer.*')
-        ? 'bg-blue-600 text-white'
-        : (request()->routeIs('admin.core-addons.*') ? 'bg-blue-600 text-white' : '') }}">
-    Add-ons
-</a>
+                <a href="{{ route('developer.marketplace.addons') }}"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800 {{ request()->routeIs('developer.marketplace.addons*') ? 'bg-blue-600 text-white' : '' }}">
+                    Add-ons
+                </a>
 
+                <a href="{{ route('developer.marketplace.themes') }}"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800 {{ request()->routeIs('developer.marketplace.themes*') ? 'bg-blue-600 text-white' : '' }}">
+                    Themes
+                </a>
 
-                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Themes</a>
-                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Modules</a>
-                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Others</a>
+                <a href="{{ route('developer.marketplace.modules') }}"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800 {{ request()->routeIs('developer.marketplace.modules*') ? 'bg-blue-600 text-white' : '' }}">
+                    Modules
+                </a>
+
+                <a href="{{ route('marketplace.index') }}"
+                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800 {{ request()->routeIs('marketplace.index') ? 'bg-blue-600 text-white' : '' }}">
+                    Others
+                </a>
             </div>
         </div>
 
@@ -441,30 +498,6 @@
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Team Members</a>
             </div>
         </div>
-
-        <!-- Workspace -->
-        <div>
-            <button @click="workspaceMenu=!workspaceMenu"
-                    class="w-full flex items-center justify-between rounded-xl px-5 py-3 hover:bg-slate-800">
-                <span>Workspace</span>
-                <span>⌄</span>
-            </button>
-
-            <div x-show="workspaceMenu" x-cloak class="ml-4 mt-1 space-y-1">
-                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">New Project</a>
-                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">My Projects</a>
-            
-                <a href="{{ route('marketplace.developer.library') }}"
-                   class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800
-                   {{ request()->routeIs('marketplace.developer.library')
-                       ? 'bg-blue-600 text-white'
-                       : '' }}">
-                    My Library
-                </a>
-</div>
-        
-
-</div>
 
         <a href="#" class="flex items-center rounded-xl px-5 py-3 hover:bg-slate-800">
             Settings
@@ -572,7 +605,12 @@
                 >
                     Themes
                 </a>
-                <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Modules</a>
+                <a
+                    href="{{ route('admin.modules.index') }}"
+                    class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800 {{ request()->routeIs('admin.modules.*') ? 'bg-blue-600 text-white' : '' }}"
+                >
+                    Modules
+                </a>
                 <a href="#" class="block rounded-xl px-5 py-2 text-sm hover:bg-slate-800">Others</a>
             
                     <a href="{{ route('admin.credit-packages.index') }}"

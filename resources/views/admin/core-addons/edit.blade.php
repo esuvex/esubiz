@@ -376,7 +376,6 @@
 
 
                     <div>
-
                         <label class="text-sm font-bold text-slate-700">
                             SaaS Price
                         </label>
@@ -388,22 +387,52 @@
                             name="saas_price"
                             value="{{ old('saas_price', $addon->saas_price ?? 0) }}"
                             class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3">
-
                     </div>
 
-
                     <div>
-
                         <label class="text-sm font-bold text-slate-700">
-                            SaaS Period
+                            SaaS Currency
                         </label>
 
                         <input
                             type="text"
-                            name="saas_billing_period"
-                        value="{{ old('saas_billing_period', $addon->saas_billing_period) }}"
-                        class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3">
+                            maxlength="3"
+                            name="saas_currency"
+                            value="{{ old('saas_currency', $addon->saas_currency ?: config('platform.currency.primary', 'NGN')) }}"
+                            class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3">
+                    </div>
 
+                    <div>
+                        <label class="text-sm font-bold text-slate-700">
+                            SaaS Billing Period
+                        </label>
+
+                        <input
+                            type="number"
+                            min="1"
+                            name="saas_billing_period"
+                            value="{{ old('saas_billing_period', $addon->saas_billing_period) }}"
+                            placeholder="e.g. 1, 6, 12"
+                            class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3">
+                    </div>
+
+                    <div>
+                        <label class="text-sm font-bold text-slate-700">
+                            SaaS Billing Interval
+                        </label>
+
+                        <select
+                            name="saas_billing_interval"
+                            class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3">
+                            <option value="month"
+                                @selected(old('saas_billing_interval', $addon->saas_billing_interval) === 'month')>
+                                Month
+                            </option>
+                            <option value="year"
+                                @selected(old('saas_billing_interval', $addon->saas_billing_interval) === 'year')>
+                                Year
+                            </option>
+                        </select>
                     </div>
 
 

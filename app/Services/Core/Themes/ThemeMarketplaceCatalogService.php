@@ -196,8 +196,10 @@ class ThemeMarketplaceCatalogService
             'marketplace' => [
                 'featured' =>
                     (bool) $theme->marketplace_featured,
-                'category' =>
-                    $theme->marketplace_category,
+                'categories' =>
+                    $this->resolver->categories(
+                        $theme
+                    ),
             ],
 
             /*
