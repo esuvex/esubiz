@@ -3645,6 +3645,29 @@ Route::middleware([
 
 /*
  * ================================================================
+ * ESUBIZ_AWS_SES_SNS_FEEDBACK_ROUTE_V1
+ * ================================================================
+ *
+ * Central-only server-to-server AWS SNS receiver for SES outbound
+ * delivery, bounce, complaint and rejection feedback.
+ *
+ * SNS authentication is cryptographically validated in the controller.
+ * CSRF is disabled only for this exact webhook route.
+ */
+Route::domain('esubiz.com')
+    ->post(
+        '/api/webhooks/aws/ses',
+        \App\Http\Controllers\Api\AwsSesFeedbackController::class
+    )
+    ->withoutMiddleware(
+        \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class
+    )
+    ->middleware('throttle:120,1')
+    ->name('api.webhooks.aws.ses');
+
+
+/*
+ * ================================================================
  * CHECKPOINT_10_CENTRAL_WEBSITE_STATE_ROUTES
  * ================================================================
  *
