@@ -2,12 +2,18 @@
 
 namespace App\Services\Core;
 
+use App\Services\Core\Installer\CoreInstalledProductRegistry;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
 
 class CoreAddonMarketplaceFulfilmentService
 {
+    public function __construct(
+        protected CoreInstalledProductRegistry $installedProducts
+    ) {
+    }
+
     public function fulfil(
         int $userId,
         int $productId,
@@ -115,7 +121,17 @@ class CoreAddonMarketplaceFulfilmentService
                     ->first();
 
                 if ($existing) {
-                    $created[] = $existing->id;
+                    $entitlementId = (int) $existing->id;
+                    $created[] = $entitlementId;
+
+                    $this->ensureNativeInstallation(
+                        $websiteId,
+                        $addon,
+                        $entitlementId,
+                        $deploymentType,
+                        $item
+                    );
+
                     continue;
                 }
 
@@ -186,6 +202,14 @@ class CoreAddonMarketplaceFulfilmentService
                             )),
                             'updated_at' => now(),
                         ]);
+
+                    $this->ensureNativeInstallation(
+                        $websiteId,
+                        $addon,
+                        $entitlementId,
+                        $deploymentType,
+                        $item
+                    );
                 }
             }
 
@@ -197,6 +221,71 @@ class CoreAddonMarketplaceFulfilmentService
                 'count' => count($created),
             ];
         });
+    }
+
+    /**
+     * Ensure a website-scoped native Add-on participates in the same
+     * installed-product lifecycle as packaged Core products.
+     *
+     * This does not fabricate package files. Native allocation/capability
+     * products are represented by the registry itself.
+     */
+    protected function ensureNativeInstallation(
+        ?int $websiteId,
+        object $addon,
+        int $entitlementId,
+        string $deploymentType,
+        array $item
+    ): void {
+        if ($websiteId === null || $websiteId < 1) {
+            return;
+        }
+
+        // Package Add-ons become installed only through the package installer.
+        if (($addon->implementation_type ?? null) !== 'allocation') {
+            return;
+        }
+
+        $slug = trim((string) (
+            $addon->key
+            ?? ''
+        ));
+
+        if ($slug === '') {
+            throw new RuntimeException(
+                'Core Add-on requires a stable key for native installation.'
+            );
+        }
+
+        $existing = $this->installedProducts->find(
+            'addon',
+            $slug,
+            'native',
+            $websiteId
+        );
+
+        if ($existing) {
+            return;
+        }
+
+        $this->installedProducts->registerNativeAddon(
+            $websiteId,
+            (int) $addon->id,
+            $slug,
+            (string) ($addon->name ?? $slug),
+            $entitlementId,
+            [
+                'deployment' => $deploymentType,
+                'source' => 'marketplace_fulfilment',
+                'source_product_type' => 'core_addon',
+                'bundle_id' => $item['bundle_id'] ?? null,
+                'allocation' => $item['allocation'] ?? null,
+                'is_unlimited' => (bool) (
+                    $item['is_unlimited']
+                    ?? false
+                ),
+            ]
+        );
     }
 
     public function isCoreProduct(

@@ -134,6 +134,75 @@ class CoreInstalledProductRegistry
     }
 
 
+    /**
+     * Register a native Core Add-on that does not require a deployable
+     * filesystem package (for example a capability/allocation Add-on).
+     *
+     * Entitlement remains the commercial source of truth. This registry
+     * row represents the website-local installed/enabled lifecycle only.
+     */
+    public function registerNativeAddon(
+        int $websiteId,
+        int $addonId,
+        string $slug,
+        string $name,
+        int $entitlementId,
+        array $metadata = []
+    ): array {
+        if ($websiteId < 1 || $addonId < 1 || $entitlementId < 1) {
+            throw new \InvalidArgumentException(
+                'Website, Add-on and entitlement are required for native Add-on registration.'
+            );
+        }
+
+        $slug = trim($slug);
+        $name = trim($name);
+
+        if ($slug === '') {
+            throw new \InvalidArgumentException(
+                'Native Core Add-on requires a stable product slug.'
+            );
+        }
+
+        /*
+         * Native capability/allocation Add-ons have no package version.
+         * Keep a stable technical version so they participate in the same
+         * universal installed-product lifecycle as packaged products.
+         */
+        $version = 'native';
+
+        $registered = $this->registerInstalled(
+            'addon',
+            $slug,
+            $version,
+            [
+                'website_id' => $websiteId,
+                'name' => $name !== '' ? $name : $slug,
+                'install_path' => null,
+                'entitlement_id' => $entitlementId,
+                'catalog_product_id' => $addonId,
+                'metadata' => array_merge(
+                    [
+                        'installation_mode' => 'native',
+                        'core_addon_id' => $addonId,
+                    ],
+                    $metadata
+                ),
+            ]
+        );
+
+        /*
+         * An Admin grant/purchase of a native Add-on is immediately active.
+         * Disable remains a separate reversible lifecycle action.
+         */
+        return $this->enable(
+            'addon',
+            $slug,
+            $version,
+            $websiteId
+        );
+    }
+
     public function registerInstalled(
         string $productType,
         string $slug,
