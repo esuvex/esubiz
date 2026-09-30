@@ -393,6 +393,26 @@ class MarketplaceController extends Controller
      * Product availability itself remains controlled by the product resolver
      * and canonical marketplace product configuration.
      */
+    /**
+     * Preserve order-scoped Core access through the gateway return.
+     * Payment verification and fulfilment remain in paymentStatus().
+     */
+    private function coreAwarePaymentStatusUrl(
+        string $routeName,
+        array $parameters
+    ): string {
+        $request = request();
+        $orderId = (int) ($parameters['order'] ?? 0);
+        $passOrderId = (int) $request->attributes->get('core_checkout_order_id');
+        $token = (string) $request->attributes->get('core_checkout_token', '');
+
+        if ($token !== '' && $orderId > 0 && $passOrderId === $orderId) {
+            $parameters['core_checkout_pass'] = $token;
+        }
+
+        return route($routeName, $parameters);
+    }
+
     public function marketplacePayment(Request $request)
     {
         /*
@@ -488,6 +508,7 @@ class MarketplaceController extends Controller
     public function developerCheckoutSubmit(Request $request)
     {
         $data = $request->validate([
+            'order_id' => ['nullable', 'integer', 'min:1'],
             'product_type' => ['required', 'string', 'max:100'],
             'product_id' => ['required', 'integer'],
             'quantity' => ['required', 'integer', 'min:1'],
@@ -504,6 +525,8 @@ class MarketplaceController extends Controller
          */
         $isDeveloperBuild =
             $data['product_type'] === 'developer_build';
+        $isCreditVolume =
+            $data['product_type'] === 'credit_volume';
 
         $developerBuild = null;
         $existingDeveloperOrder = null;
@@ -511,7 +534,62 @@ class MarketplaceController extends Controller
         $listing = null;
         $product = null;
 
-        if ($isDeveloperBuild) {
+        if ($isCreditVolume) {
+            abort_unless(
+                !empty($data['order_id']),
+                422,
+                'A credit volume order is required.'
+            );
+
+            abort_unless(
+                (int) $data['quantity'] === 1,
+                422,
+                'Credit volume payment quantity must be one.'
+            );
+
+            $existingDeveloperCheckoutSession = DB::table('marketplace_checkout_sessions')
+                ->where('marketplace_order_id', (int) $data['order_id'])
+                ->where('user_id', auth()->id())
+                ->where('product_type', 'credit_volume')
+                ->where('product_id', (int) $data['product_id'])
+                ->where('deployment_type', 'off_server')
+                ->whereNull('deleted_at')
+                ->latest('id')
+                ->first();
+
+            abort_unless($existingDeveloperCheckoutSession, 404);
+
+            $existingDeveloperOrder = DB::table('marketplace_orders')
+                ->where('id', $existingDeveloperCheckoutSession->marketplace_order_id)
+                ->where('buyer_id', auth()->id())
+                ->where('payment_status', 'pending')
+                ->first();
+
+            abort_unless($existingDeveloperOrder, 404);
+
+            $volumePurchase = DB::table('marketplace_credit_volume_purchases')
+                ->where('marketplace_order_id', $existingDeveloperOrder->id)
+                ->where('website_id', $existingDeveloperCheckoutSession->website_id)
+                ->where('tier_id', (int) $data['product_id'])
+                ->where('deployment_type', 'off_server')
+                ->first();
+
+            abort_unless(
+                $volumePurchase
+                && (int) $volumePurchase->credit_quantity
+                    === (int) $existingDeveloperCheckoutSession->quantity
+                && (int) round((float) $volumePurchase->total_amount * 100)
+                    === (int) round((float) $existingDeveloperOrder->amount * 100)
+                && strtoupper((string) $volumePurchase->currency)
+                    === strtoupper((string) $existingDeveloperOrder->currency),
+                422,
+                'Credit purchase and pending order do not match.'
+            );
+
+            $unitPrice = (float) $existingDeveloperOrder->amount;
+            $amount = (float) $existingDeveloperOrder->amount;
+            $currency = $existingDeveloperOrder->currency;
+        } elseif ($isDeveloperBuild) {
             abort_unless(
                 (int) $data['quantity'] === 1,
                 422,
@@ -769,11 +847,11 @@ class MarketplaceController extends Controller
          * This is intentionally separate from User/SaaS checkout.
          */
         $developerWorkspaceId =
-            $isDeveloperBuild
+            ($isDeveloperBuild || $isCreditVolume)
                 ? ($existingDeveloperOrder->workspace_id ?? null)
                 : ($listing->workspace_id ?? null);
 
-        if ($isDeveloperBuild) {
+        if ($isDeveloperBuild || $isCreditVolume) {
             $pendingOrder =
                 (int) $existingDeveloperOrder->id;
 
@@ -980,12 +1058,10 @@ class MarketplaceController extends Controller
                     'public_key' => $providerCredentials['public_key'] ?? null,
                     'email' => $customer->email ?? null,
                     'customer_name' => $customer->name ?? null,
-                    'callback_url' => route(
-                        'marketplace.payment-status',
+                    'callback_url' => $this->coreAwarePaymentStatusUrl('marketplace.payment-status',
                         ['order' => $pendingOrder]
                     ),
-                    'return_url' => route(
-                        'marketplace.payment-status',
+                    'return_url' => $this->coreAwarePaymentStatusUrl('marketplace.payment-status',
                         ['order' => $pendingOrder]
                     ),
                 ]
@@ -1537,6 +1613,13 @@ class MarketplaceController extends Controller
                 'Marketplace checkout context mismatch.'
             );
 
+            abort_unless(
+                (bool) $checkoutSession->wallet_allowed
+                    && $checkoutSession->checkout_origin !== 'off_server_website',
+                403,
+                'Wallet payment is unavailable for this checkout.'
+            );
+
             $wallet = DB::table('wallets')
                 ->where('user_id', auth()->id())
                 ->whereIn('type', ['customer', 'developer'])
@@ -1821,7 +1904,8 @@ class MarketplaceController extends Controller
                 ->where('id', $order->id)
                 ->update([
                     'payment_status' => 'paid',
-                    'status' => 'completed',
+                    // Payment received; paymentStatus performs fulfilment.
+                    'status' => 'pending',
                     'updated_at' => now(),
                 ]);
 
@@ -2080,12 +2164,10 @@ class MarketplaceController extends Controller
                     'public_key' => $providerCredentials['public_key'] ?? null,
                     'email' => $customer->email ?? null,
                     'customer_name' => $customer->name ?? null,
-                    'callback_url' => route(
-                        'marketplace.payment-status',
+                    'callback_url' => $this->coreAwarePaymentStatusUrl('marketplace.payment-status',
                         ['order' => $order->id]
                     ),
-                    'return_url' => route(
-                        'marketplace.payment-status',
+                    'return_url' => $this->coreAwarePaymentStatusUrl('marketplace.payment-status',
                         ['order' => $order->id]
                     ),
                 ]
@@ -2192,10 +2274,10 @@ class MarketplaceController extends Controller
                 'payment_provider' => $gatewaySlug,
                 'secret_key' => $providerCredentials['secret_key'] ?? null,
                 'public_key' => $providerCredentials['public_key'] ?? null,
-                'return_url' => route('marketplace.payment-status', [
+                'return_url' => $this->coreAwarePaymentStatusUrl('marketplace.payment-status', [
                     'order' => $transaction->marketplace_order_id,
                 ]),
-                'callback_url' => route('marketplace.payment-status', [
+                'callback_url' => $this->coreAwarePaymentStatusUrl('marketplace.payment-status', [
                     'order' => $transaction->marketplace_order_id,
                 ]),
             ]
@@ -2958,70 +3040,20 @@ class MarketplaceController extends Controller
 
 
         /*
-         * If a Central Esubiz session already exists, it must belong
-         * to the website owner. We never silently switch an already
-         * authenticated Central account to somebody else.
+         * The signed Core handoff identifies the website. Use its billing
+         * account for this request only; no Central login is persisted.
          */
-        if (auth()->check()) {
+        $buyerId = (int) $website->owner_id;
+        abort_unless($buyerId > 0, 403, 'This website has no billing account.');
 
-            abort_unless(
-                (int) auth()->id() ===
-                    (int) $website->owner_id,
-                403,
-                'The current Esubiz account does not own this website.'
-            );
+        abort_unless(
+            \Illuminate\Support\Facades\Auth::onceUsingId($buyerId),
+            403,
+            'This website billing account is unavailable.'
+        );
 
-            $buyerIdentitySource =
-                'existing_central_session';
-
-            $walletAllowed =
-                true;
-
-        } else {
-
-            /*
-             * No Central session exists.
-             *
-             * Establish the Central buyer from the authoritative
-             * website registry. This allows a user who entered from
-             * their authenticated SaaS admin to use the same Central
-             * Marketplace checkout without manually signing in again.
-             *
-             * This is only reached AFTER successful signed-handoff
-             * validation above.
-             */
-            abort_unless(
-                !empty($website->owner_id),
-                403,
-                'This SaaS website does not have a Central owner.'
-            );
-
-            \Illuminate\Support\Facades\Auth::loginUsingId(
-                (int) $website->owner_id
-            );
-
-            abort_unless(
-                auth()->check()
-                    && (int) auth()->id() ===
-                        (int) $website->owner_id,
-                401,
-                'Unable to establish the Marketplace buyer session.'
-            );
-
-            $buyerIdentitySource =
-                'signed_saas_handoff';
-
-            /*
-             * Do NOT automatically expose Central wallet funds merely
-             * because a SaaS-local login initiated checkout.
-             *
-             * Card/gateway checkout can proceed. Wallet authorization
-             * will require explicit Central-session authority.
-             */
-            $walletAllowed =
-                false;
-        }
-
+        $buyerIdentitySource = 'signed_saas_core_handoff';
+        $walletAllowed = false;
 
         $checkoutContext =
             app(
@@ -3109,9 +3141,34 @@ class MarketplaceController extends Controller
         ]);
 
 
-        return $this->checkout(
-            $request
+        $response = $this->checkout($request);
+
+        abort_unless(
+            method_exists($response, 'getTargetUrl'),
+            422,
+            'Checkout could not be opened.'
         );
+
+        $checkoutPath = (string) parse_url(
+            $response->getTargetUrl(),
+            PHP_URL_PATH
+        );
+
+        abort_unless(
+            preg_match('~/marketplace/checkout/([1-9][0-9]*)/?$~', $checkoutPath, $matches),
+            422,
+            'Checkout order could not be resolved.'
+        );
+
+        $orderId = (int) $matches[1];
+        $pass = app(
+            \App\Services\Marketplace\CoreCheckoutPassService::class
+        )->issue($orderId, (int) $website->id, 'saas_website');
+
+        return redirect()->route('marketplace.checkout', [
+            'order' => $orderId,
+            'core_checkout_pass' => $pass,
+        ]);
     }
 
 
@@ -3173,12 +3230,21 @@ class MarketplaceController extends Controller
             ],
         ]);
 
+        $signedSaasHandoff =
+            $request->routeIs('marketplace.saas-checkout')
+            && $request->hasValidRelativeSignature()
+            && ($data['checkout_origin'] ?? null) === 'saas_website'
+            && $data['deployment_type'] === 'saas';
+
         $website = DB::table('websites')
             ->where('id', $data['website_id'])
             ->when(
-                session('account_mode', 'user') === 'developer',
-                fn ($query) => $query->where('developer_id', auth()->id()),
-                fn ($query) => $query->where('owner_id', auth()->id())
+                !$signedSaasHandoff,
+                fn ($query) => $query->when(
+                    session('account_mode', 'user') === 'developer',
+                    fn ($owned) => $owned->where('developer_id', auth()->id()),
+                    fn ($owned) => $owned->where('owner_id', auth()->id())
+                )
             )
             ->first();
 
@@ -3405,7 +3471,7 @@ class MarketplaceController extends Controller
 
         $checkoutSessionId = DB::table('marketplace_checkout_sessions')->insertGetId([
             'user_id' => auth()->id(),
-            'account_mode' => session('account_mode', 'user'),
+            'account_mode' => session('account_mode') === 'developer' ? 'developer' : 'user',
 
             'checkout_origin' =>
                 $checkoutOrigin,
@@ -3656,14 +3722,37 @@ class MarketplaceController extends Controller
          */
         if (
             $record->payment_status === 'paid' &&
-            $record->status !== 'fulfilled'
+            !in_array((string) $record->status, ['fulfilled', 'completed'], true)
         ) {
             // ESUBIZ_DEVELOPER_BUILD_PAYMENT_FULFILMENT_V1
             //
             // Developer Builder orders are Esubiz-owned compiled products.
             // They intentionally have no Marketplace listing/vendor, so
             // fulfil them through the existing WebsiteCompilerService.
-            if ($record->developer_build_id) {
+            if (DB::table('marketplace_credit_volume_purchases')
+                ->where('marketplace_order_id', $record->id)
+                ->exists()) {
+                $volumePurchase = DB::table('marketplace_credit_volume_purchases')
+                    ->where('marketplace_order_id', $record->id)
+                    ->first();
+
+                app(
+                    \App\Services\Marketplace\CreditVolumeFulfilmentService::class
+                )->fulfil($record);
+
+                DB::table('marketplace_orders')
+                    ->where('id', $record->id)
+                    ->update(['status' => 'completed', 'updated_at' => now()]);
+
+                DB::table('marketplace_checkout_sessions')
+                    ->where('marketplace_order_id', $record->id)
+                    ->whereNull('deleted_at')
+                    ->update(['status' => 'completed', 'updated_at' => now()]);
+
+                $record->status = 'completed';
+                $record->deployment_type = $volumePurchase->deployment_type;
+                $record->website_id = $volumePurchase->website_id;
+            } elseif ($record->developer_build_id) {
                 $developerBuild = \App\Models\DeveloperBuild::query()
                     ->where('id', $record->developer_build_id)
                     ->where('developer_id', auth()->id())
@@ -4258,11 +4347,17 @@ class MarketplaceController extends Controller
     public function userOrders()
     {
         $orders = DB::table('marketplace_orders as orders')
-            ->join(
+            ->leftJoin(
                 'marketplace_listings as listings',
                 'listings.id',
                 '=',
                 'orders.marketplace_listing_id'
+            )
+            ->leftJoin(
+                'marketplace_credit_volume_purchases as volume',
+                'volume.marketplace_order_id',
+                '=',
+                'orders.id'
             )
             ->join(
                 'marketplace_checkout_sessions as checkout_sessions',
@@ -4280,8 +4375,8 @@ class MarketplaceController extends Controller
             ->where('checkout_sessions.deployment_type', 'saas')
             ->select(
                 'orders.*',
-                'listings.title as product_title',
-                'listings.product_type',
+                DB::raw("COALESCE(listings.title, CONCAT(volume.credit_quantity, ' ', REPLACE(volume.credit_type, '_', ' '))) as product_title"),
+                DB::raw("COALESCE(listings.product_type, CASE WHEN volume.id IS NOT NULL THEN 'credit_volume' END) as product_type"),
                 'checkout_sessions.website_id',
                 'websites.name as website_name',
                 'websites.domain as website_domain',
@@ -4299,7 +4394,8 @@ class MarketplaceController extends Controller
     public function pendingCheckouts()
     {
         $orders = DB::table('marketplace_orders')
-            ->join('marketplace_listings', 'marketplace_listings.id', '=', 'marketplace_orders.marketplace_listing_id')
+            ->leftJoin('marketplace_listings', 'marketplace_listings.id', '=', 'marketplace_orders.marketplace_listing_id')
+            ->leftJoin('marketplace_credit_volume_purchases as volume', 'volume.marketplace_order_id', '=', 'marketplace_orders.id')
             ->where('marketplace_orders.buyer_id', auth()->id())
             ->where('marketplace_orders.payment_status', 'pending')
             ->whereExists(function ($query) {
@@ -4320,8 +4416,8 @@ class MarketplaceController extends Controller
             })
             ->select(
                 'marketplace_orders.*',
-                'marketplace_listings.product_type',
-                'marketplace_listings.title as listing_title',
+                DB::raw("COALESCE(marketplace_listings.product_type, CASE WHEN volume.id IS NOT NULL THEN 'credit_volume' END) as product_type"),
+                DB::raw("COALESCE(marketplace_listings.title, CONCAT(volume.credit_quantity, ' ', REPLACE(volume.credit_type, '_', ' '))) as listing_title"),
                 'marketplace_listings.slug as listing_slug'
             )
             ->latest('marketplace_orders.created_at')
@@ -4363,8 +4459,27 @@ class MarketplaceController extends Controller
         $developerBuild = null;
         $resolver = null;
         $product = null;
+        $volumePurchase = DB::table('marketplace_credit_volume_purchases')
+            ->where('marketplace_order_id', $order->id)
+            ->first();
 
-        if ($order->developer_build_id) {
+        if ($volumePurchase) {
+            $order->product_type = 'credit_volume';
+            $order->product_id = (int) $volumePurchase->tier_id;
+            $order->listing_title = strtoupper(
+                str_replace('_', ' ', $volumePurchase->credit_type)
+            );
+            $order->listing_slug = $volumePurchase->credit_type;
+
+            $product = (object) [
+                'id' => (int) $volumePurchase->tier_id,
+                'name' => number_format((int) $volumePurchase->credit_quantity)
+                    . ' ' . str_replace('_', ' ', $volumePurchase->credit_type),
+                'title' => $order->listing_title,
+                'description' => 'Credits for this Core website',
+                'credit_quantity' => (int) $volumePurchase->credit_quantity,
+            ];
+        } elseif ($order->developer_build_id) {
             $developerBuild = \App\Models\DeveloperBuild::query()
                 ->where('id', $order->developer_build_id)
                 ->where('developer_id', auth()->id())
@@ -4421,7 +4536,18 @@ class MarketplaceController extends Controller
             'Invalid marketplace deployment type.'
         );
 
-        if ($developerBuild) {
+        if ($volumePurchase) {
+            abort_unless(
+                (int) $checkoutSession->website_id === (int) $volumePurchase->website_id
+                && $deploymentType === $volumePurchase->deployment_type
+                && (int) $checkoutSession->quantity === (int) $volumePurchase->credit_quantity,
+                422,
+                'Credit volume checkout context does not match.'
+            );
+
+            $price = (float) $order->amount;
+            $currency = strtoupper((string) $order->currency);
+        } elseif ($developerBuild) {
             abort_unless(
                 $deploymentType === 'off_server',
                 422,
@@ -4478,15 +4604,21 @@ class MarketplaceController extends Controller
             ->orderBy('name')
             ->get();
 
-        $wallet = DB::table('wallets')
-            ->where('user_id', auth()->id())
+        $walletAllowed = $checkoutSession
+            && (bool) $checkoutSession->wallet_allowed
+            && $checkoutSession->checkout_origin !== 'off_server_website';
+
+        $wallet = $walletAllowed
+            ? DB::table('wallets')
+                ->where('user_id', auth()->id())
             ->whereIn('type', ['customer', 'developer'])
             ->where('is_active', true)
             ->whereNull('deleted_at')
-            ->orderByRaw("CASE WHEN type = 'customer' THEN 0 ELSE 1 END")
-            ->first();
+                ->orderByRaw("CASE WHEN type = 'customer' THEN 0 ELSE 1 END")
+                ->first()
+            : null;
 
-        if (!$wallet) {
+        if ($walletAllowed && !$wallet) {
             $walletId = DB::table('wallets')->insertGetId([
                 'user_id' => auth()->id(),
                 'workspace_id' => $order->workspace_id ?? null,
@@ -4584,7 +4716,7 @@ class MarketplaceController extends Controller
             'currency' => $currency ?: 'NGN',
             'quantity' => 1,
             'includedItems' => $includedItems,
-            'walletEnabled' => (bool) ($wallet->is_active ?? false),
+            'walletEnabled' => $walletAllowed && (bool) ($wallet->is_active ?? false),
             'walletBalance' => (float) ($wallet->available_balance ?? 0),
             'walletCurrency' => $wallet->currency ?? ($currency ?: 'NGN'),
         ]);

@@ -38,32 +38,108 @@
             )
             : 0;
 
-    $aiCreditPackages =
-        \Illuminate\Support\Facades\DB::table(
-            'credit_packages'
-        )
-            ->where(
-                'credit_type',
-                'ai_credits'
-            )
-            ->where(
-                'is_active',
-                true
-            )
-            ->orderBy(
-                'sort_order'
-            )
-            ->orderBy(
-                'credit_quantity'
-            )
-            ->get();
-
-    $aiReturnUrl =
-        $aiCreditWebsite
-            ? request()->fullUrl()
-            : null;
+    $aiReturnUrl = $aiCreditWebsite
+        ? request()->fullUrl()
+        : null;
 @endphp
 
+
+<div class="mx-auto max-w-7xl space-y-8">
+
+    {{-- ======================================================
+         PAGE HEADER
+    ======================================================= --}}
+    <div
+        class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
+    >
+        <div>
+
+            <div
+                class="text-xs font-black uppercase tracking-[.16em] text-blue-600"
+            >
+                Esubiz AI
+            </div>
+
+            <h1
+                class="mt-2 text-3xl font-black text-slate-900"
+            >
+                AI Settings
+            </h1>
+
+            <p
+                class="mt-2 max-w-3xl text-sm leading-6 text-slate-500"
+            >
+                Configure the AI services used across this website.
+                Site AI, Live Chat, WhatsApp and future AI-enabled
+                functions all connect to the central Esubiz AI engine.
+            </p>
+
+        </div>
+
+
+</div>
+
+
+    
+    <div
+        data-ai-autosave-status
+        hidden
+        class="fixed bottom-6 right-6 z-[100] rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black shadow-xl"
+    >
+        Saved
+    </div>
+
+
+@if(session('success'))
+
+        <div
+            class="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-bold text-emerald-700"
+        >
+            {{ session('success') }}
+        </div>
+
+    @endif
+
+
+
+    @php
+        /*
+         * ESUBIZ_TENANT_CHAT_APPEARANCE_PERMISSION_V2
+         *
+         * Central Admin is authoritative for whether
+         * website admins may customize AI chat colors.
+         */
+        $allowSiteAiChatColorCustomization =
+            (bool) (
+                \Illuminate\Support\Facades\DB::table(
+                    'central_ai_chat_settings'
+                )
+                    ->orderBy('id')
+                    ->value(
+                        'allow_user_chat_color_customization'
+                    )
+                ?? true
+            );
+    @endphp
+
+    <div class="flex flex-wrap gap-2 border-b border-blue-100 pb-4" role="tablist" aria-label="AI settings">
+        @foreach(['credits' => 'Credits', 'services' => 'AI Services', 'avatar' => 'AI Avatar'] as $key => $label)
+            <button type="button" role="tab" data-ai-settings-tab="{{ $key }}"
+                aria-selected="{{ $key === 'credits' ? 'true' : 'false' }}"
+                class="rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white hover:bg-blue-700">
+                {{ $label }}
+            </button>
+        @endforeach
+        @if($allowSiteAiChatColorCustomization)
+            <button type="button" role="tab" data-ai-settings-tab="appearance"
+                aria-selected="false"
+                class="rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white hover:bg-blue-700">
+                Appearance
+            </button>
+        @endif
+    </div>
+
+    <section data-ai-settings-panel="credits" role="tabpanel">
 
 @if($aiCreditWebsite)
 
@@ -126,325 +202,126 @@
                         font-size:14px;
                     "
                 >
-                    Your website's Central Esubiz AI balance.
+                    Your available AI Credits for this website.
                     Credits are deducted automatically when AI is used.
                 </p>
 
+                @include('tenant.admin.partials.credit-history', ['creditType' => 'ai_credits'])
+
             </div>
 
 
-            <div
-                style="
-                    padding:10px 14px;
-                    background:#eff6ff;
-                    border-radius:12px;
-                    color:#1d4ed8;
-                    font-size:13px;
-                    font-weight:700;
-                "
+            <form
+                method="POST"
+                action="{{ route('tenant.cms.credits.checkout', ['subdomain' => request()->route('subdomain')]) }}"
+                class="w-full max-w-sm space-y-3"
+                data-ai-credit-form
+                data-quote-url="{{ route('tenant.cms.credits.quote', ['subdomain' => request()->route('subdomain')]) }}"
             >
-                ₦10 = 1 AI Credit
-            </div>
-
-        </div>
-
-
-        @if($aiCreditPackages->isEmpty())
-
-            <div
-                style="
-                    padding:15px;
-                    border-radius:12px;
-                    background:#fff7ed;
-                    color:#9a3412;
-                    font-size:14px;
-                "
-            >
-                No AI Credit packages are currently available.
-            </div>
-
-        @else
-
-            <div
-                style="
-                    display:grid;
-                    grid-template-columns:
-                        repeat(
-                            auto-fit,
-                            minmax(190px,1fr)
-                        );
-                    gap:14px;
-                "
-            >
-
-                @foreach($aiCreditPackages as $aiPackage)
-
-                    <div
-                        style="
-                            padding:17px;
-                            border:1px solid #e2e8f0;
-                            border-radius:15px;
-                            background:#f8fafc;
-                        "
+                @csrf
+                <input type="hidden" name="credit_type" value="ai_credits">
+                <label class="block text-sm font-bold text-slate-700">
+                    Number of AI Credits
+                    <input
+                        type="number"
+                        name="quantity"
+                        min="1"
+                        max="100000000"
+                        step="1"
+                        value="{{ old('quantity') }}"
+                        required
+                        class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
                     >
-
-                        <strong
-                            style="
-                                display:block;
-                                color:#0f172a;
-                                font-size:15px;
-                                margin-bottom:5px;
-                            "
-                        >
-                            {{ $aiPackage->name }}
-                        </strong>
-
-
-                        <div
-                            style="
-                                color:#2563eb;
-                                font-size:22px;
-                                font-weight:800;
-                                margin-bottom:3px;
-                            "
-                        >
-                            {{ number_format(
-                                (float)
-                                $aiPackage->credit_quantity,
-                                0
-                            ) }}
-                            Credits
-                        </div>
-
-
-                        <div
-                            style="
-                                color:#475569;
-                                font-size:14px;
-                                margin-bottom:14px;
-                            "
-                        >
-                            ₦{{ number_format(
-                                (float)
-                                $aiPackage->price,
-                                2
-                            ) }}
-                        </div>
-
-
-                        @php
-                            $aiCheckoutUrl =
-                                app(
-                                    \App\Services\Marketplace\SaasCheckoutLinkService::class
-                                )->create(
-                                    $aiCreditWebsite,
-                                    'credit_package',
-                                    (int) $aiPackage->id,
-                                    $aiReturnUrl,
-                                    'ai'
-                                );
-                        @endphp
-
-
-                        <a
-                            href="{{ $aiCheckoutUrl }}"
-                            style="
-                                display:block;
-                                width:100%;
-                                box-sizing:border-box;
-                                border-radius:10px;
-                                background:#2563eb;
-                                color:#ffffff;
-                                padding:11px 14px;
-                                font:inherit;
-                                font-size:13px;
-                                font-weight:800;
-                                text-align:center;
-                                text-decoration:none;
-                            "
-                        >
-                            Buy AI Credits
-                        </a>
-
+                </label>
+                @include('tenant.admin.partials.credit-volume-tiers', ['creditType' => 'ai_credits'])
+                <p class="text-sm text-slate-600" data-ai-credit-quote aria-live="polite">
+                    Enter a quantity to see the current price.
+                </p>
+                @if($errors->any())
+                    <div class="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                        @foreach($errors->all() as $message)
+                            <p>{{ $message }}</p>
+                        @endforeach
                     </div>
-
-                @endforeach
-
-            </div>
-
-        @endif
-
+                @endif
+                <button
+                    type="submit"
+                    disabled
+                    data-ai-credit-submit
+                    class="rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-40"
+                >
+                    Continue to Checkout
+                </button>
+            </form>
+        </div>
+        <p class="mt-4 text-sm text-slate-600">
+            Enter your quantity to see the current volume price before checkout.
+        </p>
     </section>
 
 @endif
 
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const form = document.querySelector('[data-ai-credit-form]');
+    if (!form) return;
+    const input = form.querySelector('[name="quantity"]');
+    const label = form.querySelector('[data-ai-credit-quote]');
+    const submit = form.querySelector('[data-ai-credit-submit]');
+    let sequence = 0;
+    let timer;
 
+    async function quote() {
+        const current = ++sequence;
+        submit.disabled = true;
+        const quantity = Number(input.value);
+        if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 100000000) {
+            label.textContent = 'Enter a valid quantity to see the current price.';
+            return;
+        }
+        label.textContent = 'Calculating price…';
+        try {
+            const url = new URL(form.dataset.quoteUrl);
+            url.searchParams.set('credit_type', 'ai_credits');
+            url.searchParams.set('quantity', String(quantity));
+            const response = await fetch(url, {headers: {'Accept': 'application/json'}});
+            const result = await response.json();
+            if (current !== sequence) return;
+            if (!response.ok) throw new Error(result.message || 'Price unavailable.');
+            const amount = new Intl.NumberFormat(undefined, {
+                minimumFractionDigits: 2, maximumFractionDigits: 2
+            }).format(Number(result.total));
+            label.textContent = result.currency + ' ' + amount + ' total';
+            submit.disabled = false;
+        } catch (error) {
+            if (current === sequence) label.textContent = error.message;
+        }
+    }
+    form.addEventListener('submit', event => {
+        const quantity = Number(input.value);
+        if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 100000000) {
+            event.preventDefault();
+            label.textContent = 'Enter a whole number of AI Credits.';
+            submit.disabled = true;
+            return;
+        }
+        input.value = String(quantity);
+    });
+    input.addEventListener('input', () => {
+        ++sequence;
+        submit.disabled = true;
+        clearTimeout(timer);
+        timer = setTimeout(quote, 300);
+    });
+    quote();
+});
+</script>
 
-<div class="mx-auto max-w-7xl space-y-8">
+        @include('tenant.admin.ai.partials.credit-usage-tables')
 
-    {{-- ======================================================
-         PAGE HEADER
-    ======================================================= --}}
-    <div
-        class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"
-    >
-        <div>
+    </section>
 
-            <div
-                class="text-xs font-black uppercase tracking-[.16em] text-blue-600"
-            >
-                Esubiz AI
-            </div>
-
-            <h1
-                class="mt-2 text-3xl font-black text-slate-900"
-            >
-                AI Settings
-            </h1>
-
-            <p
-                class="mt-2 max-w-3xl text-sm leading-6 text-slate-500"
-            >
-                Configure the AI services used across this website.
-                Site AI, Live Chat, WhatsApp and future AI-enabled
-                functions all connect to the central Esubiz AI engine.
-            </p>
-
-        </div>
-
-
-        <a
-            href="#ai-persona"
-            class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 shadow-sm"
-        >
-            Change AI Avatar
-        </a>
-
-    </div>
-
-
-    
-    <div
-        data-ai-autosave-status
-        hidden
-        class="fixed bottom-6 right-6 z-[100] rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-black shadow-xl"
-    >
-        Saved
-    </div>
-
-
-@if(session('success'))
-
-        <div
-            class="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-bold text-emerald-700"
-        >
-            {{ session('success') }}
-        </div>
-
-    @endif
-
-
-    {{-- ======================================================
-         AI SUMMARY
-    ======================================================= --}}
-    <div
-        class="grid gap-5 md:grid-cols-2 xl:grid-cols-4"
-    >
-
-        <div
-            class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-        >
-            <div
-                class="text-xs font-black uppercase tracking-wide text-slate-400"
-            >
-                AI Credit Balance
-            </div>
-
-            <div
-                class="mt-3 text-3xl font-black text-slate-900"
-            >
-                {{ $aiCreditBalance ?? '—' }}
-            </div>
-
-            <p
-                class="mt-2 text-xs leading-5 text-slate-500"
-            >
-                Credits are managed centrally by Esubiz.
-            </p>
-        </div>
-
-
-        <div
-            class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-        >
-            <div
-                class="text-xs font-black uppercase tracking-wide text-slate-400"
-            >
-                Site AI
-            </div>
-
-            <div
-                class="mt-3 text-xl font-black text-slate-900"
-            >
-                Enabled
-            </div>
-
-            <p
-                class="mt-2 text-xs leading-5 text-slate-500"
-            >
-                Used by Theme Config, Page Builder and other website tools.
-            </p>
-        </div>
-
-
-        <div
-            class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-        >
-            <div
-                class="text-xs font-black uppercase tracking-wide text-slate-400"
-            >
-                Live Chat AI
-            </div>
-
-            <div
-                class="mt-3 text-xl font-black text-slate-900"
-            >
-                {{ $liveChatAiEnabled ?? false ? 'Enabled' : 'Not configured' }}
-            </div>
-
-            <p
-                class="mt-2 text-xs leading-5 text-slate-500"
-            >
-                Customer-facing chat persona can be configured separately.
-            </p>
-        </div>
-
-
-        <div
-            class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-        >
-            <div
-                class="text-xs font-black uppercase tracking-wide text-slate-400"
-            >
-                WhatsApp AI
-            </div>
-
-            <div
-                class="mt-3 text-xl font-black text-slate-900"
-            >
-                {{ $whatsappAiEnabled ?? false ? 'Enabled' : 'Not configured' }}
-            </div>
-
-            <p
-                class="mt-2 text-xs leading-5 text-slate-500"
-            >
-                Connects WhatsApp automation to the central AI engine.
-            </p>
-        </div>
-
-    </div>
-
-
+    <section data-ai-settings-panel="services" role="tabpanel" hidden style="display:none">
     {{-- ======================================================
          AI SERVICES
     ======================================================= --}}
@@ -989,6 +866,9 @@
     </section>
 
 
+    </section>
+
+    <section data-ai-settings-panel="avatar" role="tabpanel" hidden style="display:none">
     {{-- ======================================================
          PERSONA
     ======================================================= --}}
@@ -1183,6 +1063,8 @@
 
     </form>
 
+    </section>
+
 </div>
 
 
@@ -1196,26 +1078,9 @@
 
 
 
+<section class="mx-auto max-w-7xl" data-ai-settings-panel="appearance" role="tabpanel" hidden style="display:none">
 <!-- SITE_AI_CHAT_BRANDING_SETTINGS -->
-    @php
-        /*
-         * ESUBIZ_TENANT_CHAT_APPEARANCE_PERMISSION_V2
-         *
-         * Central Admin is authoritative for whether
-         * website admins may customize AI chat colors.
-         */
-        $allowSiteAiChatColorCustomization =
-            (bool) (
-                \Illuminate\Support\Facades\DB::table(
-                    'central_ai_chat_settings'
-                )
-                    ->orderBy('id')
-                    ->value(
-                        'allow_user_chat_color_customization'
-                    )
-                ?? true
-            );
-    @endphp
+    
 
     @if($allowSiteAiChatColorCustomization)
 
@@ -1310,5 +1175,38 @@
 
     @endif
 
+
+</section>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const tabs = [...document.querySelectorAll('[data-ai-settings-tab]')];
+    const panels = [...document.querySelectorAll('[data-ai-settings-panel]')];
+    const select = key => {
+        if (!tabs.some(tab => tab.dataset.aiSettingsTab === key)) key = 'credits';
+        tabs.forEach(tab => {
+            const active = tab.dataset.aiSettingsTab === key;
+            tab.setAttribute('aria-selected', active ? 'true' : 'false');
+            tab.classList.toggle('bg-blue-700', active);
+            tab.classList.toggle('bg-blue-600', !active);
+        });
+        panels.forEach(panel => {
+            panel.hidden = panel.dataset.aiSettingsPanel !== key;
+            panel.style.display = panel.hidden ? 'none' : '';
+        });
+    };
+    tabs.forEach(tab => tab.addEventListener('click', () => {
+        const key = tab.dataset.aiSettingsTab;
+        select(key);
+        history.replaceState(null, '', '#ai-' + key);
+    }));
+    document.querySelector('a[href="#ai-persona"]')?.addEventListener('click', event => {
+        event.preventDefault();
+        select('avatar');
+        history.replaceState(null, '', '#ai-avatar');
+    });
+    select(location.hash.startsWith('#ai-') ? location.hash.slice(4) : 'credits');
+});
+</script>
 
 @endsection

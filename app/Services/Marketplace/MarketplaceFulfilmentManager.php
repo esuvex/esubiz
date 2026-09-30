@@ -30,6 +30,12 @@ class MarketplaceFulfilmentManager
             'bundle' =>
                 \App\Services\Marketplace\Handlers\GenericMarketplaceProductFulfilmentHandler::class,
 
+            'core_addon' =>
+                \App\Services\Marketplace\Handlers\CoreAddonMarketplaceFulfilmentHandler::class,
+
+            'core_bundle' =>
+                \App\Services\Marketplace\Handlers\CoreAddonMarketplaceFulfilmentHandler::class,
+
             'theme' =>
                 \App\Services\Marketplace\Handlers\GenericMarketplaceProductFulfilmentHandler::class,
 

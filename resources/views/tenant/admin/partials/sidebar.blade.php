@@ -1353,57 +1353,11 @@
 
 
         {{-- Esubiz AI --}}
-        <details class="group">
-
-            <summary
-                class="flex cursor-pointer items-center justify-between rounded-xl px-4 py-3 text-sm font-bold text-blue-100 hover:bg-white/10"
-            >
-                <span class="flex items-center gap-3">
-                    <span>✦</span>
-                    <span>Esubiz AI</span>
-                </span>
-
-                <span class="menu-chevron text-xs transition">
-                    ▼
-                </span>
-            </summary>
-
-            <div class="ml-4 space-y-1 border-l border-white/10 pl-3">
-
-                <a href="{{ url('/admin/ai') }}"
-                   class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white">
-                    AI Dashboard
-                </a>
-
-                <a href="{{ url('/admin/ai/content') }}"
-                   class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white">
-                    Content Assistant
-                </a>
-
-                <a href="{{ url('/admin/ai/live-chat') }}"
-                   class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white">
-                    AI Live Chat
-                </a>
-
-                <a href="{{ url('/admin/ai/whatsapp') }}"
-                   class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white">
-                    WhatsApp AI
-                </a>
-
-                <a href="{{ url('/admin/ai/credits') }}"
-                   class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white">
-                    AI Credits
-                </a>
-
-                {{-- ESUBIZ_TENANT_AI_USAGE_PRICING_SIDEBAR_V1 --}}
-                <a href="{{ url('/admin/ai/usage') }}"
-                   class="block rounded-lg px-3 py-2.5 text-sm text-slate-300 hover:bg-white/10 hover:text-white">
-                    Usage & Pricing
-                </a>
-
-            </div>
-
-        </details>
+        <a href="{{ route('tenant.cms.site-ai.settings', ['subdomain' => $website->subdomain]) }}"
+           class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-blue-100 hover:bg-white/10 hover:text-white">
+            <span class="inline-flex w-5 shrink-0 items-center justify-center text-lg" aria-hidden="true">✦</span>
+            <span>Esubiz AI</span>
+        </a>
 
 
         {{-- Resource Monitor --}}

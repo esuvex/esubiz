@@ -145,6 +145,7 @@
                             type="button"
                             class="w-auto max-w-full shrink-0 rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-blue-200"
                             data-addon-sales-trigger-cta
+                            onclick="if (event.target === this) { this.querySelector('[data-esubiz-addon-purchase-options]')?.click(); }"
                             data-addon-id="{{ $recommendation['addon_id'] }}"
                             data-addon-key="{{ $recommendation['addon_key'] }}"
                             data-deployment-type="{{ $recommendation['deployment_type'] }}"
@@ -189,7 +190,7 @@
     {{-- ESUBIZ_UNIVERSAL_PLACEMENT_CHECKOUT_RELATIVE_URL_V1 --}}
     {{-- ESUBIZ_UNIVERSAL_TENANT_ADDON_CHECKOUT_URL_V1 --}}
     {{-- ESUBIZ_UNIVERSAL_DASHBOARD_CHECKOUT_HANDOFF_V1 --}}
-{-- ESUBIZ_TENANT_ADMIN_ADDON_CHECKOUT_URL_V1 --}
+{{-- ESUBIZ_TENANT_ADMIN_ADDON_CHECKOUT_URL_V1 --}}
     data-esubiz-checkout-url="{{ route('tenant.admin.addons.checkout', [
         'subdomain' => request()->route('subdomain'),
         'website' => (int) $website->id,
@@ -743,9 +744,10 @@
                     );
                 }
 
-                window.location.assign(
-                    payload.url
-                );
+                if (!window.EsubizCoreCheckout) {
+                    throw new Error('Checkout could not be opened. Please refresh this page.');
+                }
+                window.EsubizCoreCheckout.open(payload.url);
             } catch (error) {
                 console.error(
                     'Esubiz Add-on checkout:',

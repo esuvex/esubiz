@@ -1,4 +1,4 @@
-@extends('admin.layouts.app')
+@extends(request()->attributes->get('core_checkout_order_id') ? 'marketplace.layouts.core-checkout' : 'admin.layouts.app')
 {{-- ESUBIZ_OFFLINE_PAYMENT_LAYOUT_FIX_V1 --}}
 
 @section('content')
@@ -13,7 +13,10 @@
                     !empty($order?->id)
                         ? route(
                             'marketplace.checkout',
-                            ['order' => $order->id]
+                            array_filter([
+                                'order' => $order->id,
+                                'core_checkout_pass' => request()->attributes->get('core_checkout_token'),
+                            ])
                         )
                         : (
                             !empty($metadata['product_id'])
@@ -190,6 +193,15 @@
                                         </p>
                                     @endif
 
+                                    @if(request()->attributes->get('core_checkout_order_id'))
+                                    <div class="mt-7">
+                                        <button type="button"
+                                            data-core-offline-return
+                                            class="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-700">
+                                            Return to my website
+                                        </button>
+                                    </div>
+                                    @else
                                     <div class="mt-7 grid grid-cols-2 gap-3">
 
                                         <a
@@ -207,6 +219,7 @@
                                         </a>
 
                                     </div>
+                                    @endif
 
                                 </div>
                             </div>
@@ -221,6 +234,10 @@
                             class="mt-5"
                         >
                             @csrf
+                            @if(request()->attributes->get('core_checkout_token'))
+                                <input type="hidden" name="core_checkout_pass"
+                                    value="{{ request()->attributes->get('core_checkout_token') }}">
+                            @endif
 
                             <label class="block text-sm font-bold text-slate-700">
                                 {{ $paymentMethod->receipt_upload_label
@@ -271,5 +288,20 @@
 
     </div>
 </div>
+
+
+@if(request()->attributes->get('core_checkout_order_id'))
+<script>
+document.querySelectorAll('[data-core-offline-return]').forEach(button => {
+    button.addEventListener('click', () => {
+        if (window.parent !== window) {
+            window.parent.postMessage({type: 'esubiz-core-payment-close'}, '*');
+        } else {
+            window.history.back();
+        }
+    });
+});
+</script>
+@endif
 
 @endsection

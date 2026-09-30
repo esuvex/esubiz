@@ -1,4 +1,6 @@
-@extends('admin.layouts.app')
+@extends(request()->attributes->get('core_checkout_order_id')
+    ? 'marketplace.layouts.core-checkout'
+    : 'admin.layouts.app')
 
 
 <style>
@@ -67,6 +69,23 @@
 </style>
 
 @section('content')
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    if (window.parent !== window) {
+        window.parent.postMessage({type: 'esubiz-checkout-ready'}, '*');
+    }
+}, {once: true});
+</script>
+
+<script>
+document.addEventListener('submit', event => {
+    if (event.defaultPrevented || event.target?.id !== 'marketplace-payment-form') return;
+    if (window.parent !== window) {
+        window.parent.postMessage({type: 'esubiz-checkout-payment-loading'}, '*');
+    }
+});
+</script>
+
 
 <div class="marketplace-checkout min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
     <div class="mx-auto max-w-6xl">
@@ -85,6 +104,16 @@
                 Review your purchase and select a payment method.
             </p>
         </div>
+
+        {{-- ESUBIZ_CORE_CHECKOUT_VALIDATION_ERRORS_V1 --}}
+        @if($errors->any())
+            <div role="alert" class="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                <p class="font-bold">Please check your payment details:</p>
+                @foreach($errors->all() as $message)
+                    <p class="mt-1">{{ $message }}</p>
+                @endforeach
+            </div>
+        @endif
 
         @if(session('success'))
             <div class="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
@@ -317,9 +346,9 @@
 
                             <span
                                 class="text-sm font-black text-slate-900"
-                                x-text="quantity"
+                                x-text="{{ $productType === 'credit_volume' ? (int) ($product->credit_quantity ?? 0) : 'quantity' }}"
                             >
-                                1
+                                {{ $productType === 'credit_volume' ? number_format((int) ($product->credit_quantity ?? 0)) : 1 }}
                             </span>
                         </div>
 
@@ -484,7 +513,9 @@
                                                 || @js(csrf_token()),
                                         },
                                         body: JSON.stringify({
-                                            code: code,
+                                            order_id: @js($order->id ?? null),
+                                core_checkout_pass: @js(request()->attributes->get('core_checkout_token', '')),
+                                code: code,
                                             amount:
                                                 Number(
                                                     @js((float) ($price ?? 0))
@@ -627,6 +658,10 @@
                     class="mt-6"
                 >
                     @csrf
+                    @if(request()->attributes->get('core_checkout_token'))
+                        <input type="hidden" name="core_checkout_pass"
+                            value="{{ request()->attributes->get('core_checkout_token') }}">
+                    @endif
 
                     <input type="hidden"
                            name="checkout_context"

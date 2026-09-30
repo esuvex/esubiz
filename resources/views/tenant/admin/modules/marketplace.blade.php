@@ -273,7 +273,10 @@
                         @elseif($canPurchase)
                             <button
                                 type="button"
-                                class="inline-flex w-full items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-black text-white transition hover:bg-blue-700"
+                                data-core-catalog-purchase
+                                data-product-type="module"
+                                data-product-id="{{ $module['id'] }}"
+                                class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-black text-white transition hover:bg-blue-700 disabled:opacity-50"
                             >
                                 Get Module
                             </button>
@@ -425,4 +428,68 @@ document.addEventListener('DOMContentLoaded', function () {
     render();
 });
 </script>
+
+<script>
+(() => {
+    // CORE_CATALOG_PRODUCT_CHECKOUT_V1
+    @php
+        $coreCatalogCheckoutUrl = route('tenant.admin.addons.checkout', [
+            'subdomain' => request()->route('subdomain'),
+            'website' => (int) $website->id,
+        ]);
+    @endphp
+    const checkoutUrl = @json($coreCatalogCheckoutUrl);
+
+    document.querySelectorAll('[data-core-catalog-purchase]').forEach(button => {
+        button.addEventListener('click', async () => {
+            if (button.disabled) return;
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'Opening checkout…';
+
+            try {
+                if (!window.EsubizCoreCheckout) {
+                    throw new Error('Please refresh this page to open checkout.');
+                }
+
+                const response = await fetch(checkoutUrl, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector(
+                            'meta[name="csrf-token"]'
+                        )?.content || '',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({
+                        product_type: button.dataset.productType,
+                        product_id: Number(button.dataset.productId),
+                        return_url: window.location.href,
+                        return_area: button.dataset.productType + 's'
+                    })
+                });
+
+                const result = await response.json();
+                if (!response.ok || !result.url) {
+                    const errors = result.errors
+                        ? Object.values(result.errors).flat().join(' ')
+                        : '';
+                    throw new Error(errors || result.message ||
+                        'Checkout could not be opened. Please try again.');
+                }
+
+                window.EsubizCoreCheckout.open(result.url);
+            } catch (error) {
+                alert(error.message || 'Checkout could not be opened.');
+            } finally {
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        });
+    });
+})();
+</script>
+
 @endsection

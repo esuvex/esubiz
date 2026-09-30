@@ -507,7 +507,7 @@
             @endif
 
 
-            @if($showCentralUserActions ?? false)
+            @if(($showCentralUserActions ?? false) && !request()->attributes->get('core_checkout_order_id'))
 
                 <div
                     style="
@@ -582,6 +582,18 @@
 
 
             function closePaymentPopup() {
+                // CORE_PAYMENT_RETURN_TO_PARENT_V1
+                const verifiedCoreCheckout =
+                    @json((bool) request()->attributes->get('core_checkout_order_id'));
+
+                if (verifiedCoreCheckout && window.parent !== window) {
+                    window.parent.postMessage(
+                        {type: 'esubiz-core-payment-close'},
+                        '*'
+                    );
+                    return;
+                }
+
 
                 if (
                     typeof returnUrl !== 'string'

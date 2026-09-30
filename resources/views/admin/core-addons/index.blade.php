@@ -1793,6 +1793,12 @@ document.addEventListener('click', function (event) {
     </div>
 
     <div class="mt-6 flex justify-end">
+        <button type="button" data-product-form-cancel
+                onclick="document.getElementById('addon-form').classList.add('hidden')"
+                style="margin-right:12px"
+                class="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            Cancel
+        </button>
         <button type="submit"
                 class="rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-slate-800">
             Save Add-on
@@ -2148,7 +2154,13 @@ document.addEventListener('click', function (event) {
     </div>
 
             <div class="mt-6 flex justify-end">
-                <button type="submit"
+                <button type="button" data-product-form-cancel
+                onclick="document.getElementById('bundle-form').classList.add('hidden')"
+                style="margin-right:12px"
+                class="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            Cancel
+        </button>
+        <button type="submit"
                         class="rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white">
                     Save Bundle
                 </button>
@@ -2421,6 +2433,92 @@ document.addEventListener('DOMContentLoaded', function () {
                 normalize(feature) + '_' + normalize(this.value);
         }
     });
+});
+</script>
+
+
+{{-- ESUBIZ_CENTRAL_PRODUCT_FORM_VIEWPORT_V1 --}}
+<style>
+#addon-form#addon-form,
+#bundle-form#bundle-form {
+    left: var(--product-form-left, 0px) !important;
+    top: var(--product-form-top, 0px) !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: auto !important;
+    height: auto !important;
+    max-height: none !important;
+    padding: 16px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    box-sizing: border-box;
+}
+#addon-form#addon-form > div,
+#bundle-form#bundle-form > div {
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+    width: 100% !important;
+    min-height: 100% !important;
+    height: auto !important;
+    padding: 0 !important;
+}
+#addon-form#addon-form > div > div,
+#bundle-form#bundle-form > div > div {
+    width: 100% !important;
+    max-width: 1024px !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 auto !important;
+    overflow: visible !important;
+}
+#addon-form#addon-form > div > div > div:last-child,
+#bundle-form#bundle-form > div > div > div:last-child {
+    overflow: visible !important;
+    flex: none !important;
+}
+@media (max-width: 639px) {
+    #addon-form#addon-form,
+    #bundle-form#bundle-form { padding: 12px !important; }
+    #addon-form#addon-form form { padding: 16px !important; }
+}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const modals = ['addon-form', 'bundle-form']
+        .map(id => document.getElementById(id)).filter(Boolean);
+
+    modals.forEach(modal => {
+        if (modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
+        }
+    });
+
+    function updateViewport() {
+        const desktop = window.matchMedia('(min-width: 1024px)').matches;
+        let left = 0;
+        let top = 0;
+        if (desktop) {
+            document.querySelectorAll('aside').forEach(sidebar => {
+                const rect = sidebar.getBoundingClientRect();
+                if (rect.width > 0 && rect.left <= 1 && rect.right > 0) {
+                    left = Math.max(left, rect.right);
+                }
+            });
+            document.querySelectorAll('header').forEach(header => {
+                const rect = header.getBoundingClientRect();
+                if (rect.width > 0 && rect.top <= 1 && rect.bottom > 0) {
+                    top = Math.max(top, rect.bottom);
+                }
+            });
+        }
+        modals.forEach(modal => {
+            modal.style.setProperty('--product-form-left', left + 'px');
+            modal.style.setProperty('--product-form-top', top + 'px');
+        });
+    }
+    updateViewport();
+    window.addEventListener('resize', updateViewport);
 });
 </script>
 

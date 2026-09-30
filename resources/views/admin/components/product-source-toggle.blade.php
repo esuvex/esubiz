@@ -309,9 +309,17 @@
         flex-direction:column;
     }
 
+    .esu-source-toggle-row{
+        align-self:flex-start;
+        flex-wrap:wrap;
+        max-width:100%;
+    }
+
     .esu-source-switch{
-        width:100%;
-        min-width:0;
+        width:46px;
+        min-width:46px;
+        max-width:46px;
+        flex:0 0 46px;
     }
 }
 </style>

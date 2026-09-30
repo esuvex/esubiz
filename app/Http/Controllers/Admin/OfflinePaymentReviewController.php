@@ -53,6 +53,7 @@ class OfflinePaymentReviewController extends Controller
             $attempt = DB::table('payment_attempts')
                 ->where('id', $attemptId)
                 ->whereNull('deleted_at')
+                ->lockForUpdate()
                 ->first();
 
             abort_unless($attempt, 404);
@@ -93,9 +94,11 @@ class OfflinePaymentReviewController extends Controller
                 ->where('id', $attempt->payment_transaction_id)
                 ->first();
 
-            if (!$transaction) {
-                return;
-            }
+            abort_unless(
+                $transaction,
+                422,
+                'The payment transaction could not be found. Approval was not saved.'
+            );
 
             $payload = $transaction->payload
                 ? json_decode($transaction->payload, true)
@@ -207,7 +210,13 @@ class OfflinePaymentReviewController extends Controller
              *
              * Do not duplicate licensing or ZIP-release logic here.
              */
-            if (!empty($order->developer_build_id)) {
+            if (DB::table('marketplace_credit_volume_purchases')
+                ->where('marketplace_order_id', $order->id)
+                ->exists()) {
+                app(
+                    \App\Services\Marketplace\CreditVolumeFulfilmentService::class
+                )->fulfil($order);
+            } elseif (!empty($order->developer_build_id)) {
                 $developerBuild = \App\Models\DeveloperBuild::query()
                     ->where('id', (int) $order->developer_build_id)
                     ->first();
@@ -330,6 +339,7 @@ class OfflinePaymentReviewController extends Controller
             $attempt = DB::table('payment_attempts')
                 ->where('id', $attemptId)
                 ->whereNull('deleted_at')
+                ->lockForUpdate()
                 ->first();
 
             abort_unless($attempt, 404);

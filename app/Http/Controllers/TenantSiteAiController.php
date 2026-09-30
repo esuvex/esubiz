@@ -1781,17 +1781,73 @@ $payload =
     |
     */
     public function usagePricing(
-        string $subdomain
-    ): \Illuminate\View\View {
+        ?string $subdomain = null
+    ): \Illuminate\Http\JsonResponse {
 
-        $website =
-            \App\Models\Website::query()
-                ->where(
-                    'subdomain',
-                    $subdomain
-                )
+        if ($subdomain === null) {
+            try {
+                $token = request()->bearerToken();
+                abort_unless($token, 401);
+
+                $resolved = app(
+                    \App\Services\Licensing\OffServerApiCredentialService::class
+                )->resolveBearerToken($token);
+
+                $website = $resolved['website'];
+            } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $exception) {
+                throw $exception;
+            } catch (\Throwable $exception) {
+                return response()->json([
+                    'message' => 'This Core installation is not authorized.',
+                ], 401);
+            }
+        } else {
+            $website = \App\Models\Website::query()
+                ->where('subdomain', $subdomain)
                 ->firstOrFail();
 
+            $websiteId = (int) $website->id;
+            $siteSession = "tenant_cms_sites.{$websiteId}";
+            $authorized =
+                (
+                    (bool) session('tenant_cms_authenticated')
+                    && (int) session('tenant_cms_website_id') === $websiteId
+                    && (int) session('tenant_cms_user_id') > 0
+                )
+                || (
+                    (bool) session($siteSession . '.authenticated')
+                    && (int) session($siteSession . '.user_id') > 0
+                );
+
+            abort_unless($authorized, 403);
+
+            if ($website->deployment_type === 'off_server') {
+                try {
+                    $central = app(
+                        \App\Services\Core\CoreCentralConnectionService::class
+                    );
+
+                    $response = $central->request(15)->get(
+                        $central->centralUrl() . '/api/v1/core/ai/usage-data',
+                        request()->only('table', 'pricing_page', 'history_page')
+                    );
+
+                    return response()->json(
+                        $response->json() ?: [
+                            'message' => 'AI records are temporarily unavailable.',
+                        ],
+                        $response->successful() ? 200 : 422
+                    );
+                } catch (\Throwable $exception) {
+                    report($exception);
+                    return response()->json([
+                        'message' => 'AI records are temporarily unavailable.',
+                    ], 422);
+                }
+            }
+
+            abort_unless($website->deployment_type === 'saas', 422);
+        }
 
         $pricing =
             app(
@@ -2044,23 +2100,53 @@ $payload =
                 ->withQueryString();
 
 
-        $aiCreditBalance =
-            app(
-                \App\Services\Ai\AiCreditService::class
-            )->balance(
-                $website
-            );
+        $table = (string) request()->query('table', 'usage');
 
+        if ($table === 'pricing') {
+            return response()->json([
+                'page' => $pricingGuide->currentPage(),
+                'has_previous' => $pricingGuide->currentPage() > 1,
+                'has_next' => $pricingGuide->hasMorePages(),
+                'rows' => $pricingGuide->items(),
+            ]);
+        }
 
-        return view(
-            'tenant.admin.ai.usage',
-            compact(
-                'website',
-                'pricingGuide',
-                'usageHistory',
-                'aiCreditBalance'
-            )
-        );
+        if ($table !== 'usage') {
+            return response()->json([
+                'message' => 'Unknown AI table.',
+            ], 422);
+        }
+
+        $labels = [
+            'site' => 'Website AI',
+            'live_chat' => 'Live Chat AI',
+            'whatsapp' => 'WhatsApp AI',
+            'email' => 'Email AI',
+            'sms' => 'SMS AI',
+            'social_media' => 'Social Media AI',
+            'ads' => 'Ads AI',
+            'theme.homepage' => 'Website Generation',
+            'app_builder' => 'App Builder AI',
+            'module_builder' => 'Module Builder AI',
+            'addon_builder' => 'Addon Builder AI',
+        ];
+
+        return response()->json([
+            'page' => $usageHistory->currentPage(),
+            'has_previous' => $usageHistory->currentPage() > 1,
+            'has_next' => $usageHistory->hasMorePages(),
+            'rows' => collect($usageHistory->items())->map(
+                fn ($usage) => [
+                    'task' => $labels[$usage->route_key] ?? 'Esubiz AI',
+                    'credits' => (float) $usage->credits,
+                    'balance_after' => $usage->balance_after !== null
+                        ? (float) $usage->balance_after
+                        : null,
+                    'status' => (string) ($usage->status ?: 'completed'),
+                    'date' => optional($usage->created_at)->format('d M Y, g:i A'),
+                ]
+            )->values()->all(),
+        ]);
     }
 
 

@@ -2276,6 +2276,7 @@ return response()->json([
 
         $validated = $request->validate([
             'page' => ['nullable', 'integer', 'min:1'],
+            'log_type' => ['nullable', 'in:purchases,usage'],
         ]);
 
         $website = $this->centralWebsite($request);
@@ -2289,7 +2290,12 @@ return response()->json([
                     1,
                     (int) ($validated['page'] ?? 1)
                 ),
-                self::PER_PAGE
+                10,
+                match ($validated['log_type'] ?? null) {
+                    'purchases' => 'credit',
+                    'usage' => 'debit',
+                    default => null,
+                }
             )
         );
     }

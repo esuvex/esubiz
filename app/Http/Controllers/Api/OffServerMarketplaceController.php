@@ -505,6 +505,183 @@ class OffServerMarketplaceController extends Controller
 
 
     /**
+     * Volume credits for the registered Core website. Central supplies
+     * the website identity and authoritative amount.
+     */
+    public function creditVolumeCheckoutLink(
+        Request $request,
+        MarketplaceCheckoutContextService $contexts,
+        \App\Services\Marketplace\CreditVolumeCheckoutService $checkouts
+    ) {
+        $data = $request->validate([
+            'credit_type' => [
+                'required',
+                'in:ai_credits,sms_credits,email_credits,whatsapp_credits,kyc_credits',
+            ],
+            'quantity' => ['required', 'integer', 'min:1', 'max:100000000'],
+            'return_url' => ['required', 'url', 'max:2000'],
+        ]);
+
+        $context = $contexts->offServerRequest(
+            $request,
+            null,
+            $data['return_url'],
+            'credits'
+        );
+
+        $website = \App\Models\Website::query()
+            ->where('id', (int) $context['website_id'])
+            ->where('deployment_type', 'off_server')
+            ->where('status', 'active')
+            ->firstOrFail();
+
+        $buyerId = (int) ($website->owner_id ?: $website->developer_id);
+        abort_unless($buyerId > 0, 403, 'Core website has no Central buyer.');
+
+        try {
+            $orderId = $checkouts->create(
+                $website,
+                $buyerId,
+                $data['credit_type'],
+                (int) $data['quantity'],
+                'off_server_website',
+                (int) $website->developer_id === $buyerId ? 'developer' : 'user',
+                $data['return_url']
+            );
+        } catch (\InvalidArgumentException|\RuntimeException $exception) {
+            return response()->json([
+                'success' => false,
+                'message' => $exception->getMessage(),
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'order_id' => $orderId,
+            'checkout_url' => URL::temporarySignedRoute(
+                'marketplace.off-server.checkout.handoff',
+                now()->addMinutes(30),
+                ['order' => $orderId, 'buyer' => $buyerId]
+            ),
+            'expires_in_minutes' => 30,
+        ]);
+    }
+
+
+    /**
+     * Central payment state for the Core installation that owns this order.
+     * The installation bearer token establishes the website identity.
+     */
+    public function checkoutStatus(
+        Request $request,
+        int $order,
+        MarketplaceCheckoutContextService $contexts
+    ) {
+        $context = $contexts->offServerRequest($request);
+
+        $session = DB::table('marketplace_checkout_sessions')
+            ->where('marketplace_order_id', $order)
+            ->where('website_id', (int) $context['website_id'])
+            ->where('checkout_origin', 'off_server_website')
+            ->where('deployment_type', 'off_server')
+            ->latest('id')
+            ->first();
+
+        abort_unless($session, 404);
+
+        $record = DB::table('marketplace_orders')
+            ->where('id', $order)
+            ->where('buyer_id', (int) $session->user_id)
+            ->first();
+
+        abort_unless($record, 404);
+
+        /*
+         * Reconcile confirmed Central payment before reporting status to
+         * the authenticated Core installation. Lock the order so two
+         * simultaneous status requests cannot grant the product twice.
+         */
+        if ($record->payment_status === 'paid') {
+            DB::transaction(function () use ($order, $session) {
+                $paidOrder = DB::table('marketplace_orders')
+                    ->where('id', $order)
+                    ->lockForUpdate()
+                    ->first();
+
+                abort_unless($paidOrder, 404);
+
+                if ($paidOrder->payment_status !== 'paid' ||
+                    in_array((string) $paidOrder->status, ['completed', 'fulfilled'], true)) {
+                    return;
+                }
+
+                if ((string) $session->product_type === 'credit_volume') {
+                    app(
+                        \App\Services\Marketplace\CreditVolumeFulfilmentService::class
+                    )->fulfil($paidOrder);
+                } else {
+                $listing = DB::table('marketplace_listings')
+                    ->where('id', $paidOrder->marketplace_listing_id)
+                    ->first();
+
+                abort_unless($listing, 422, 'Paid order has no Marketplace listing.');
+                abort_unless(
+                    (string) $listing->product_type === (string) $session->product_type &&
+                    (int) $listing->product_id === (int) $session->product_id,
+                    422,
+                    'Marketplace order and Core checkout session do not match.'
+                );
+
+                $orderForFulfilment = (object) array_merge(
+                    (array) $paidOrder,
+                    [
+                        'deployment_type' => 'off_server',
+                        'website_id' => (int) $session->website_id,
+                        'workspace_id' => $session->workspace_id
+                            ?? $paidOrder->workspace_id
+                            ?? null,
+                        'checkout_origin' => 'off_server_website',
+                        'return_url' => $session->return_url ?? null,
+                        'return_area' => $session->return_area ?? null,
+                        'wallet_allowed' => false,
+                    ]
+                );
+
+                app(
+                    \App\Services\Marketplace\MarketplaceFulfilmentManager::class
+                )->fulfil($orderForFulfilment, $listing);
+                }
+
+                DB::table('marketplace_orders')
+                    ->where('id', $paidOrder->id)
+                    ->update(['status' => 'completed', 'updated_at' => now()]);
+
+                DB::table('marketplace_checkout_sessions')
+                    ->where('id', $session->id)
+                    ->update(['status' => 'completed', 'updated_at' => now()]);
+            });
+
+            $record = DB::table('marketplace_orders')
+                ->where('id', $order)
+                ->first();
+        }
+
+        return response()->json([
+            'order_id' => (int) $record->id,
+            'reference' => $record->reference,
+            'product_type' => $session->product_type,
+            'product_id' => (int) $session->product_id,
+            'amount' => $record->amount,
+            'currency' => $record->currency,
+            'payment_status' => $record->payment_status,
+            'order_status' => $record->status,
+            'paid' => $record->payment_status === 'paid',
+            'fulfilled' => in_array($record->status, ['fulfilled', 'completed'], true),
+        ]);
+    }
+
+
+    /**
      * Trusted browser handoff after the Core API has created
      * the order/session.
      */
@@ -572,33 +749,23 @@ class OffServerMarketplaceController extends Controller
 
 
         /*
-         * Establish the Central browser buyer only AFTER Central has
-         * authenticated the remote installation and created the order.
-         *
-         * This session still does not authorize Wallet because the
-         * persisted checkout session explicitly has wallet_allowed=0.
+         * The installation bearer was verified when Central created this
+         * order. Give this browser access to this order only; never sign
+         * it into the website owner's Central account.
          */
-        Auth::loginUsingId(
-            (int) $record->buyer_id
+        $pass = app(
+            \App\Services\Marketplace\CoreCheckoutPassService::class
+        )->issue(
+            (int) $record->id,
+            (int) $session->website_id,
+            'off_server_website'
         );
-
-
-        abort_unless(
-            auth()->check()
-                &&
-            (int) auth()->id()
-                ===
-            (int) $record->buyer_id,
-            401,
-            'Unable to establish Marketplace buyer session.'
-        );
-
 
         return redirect()->route(
             'marketplace.checkout',
             [
-                'order' =>
-                    $record->id,
+                'order' => $record->id,
+                'core_checkout_pass' => $pass,
             ]
         );
     }

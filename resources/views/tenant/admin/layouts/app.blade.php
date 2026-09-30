@@ -526,5 +526,6 @@ document.addEventListener(
 
 
     <x-settings.ajax-autosave />
+@include('tenant.admin.partials.core-checkout-window')
 </body>
 </html>

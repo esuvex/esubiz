@@ -261,9 +261,11 @@
             id="core-email-premium-panel"
             class="{{ $premiumSelected ? '' : 'hidden' }} mt-5 border-t border-slate-100 pt-5"
         >
-            <div class="grid gap-4 lg:grid-cols-3">
-                <div class="rounded-xl bg-blue-50 p-4">
-                    <p class="text-xs font-semibold uppercase tracking-wide text-blue-600">
+            
+<div class="grid items-start gap-5 lg:grid-cols-2" data-email-credit-card-layout>
+    <div class="min-w-0 rounded-2xl border border-blue-100 bg-white p-5 shadow-sm">
+        <div class="rounded-xl bg-blue-50 p-4">
+<p class="text-xs font-semibold uppercase tracking-wide text-blue-600">
                         Email Credit Balance
                     </p>
 
@@ -273,53 +275,160 @@
                     >
                         {{ number_format((float) ($emailServiceData['premium']['balance'] ?? 0), 0) }}
                     </p>
-                </div>
-
-                <div class="lg:col-span-2">
-                    <h3 class="text-sm font-bold text-slate-900">
+        </div>
+        <div class="mt-5">
+<h3 class="text-sm font-bold text-slate-900">
                         Purchase Email Credits
                     </h3>
 
-                    <div
-                        id="core-email-credit-packages"
-                        class="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
-                    >
-                        @forelse(($emailServiceData['premium']['packages'] ?? []) as $package)
-                            <div class="rounded-xl border border-slate-200 p-4">
-                                <p class="font-bold text-slate-900">
-                                    {{ $package['name'] }}
-                                </p>
+                    <div class="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-4">
+                        <p class="text-sm text-slate-700">
+                            Enter the number of Email Credits to see the current volume price.
+                        </p>
 
-                                <p class="mt-1 text-sm text-slate-500">
-                                    {{ number_format($package['credits']) }} Email Credits
-                                </p>
+                        <form
+                            method="POST"
+                            action="{{ route('tenant.cms.credits.checkout', ['subdomain' => request()->route('subdomain')]) }}"
+                            data-email-credit-purchase-form
+                            data-quote-url="{{ route('tenant.cms.credits.quote', ['subdomain' => request()->route('subdomain')]) }}"
+                            class="mt-4 space-y-3"
+                        >
+                            @csrf
+                            <input type="hidden" name="credit_type" value="email_credits">
 
-                                <p class="mt-2 font-semibold text-slate-900">
-                                    {{ $package['currency'] }}
-                                    {{ number_format($package['price'], 2) }}
-                                </p>
-
-                                <button
-                                    type="button"
-                                    data-email-package="{{ $package['id'] }}"
-                                    class="mt-3 w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                            <label class="block text-sm font-semibold text-slate-700">
+                                Number of Email Credits
+                                <input
+                                    type="number"
+                                    name="quantity"
+                                    min="1"
+                                    max="100000000"
+                                    step="1"
+                                    required
+                                    value="{{ old('credit_type') === 'email_credits' ? old('quantity') : '' }}"
+                                    class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm"
                                 >
-                                    Purchase
-                                </button>
-                            </div>
-                        @empty
-                            <div class="text-sm text-slate-500">
-                                No Email Credit package is currently available.
-                            </div>
-                        @endforelse
-                    </div>
-                </div>
-            </div>
+                            </label>
 
-            <div class="mt-6">
-                <h3 class="text-sm font-bold text-slate-900">
-                    Email Credit Logs
-                </h3>
+                            
+
+                            <p data-email-credit-price aria-live="polite" class="text-sm text-slate-600">
+                                Enter a quantity to see the current price.
+                            </p>
+
+                            @if(old('credit_type') === 'email_credits')
+                                @foreach($errors->all() as $error)
+                                    <p class="text-sm text-red-700">{{ $error }}</p>
+                                @endforeach
+                            @endif
+
+                            <button
+                                type="submit"
+                                data-email-credit-submit
+                                disabled
+                                class="rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-40"
+                            >
+                                Continue to Checkout
+                            </button>
+                        </form>
+                    </div>
+
+                    <script>
+                    document.addEventListener('DOMContentLoaded', () => {
+                        const form = document.querySelector('[data-email-credit-purchase-form]');
+                        if (!form) return;
+                        const input = form.querySelector('[name="quantity"]');
+                        const price = form.querySelector('[data-email-credit-price]');
+                        const button = form.querySelector('[data-email-credit-submit]');
+                        let sequence = 0;
+                        let timer;
+
+                        async function updateEmailCreditPrice() {
+                            const current = ++sequence;
+                            button.disabled = true;
+                            const quantity = Number(input.value);
+
+                            if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 100000000) {
+                                price.textContent = 'Enter a whole-number quantity to see the price.';
+                                return;
+                            }
+
+                            price.textContent = 'Calculating price…';
+                            try {
+                                const url = new URL(form.dataset.quoteUrl);
+                                url.searchParams.set('credit_type', 'email_credits');
+                                url.searchParams.set('quantity', String(quantity));
+                                const response = await fetch(url, {
+                                    headers: {'Accept': 'application/json'}
+                                });
+                                const result = await response.json();
+                                if (current !== sequence) return;
+                                if (!response.ok) throw new Error(result.message || 'Price unavailable.');
+
+                                price.textContent = result.currency + ' ' +
+                                    new Intl.NumberFormat(undefined, {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2
+                                    }).format(Number(result.total)) + ' total';
+                                button.disabled = false;
+                            } catch (error) {
+                                if (current === sequence) price.textContent = error.message;
+                            }
+                        }
+
+                        input.addEventListener('input', () => {
+                            ++sequence;
+                            button.disabled = true;
+                            clearTimeout(timer);
+                            timer = setTimeout(updateEmailCreditPrice, 300);
+                        });
+
+                        form.addEventListener('submit', event => {
+                            const quantity = Number(input.value);
+                            if (!Number.isSafeInteger(quantity) || button.disabled) {
+                                event.preventDefault();
+                                return;
+                            }
+                            input.value = String(quantity);
+                        });
+
+                        updateEmailCreditPrice();
+                    });
+                    </script>
+        </div>
+    </div>
+    <div class="min-w-0 rounded-2xl border border-blue-100 bg-white p-5 shadow-sm">
+<style>
+[data-email-credit-log-disclosure] > summary::-webkit-details-marker {
+    display: none;
+}
+[data-email-credit-log-disclosure] .email-credit-log-close {
+    display: none;
+}
+[data-email-credit-log-disclosure][open] .email-credit-log-open {
+    display: none;
+}
+[data-email-credit-log-disclosure][open] .email-credit-log-close {
+    display: inline;
+}
+[data-email-credit-log-disclosure][open] .email-credit-log-arrow {
+    transform: rotate(180deg);
+}
+</style>
+@include('tenant.admin.partials.credit-volume-tiers', ['creditType' => 'email_credits'])
+<details class="mt-6" data-email-credit-log-disclosure>
+                <summary class="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl bg-blue-50 px-3 py-3 text-sm font-bold text-blue-700">
+    <span>Email Credit Logs</span>
+    <span class="flex shrink-0 items-center gap-2 text-xs">
+        <span class="email-credit-log-open">Open table</span>
+        <span class="email-credit-log-close">Close table</span>
+        <svg class="email-credit-log-arrow h-4 w-4 transition-transform"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" aria-hidden="true">
+            <path d="m6 9 6 6 6-6"/>
+        </svg>
+    </span>
+</summary>
 
                 <div class="mt-3 overflow-x-auto rounded-xl border border-slate-200">
                     <table class="min-w-full text-left text-sm">
@@ -357,6 +466,58 @@
 
                     <button
                         id="core-email-credit-next"
+                        type="button"
+                        class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-40"
+                    >
+                        Next
+                    </button>
+                </div>
+            </details>
+    </div>
+</div>
+
+
+            <div class="mt-6" data-email-usage-split>
+                <h3 class="text-sm font-bold text-slate-900">
+                    Email Usage Logs
+                </h3>
+
+                <div class="mt-3 overflow-x-auto rounded-xl border border-slate-200">
+                    <table class="min-w-full text-left text-sm">
+                        <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+                            <tr>
+                                <th class="px-4 py-3">Date</th>
+                                <th class="px-4 py-3">Type</th>
+                                <th class="px-4 py-3">Credits</th>
+                                <th class="px-4 py-3">Balance</th>
+                            </tr>
+                        </thead>
+
+                        <tbody
+                            id="core-email-usage-log"
+                            class="divide-y divide-slate-100"
+                        ></tbody>
+                    </table>
+                </div>
+
+                <div class="mt-3 flex items-center justify-between">
+                    <button
+                        id="core-email-usage-previous"
+                        type="button"
+                        class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-40"
+                    >
+                        Previous
+                    </button>
+
+                    <span
+                        id="core-email-usage-page"
+                        class="text-sm text-slate-500"
+                    >
+                        Page 1
+                    </span>
+
+                    <button
+                        id="core-email-usage-next"
                         type="button"
                         class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-40"
                     >
@@ -3128,6 +3289,7 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
         url.searchParams.set('page', page);
+            url.searchParams.set('log_type', 'purchases');
 
         const response = await fetch(url, {
             headers: {
@@ -8026,5 +8188,96 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const root = document.querySelector('[data-email-usage-split]');
+    if (!root) return;
+    const body = root.querySelector('#core-email-usage-log');
+    const previous = root.querySelector('#core-email-usage-previous');
+    const next = root.querySelector('#core-email-usage-next');
+    const label = root.querySelector('#core-email-usage-page');
+    const urlValue = document.querySelector('[data-premium-url]').dataset.premiumUrl;
+    let page = 1;
+    let busy = false;
+    let pagination = {};
+    const number = value => new Intl.NumberFormat(undefined, {
+        maximumFractionDigits: 6
+    }).format(Number(value || 0));
+
+    function message(value) {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 4;
+        cell.className = 'px-4 py-3 text-slate-500';
+        cell.textContent = value;
+        row.appendChild(cell);
+        body.replaceChildren(row);
+    }
+
+    async function load(requested) {
+        if (busy || requested < 1) return;
+        busy = true;
+        previous.disabled = next.disabled = true;
+        message('Loading email usage…');
+        try {
+            const url = new URL(urlValue, window.location.origin);
+            url.searchParams.set('page', String(requested));
+            url.searchParams.set('log_type', 'usage');
+            const response = await fetch(url, {
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            if (!response.ok) throw new Error('Unable to load usage.');
+            const result = await response.json();
+            const rows = result.premium?.transactions;
+            if (!Array.isArray(rows)) throw new Error('Unable to load usage.');
+            pagination = result.premium.pagination || {};
+            page = Number(pagination.page) || requested;
+            label.textContent = 'Page ' + page;
+            if (!rows.length) {
+                message('No email credit usage recorded yet.');
+            } else {
+                body.replaceChildren(...rows.map(item => {
+                    const row = document.createElement('tr');
+                    const values = [
+                        item.created_at || '—',
+                        'Used',
+                        number(item.amount),
+                        number(item.balance_after)
+                    ];
+                    values.forEach(value => {
+                        const cell = document.createElement('td');
+                        cell.className = 'px-4 py-3 text-slate-700';
+                        cell.textContent = value;
+                        row.appendChild(cell);
+                    });
+                    return row;
+                }));
+            }
+        } catch (error) {
+            message('Email usage could not be loaded.');
+            pagination = {};
+            const retry = document.createElement('button');
+            retry.type = 'button';
+            retry.className = 'mt-2 rounded-lg border border-blue-300 px-3 py-2 text-xs font-bold text-blue-700';
+            retry.textContent = 'Try again';
+            retry.addEventListener('click', () => load(requested));
+            body.querySelector('td').appendChild(retry);
+        } finally {
+            busy = false;
+            previous.disabled = !pagination.has_previous;
+            next.disabled = !pagination.has_next;
+        }
+    }
+
+    previous.addEventListener('click', () => load(page - 1));
+    next.addEventListener('click', () => load(page + 1));
+    load(1);
+});
+</script>
 
 @endsection

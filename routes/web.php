@@ -1,6 +1,39 @@
 <?php
 
 /*
+ * Central-authoritative public price preview for credit volume purchases.
+ * Checkout must calculate the quote again before creating an order.
+ */
+\Route::get(
+    '/api/v1/core/ai/usage-data',
+    [\App\Http\Controllers\TenantSiteAiController::class, 'usagePricing']
+)
+    ->middleware('throttle:60,1')
+    ->name('api.core.ai.usage-data');
+
+\Route::get(
+    '/api/v1/core/credits/history',
+    [\App\Http\Controllers\Api\CreditVolumeQuoteController::class, 'history']
+)
+    ->middleware('throttle:60,1')
+    ->name('api.core.credits.history');
+
+\Route::get(
+    '/api/marketplace/credit-volume/tiers',
+    [\App\Http\Controllers\Api\CreditVolumeQuoteController::class, 'tiers']
+)
+    ->middleware('throttle:60,1')
+    ->name('marketplace.credit-volume.tiers');
+
+\Route::get(
+    '/api/marketplace/credit-volume/quote',
+    \App\Http\Controllers\Api\CreditVolumeQuoteController::class
+)
+    ->middleware('throttle:60,1')
+    ->name('marketplace.credit-volume.quote');
+
+
+/*
  * ESUBIZ_UNIVERSAL_TENANT_ADDON_CHECKOUT_ROUTE_V1
  *
  * Same Add-on checkout controller, exposed on every tenant/custom host.
@@ -1031,21 +1064,29 @@ Route::post(
         );
 
         /*
-         * ESUBIZ_TENANT_AI_USAGE_PRICING_ROUTE_V1
-         *
-         * Separate customer-facing AI economics page.
-         * AI Settings remains dedicated to configuration.
+         * Existing usage links open the Credits tab in AI Settings.
          */
         Route::get(
             '/admin/ai/usage',
-            [
-                \App\Http\Controllers\TenantSiteAiController::class,
-                'usagePricing',
-            ]
+            function (string $subdomain) {
+                return redirect()->to(
+                    route('tenant.cms.site-ai.settings', [
+                        'subdomain' => $subdomain,
+                    ]) . '#ai-credits'
+                );
+            }
         )->name(
             'tenant.cms.ai.usage'
         );
 
+
+        Route::get(
+            '/admin/esubiz-ai/usage-data',
+            [
+                \App\Http\Controllers\TenantSiteAiController::class,
+                'usagePricing',
+            ]
+        )->name('tenant.cms.ai.usage-data');
 
         Route::get(
             '/admin/esubiz-ai/settings',
@@ -1552,6 +1593,26 @@ Route::get(
      * Universal Add-on checkout endpoint inside the SAME routing
      * context as tenant Admin/Page Builder routes.
      */
+    Route::get(
+        '/admin/credits/history',
+        [\App\Http\Controllers\TenantCreditVolumeController::class, 'history']
+    )->name('tenant.cms.credits.history');
+
+    Route::get(
+        '/admin/credits/tiers',
+        [\App\Http\Controllers\TenantCreditVolumeController::class, 'tiers']
+    )->name('tenant.cms.credits.tiers');
+
+    Route::get(
+        '/admin/credits/quote',
+        [\App\Http\Controllers\TenantCreditVolumeController::class, 'quote']
+    )->name('tenant.cms.credits.quote');
+
+    Route::post(
+        '/admin/credits/checkout',
+        [\App\Http\Controllers\TenantCreditVolumeController::class, 'checkout']
+    )->name('tenant.cms.credits.checkout');
+
     Route::post(
         'admin/addon-checkout/{website}',
         [
@@ -2548,6 +2609,13 @@ Route::get('/admin/site-settings/payment-gateways', [\App\Http\Controllers\Admin
  */
 
 
+    Route::get(
+        '/marketplace/credits/saas-handoff',
+        [\App\Http\Controllers\MarketplaceCreditVolumeController::class, 'saasHandoff']
+    )
+        ->withoutMiddleware(\Illuminate\Auth\Middleware\Authenticate::class)
+        ->name('marketplace.credits.saas-handoff');
+
     Route::post('/marketplace/checkout', [\App\Http\Controllers\MarketplaceController::class, 'checkout'])
         ->name('marketplace.checkout.create');
 
@@ -2610,12 +2678,16 @@ Route::get('/marketplace/checkout', [\App\Http\Controllers\MarketplaceController
         );
 
 Route::get('/marketplace/checkout/{order}', [\App\Http\Controllers\MarketplaceController::class, 'checkoutPage'])
+        ->middleware(\App\Http\Middleware\ResolveCoreCheckoutPass::class)
+        ->withoutMiddleware(\Illuminate\Auth\Middleware\Authenticate::class)
         ->name('marketplace.checkout');
 
     Route::get('/marketplace/checkout-product/{productType}/{productId}', [\App\Http\Controllers\MarketplaceController::class, 'developerCheckout'])
         ->name('marketplace.checkout.product');
 
     Route::get('/marketplace/orders/{order}/payment-status', [\App\Http\Controllers\MarketplaceController::class, 'paymentStatus'])
+        ->middleware(\App\Http\Middleware\ResolveCoreCheckoutPass::class)
+        ->withoutMiddleware(\Illuminate\Auth\Middleware\Authenticate::class)
         ->name('marketplace.payment-status');
 
     Route::get('/marketplace', [\App\Http\Controllers\MarketplaceController::class, 'index'])
@@ -3300,15 +3372,33 @@ Route::post('/admin/core-addons/{id}/grant', [
     'grantAddon'
 ])->name('admin.core-addons.grant');
 
+Route::middleware('auth')->group(function () {
+    Route::get('/marketplace/credits/{deployment}',
+        [\App\Http\Controllers\MarketplaceCreditVolumeController::class, 'index']
+    )->whereIn('deployment', ['saas', 'off_server'])
+        ->name('marketplace.credits.index');
+
+    Route::post('/marketplace/credits/{deployment}',
+        [\App\Http\Controllers\MarketplaceCreditVolumeController::class, 'store']
+    )->whereIn('deployment', ['saas', 'off_server'])
+        ->name('marketplace.credits.store');
+});
+
 Route::post('/marketplace/payment', [MarketplaceController::class, 'marketplacePayment'])
+    ->middleware(\App\Http\Middleware\ResolveCoreCheckoutPass::class)
+    ->withoutMiddleware(\Illuminate\Auth\Middleware\Authenticate::class)
     ->name('marketplace.payment');
 
 Route::post('/marketplace/developer/checkout', [MarketplaceController::class, 'developerCheckoutSubmit'])
     ->name('marketplace.developer.checkout.submit');
 Route::get('/marketplace/developer/offline-payment/{attempt}', [MarketplaceController::class, 'developerOfflinePayment'])
+    ->middleware(\App\Http\Middleware\ResolveCoreCheckoutPass::class)
+    ->withoutMiddleware(\Illuminate\Auth\Middleware\Authenticate::class)
     ->name('marketplace.developer.offline-payment');
 
 Route::post('/marketplace/developer/offline-payment/{attempt}/receipt', [MarketplaceController::class, 'submitOfflinePaymentReceipt'])
+    ->middleware(\App\Http\Middleware\ResolveCoreCheckoutPass::class)
+    ->withoutMiddleware(\Illuminate\Auth\Middleware\Authenticate::class)
     ->name('marketplace.developer.offline-payment.receipt');
 
 Route::post('/marketplace/developer/payment', [MarketplaceController::class, 'developerPayment'])
@@ -3525,16 +3615,45 @@ Route::get(
 */
 
 Route::post(
+    '/api/v1/core/marketplace/credit-volume/checkout-link',
+    [
+        \App\Http\Controllers\Api\OffServerMarketplaceController::class,
+        'creditVolumeCheckoutLink',
+    ]
+)
+    ->withoutMiddleware(
+        \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class
+    )
+    ->middleware('throttle:30,1')
+    ->name('api.core.marketplace.credit-volume.checkout-link');
+
+
+Route::post(
     '/api/v1/core/marketplace/checkout-link',
     [
         \App\Http\Controllers\Api\OffServerMarketplaceController::class,
         'checkoutLink',
     ]
 )
+    ->withoutMiddleware(
+        \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class
+    )
     ->middleware('throttle:30,1')
     ->name(
         'api.core.marketplace.checkout-link'
     );
+
+
+Route::get(
+    '/api/v1/core/marketplace/orders/{order}/status',
+    [
+        \App\Http\Controllers\Api\OffServerMarketplaceController::class,
+        'checkoutStatus',
+    ]
+)
+    ->whereNumber('order')
+    ->middleware('throttle:60,1')
+    ->name('api.core.marketplace.order-status');
 
 
 Route::get(

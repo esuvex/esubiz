@@ -190,7 +190,8 @@ class EmailServiceSettingService
     public function dashboardData(
         int $websiteId,
         int $page = 1,
-        int $perPage = 10
+        int $perPage = 10,
+        ?string $direction = null
     ): array {
         $page = max(1, $page);
 
@@ -237,8 +238,8 @@ class EmailServiceSettingService
          * Do not remap it here or convert package arrays back
          * into an object-shaped contract.
          */
-        $packages =
-            $this->emailCreditPackages();
+        // Volume credit purchases use Central pricing at checkout.
+        $packages = [];
 
         $query = DB::table(
             'central_website_service_credit_transactions'
@@ -252,6 +253,10 @@ class EmailServiceSettingService
                 'email'
             )
             ->orderByDesc('id');
+
+        if (in_array($direction, ['credit', 'debit'], true)) {
+            $query->where('direction', $direction);
+        }
 
         $rows = $query
             ->offset(
